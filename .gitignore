@@ -1,0 +1,12 @@
+tests/Simulation/bin/
+tests/Simulation/obj/
+/build/
+/unity/[Ll]ibrary/
+/unity/[Tt]emp/
+/unity/[Oo]bj/
+/unity/[Ll]ogs/
+/unity/[Uu]ser[Ss]ettings/
+/unity/[Mm]emoryCaptures/
+/unity/*.csproj
+/unity/*.sln
+/unity/*.slnx

@@ -1,0 +1,10 @@
+{
+  "name": "BAIby.Bootstrap",
+  "rootNamespace": "BAIby.Bootstrap",
+  "references": [
+    "BAIby.Application",
+    "BAIby.Infrastructure",
+    "BAIby.Presentation",
+    "BAIby.Simulation"
+  ]
+}

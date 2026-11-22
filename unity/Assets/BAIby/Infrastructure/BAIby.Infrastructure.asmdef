@@ -1,0 +1,5 @@
+{
+  "name": "BAIby.Infrastructure",
+  "rootNamespace": "BAIby.Infrastructure",
+  "references": ["BAIby.Application"]
+}

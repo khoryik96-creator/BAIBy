@@ -1,0 +1,4062 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="BAIby">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f3eeff">
+<title>BAIby 5.3 🍼</title>
+<style>
+:root{
+  --bg:linear-gradient(160deg,#1a0533 0%,#2d1b69 50%,#1a0533 100%);
+  --glass:rgba(255,255,255,0.08);
+  --glass-border:rgba(255,255,255,0.15);
+  --text:rgba(255,255,255,0.92);
+  --text-dim:rgba(255,255,255,0.6);
+  --text-muted:rgba(255,255,255,0.38);
+  --bar-bg:rgba(255,255,255,0.12);
+  --input-bg:rgba(255,255,255,0.1);
+  --bubble-bg:rgba(255,255,255,0.9);
+  --bubble-color:#4c1d95;
+  --lbar-bg:rgba(255,255,255,0.08);
+}
+html.light{
+  --bg:linear-gradient(160deg,#f5f3ff 0%,#ede9fe 40%,#faf5ff 100%);
+  --glass:rgba(255,255,255,0.82);
+  --glass-border:rgba(124,58,237,0.18);
+  --text:#1e1b4b;
+  --text-dim:#6b7280;
+  --text-muted:#9ca3af;
+  --bar-bg:#e5e7eb;
+  --input-bg:rgba(255,255,255,0.95);
+  --bubble-bg:#faf5ff;
+  --bubble-color:#5b21b6;
+  --lbar-bg:#f5f3ff;
+}
+html.light body{color:#1e1b4b}
+html.light .baby-name{text-shadow:none}
+html.light button.tab:not(.on){color:#6b7280;background:rgba(255,255,255,0.7)}
+html.light .drow .dp{color:#fff}
+html.light .scard-val{color:#5b21b6}
+html.light .scard-lbl{color:#6b7280}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);min-height:100vh;padding:12px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));padding-bottom:max(20px,env(safe-area-inset-bottom));-webkit-text-size-adjust:100%;touch-action:manipulation}
+#game{max-width:400px;margin:0 auto}
+.screen{display:none}.screen.active{display:block}
+.card{background:rgba(255,255,255,0.92);border:none;border-radius:16px;padding:14px 16px;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.nursery{background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid var(--glass-border);border-radius:20px;padding:12px 14px;margin-bottom:8px;position:relative;overflow:visible}
+.nursery::before{content:'';position:absolute;inset:0;border-radius:20px;background:linear-gradient(160deg,rgba(255,255,255,0.12) 0%,transparent 100%);pointer-events:none}
+.cc{background:rgba(255,255,255,0.92);border:none;border-radius:20px;padding:24px 18px;text-align:center;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.be{font-size:64px;display:block;margin-bottom:10px;line-height:1}
+.ct{font-size:20px;font-weight:700;color:#111;margin-bottom:8px}
+.cs{font-size:13px;color:#6b7280;line-height:1.7}
+.baby-area{text-align:center;padding:2px 0 6px}
+#baby-canvas-2d{display:block}
+.baby-canvas *{transition:none}
+/* Baby SVG animations */
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes wobble{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-8deg)}75%{transform:rotate(8deg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes armWave{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-30deg)}}
+@keyframes cry{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(3px) rotate(-3deg)}}
+@keyframes eat{0%,100%{transform:rotate(0deg) translateY(0)}30%{transform:rotate(10deg) translateY(-4px)}60%{transform:rotate(-5deg) translateY(2px)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#b-anim-wrapper.anim-bounce,#baby-svg-art{transition:none}
+#b-anim-wrapper.anim-bounce{animation:bounce 0.5s ease-in-out 3}
+#b-anim-wrapper.anim-wobble{animation:wobble 0.4s ease-in-out 3}
+#b-anim-wrapper.anim-shake{animation:shake 0.4s ease-in-out 2}
+#b-anim-wrapper.anim-pulse{animation:pulse 0.5s ease-in-out 3}
+#b-anim-wrapper.anim-eat{animation:eat 0.5s ease-in-out 3}
+#b-anim-wrapper.anim-cry{animation:cry 0.6s ease-in-out 4}
+#b-anim-wrapper.anim-float{animation:float 1s ease-in-out 3}
+
+.baby-name{font-size:15px;font-weight:800;color:var(--text);margin-top:3px;text-shadow:0 1px 4px rgba(0,0,0,0.3)}
+.stage-prog{font-size:10px;color:var(--text-muted);margin-top:1px;font-weight:500}
+.baby-traits{font-size:12px;margin-top:4px;min-height:20px}
+.bubble{background:var(--bubble-bg);border:1px solid var(--glass-border);border-radius:14px;padding:5px 12px;font-size:11px;color:var(--bubble-color);font-weight:600;margin:0 auto 6px;max-width:200px;text-align:center;min-height:22px;backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(124,58,237,0.15)}
+.bar-row{margin:4px 0}
+.bar-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:3px;font-weight:500}
+.bar-bg{background:var(--bar-bg);border-radius:8px;height:9px;overflow:hidden}
+.bar-fill{height:100%;border-radius:8px;transition:width 0.4s ease}
+.bh{background:linear-gradient(90deg,#f59e0b,#fbbf24)}.bhp{background:linear-gradient(90deg,#10b981,#34d399)}.bhl{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+.stat-row{display:flex;gap:6px;margin-bottom:8px;justify-content:space-between}
+.scard{background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;padding:7px 8px;text-align:center;flex:1;backdrop-filter:blur(6px)}
+.scard-val{font-size:16px;font-weight:800;color:#fff}
+.scard-lbl{font-size:9px;color:rgba(255,255,255,0.65);margin-top:1px;font-weight:500}
+.drow{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.dp{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border-radius:20px;padding:5px 13px;font-size:12px;font-weight:700;flex-shrink:0;box-shadow:0 2px 10px rgba(124,58,237,0.5)}
+.sp{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:5px 11px;font-size:11px;color:#e9d5ff;font-weight:600;flex-shrink:0}
+.dev-badge{background:linear-gradient(135deg,#064e3b,#065f46);color:#6ee7b7;border-radius:20px;padding:5px 10px;font-size:10px;font-weight:700;flex-shrink:0;box-shadow:0 2px 8px rgba(6,78,59,0.5)}
+
+/* ALL INTERACTIVE ELEMENTS ARE <button> */
+button{font-family:inherit;cursor:pointer;border:none;background:none;padding:0;margin:0;-webkit-appearance:none;appearance:none}
+
+/* Tabs — all buttons now */
+.tabs{display:flex;gap:4px;margin-bottom:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+button.tab{flex:1;min-width:0;padding:8px 4px;background:var(--glass);border:1px solid var(--glass-border);border-radius:12px;font-size:10px;font-weight:700;color:var(--text-dim);text-align:center;transition:all 0.2s}
+button.tab[data-tab="food"].on{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(245,158,11,0.5)}
+button.tab[data-tab="play"].on{background:linear-gradient(135deg,#10b981,#34d399);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(16,185,129,0.5)}
+button.tab[data-tab="learn"].on{background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(59,130,246,0.5)}
+button.tab[data-tab="care"].on{background:linear-gradient(135deg,#ec4899,#f472b6);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(236,72,153,0.5)}
+button.tab[data-tab="disc"].on{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border-color:transparent;box-shadow:0 3px 10px rgba(220,38,38,0.5)}
+
+button.tab.maxed{opacity:0.3}
+.tab-sub{display:block;font-size:9px;font-weight:400;margin-top:1px}
+
+.lbar{display:flex;align-items:center;justify-content:space-between;background:var(--lbar-bg);border:1px solid var(--glass-border);border-radius:12px;padding:7px 13px;margin-bottom:8px;font-size:11px;color:var(--text);font-weight:600}
+.lbar.disc-bar{background:rgba(220,38,38,0.15);border-color:rgba(220,38,38,0.3);color:#fca5a5}
+.ldots{display:flex;gap:7px}
+.ldot{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);transition:background 0.2s,border-color 0.2s}
+.ldot.used{background:#a78bfa;border-color:#7c3aed;box-shadow:0 0 6px rgba(167,139,250,0.6)}
+.ldot.disc{border-color:#fca5a5}
+.ldot.disc.used{background:#dc2626;border-color:#dc2626}
+
+.panel{display:none}.panel.on{display:block}
+/* Horizontal scroll strip */
+.hstrip{display:flex;flex-direction:row;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:6px 2px 10px;scroll-snap-type:x mandatory;-ms-overflow-style:none;scrollbar-width:none;touch-action:pan-x}
+.hstrip::-webkit-scrollbar{display:none}
+.hstrip .drag-card{flex:0 0 90px;min-width:90px;scroll-snap-align:start}
+
+/* Action buttons */
+button.abtn{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:12px 7px;text-align:center;position:relative;width:100%;min-height:84px;transition:background 0.12s,border-color 0.12s,transform 0.1s}
+button.abtn:active{transform:scale(0.94);background:#f9f5ff;border-color:#c4b5fd}
+button.abtn.dimmed{opacity:0.3;pointer-events:none;background:#f9fafb}
+button.abtn.harm{border-color:#fecaca}
+button.abtn.harm:active{background:#fff1f2;border-color:#ef4444}
+.aicon{font-size:24px;display:block;margin-bottom:4px;line-height:1}
+.aname{font-size:10px;font-weight:700;color:var(--text);display:block}
+.adesc{font-size:9px;color:rgba(255,255,255,0.5);margin-top:2px;display:block}
+.adesc.red{color:#dc2626}
+.jbadge{position:absolute;top:5px;left:5px;background:#fee2e2;color:#b91c1c;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+.dbadge{position:absolute;top:5px;right:5px;background:#ede9fe;color:#5b21b6;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+.harm-badge{position:absolute;top:5px;left:5px;background:#fee2e2;color:#b91c1c;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+
+/* Gender / mode selector buttons */
+button.gbtn{background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:14px;padding:14px 7px;width:100%;transition:all 0.15s;color:#fff}
+button.gbtn.sel{border:2.5px solid #a78bfa;background:rgba(167,139,250,0.2);box-shadow:0 0 0 3px rgba(124,58,237,0.2)}
+button.gbtn:active{background:#faf5ff}
+button.mbtn{background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:14px;padding:14px 7px;width:100%;transition:all 0.15s;color:#fff}
+button.mbtn.sel{border:2.5px solid #a78bfa;background:rgba(167,139,250,0.2);box-shadow:0 0 0 3px rgba(124,58,237,0.2)}
+button.mbtn:active{background:#faf5ff}
+
+/* Big action buttons */
+button.big-btn{display:block;width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.1);backdrop-filter:blur(8px);font-size:14px;font-weight:700;color:#fff;margin-bottom:9px;transition:all 0.15s}
+button.big-btn:active{transform:scale(0.97);background:#f9fafb}
+button.big-btn.primary{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border-color:transparent;box-shadow:0 4px 15px rgba(124,58,237,0.4)}
+button.big-btn.primary:active{background:#6d28d9}
+
+/* Small inline button (reset) */
+button.sm-btn{background:var(--glass);border:1px solid var(--glass-border);border-radius:10px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--text);margin-left:0;flex-shrink:0}
+button.sm-btn:active{background:#f3f4f6}
+
+/* Gate banner */
+.gate-banner{background:#1f2937;color:#f9fafb;border-radius:13px;padding:14px 16px;margin-bottom:10px;text-align:center}
+.gate-banner .gb-title{font-size:15px;font-weight:700;margin-bottom:4px}
+.gate-banner .gb-sub{font-size:12px;color:#9ca3af}
+
+/* Dev panel */
+.dev-panel{background:#1f2937;border-radius:13px;padding:14px 16px;margin-bottom:10px}
+.dev-panel h3{font-size:12px;font-weight:700;color:#a3e635;margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em}
+.dev-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.dev-row label{font-size:12px;color:#d1d5db;flex:1}
+button.dev-btn{background:#374151;color:#f9fafb;border:1px solid #4b5563;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700}
+button.dev-btn:active{background:#4b5563}
+button.dev-btn.green{background:#166534;border-color:#15803d;color:#bbf7d0}
+input.dev-num{background:#374151;color:#f9fafb;border:1px solid #4b5563;border-radius:8px;padding:8px 10px;font-size:16px;width:70px;font-family:inherit;text-align:center;-webkit-appearance:none;appearance:none;outline:none}
+
+/* Alerts */
+.alert-box{border-radius:11px;padding:9px 12px;margin-bottom:8px;font-size:12px;font-weight:600}
+.aw{background:rgba(251,191,36,0.15);color:#fde68a;border:1px solid rgba(251,191,36,0.3)}
+.ad{background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)}
+.as{background:rgba(16,185,129,0.15);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)}
+.ai{background:rgba(167,139,250,0.15);color:#c4b5fd;border:1px solid rgba(167,139,250,0.3)}
+.ah{background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)}
+
+/* Toast */
+#tst{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:#1f2937;color:#fff;padding:9px 20px;border-radius:22px;font-size:12px;pointer-events:none;opacity:0;transition:opacity 0.3s;z-index:999;white-space:nowrap;max-width:92vw;text-align:center}
+#tst.show{opacity:1}
+#save-ind{position:fixed;top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));font-size:10px;color:#9ca3af;z-index:99;opacity:0;transition:opacity 0.5s}
+
+/* Timeline */
+.tl{display:flex;gap:3px;margin-bottom:10px}
+.dot{flex:1;height:8px;border-radius:4px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15)}
+.dot.fed{background:#10b981;border-color:#10b981}
+.dot.missed{background:#ef4444;border-color:#ef4444}
+.dot.today{background:#f59e0b;border-color:#f59e0b}
+
+/* Trait pills */
+.pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;margin:2px}
+.pfa{background:rgba(239,68,68,0.25);color:#fca5a5}.pfi{background:rgba(251,191,36,0.25);color:#fde68a}
+.ps{background:rgba(167,139,250,0.25);color:#c4b5fd}.pso{background:rgba(236,72,153,0.25);color:#f9a8d4}
+.psh{background:rgba(59,130,246,0.25);color:#93c5fd}.pl{background:rgba(255,255,255,0.15);color:rgba(255,255,255,0.7)}
+.pk{background:rgba(16,185,129,0.25);color:#6ee7b7}.pg{background:rgba(239,68,68,0.2);color:#fca5a5}
+.pc{background:rgba(251,191,36,0.2);color:#fde68a}.ptr{background:rgba(239,68,68,0.3);color:#fca5a5}
+.pan{background:rgba(239,68,68,0.2);color:#fda4af}.pag{background:rgba(239,68,68,0.35);color:#fca5a5}
+
+/* Report */
+.rrow{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f3f4f6;font-size:12px}
+.rrow:last-child{border-bottom:none}
+.rk{color:#9ca3af;font-weight:500}.rv{font-weight:700;color:#111}
+
+/* ── Drag-action cards ─────────────────────────────────────────────────────── */
+.drag-card{background:var(--glass);backdrop-filter:blur(8px);border:1px solid var(--glass-border);border-radius:14px;padding:10px 6px 8px;text-align:center;position:relative;user-select:none;-webkit-user-select:none;touch-action:pan-x;cursor:grab;transition:all 0.15s;-webkit-tap-highlight-color:transparent}
+.drag-card:active{cursor:grabbing}
+.drag-card.dimmed{opacity:0.28;pointer-events:none;background:#f9fafb;cursor:default}
+.drag-card.harm{border-color:rgba(252,165,165,0.5);background:rgba(220,38,38,0.1)}
+.drag-card.dragging{box-shadow:0 8px 24px rgba(0,0,0,0.18);border-color:#7c3aed;z-index:500;touch-action:none}
+.drag-card.harm.dragging{border-color:#dc2626;box-shadow:0 8px 24px rgba(220,38,38,0.25)}
+.drag-card .jbadge{position:absolute;top:5px;left:5px;background:#fee2e2;color:#b91c1c;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+.drag-card .harm-badge{position:absolute;top:5px;left:5px;background:#fee2e2;color:#b91c1c;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+.drag-card .dbadge{position:absolute;top:5px;right:5px;background:#ede9fe;color:#5b21b6;font-size:8px;font-weight:700;padding:2px 5px;border-radius:5px}
+.drag-icon{font-size:26px;display:block;margin-bottom:3px;line-height:1;transition:transform 0.2s}
+.drag-name{font-size:11px;font-weight:700;color:#111;display:block}
+.drag-hint{font-size:8px;color:var(--text-muted);margin-top:3px;display:block}
+.drag-desc{font-size:10px;color:#9ca3af;margin-top:2px;display:block}
+.drag-desc.red{color:#dc2626}
+/* Ghost draggable element */
+.drag-ghost{position:fixed;pointer-events:none;z-index:9000;font-size:40px;line-height:1;transform:translate(-50%,-50%);transition:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3))}
+/* Drop zone overlay on baby */
+.drop-zone{position:absolute;inset:0;border-radius:16px;border:3px dashed transparent;transition:border-color 0.2s,background 0.2s;z-index:10;pointer-events:none}
+.drop-zone.active{border-color:rgba(167,139,250,0.8);background:rgba(124,58,237,0.15)}
+.drop-zone.harm-active{border-color:rgba(239,68,68,0.8);background:rgba(220,38,38,0.15)}
+/* Impact flash overlay */
+#impact-flash{position:fixed;inset:0;z-index:8500;pointer-events:none;opacity:0;transition:opacity 0.1s}
+/* Drag hint arrow */
+.drag-arrow{position:absolute;bottom:4px;right:6px;font-size:9px;color:rgba(167,139,250,0.7);font-weight:700}
+.harm .drag-arrow{color:#fca5a5}
+button.inc-btn{width:100%;padding:13px 14px;border-radius:13px;border:1px solid #e5e7eb;background:#f9fafb;font-size:13px;font-weight:600;color:#111;text-align:left;line-height:1.4;transition:background 0.12s,transform 0.1s}
+button.inc-btn:active{transform:scale(0.97)}
+button.inc-btn.good{border-color:#bbf7d0;background:#f0fdf4}
+button.inc-btn.good:active{background:#dcfce7}
+button.inc-btn.harm{border-color:#fecaca;background:#fff1f2}
+button.inc-btn.harm:active{background:#fee2e2}
+.inc-btn-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px}
+.inc-btn-label.good{color:#16a34a}
+.inc-btn-label.harm{color:#dc2626}
+.inc-btn-effect{font-size:10px;color:#9ca3af;display:block;margin-top:3px}
+
+/* Text input */
+input[type=text]{display:block;width:100%;padding:13px 14px;border-radius:11px;border:1px solid rgba(255,255,255,0.2);font-size:16px;color:var(--text);background:var(--input-bg);backdrop-filter:blur(8px);margin-bottom:11px;outline:none;font-family:inherit;-webkit-appearance:none;appearance:none}
+input[type=text]:focus{border-color:rgba(167,139,250,0.8);box-shadow:0 0 0 3px rgba(124,58,237,0.25)}
+
+.sec-label{font-size:11px;font-weight:700;color:var(--text-dim);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.gender-grid,.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+
+/* Customisation modal */
+.cust-label{font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:7px}
+.cust-row{display:flex;flex-wrap:wrap;gap:8px}
+button.cust-opt{background:#f9fafb;border:2px solid #e5e7eb;border-radius:12px;padding:8px 6px;font-size:22px;cursor:pointer;min-width:46px;transition:border-color 0.15s,background 0.15s;-webkit-tap-highlight-color:rgba(124,58,237,0.1)}
+button.cust-opt:active{transform:scale(0.93)}
+button.cust-opt.sel{border-color:#7c3aed;background:#faf5ff}
+</style>
+</head>
+<body>
+<div id="tst"></div>
+<div id="save-ind"></div>
+<div id="game">
+
+<!-- WELCOME -->
+<div id="sw" class="screen active">
+  <div class="cc" style="margin-top:14px">
+    <span class="be">🏠</span>
+    <div class="ct">BAIby <span style="font-size:13px;background:#7c3aed;color:#fff;border-radius:6px;padding:2px 7px;vertical-align:middle;font-weight:700">v5.3</span></div>
+    <div class="cs">2 actions per category daily. Feed, play, learn, care — and discipline. Your choices shape their personality, intelligence, and emotional health.<br><br>Progress is <strong>saved automatically</strong>.</div>
+  </div>
+  <input type="text" id="ni" placeholder="Baby's name..." maxlength="18" autocomplete="off" autocorrect="off" autocapitalize="words">
+  <div style="margin-bottom:14px">
+    <div class="sec-label">Gender</div>
+    <div class="gender-grid">
+      <button class="gbtn sel" id="gb"><span style="font-size:26px;display:block;margin-bottom:4px">👦</span><span style="font-size:12px;font-weight:700;color:#111">Boy</span></button>
+      <button class="gbtn" id="gg"><span style="font-size:26px;display:block;margin-bottom:4px">👧</span><span style="font-size:12px;font-weight:700;color:#111">Girl</span></button>
+    </div>
+  </div>
+  <div style="margin-bottom:14px">
+    <div class="sec-label">Mode</div>
+    <div class="mode-grid">
+      <button class="mbtn sel" id="m-normal">
+        <span style="font-size:24px;display:block;margin-bottom:4px">📅</span>
+        <span style="font-size:12px;font-weight:700;color:#111">Normal</span>
+        <span style="font-size:10px;color:#9ca3af;display:block;margin-top:2px">1 real day = 1 game day</span>
+      </button>
+      <button class="mbtn" id="m-dev">
+        <span style="font-size:24px;display:block;margin-bottom:4px">⚡</span>
+        <span style="font-size:12px;font-weight:700;color:#111">Developer</span>
+        <span style="font-size:10px;color:#9ca3af;display:block;margin-top:2px">Skip days freely</span>
+      </button>
+    </div>
+  </div>
+  <button class="big-btn primary" id="btn-start">Adopt Baby 💜</button>
+  <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:2px">Miss 3 feedings in a row → baby gets taken away</p>
+  <p style="font-size:10px;color:#d1d5db;text-align:center;margin-top:10px">BAIby v4.9 · Built with Claude</p>
+</div>
+
+<!-- MAIN -->
+<div id="sm" class="screen">
+  <div class="drow">
+    <div class="dp" id="dlbl">Day 1</div>
+    <div class="sp" id="slbl">Newborn</div>
+    <div class="dev-badge" id="dev-badge" style="display:none">⚡ DEV</div>
+    <button class="sm-btn" id="btn-theme" title="Toggle light/dark">🌙</button>
+    <button class="sm-btn" id="btn-sound" title="Toggle sound">🔊</button>
+    <button class="sm-btn" id="btn-customise" title="Customise baby">👗</button>
+    <button class="sm-btn" id="btn-reset">↺ Reset</button>
+  </div>
+  <div id="aa"></div>
+  <div id="gate-area"></div>
+  <div class="nursery">
+    <div class="baby-area">
+      <div class="bubble" id="bub">Waaah!</div>
+      <div id="baby-wrap" style="position:relative;width:160px;margin:0 auto 2px">
+        <canvas id="baby-canvas-2d" width="280" height="340"
+          style="width:160px;height:194px;display:block;margin:0 auto"></canvas>
+        <!-- Floating emoji reactions -->
+        <!-- Floating emoji reactions -->
+        <div id="float-emojis" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden"></div>
+      </div>
+
+      <div class="baby-traits" id="tpills"></div>
+    </div>
+    <div class="bar-row"><div class="bar-lbl"><span>🍼 Hunger</span><span id="vh">50%</span></div><div class="bar-bg"><div class="bar-fill bh" id="bhr" style="width:50%"></div></div></div>
+    <div class="bar-row"><div class="bar-lbl"><span>😊 Happiness</span><span id="vhp">80%</span></div><div class="bar-bg"><div class="bar-fill bhp" id="bhpr" style="width:80%"></div></div></div>
+    <div class="bar-row"><div class="bar-lbl"><span>❤️ Health</span><span id="vhl">100%</span></div><div class="bar-bg"><div class="bar-fill bhl" id="bhlr" style="width:100%"></div></div></div>
+  </div>
+  <div style="text-align:center;padding:4px 0 6px">
+    <div class="baby-name" id="bnm" style="min-height:18px"></div>
+    <div class="stage-prog" id="sprog"></div>
+  </div>
+  <div class="stat-row">
+    <div class="scard"><div class="scard-val" id="vi">0</div><div class="scard-lbl">🧠 Intel</div></div>
+    <div class="scard"><div class="scard-val" id="vs">0</div><div class="scard-lbl">💬 Social</div></div>
+    <div class="scard"><div class="scard-val" id="vf">0</div><div class="scard-lbl">💪 Fitness</div></div>
+  </div>
+  <div style="margin-bottom:6px">
+    <div style="font-size:10px;color:#9ca3af;margin-bottom:3px;font-weight:600">This week's feeding</div>
+    <div class="tl" id="tl"></div>
+  </div>
+  <div class="tabs" id="tabs-row">
+    <button class="tab on" data-tab="food">🍽 Feed<span class="tab-sub" id="tu0">2 left</span></button>
+    <button class="tab" data-tab="play">🎮 Play<span class="tab-sub" id="tu1">2 left</span></button>
+    <button class="tab" data-tab="learn">📚 Learn<span class="tab-sub" id="tu2">2 left</span></button>
+    <button class="tab" data-tab="care">🛁 Care<span class="tab-sub" id="tu3">2 left</span></button>
+    <button class="tab disc-tab" data-tab="disc">⚠️ Disc<span class="tab-sub" id="tu4">2 left</span></button>
+  </div>
+  <div class="lbar" id="lbar">
+    <span id="ll">🍽 Feed — 2 actions left today</span>
+    <div class="ldots"><div class="ldot" id="ld0"></div><div class="ldot" id="ld1"></div></div>
+  </div>
+  <!-- Single horizontal scroll container — only one shown at a time -->
+  <div id="action-strip" style="position:relative">
+    <div id="pf"  class="panel on"><div class="hstrip" id="fg"></div></div>
+    <div id="pp"  class="panel"><div class="hstrip" id="pg"></div></div>
+    <div id="pl"  class="panel"><div class="hstrip" id="lg"></div></div>
+    <div id="pca" class="panel"><div class="hstrip" id="cg"></div></div>
+    <div id="pdi" class="panel"><div class="hstrip" id="dg"></div></div>
+  </div>
+  <div class="dev-panel" id="dev-panel" style="display:none">
+    <h3>⚡ Developer Tools</h3>
+    <div class="dev-row"><label>Skip days</label><input class="dev-num" type="number" id="skip-n" value="1" min="1" max="30"><button class="dev-btn green" id="btn-devskip">Skip</button></div>
+    <div class="dev-row"><label>Set hunger %</label><input class="dev-num" type="number" id="set-hu" value="100" min="0" max="100"><button class="dev-btn" id="btn-sethu">Set</button></div>
+    <div class="dev-row"><label>Set happiness %</label><input class="dev-num" type="number" id="set-hp" value="100" min="0" max="100"><button class="dev-btn" id="btn-sethp">Set</button></div>
+    <div class="dev-row"><label>Force grow stage</label><button class="dev-btn green" id="btn-devgrow">Grow →</button></div>
+    <div class="dev-row"><label>Trigger poop 💩</label><button class="dev-btn" id="btn-devpoop">Poop now</button></div>
+    <div class="dev-row"><label>Trigger incident 😤</label><button class="dev-btn" id="btn-devincident">Incident now</button></div>
+  </div>
+  <button class="big-btn" id="next-day-btn">⏭ Next Day</button>
+  <button class="big-btn" id="btn-report" style="font-size:13px;padding:11px">📊 Baby Report</button>
+</div>
+
+<!-- REPORT -->
+<div id="sr" class="screen">
+  <div class="card">
+    <div style="text-align:center;margin-bottom:12px">
+      <span style="font-size:50px;line-height:1;display:block" id="rs">👶</span>
+      <div style="font-size:16px;font-weight:700;color:#111;margin-top:7px" id="rn">Baby</div>
+      <div id="rp" style="margin-top:6px"></div>
+    </div>
+    <div id="rr"></div>
+  </div>
+  <div class="card">
+    <div style="font-size:11px;font-weight:700;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Future outlook</div>
+    <div id="ro" style="font-size:13px;color:#6b7280;line-height:1.75"></div>
+  </div>
+  <button class="big-btn primary" id="btn-backtomain">Back to baby 💜</button>
+</div>
+
+<!-- REMOVED (neglect) -->
+<div id="srem" class="screen">
+  <div class="cc" style="margin-top:14px">
+    <span class="be">😢</span>
+    <div class="ct">Baby Taken Away</div>
+    <div class="cs"><strong id="rn2">Baby</strong> was taken by the authorities after 3 missed feedings.</div>
+  </div>
+  <button class="big-btn primary" id="btn-tryagain1">Try Again 💜</button>
+</div>
+
+<!-- REMOVED (abuse) -->
+<div id="sabuse" class="screen">
+  <div class="cc" style="margin-top:14px">
+    <span class="be">🚔</span>
+    <div class="ct">Child Services Intervened</div>
+    <div class="cs"><strong id="rn3">Baby</strong> has been removed. Repeated abuse was reported. Every child deserves to grow up safe.</div>
+  </div>
+  <button class="big-btn primary" id="btn-tryagain2">Try Again 💜</button>
+</div>
+
+<!-- GROWN -->
+<div id="sgr" class="screen">
+  <div class="cc" style="margin-top:14px">
+    <span class="be" id="ge">🎓</span>
+    <div class="ct" id="gt">All Grown Up!</div>
+    <div class="cs" id="gtx">Your parenting shaped who they became.</div>
+  </div>
+  <div class="card" id="gr"></div>
+  <button class="big-btn primary" id="btn-playagain">Play Again 💜</button>
+</div>
+
+<!-- ── CUSTOM CONFIRM MODAL (replaces confirm() for WebView safety) ──────── -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:#fff;border-radius:18px;padding:24px 20px;max-width:300px;width:90%;text-align:center">
+    <div style="font-size:22px;margin-bottom:10px">⚠️</div>
+    <div style="font-size:15px;font-weight:700;color:#111;margin-bottom:8px" id="confirm-msg">Are you sure?</div>
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button type="button" id="confirm-no"  style="flex:1;padding:12px;border-radius:11px;border:1px solid #e5e7eb;background:#f9fafb;font-size:14px;font-weight:700;color:#374151;font-family:inherit">Cancel</button>
+      <button type="button" id="confirm-yes" style="flex:1;padding:12px;border-radius:11px;border:none;background:#dc2626;font-size:14px;font-weight:700;color:#fff;font-family:inherit">Reset</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #game -->
+
+<div id="impact-flash"></div>
+<!-- ── INCIDENT MODAL ──────────────────────────────────────────────────────── -->
+<div id="incident-overlay" style="display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,0.6);flex-direction:column;align-items:center;justify-content:flex-end;padding:0">
+  <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:420px;padding:24px 20px 36px;max-height:90vh;overflow-y:auto">
+    <!-- Stage label -->
+    <div style="text-align:center;margin-bottom:12px">
+      <span id="inc-stage-badge" style="background:#f3f4f6;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#6b7280"></span>
+    </div>
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:44px;margin-bottom:8px" id="inc-emoji">😤</div>
+      <div style="font-size:17px;font-weight:700;color:#111;margin-bottom:6px" id="inc-title">Incident</div>
+      <div style="font-size:13px;color:#6b7280;line-height:1.6" id="inc-desc">Something happened.</div>
+    </div>
+    <!-- Baby reaction -->
+    <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:#713f12;font-style:italic" id="inc-baby-says">"..."</div>
+    <!-- Stat impact preview -->
+    <div style="font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">How will you respond?</div>
+    <!-- Discipline options — generated dynamically -->
+    <div id="inc-options" style="display:flex;flex-direction:column;gap:8px"></div>
+    <!-- Consequence note -->
+    <div style="margin-top:14px;font-size:11px;color:#9ca3af;text-align:center" id="inc-consequence-note">Your response shapes your child's development.</div>
+  </div>
+</div>
+
+<!-- ── POOP OVERLAY ─────────────────────────────────────────────────────── -->
+<div id="poop-overlay" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);flex-direction:column;align-items:center;justify-content:center">
+  <div style="text-align:center;padding:0 24px 16px;pointer-events:none">
+    <div style="font-size:52px;margin-bottom:6px" id="poop-title-emoji">💩</div>
+    <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:4px" id="poop-baby-name">Baby</div>
+    <div style="font-size:13px;color:#fde68a;margin-bottom:14px">had an accident! Wipe the screen clean!</div>
+  </div>
+  <!-- Canvas for wipe interaction -->
+  <div style="position:relative;width:300px;height:300px;border-radius:20px;overflow:hidden;touch-action:none">
+    <canvas id="poop-canvas" width="300" height="300" style="display:block;border-radius:20px;cursor:crosshair"></canvas>
+  </div>
+  <div style="margin-top:14px;color:#d1d5db;font-size:12px" id="poop-pct">0% clean</div>
+  <div style="margin-top:8px;background:rgba(255,255,255,0.12);border-radius:20px;width:200px;height:8px;overflow:hidden">
+    <div id="poop-bar" style="height:100%;background:#a3e635;border-radius:20px;width:0%;transition:width 0.2s"></div>
+  </div>
+  <div style="margin-top:16px;font-size:11px;color:#9ca3af">Wipe with your finger or mouse</div>
+</div>
+
+<script>
+'use strict';
+// ── CONSTANTS ────────────────────────────────────────────────────────────────
+var LIM = 2;
+var SAVE_KEY = 'baiby_v53';
+var TLBLS = {food:'🍽 Feed',play:'🎮 Play',learn:'📚 Learn',care:'🛁 Care',disc:'⚠️ Discipline'};
+
+var STAGES = [
+  {label:'Newborn',days:7, sp:{boy:'👶',girl:'👶'}},
+  {label:'Toddler',days:7, sp:{boy:'🧒',girl:'👧'}},
+  {label:'Child',  days:7, sp:{boy:'🧑',girl:'🧒'}},
+  {label:'Teen',   days:14,sp:{boy:'🧑',girl:'👩'}},
+  {label:'Adult',  days:0, sp:{boy:'👨',girl:'👩'}}
+];
+
+var FOODS = [
+  {e:'🍼',n:'Breast milk',  t:'balanced · natural',   hu:45,hp:10,hl:8, i:2, f:1, j:0,w:0},
+  {e:'🥣',n:'Oatmeal',      t:'healthy · filling',    hu:50,hp:2, hl:10,i:1, f:2, j:0,w:0},
+  {e:'🥦',n:'Veggies',      t:'healthy · strong',     hu:30,hp:-3,hl:18,i:0, f:4, j:0,w:-1},
+  {e:'🍗',n:'Chicken',      t:'protein · muscle',     hu:55,hp:8, hl:10,i:0, f:5, j:0,w:0},
+  {e:'🍣',n:'Salmon',       t:'brain food · omega-3', hu:40,hp:5, hl:12,i:5, f:2, j:0,w:0},
+  {e:'🍌',n:'Fruit',        t:'vitamins · sweet',     hu:25,hp:12,hl:8, i:1, f:1, j:0,w:0},
+  {e:'🍔',n:'Burger',       t:'JUNK · filling',       hu:65,hp:20,hl:-8,i:-1,f:-4,j:3,w:3},
+  {e:'🍕',n:'Pizza',        t:'JUNK · tasty',         hu:55,hp:18,hl:-5,i:0, f:-3,j:2,w:2},
+  {e:'🍟',n:'Fries',        t:'JUNK · salty',         hu:30,hp:15,hl:-10,i:-2,f:-5,j:3,w:3},
+  {e:'🍦',n:'Ice cream',    t:'JUNK · sugary',        hu:15,hp:25,hl:-6,i:-1,f:-3,j:2,w:2},
+  {e:'🍫',n:'Choc bar',     t:'JUNK · mood boost',    hu:12,hp:22,hl:-4,i:0, f:-2,j:1,w:1},
+  {e:'🥕',n:'Carrot sticks',t:'healthy · crunchy',   hu:20,hp:3, hl:10,i:2, f:3, j:0,w:-1}
+];
+var PLAY = [
+  {e:'🎠',n:'Playground', d:'+social +happy', anim:'bounce',     dl:{hp:15,so:4,f:2,hu:-8},      s:'Wheee! Push me higher!'},
+  {e:'🧩',n:'Puzzles',    d:'+intel',          anim:'puzzle',     dl:{hp:8,i:6,hu:-5},             s:'I figured it out!'},
+  {e:'⚽',n:'Sports',     d:'+fitness +happy', anim:'sports',     dl:{hp:12,f:8,so:2,hu:-12},      s:'I wanna play more!'},
+  {e:'🎨',n:'Drawing',    d:'+creative',       anim:'drawing',    dl:{hp:10,i:4,cr:4,hu:-5},       s:'Look at my painting!'},
+  {e:'🎮',n:'Video games',d:'+happy -fitness', anim:'videogames', dl:{hp:18,i:2,f:-3,so:-2,hu:-4},s:'Just one more level...'},
+  {e:'🧸',n:'Cuddle',     d:'+social +happy',  anim:'cuddle',     dl:{hp:14,so:5,hu:-3},           s:'I love you...'}
+];
+var LEARN = [
+  {e:'📖',n:'Read a book',  d:'++intel',          anim:'readbook',    dl:{i:8,hp:5,so:1,hu:-4},      s:'Read it again!'},
+  {e:'🎵',n:'Music class',  d:'+intel +creative', anim:'music',       dl:{i:5,hp:10,so:3,cr:3,hu:-6},s:'La la la!'},
+  {e:'🔬',n:'Science kit',  d:'+++intel',         anim:'science',     dl:{i:10,hp:6,hu:-5},           s:'Why does this happen?!'},
+  {e:'🌍',n:'World map',    d:'+intel +social',   anim:'worldmap',    dl:{i:6,hp:4,so:2,hu:-4},       s:"What's that country?"},
+  {e:'🗣️',n:'Social story',d:'+social +kind',    anim:'socialstory', dl:{so:7,hp:5,ki:4,i:2,hu:-3},  s:'Sharing is caring!'},
+  {e:'📺',n:'TV time',      d:'+happy -intel',    anim:'tv',          dl:{hp:10,i:-3,f:-1,hu:-3},     s:'Ooh cartoons!'}
+];
+var CARE = [
+  {e:'🛁',n:'Bath time',   d:'+health +happy',   anim:'bath',   dl:{hl:12,hp:6,so:2,hu:-4},     s:'Splash splash!'},
+  {e:'😴',n:'Nap time',    d:'+health +mood',    anim:'nap',    dl:{hl:15,hp:8,hu:-6},           s:'...zzz...'},
+  {e:'💊',n:'Vitamins',    d:'++health',          anim:'vitamins',dl:{hl:20,i:1,hu:-2},           s:'Eww... but okay.'},
+  {e:'🏃',n:'Morning jog', d:'++fitness -weight',anim:'jog',    dl:{f:8,hl:10,hp:4,hu:-15,w:-2},s:'My legs hurt!'},
+  {e:'🤗',n:'Hug & talk',  d:'+social +kind',    anim:'hug',    dl:{so:6,hp:12,ki:3,hu:-2},     s:"You're the best!"},
+  {e:'🩺',n:'Doctor visit',d:'+++health',         anim:'doctor', dl:{hl:25,hu:-3},                s:'The needle was tiny!'}
+];
+var DISC = [
+  {e:'⭐',n:'Praise & reward',    d:'+confidence +kind', harm:false,dl:{hp:12,so:4,ki:3,i:2},          s:'I did it! Are you proud?'},
+  {e:'🗣️',n:'Firm boundary',    d:'+respect, no harm',  harm:false,dl:{hp:2,so:2,ki:2,i:3},            s:'Okay... I understand.'},
+  {e:'📵',n:'Time-out corner',   d:'-happy, teaches limits',harm:false,dl:{hp:-8,so:-2,ki:2,i:2},      s:"That wasn't fair..."},
+  {e:'🤝',n:'Restorative talk',  d:'+trust +emotional IQ',harm:false,dl:{hp:5,so:5,ki:5,i:3},          s:'I get it now. Sorry.'},
+  {e:'😡',n:'Yelling',           d:'-trust -mental health',harm:true, dl:{hp:-20,so:-5,ki:-4,tr:3},    s:'...please stop shouting.'},
+  {e:'👋',n:'Physical spanking', d:'-trust -mental health',harm:true, dl:{hp:-18,so:-4,ki:-5,hl:-5,tr:4},s:'Ow... why?'},
+  {e:'🔇',n:'Silent treatment',  d:'-confidence -social',  harm:true, dl:{hp:-15,so:-6,ki:-3,tr:2},    s:'Did I do something wrong?'},
+  {e:'💢',n:'Verbal humiliation',d:'-self-worth severely',  harm:true, dl:{hp:-25,so:-8,ki:-7,i:-3,tr:5},s:"I'm... worthless?"}
+];
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+var G = {};
+var gender = 'boy';
+var gameMode = 'normal';
+var curTab = 'food';
+
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+}
+
+function freshState(name, gen, mode) {
+  return {
+    name:name, gender:gen, mode:mode, day:1, si:0, sdf:0,
+    ft:false, stk:0, mc:0, tm:0, log:[],
+    hu:50, hp:80, hl:100,
+    i:0, so:0, f:0, js:0, w:0, cr:0, ki:0,
+    trauma:0, abuseCount:0,
+    incidentsResolved:0,
+    _injuries:0,
+    custom:{skin:0,outfit:0,acc:9,hat:7,hair:0,mood:8},
+    traits:[], pers:'',
+    uses:{food:0,play:0,learn:0,care:0,disc:0},
+    lastPlayedDate:todayStr()
+  };
+}
+
+// ── SAVE / LOAD ──────────────────────────────────────────────────────────────
+function saveGame() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({G:G, curTab:curTab})); showSaveInd('Saved ✓'); } catch(e) {}
+}
+function loadGame() {
+  try {
+    var raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    var data = JSON.parse(raw);
+    if (!data || !data.G || !data.G.name) return false;
+    G = data.G;
+    curTab = data.curTab || 'food';
+    gender = G.gender || 'boy';
+    gameMode = G.mode || 'normal';
+    if (!G.uses) G.uses = {food:0,play:0,learn:0,care:0,disc:0};
+    if (!G.uses.disc) G.uses.disc = 0;
+    if (!G.traits) G.traits = [];
+    if (!G.pers) G.pers = '';
+    if (G.trauma === undefined) G.trauma = 0;
+    if (G.abuseCount === undefined) G.abuseCount = 0;
+    if (G.incidentsResolved === undefined) G.incidentsResolved = 0;
+    if (G._injuries === undefined) G._injuries = 0;
+    if (!G.custom) G.custom = {skin:0,outfit:0,acc:9,hat:7,hair:0,mood:8};
+    if (!G.lastPlayedDate) G.lastPlayedDate = todayStr();
+    return true;
+  } catch(e) { return false; }
+}
+function hardReset() {
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+  // Clear all timers
+  clearTimeout(_siT); clearTimeout(_poopTimer); clearTimeout(_incTimer);
+  _poopActive = false; _incActive = false;
+  // Reset game state
+  G = freshState();
+  gender = 'boy'; gameMode = 'normal'; curTab = 'food';
+  var ni = document.getElementById('ni'); if (ni) ni.value = '';
+  setSel('gb','gg'); setSel('m-normal','m-dev');
+  showScreen('sw');
+}
+
+var _siT;
+function showSaveInd(msg) {
+  var el = document.getElementById('save-ind');
+  if (!el) return;
+  el.textContent = msg; el.style.opacity = '1';
+  clearTimeout(_siT); _siT = setTimeout(function(){ el.style.opacity = '0'; }, 2000);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function cl(v,a,b) { return Math.min(b, Math.max(a, v)); }
+
+function showScreen(id) {
+  var screens = document.querySelectorAll('.screen');
+  for (var i=0; i<screens.length; i++) screens[i].classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+
+function setSel(selId, unselId) {
+  var s = document.getElementById(selId); if (s) s.classList.add('sel');
+  var u = document.getElementById(unselId); if (u) u.classList.remove('sel');
+}
+
+function setGender(g) {
+  gender = g;
+  if (g === 'boy') setSel('gb','gg'); else setSel('gg','gb');
+}
+function setMode(m) {
+  gameMode = m;
+  if (m === 'normal') setSel('m-normal','m-dev'); else setSel('m-dev','m-normal');
+}
+
+// ── TIME GATE ────────────────────────────────────────────────────────────────
+function isGated() {
+  return G.mode === 'normal' && G.lastPlayedDate === todayStr() && G.day > 1;
+}
+function checkDayRollover() {
+  if (G.mode !== 'normal') return;
+  if (G.lastPlayedDate && G.lastPlayedDate !== todayStr()) {
+    advanceDayLogic();
+    G.lastPlayedDate = todayStr();
+  }
+}
+function renderGate() {
+  var ga = document.getElementById('gate-area');
+  var nb = document.getElementById('next-day-btn');
+  if (G.mode === 'normal' && isGated()) {
+    ga.innerHTML = '<div class="gate-banner"><div class="gb-title">📅 Come back tomorrow!</div><div class="gb-sub">Normal mode: one real day = one game day.</div></div>';
+    if (nb) { nb.disabled = true; nb.style.opacity = '0.4'; }
+  } else {
+    ga.innerHTML = '';
+    if (nb) { nb.disabled = false; nb.style.opacity = '1'; }
+  }
+}
+
+// ── START ─────────────────────────────────────────────────────────────────────
+function start() {
+  var ni = document.getElementById('ni');
+  var n = (ni ? ni.value.trim() : '') || 'Baby';
+  G = freshState(n, gender, gameMode);
+  showScreen('sm');
+  buildAll();
+  renderAll();
+  startIdleBlink();
+  bindBabyTap();
+  initBabyCanvas();  // start canvas renderer
+  scheduleNextPoop();
+  scheduleNextIncident();
+  saveGame();
+}
+
+// ── APPLY DELTAS ──────────────────────────────────────────────────────────────
+function ap(dl) {
+  if (dl.hu !== undefined) G.hu = cl(G.hu+(dl.hu||0),0,100);
+  if (dl.hp !== undefined) G.hp = cl(G.hp+(dl.hp||0),0,100);
+  if (dl.hl !== undefined) G.hl = cl(G.hl+(dl.hl||0),0,100);
+  if (dl.i  !== undefined) G.i  = cl(G.i +(dl.i||0), 0,100);
+  if (dl.so !== undefined) G.so = cl(G.so+(dl.so||0),0,100);
+  if (dl.f  !== undefined) G.f  = cl(G.f +(dl.f||0), 0,100);
+  if (dl.cr !== undefined) G.cr = cl(G.cr+(dl.cr||0),0,100);
+  if (dl.ki !== undefined) G.ki = cl(G.ki+(dl.ki||0),0,100);
+  if (dl.w  !== undefined) G.w  = cl(G.w +(dl.w||0),-20,50);
+  if (dl.tr !== undefined) G.trauma = cl(G.trauma+(dl.tr||0),0,100);
+}
+
+// ── FEED ─────────────────────────────────────────────────────────────────────
+function doFeed(food) {
+  if (G.uses.food >= LIM) { toast('No more feeding actions today!'); return; }
+  G.uses.food++;
+  if (!G.ft) { G.ft=true; G.sdf++; G.stk++; G.mc=0; G.log.push(true); }
+  G.js = cl(G.js+(food.j||0),0,100);
+  ap({hu:food.hu,hp:food.hp,hl:food.hl,i:food.i||0,f:food.f||0,w:food.w||0});
+  var jr=['Yummy! More please!','That was SO good!','Can I have another?','Mmmmm...'];
+  var hr=['...okay, fine.','Tastes like health!','Do I have to?','Not bad actually.'];
+  setBubble(food.j>0 ? jr[~~(Math.random()*jr.length)] : hr[~~(Math.random()*hr.length)]);
+  animateBaby('eat', food.e);
+  if (food.j > 0) SFX.feedJunk(); else SFX.feedHealthy();
+  toast(food.e+' '+food.n+(food.j>0?' 🚨 Junk food!':''));
+  comp(); checkGrow(); renderAll(); rebuildGrid('food'); saveGame();
+}
+
+// ── ACT ───────────────────────────────────────────────────────────────────────
+function doAct(tab, dl, say, lbl, animKey) {
+  if (G.uses[tab] >= LIM) { toast('No more '+TLBLS[tab]+' actions today!'); return; }
+  G.uses[tab]++;
+  ap(dl);
+  if (say) setBubble(say);
+  var sfxMap = {play:'play', learn:'learn', care:'care', disc:'discGood'};
+  var sfxName = sfxMap[tab]; if (sfxName && SFX[sfxName]) SFX[sfxName]();
+  var fallback = {play:'bounce', learn:'pulse', care:'float', disc:'bounce'};
+  animateBaby(animKey || fallback[tab] || 'bounce');
+  toast(lbl);
+  comp(); checkGrow(); renderAll(); rebuildGrid(tab); saveGame();
+}
+
+// ── DISCIPLINE ────────────────────────────────────────────────────────────────
+function doDisc(act) {
+  if (G.uses.disc >= LIM) { toast('No more discipline actions today!'); return; }
+  G.uses.disc++;
+  if (act.harm) {
+    G.abuseCount++;
+    if (G.abuseCount >= 8) {
+      SFX.gameOver();
+      try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+      var rn3 = document.getElementById('rn3'); if (rn3) rn3.textContent = G.name;
+      showScreen('sabuse'); return;
+    }
+  }
+  ap(act.dl);
+  setBubble(act.s);
+  // disc anim handled inside animateDiscImpact via triggerDragAction
+  if (act.harm) SFX.discHarm(); else SFX.discGood();
+  toast((act.harm ? '🚨 ' : '✅ ') + act.n);
+  comp(); renderAll(); rebuildGrid('disc'); saveGame();
+}
+
+function setBubble(txt) {
+  var b = document.getElementById('bub'); if (b) b.textContent = txt;
+}
+
+// ── TRAITS & PERSONALITY ──────────────────────────────────────────────────────
+function comp() {
+  var t = [];
+  if (G.w > 15) t.push('fat');
+  if (G.w < -5 || G.f > 60) t.push('fit');
+  if (G.i > 50) t.push('smart');
+  if (G.so > 50) t.push('social');
+  if (G.so < 15 && G.day > 7) t.push('shy');
+  if (G.js > 20 && G.f < 25) t.push('lazy');
+  if (G.ki > 30) t.push('kind');
+  if (G.hp < 25 && G.day > 5) t.push('grumpy');
+  if (G.cr > 30) t.push('creative');
+  if (G.trauma > 25) t.push('traumatised');
+  if (G.trauma > 15 && G.so < 20) t.push('anxious');
+  if (G.abuseCount >= 3 && G.ki < 15) t.push('aggressive');
+  G.traits = t;
+  if      (G.trauma > 40)           G.pers = 'The Wounded';
+  else if (G.i  > 60)               G.pers = 'The Scholar';
+  else if (G.f  > 60 && G.w < 5)   G.pers = 'The Athlete';
+  else if (G.so > 60)               G.pers = 'The Social Butterfly';
+  else if (G.ki > 50)               G.pers = 'The Empath';
+  else if (G.cr > 50)               G.pers = 'The Artist';
+  else if (G.w  > 20 && G.f < 20)  G.pers = 'The Couch Potato';
+  else if (G.hp > 70 && G.i > 40)  G.pers = 'The Happy Nerd';
+  else G.pers = 'The Free Spirit';
+}
+
+var BUB = {
+  traumatised:["Don't hurt me...","I'm scared all the time.","I don't feel safe."],
+  anxious:    ["What if something goes wrong?","I'm scared...","Don't leave me alone."],
+  aggressive: ["I hate everything!","Leave me alone!","I'll hurt you back!"],
+  fat:        ['...too full to move.','More fries please!','Carry me...'],
+  fit:        ["Let's race!",'I can run SO fast!','Sports again!'],
+  smart:      ['Did you know that...?','I read a book!','Let me explain...'],
+  social:     ['Can my friend come?','I met someone new!','Everyone likes me!'],
+  shy:        ['...hi.','Can we stay home?','People are scary.'],
+  grumpy:     ['Leave me alone.','Everything is boring.','Whatever.'],
+  kind:       ['I shared my toys!','Want a hug?','I love everyone!'],
+  def:        ['Waaah! Feed me!','Play with me!','Hug?',"What's today?"]
+};
+
+function getbub() {
+  var t = G.traits || [];
+  if (G.hu < 15) return ['Feed me... I\'m SO hungry.','My tummy hurts. Please feed me.','...starving.'][~~(Math.random()*3)];
+  if (G.hl < 25) return ['I feel really sick... 🤒','I don\'t feel well.','Everything hurts.'][~~(Math.random()*3)];
+  if (G.hp < 20) return ['I\'m so unhappy...','Nobody cares about me.','Why is everything bad?'][~~(Math.random()*3)];
+  var pool =
+    t.indexOf('traumatised')>=0 ? BUB.traumatised :
+    t.indexOf('anxious')>=0     ? BUB.anxious     :
+    t.indexOf('aggressive')>=0  ? BUB.aggressive  :
+    t.indexOf('fat')>=0         ? BUB.fat         :
+    t.indexOf('fit')>=0         ? BUB.fit         :
+    t.indexOf('smart')>=0       ? BUB.smart       :
+    t.indexOf('social')>=0      ? BUB.social      :
+    t.indexOf('grumpy')>=0      ? BUB.grumpy      :
+    t.indexOf('kind')>=0        ? BUB.kind        :
+    t.indexOf('shy')>=0         ? BUB.shy         : BUB.def;
+  return pool[~~(Math.random()*pool.length)];
+}
+
+// ── SVG BABY ENGINE ──────────────────────────────────────────────────────────
+// getSpr kept for report screen emoji fallback
+function getSpr() {
+  var emojis = {boy:['👶','🧒','🧑','🧑','👨'],girl:['👶','👧','🧒','👩','👩']};
+  var arr = emojis[G.gender||'boy']||emojis.boy;
+  return arr[Math.min(G.si, arr.length-1)];
+}
+
+var _animTimer = null;
+
+// Stage skin / body colors
+var STAGE_LOOK = [
+  // Newborn — massive head (80% of frame), tiny chubby body
+  {bodyW:48,bodyH:38,headRx:34,headRy:32,legH:28,legW:17,
+   armLen:20,armW:14,neckH:5,neckW:13,
+   bodyColor:'#bfdbfe',legColor:'#fde68a',footColor:'#ef9a5a',groupY:92,
+   eyeCY:-34,headCY:-30,
+   nurserySky:'linear-gradient(160deg,#1e1b4b 0%,#312e81 100%)',
+   nurserySkyLight:'linear-gradient(160deg,#e0e7ff 0%,#c7d2fe 100%)',
+   stars:true,detail:'onesie',label:'Newborn'},
+  // Toddler — still big head, slightly taller
+  {bodyW:50,bodyH:42,headRx:32,headRy:30,legH:36,legW:17,
+   armLen:20,armW:14,neckH:6,neckW:13,
+   bodyColor:'#bbf7d0',legColor:'#fde68a',footColor:'#ef9a5a',groupY:84,
+   eyeCY:-33,headCY:-28,
+   nurserySky:'linear-gradient(160deg,#14532d 0%,#166534 100%)',
+   nurserySkyLight:'linear-gradient(160deg,#dcfce7 0%,#bbf7d0 100%)',
+   stars:false,detail:'tshirt',label:'Toddler'},
+  // Child — leaner, longer legs, more defined face
+  {bodyW:48,bodyH:48,headRx:29,headRy:27,legH:48,legW:16,
+   armLen:22,armW:13,neckH:8,neckW:12,
+   bodyColor:'#fecdd3',legColor:'#fde68a',footColor:'#ef9a5a',groupY:74,
+   eyeCY:-32,headCY:-27,
+   nurserySky:'linear-gradient(160deg,#831843 0%,#9d174d 100%)',
+   nurserySkyLight:'linear-gradient(160deg,#ffe4e6 0%,#fecdd3 100%)',
+   stars:false,detail:'shirt',label:'Child'},
+  // Teen — tall slim, smaller head ratio, dark jeans
+  {bodyW:46,bodyH:54,headRx:26,headRy:25,legH:58,legW:15,
+   armLen:24,armW:13,neckH:10,neckW:11,
+   bodyColor:'#ddd6fe',legColor:'#1e293b',footColor:'#334155',groupY:66,
+   eyeCY:-30,headCY:-24,
+   nurserySky:'linear-gradient(160deg,#3b0764 0%,#4c1d95 100%)',
+   nurserySkyLight:'linear-gradient(160deg,#ede9fe 0%,#ddd6fe 100%)',
+   stars:false,detail:'hoodie',label:'Teen'},
+  // Adult — broadest, tallest, professional
+  {bodyW:52,bodyH:56,headRx:26,headRy:25,legH:62,legW:17,
+   armLen:26,armW:14,neckH:10,neckW:12,
+   bodyColor:'#fef08a',legColor:'#1e293b',footColor:'#334155',groupY:63,
+   eyeCY:-30,headCY:-24,
+   nurserySky:'linear-gradient(160deg,#713f12 0%,#92400e 100%)',
+   nurserySkyLight:'linear-gradient(160deg,#fef9c3 0%,#fef08a 100%)',
+   stars:false,detail:'jacket',label:'Adult'},
+];
+
+
+// ── ILLUSTRATED BABY RENDERER (Genshin-style) ────────────────────────────
+var _bc = {
+  canvas: null, ctx: null, raf: null, t: 0,
+  skinHex: '#ffc99a', hairHex: '#7b3f10', bodyHex: '#74d2f0',
+  expression: 'happy', showTears: false, mouthOpen: false,
+  stage: 0
+};
+
+
+// ── Genshin/illustrated style baby ───────────────────────────────────────
+// Key principles:
+// 1. Thick cel-shaded outlines on every shape
+// 2. 2-tone shading (light + 1 shadow tone, hard edge)
+// 3. Large head, small body — extreme chibi 2:1 ratio
+// 4. Gradient fills with subtle colour shifts
+// 5. Painterly highlights (soft white blobs at specular points)
+// 6. Eyes: large, detailed, with multiple layers of colour + reflections
+
+var SK,SK1,SK2,SK3,HR,HR1,HR2,OT,OT1,OT2,NP,NP1;
+function _hexRGB(h){h=(h||'#ffc99a').replace('#','');return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function _setPalette(){
+  function sh(hex,n){var c=_hexRGB(hex);return'rgb('+Math.min(255,Math.max(0,c[0]+n))+','+Math.min(255,Math.max(0,c[1]+n))+','+Math.min(255,Math.max(0,c[2]+n))+')';}
+  var s=_bc.skinHex||'#ffc99a',h=_bc.hairHex||'#7b3f10',b=_bc.bodyHex||'#74d2f0';
+  SK=s;SK1=sh(s,-28);SK2=sh(s,28);SK3=sh(s,-55);
+  HR=h;HR1=sh(h,-26);HR2=sh(h,42);
+  OT=b;OT1=sh(b,-22);OT2=sh(b,44);
+  NP='#fffcd8';NP1='#e8d878';
+}
+
+// Game-driven render loop
+function _renderLoop(){
+  _bc.raf = requestAnimationFrame(_renderLoop);
+  _bc.t += 0.016;
+  if(!_bc.ctx) return;
+  var W=280,H=340;
+  _setPalette();
+  _bc.ctx.clearRect(0,0,W,H);
+  drawBaby(_bc.ctx, W/2, H*0.52, _bc.t);
+}
+
+// ── OUTLINE HELPER ────────────────────────────────────────────────────────
+function outline(ctx, w, col) {
+  ctx.strokeStyle = col || '#1a0a04';
+  ctx.lineWidth   = w  || 2.8;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+}
+
+// ── DRAW BABY ─────────────────────────────────────────────────────────────
+function drawBaby(ctx, cx, cy, t) {
+  const by = Math.sin(t * 1.3) * 2.2;   // breathe
+  const hb = Math.sin(t * 0.9) * 1.4;   // head bob
+  const ht = Math.sin(t * 0.7) * 0.022; // head tilt
+
+  // ── Drop shadow
+  ctx.save();
+  var sg = ctx.createRadialGradient(cx, cy+88+by*0.2, 2, cx, cy+88+by*0.2, 46);
+  sg.addColorStop(0,'rgba(0,0,0,0.22)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle = sg;
+  ctx.beginPath(); ctx.ellipse(cx, cy+88+by*0.2, 46, 10, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  ctx.save(); ctx.translate(0, by);
+
+  // ── LEGS (sitting pose, behind body)
+  drawLegs(ctx, cx, cy);
+
+  // ── BODY
+  drawBody(ctx, cx, cy);
+
+  // ── ARMS
+  drawArms(ctx, cx, cy, t);
+
+  ctx.restore();
+
+  // ── HEAD (separate translate for bob)
+  ctx.save();
+  ctx.translate(cx, cy - 54 + by + hb);
+  ctx.rotate(ht);
+  drawHead(ctx, 0, 0, t);
+  ctx.restore();
+}
+
+// ── LEGS ──────────────────────────────────────────────────────────────────
+function drawLegs(ctx, cx, cy) {
+  var oy = cy + 42;
+  [-1,1].forEach(function(s) {
+    // Thigh — big rounded rect with rounded corners
+    ctx.beginPath();
+    ctx.ellipse(cx + s*22, oy+10, 20, 26, s*0.1, 0, Math.PI*2);
+    var g = ctx.createRadialGradient(cx+s*16, oy+2, 3, cx+s*24, oy+14, 26);
+    g.addColorStop(0, SK2); g.addColorStop(0.4, SK); g.addColorStop(1, SK1);
+    ctx.fillStyle = g; ctx.fill(); outline(ctx, 2.2);
+
+    // Knee highlight crease
+    ctx.beginPath(); ctx.ellipse(cx+s*22, oy+24, 8, 5, 0, 0, Math.PI*2);
+    ctx.fillStyle = SK1 + '80'; ctx.fill();
+
+    // Lower leg
+    ctx.beginPath();
+    ctx.ellipse(cx + s*24, oy+40, 14, 16, s*0.08, 0, Math.PI*2);
+    var g2 = ctx.createRadialGradient(cx+s*20, oy+34, 2, cx+s*26, oy+42, 17);
+    g2.addColorStop(0, SK2); g2.addColorStop(1, SK1);
+    ctx.fillStyle = g2; ctx.fill(); outline(ctx, 2.0);
+
+    // Foot
+    ctx.beginPath();
+    ctx.ellipse(cx + s*26, oy+58, 17, 10, s*0.06, 0, Math.PI*2);
+    var gf = ctx.createLinearGradient(cx+s*14, oy+52, cx+s*36, oy+64);
+    gf.addColorStop(0, SK); gf.addColorStop(1, SK1);
+    ctx.fillStyle = gf; ctx.fill(); outline(ctx, 2.0);
+
+    // Big toe bump
+    ctx.beginPath(); ctx.ellipse(cx+s*38, oy+56, 7, 6, s*0.1, 0, Math.PI*2);
+    ctx.fillStyle = SK1; ctx.fill(); outline(ctx, 1.8);
+
+    // Toe crease line
+    ctx.beginPath();
+    ctx.moveTo(cx+s*32, oy+52);
+    ctx.quadraticCurveTo(cx+s*37, oy+57, cx+s*32, oy+62);
+    ctx.strokeStyle = SK3; ctx.lineWidth = 1.4; ctx.stroke();
+
+    // Leg skin shadow (inner thigh)
+    ctx.beginPath(); ctx.ellipse(cx+s*10, oy+14, 6, 14, s*0.3, 0, Math.PI*2);
+    ctx.fillStyle = SK1 + '55'; ctx.fill();
+  });
+}
+
+// ── BODY ─────────────────────────────────────────────────────────────────
+function drawBody(ctx, cx, cy) {
+  var oy = cy - 10;
+
+  // Main shirt — smooth rounded shape
+  ctx.beginPath();
+  ctx.moveTo(cx-32, oy+4);
+  ctx.bezierCurveTo(cx-44, oy+18, cx-44, oy+48, cx-35, oy+62);
+  ctx.bezierCurveTo(cx-22, oy+76, cx+22, oy+76, cx+35, oy+62);
+  ctx.bezierCurveTo(cx+44, oy+48, cx+44, oy+18, cx+32, oy+4);
+  ctx.bezierCurveTo(cx+20, oy-4, cx-20, oy-4, cx-32, oy+4);
+  ctx.closePath();
+
+  // Shirt gradient
+  var sg = ctx.createLinearGradient(cx-24, oy, cx+18, oy+72);
+  sg.addColorStop(0, OT2); sg.addColorStop(0.35, OT); sg.addColorStop(1, OT1);
+  ctx.fillStyle = sg; ctx.fill(); outline(ctx, 3.0);
+
+  // Shirt top highlight (specular strip)
+  ctx.save(); ctx.clip();
+  ctx.beginPath();
+  ctx.moveTo(cx-30, oy+4); ctx.bezierCurveTo(cx-20, oy-4, cx+20, oy-4, cx+30, oy+4);
+  ctx.bezierCurveTo(cx+14, oy+22, cx-14, oy+22, cx-30, oy+4); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.36)'; ctx.fill();
+  ctx.restore();
+
+  // Shirt shadow left
+  ctx.beginPath(); ctx.ellipse(cx-36, oy+36, 7, 24, 0.3, 0, Math.PI*2);
+  ctx.fillStyle = OT1+'88'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+36, oy+36, 7, 24, -0.3, 0, Math.PI*2);
+  ctx.fillStyle = OT1+'88'; ctx.fill();
+
+  // Collar V
+  ctx.beginPath(); ctx.moveTo(cx-13, oy); ctx.lineTo(cx, oy+14); ctx.lineTo(cx+13, oy);
+  ctx.strokeStyle = OT1+'aa'; ctx.lineWidth = 1.8; ctx.stroke();
+
+  // Belly button
+  ctx.beginPath(); ctx.arc(cx, oy+42, 3.5, 0, Math.PI*2);
+  ctx.fillStyle = OT1; ctx.fill();
+
+  // Nappy
+  ctx.beginPath();
+  ctx.moveTo(cx-30, oy+64);
+  ctx.bezierCurveTo(cx-30, oy+82, cx-15, oy+92, cx, oy+92);
+  ctx.bezierCurveTo(cx+15, oy+92, cx+30, oy+82, cx+30, oy+64);
+  ctx.bezierCurveTo(cx+15, oy+72, cx-15, oy+72, cx-30, oy+64);
+  ctx.closePath();
+  var ng = ctx.createLinearGradient(cx, oy+62, cx, oy+92);
+  ng.addColorStop(0, NP); ng.addColorStop(1, NP1);
+  ctx.fillStyle = ng; ctx.fill(); outline(ctx, 2.2);
+  // Nappy waistband stitch line
+  ctx.beginPath();
+  ctx.moveTo(cx-30, oy+64); ctx.bezierCurveTo(cx-14, oy+70, cx+14, oy+70, cx+30, oy+64);
+  ctx.strokeStyle = NP1; ctx.lineWidth = 1.6; ctx.stroke();
+}
+
+// ── ARMS ─────────────────────────────────────────────────────────────────
+function drawArms(ctx, cx, cy, t) {
+  var sw = Math.sin(t*1.1) * 2;
+  var oy = cy - 8;
+
+  [-1,1].forEach(function(s) {
+    var shX = cx + s*28, shY = oy;       // shoulder (overlaps body edge)
+    var elX = cx + s*56, elY = oy+14;    // elbow
+    var haX = cx + s*62, haY = oy+52+sw*s*0.4;  // hand
+
+    // ── Upper arm — smooth filled shape
+    ctx.beginPath();
+    ctx.moveTo(shX - s*2, shY - 14);
+    ctx.bezierCurveTo(shX + s*12, shY-15, elX - s*4, elY-13, elX, elY-10);
+    ctx.bezierCurveTo(elX + s*7, elY-3, elX + s*7, elY+7, elX, elY+11);
+    ctx.bezierCurveTo(elX - s*4, elY+14, shX + s*12, shY+15, shX - s*2, shY+14);
+    ctx.bezierCurveTo(shX - s*7, shY+9, shX - s*7, shY-9, shX - s*2, shY-14);
+    ctx.closePath();
+    var ug = ctx.createLinearGradient(shX, shY-14, elX, elY+14);
+    ug.addColorStop(0, SK2); ug.addColorStop(0.4, SK); ug.addColorStop(1, SK1);
+    ctx.fillStyle = ug; ctx.fill(); outline(ctx, 2.2);
+    // Upper arm highlight line
+    ctx.beginPath();
+    ctx.moveTo(shX + s*2, shY-9);
+    ctx.bezierCurveTo(shX + s*12, shY-11, elX - s*7, elY-9, elX - s*2, elY-5);
+    ctx.strokeStyle = SK2; ctx.lineWidth = 3; ctx.stroke();
+
+    // ── Forearm
+    ctx.beginPath();
+    ctx.moveTo(elX-11, elY+4);
+    ctx.bezierCurveTo(elX-12, elY+20, haX-11, haY-12, haX-9, haY-2);
+    ctx.bezierCurveTo(haX-8, haY+12, haX+8, haY+12, haX+9, haY-2);
+    ctx.bezierCurveTo(haX+11, haY-12, elX+12, elY+20, elX+11, elY+4);
+    ctx.closePath();
+    var fg = ctx.createLinearGradient(elX, elY, haX, haY);
+    fg.addColorStop(0, SK); fg.addColorStop(1, SK1);
+    ctx.fillStyle = fg; ctx.fill(); outline(ctx, 2.2);
+
+    // ── Hand — large round
+    ctx.beginPath(); ctx.ellipse(haX, haY, 15, 14, 0, 0, Math.PI*2);
+    var hg = ctx.createRadialGradient(haX-3, haY-4, 2, haX+3, haY+4, 14);
+    hg.addColorStop(0, SK2); hg.addColorStop(0.5, SK); hg.addColorStop(1, SK1);
+    ctx.fillStyle = hg; ctx.fill(); outline(ctx, 2.2);
+    // Hand highlight
+    ctx.beginPath(); ctx.ellipse(haX-3, haY-4, 6, 5, 0.3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+    // Knuckle dimples
+    for(var k=-1;k<=1;k++) {
+      ctx.beginPath(); ctx.arc(haX + k*4, haY+5, 2, 0, Math.PI*2);
+      ctx.fillStyle = SK1; ctx.fill();
+    }
+  });
+}
+
+// ── HEAD ─────────────────────────────────────────────────────────────────
+function drawHead(ctx, cx, cy, t) {
+  var blink = false; // we'll add blink later
+
+  // ── HEAD BASE — large oval, slightly wider than tall (chibi)
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, 76, 74, 0, 0, Math.PI*2);
+  var hg = ctx.createRadialGradient(cx-26, cy-30, 6, cx+18, cy+22, 92);
+  hg.addColorStop(0, '#fff6e8');
+  hg.addColorStop(0.18, SK2);
+  hg.addColorStop(0.52, SK);
+  hg.addColorStop(0.84, SK1);
+  hg.addColorStop(1, SK3);
+  ctx.fillStyle = hg; ctx.fill(); outline(ctx, 3.0);
+
+  // ── HEAD SHADOW (right/bottom — 2-tone cel shade)
+  ctx.beginPath();
+  ctx.ellipse(cx+22, cy+26, 46, 36, 0.3, 0, Math.PI*2);
+  ctx.fillStyle = SK1 + '40'; ctx.fill();
+
+  // ── NECK
+  ctx.beginPath();
+  ctx.moveTo(cx-12, cy+62); ctx.bezierCurveTo(cx-14,cy+72,cx-12,cy+78,cx-10,cy+80);
+  ctx.lineTo(cx+10, cy+80); ctx.bezierCurveTo(cx+12,cy+78,cx+14,cy+72,cx+12,cy+62);
+  ctx.closePath();
+  var ncg = ctx.createLinearGradient(cx-12,cy+62,cx+12,cy+80);
+  ncg.addColorStop(0, SK); ncg.addColorStop(1, SK1);
+  ctx.fillStyle = ncg; ctx.fill(); outline(ctx, 2.2);
+
+  // ── EARS
+  [-1,1].forEach(function(s) {
+    // Outer ear
+    ctx.beginPath(); ctx.ellipse(cx + s*75, cy+6, 12, 16, 0, 0, Math.PI*2);
+    var eg = ctx.createRadialGradient(cx+s*62, cy+2, 2, cx+s*70, cy+8, 16);
+    eg.addColorStop(0, SK2); eg.addColorStop(1, SK1);
+    ctx.fillStyle = eg; ctx.fill(); outline(ctx, 2.2);
+    // Inner ear
+    ctx.beginPath(); ctx.ellipse(cx + s*75, cy+6, 7, 10, 0, 0, Math.PI*2);
+    ctx.fillStyle = '#f0a87088'; ctx.fill();
+  });
+
+  // ── HAIR — the most important part for genshin look
+  drawHair(ctx, cx, cy);
+
+  // ── EYEBROWS
+  [-1,1].forEach(function(s) {
+    ctx.beginPath();
+    ctx.moveTo(cx + s*14, cy-34);
+    ctx.quadraticCurveTo(cx + s*32, cy-43, cx + s*48, cy-34);
+    ctx.strokeStyle = HR1; ctx.lineWidth = 4.5; ctx.lineCap='round'; ctx.stroke();
+    // Eyebrow highlight
+    ctx.beginPath();
+    ctx.moveTo(cx + s*14, cy-33);
+    ctx.quadraticCurveTo(cx + s*30, cy-38, cx + s*44, cy-33);
+    ctx.strokeStyle = HR2 + '80'; ctx.lineWidth = 2; ctx.stroke();
+  });
+
+  // ── EYES
+  [-1,1].forEach(function(s) {
+    drawEye(ctx, cx + s*30, cy-8, s, blink);
+  });
+
+  // ── NOSE
+  ctx.beginPath(); ctx.ellipse(cx, cy+18, 10, 8, 0, 0, Math.PI*2);
+  var nog = ctx.createRadialGradient(cx-2, cy+14, 1, cx+3, cy+18, 11);
+  nog.addColorStop(0, SK); nog.addColorStop(1, SK1);
+  ctx.fillStyle = nog; ctx.fill();
+  // Nostril dots
+  [-1,1].forEach(function(s) {
+    ctx.beginPath(); ctx.arc(cx+s*4.5, cy+18, 2.8, 0, Math.PI*2);
+    ctx.fillStyle = SK3 + 'aa'; ctx.fill();
+  });
+  // Nose tip highlight
+  ctx.beginPath(); ctx.ellipse(cx+2.5, cy+13, 3.5, 2.5, 0.3, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+
+  // ── CHEEKS — big soft pink blush
+  [-1,1].forEach(function(s) {
+    var chg = ctx.createRadialGradient(cx+s*48, cy+24, 0, cx+s*48, cy+24, 34);
+    chg.addColorStop(0, 'rgba(255,100,90,0.48)');
+    chg.addColorStop(0.5,'rgba(255,110,100,0.22)');
+    chg.addColorStop(1, 'rgba(255,110,100,0)');
+    ctx.fillStyle = chg;
+    ctx.beginPath(); ctx.ellipse(cx+s*48, cy+24, 34, 25, 0, 0, Math.PI*2); ctx.fill();
+
+    // 3 small dots pattern (genshin cheek detail)
+    for(var d=0;d<3;d++){
+      ctx.beginPath(); ctx.arc(cx+s*(34+d*6), cy+24, 2.2, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,90,80,0.35)'; ctx.fill();
+    }
+  });
+
+  // ── MOUTH
+  var sad = (_bc.expression==='sad'||_bc.expression==='cry');
+  ctx.beginPath();
+  if(sad) {
+    ctx.moveTo(cx-16, cy+36); ctx.bezierCurveTo(cx-9,cy+28, cx+9,cy+28, cx+16,cy+36);
+  } else {
+    ctx.moveTo(cx-18, cy+36); ctx.bezierCurveTo(cx-10,cy+50, cx+10,cy+50, cx+18,cy+36);
+  }
+  ctx.strokeStyle = '#c02000'; ctx.lineWidth = 3.8; ctx.lineCap='round'; ctx.stroke();
+  // Corner dimples
+  [-1,1].forEach(function(s) {
+    ctx.beginPath(); ctx.arc(cx+s*16, cy+32, 3, 0, Math.PI*2);
+    ctx.fillStyle = '#d06050aa'; ctx.fill();
+  });
+
+  // ── HEAD SPECULAR (3D pop)
+  ctx.beginPath(); ctx.ellipse(cx-24, cy-48, 30, 16, Math.PI/6, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
+}
+
+// ── EYE ───────────────────────────────────────────────────────────────────
+function drawEye(ctx, ex, ey, s, blink) {
+  ctx.save();
+
+  // White sclera — large oval
+  ctx.beginPath(); ctx.ellipse(ex, ey, 20, 22, 0, 0, Math.PI*2);
+  var ew = ctx.createRadialGradient(ex-5, ey-6, 2, ex+4, ey+5, 24);
+  ew.addColorStop(0, '#ffffff'); ew.addColorStop(1, '#e8f4ff');
+  ctx.fillStyle = ew; ctx.fill(); outline(ctx, 1.2, '#cce0ff');
+
+  if(!blink) {
+    // Iris — multi-layer for depth
+    // Outer iris (lighter blue rim)
+    ctx.beginPath(); ctx.ellipse(ex, ey+1, 15.5, 16, 0, 0, Math.PI*2);
+    ctx.fillStyle = '#5aaae8'; ctx.fill();
+    // Mid iris
+    ctx.beginPath(); ctx.ellipse(ex, ey+1, 13, 13.5, 0, 0, Math.PI*2);
+    var ig = ctx.createRadialGradient(ex-2, ey-3, 1, ex+2, ey+5, 15);
+    ig.addColorStop(0, '#80c4f8');
+    ig.addColorStop(0.3, '#2888e4');
+    ig.addColorStop(0.7, '#0a4ab0');
+    ig.addColorStop(1, '#04183c');
+    ctx.fillStyle = ig; ctx.fill();
+    // Iris detail ring
+    ctx.beginPath(); ctx.arc(ex, ey+1, 13.5, 0, Math.PI*2);
+    ctx.strokeStyle = '#1a78ff44'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Pupil
+    ctx.beginPath(); ctx.ellipse(ex, ey+1, 7.5, 8, 0, 0, Math.PI*2);
+    var pg = ctx.createRadialGradient(ex, ey, 0, ex, ey, 8);
+    pg.addColorStop(0, '#0a0820'); pg.addColorStop(1, '#000010');
+    ctx.fillStyle = pg; ctx.fill();
+
+    // ── CATCHLIGHTS — the secret sauce for anime eyes
+    // Main large catchlight (top-right)
+    ctx.beginPath(); ctx.ellipse(ex+5.5, ey-5, 6, 4.5, 0.4, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.97)'; ctx.fill();
+    // Secondary small round (bottom-left)
+    ctx.beginPath(); ctx.ellipse(ex-5.5, ey+5, 2.5, 2, 0.3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.fill();
+    // Tiny third sparkle
+    ctx.beginPath(); ctx.arc(ex+9, ey-8, 1.8, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
+
+    // Iris bottom reflection (coloured bounce light)
+    ctx.beginPath(); ctx.ellipse(ex, ey+9, 9, 3.5, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(100,200,255,0.28)'; ctx.fill();
+  }
+
+  // Top eyelash — key to anime look: thick arched brush stroke
+  ctx.beginPath();
+  ctx.moveTo(ex-21, ey-8);
+  ctx.bezierCurveTo(ex-12, ey-28, ex+12, ey-28, ex+21, ey-8);
+  ctx.strokeStyle = '#0a0408'; ctx.lineWidth = 6; ctx.lineCap='round'; ctx.stroke();
+  // Lash tips — individual flicks
+  [[-18,-14,-22,-20],[-8,-18,-10,-24],[4,-17,5,-23],[14,-13,17,-19]].forEach(function(p){
+    ctx.beginPath(); ctx.moveTo(ex+p[0],ey+p[1]); ctx.lineTo(ex+p[2],ey+p[3]);
+    ctx.strokeStyle = '#0a0408'; ctx.lineWidth = 2.5; ctx.lineCap='round'; ctx.stroke();
+  });
+
+  // Bottom lash — thin subtle
+  ctx.beginPath();
+  ctx.moveTo(ex-16, ey+16); ctx.quadraticCurveTo(ex, ey+24, ex+16, ey+16);
+  ctx.strokeStyle = 'rgba(80,40,30,0.4)'; ctx.lineWidth = 1.6; ctx.stroke();
+
+  // Lower lid line
+  ctx.beginPath();
+  ctx.moveTo(ex-19, ey+4); ctx.quadraticCurveTo(ex, ey+8, ex+19, ey+4);
+  ctx.strokeStyle = 'rgba(180,120,90,0.35)'; ctx.lineWidth = 1.4; ctx.stroke();
+
+  ctx.restore();
+}
+
+// ── HAIR ──────────────────────────────────────────────────────────────────
+function drawHair(ctx, cx, cy) {
+  // Genshin hair: smooth dome with gradient, side strands, fringe swooping over forehead
+
+  // ── Back layer (drawn first, behind head)
+  ctx.beginPath();
+  ctx.moveTo(cx-70, cy+10);
+  ctx.bezierCurveTo(cx-76, cy-22, cx-68, cy-68, cx-32, cy-82);
+  ctx.bezierCurveTo(cx-12, cy-90, cx+12, cy-90, cx+32, cy-82);
+  ctx.bezierCurveTo(cx+68, cy-68, cx+76, cy-22, cx+70, cy+10);
+  ctx.bezierCurveTo(cx+48, cy+0, cx+30, cy-4, cx, cy-4);
+  ctx.bezierCurveTo(cx-30, cy-4, cx-48, cy+0, cx-62, cy+8);
+  ctx.closePath();
+  var hbg = ctx.createRadialGradient(cx-20, cy-64, 4, cx+18, cy-10, 80);
+  hbg.addColorStop(0, HR2); hbg.addColorStop(0.35, HR); hbg.addColorStop(1, HR1);
+  ctx.fillStyle = hbg; ctx.fill(); outline(ctx, 2.8, '#2a0e04');
+
+  // ── Side hair strands (cover ears area)
+  [-1,1].forEach(function(s){
+    ctx.beginPath();
+    ctx.moveTo(cx + s*58, cy-2);
+    ctx.bezierCurveTo(cx+s*70, cy+10, cx+s*72, cy+32, cx+s*62, cy+52);
+    ctx.bezierCurveTo(cx+s*52, cy+62, cx+s*40, cy+58, cx+s*36, cy+48);
+    ctx.bezierCurveTo(cx+s*50, cy+44, cx+s*54, cy+28, cx+s*52, cy+4);
+    ctx.closePath();
+    ctx.fillStyle = HR; ctx.fill(); outline(ctx, 2.4, '#2a0e04');
+    // Side strand highlight
+    ctx.beginPath();
+    ctx.moveTo(cx+s*62, cy+2);
+    ctx.bezierCurveTo(cx+s*68, cy+16, cx+s*66, cy+34, cx+s*58, cy+46);
+    ctx.strokeStyle = HR2 + 'cc'; ctx.lineWidth = 2.5; ctx.stroke();
+  });
+
+  // ── Main cap top (drawn over back layer)
+  ctx.beginPath();
+  ctx.moveTo(cx-66, cy+4);
+  ctx.bezierCurveTo(cx-70, cy-34, cx-62, cy-74, cx-26, cy-86);
+  ctx.bezierCurveTo(cx-10, cy-92, cx+10, cy-92, cx+26, cy-86);
+  ctx.bezierCurveTo(cx+62, cy-74, cx+70, cy-34, cx+66, cy+4);
+  ctx.bezierCurveTo(cx+44, cy-4, cx+24, cy-8, cx, cy-8);
+  ctx.bezierCurveTo(cx-24, cy-8, cx-44, cy-4, cx-58, cy+2);
+  ctx.closePath();
+  var hcg = ctx.createRadialGradient(cx-22, cy-68, 4, cx+20, cy-8, 80);
+  hcg.addColorStop(0, HR2); hcg.addColorStop(0.32, HR); hcg.addColorStop(1, HR1);
+  ctx.fillStyle = hcg; ctx.fill(); outline(ctx, 2.8, '#2a0e04');
+
+  // ── Hair cap highlight (specular sweep)
+  ctx.beginPath(); ctx.ellipse(cx-18, cy-52, 32, 14, Math.PI/7, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
+
+  // ── Fringe — sweeps across forehead
+  // Left side fringe
+  ctx.beginPath();
+  ctx.moveTo(cx-58, cy+2);
+  ctx.bezierCurveTo(cx-44, cy+2, cx-24, cy-6, cx-4, cy-8);
+  ctx.bezierCurveTo(cx-4, cy+4, cx-14, cy+8, cx-30, cy+6);
+  ctx.bezierCurveTo(cx-44, cy+6, cx-54, cy+8, cx-58, cy+2);
+  ctx.closePath();
+  ctx.fillStyle = HR; ctx.fill(); outline(ctx, 2.2, '#2a0e04');
+
+  // Right side fringe
+  ctx.beginPath();
+  ctx.moveTo(cx+58, cy+2);
+  ctx.bezierCurveTo(cx+44, cy+2, cx+14, cy-6, cx-2, cy-8);
+  ctx.bezierCurveTo(cx-2, cy+4, cx+4, cy+8, cx+22, cy+6);
+  ctx.bezierCurveTo(cx+36, cy+4, cx+52, cy+8, cx+58, cy+2);
+  ctx.closePath();
+  ctx.fillStyle = HR1; ctx.fill(); outline(ctx, 2.2, '#2a0e04');
+
+  // Centre parting detail
+  ctx.beginPath();
+  ctx.moveTo(cx-2, cy-76);
+  ctx.bezierCurveTo(cx+4, cy-60, cx+8, cy-44, cx+12, cy-28);
+  ctx.strokeStyle = HR1; ctx.lineWidth = 2.5; ctx.stroke();
+}
+
+// ── GAME API ──────────────────────────────────────────────────────────────
+function initBabyCanvas(){
+  _bc.canvas = document.getElementById('baby-canvas-2d');
+  if(!_bc.canvas) return;
+  _bc.ctx = _bc.canvas.getContext('2d');
+  updateBabyCanvas();
+  _renderLoop();
+}
+
+function updateBabyCanvas(){
+  var si=Math.min(G.si||0,4), look=STAGE_LOOK[si]; if(!look) return;
+  _bc.stage=si;
+  _bc.bodyHex=look.bodyColor||'#74d2f0';
+  _bc.skinHex=(G.custom&&G.custom.skin!==undefined&&window.CUST_OPTIONS)
+    ?(CUST_OPTIONS.skinColors[G.custom.skin]||'#ffc99a'):'#ffc99a';
+  _bc.hairHex=(G.custom&&G.custom.hair!==undefined&&window.CUST_OPTIONS)
+    ?(CUST_OPTIONS.hairColors[G.custom.hair]||'#7b3f10'):'#7b3f10';
+  _bc.expression=(G.hp<25||G.hu<15)?'sad':'happy';
+  _bc.showTears=!!(G.traits&&G.traits.indexOf('traumatised')>=0);
+  var nur=document.querySelector('.nursery');
+  if(nur&&look.nurserySky){var il=document.documentElement.classList.contains('light');nur.style.background=il?(look.nurserySkyLight||look.nurserySky):look.nurserySky;}
+  var sd=document.getElementById('nursery-stars');
+  if(look.stars&&!sd){sd=document.createElement('div');sd.id='nursery-stars';sd.style.cssText='position:absolute;inset:0;pointer-events:none;border-radius:20px;overflow:hidden;z-index:0';var sh='';for(var i=0;i<12;i++){var x=Math.random()*100,y=Math.random()*100,z=Math.random()*3+1;sh+='<div style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+z+'px;height:'+z+'px;background:#fff;border-radius:50%;opacity:'+(0.3+Math.random()*0.5)+'"></div>';}sd.innerHTML=sh;if(nur)nur.appendChild(sd);}
+  if(sd)sd.style.display=look.stars?'block':'none';
+}
+function update3DAvatar(){updateBabyCanvas();}
+function updateBabySVG(){updateBabyCanvas();}
+function updateExpression(){
+  _bc.expression=(G.hp<25||G.hu<15)?'sad':'happy';
+}
+
+// Animate: set mouth open briefly
+function animateBabyMouth(open){
+  _bc.mouthOpen=open;
+}
+
+
+
+function updateExpression() {
+  var mouth = document.getElementById('b-mouth');
+  var blL   = document.getElementById('b-pupil-l');
+  var blR   = document.getElementById('b-pupil-r');
+  var tears = document.getElementById('b-tears');
+  var sweat = document.getElementById('b-sweat');
+  var browL = document.getElementById('b-brow-l');
+  var browR = document.getElementById('b-brow-r');
+  var cheekL= document.getElementById('b-cheek-l');
+  var cheekR= document.getElementById('b-cheek-r');
+
+  if (!mouth) return;
+
+  var hu = G.hu, hp = G.hp, hl = G.hl;
+  var isTrauma = G.traits.indexOf('traumatised') >= 0;
+  var isGrumpy = G.traits.indexOf('grumpy') >= 0;
+  var isSad = hu < 25 || hp < 25;
+  var isHappy = hp > 65 && hu > 40;
+  var isVeryHappy = hp > 80 && hu > 60;
+
+  // Mouth
+  if (isTrauma) {
+    mouth.setAttribute('d','M-8,-10 Q0,-16 8,-10'); // frown big
+    mouth.setAttribute('stroke','#64748b');
+  } else if (isSad || isGrumpy) {
+    mouth.setAttribute('d','M-8,-8 Q0,-14 8,-8'); // frown
+    mouth.setAttribute('stroke','#e11d48');
+  } else if (isVeryHappy) {
+    mouth.setAttribute('d','M-10,-8 Q0,-2 10,-8'); // big smile
+    mouth.setAttribute('stroke','#e11d48');
+  } else if (isHappy) {
+    mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10'); // smile
+    mouth.setAttribute('stroke','#e11d48');
+  } else {
+    mouth.setAttribute('d','M-6,-10 Q0,-8 6,-10'); // neutral
+    mouth.setAttribute('stroke','#e11d48');
+  }
+
+  // Tears
+  if (tears) tears.setAttribute('opacity', (hu < 20 || hp < 20 || isTrauma) ? '1' : '0');
+
+  // Sweat drops
+  if (sweat) sweat.setAttribute('opacity', (hl < 30) ? '1' : '0');
+
+  // Eyebrows — worried vs happy
+  if (browL && browR) {
+    if (isTrauma || isSad) {
+      browL.setAttribute('d','M-17,-34 Q-11,-37 -5,-34');
+      browR.setAttribute('d','M5,-34 Q11,-37 17,-34');
+    } else if (isGrumpy) {
+      browL.setAttribute('d','M-17,-40 Q-11,-37 -5,-40');
+      browR.setAttribute('d','M5,-40 Q11,-37 17,-40');
+    } else {
+      browL.setAttribute('d','M-17,-37 Q-11,-40 -5,-37');
+      browR.setAttribute('d','M5,-37 Q11,-40 17,-37');
+    }
+  }
+
+  // Cheek blush — more visible when happy
+  if (cheekL && cheekR) {
+    var blushOp = isHappy ? '0.7' : '0.3';
+    cheekL.setAttribute('opacity', blushOp);
+    cheekR.setAttribute('opacity', blushOp);
+  }
+
+  // Eyes — look left/right randomly sometimes
+  if (blL && blR && Math.random() > 0.5) {
+    var ox = (Math.random() > 0.5 ? 1 : -1) * 2;
+    blL.setAttribute('cx', -11 + ox);
+    blR.setAttribute('cx',  11 + ox);
+  }
+}
+
+// Trigger an animation by name, with optional food emoji
+// ── RICH SVG ANIMATION ENGINE ────────────────────────────────────────────────
+// Helper: get SVG element safely
+function $s(id) { return document.getElementById(id); }
+
+// Helper: set multiple SVG attributes at once
+function setAttrs(el, attrs) {
+  if (!el) return;
+  for (var k in attrs) el.setAttribute(k, attrs[k]);
+}
+
+// Reset all animated overlays to default
+function resetAnimOverlays() {
+  setAttrs($s('b-mouth-open'), {rx:'0',ry:'0',opacity:'0'});
+  setAttrs($s('b-tongue'),     {rx:'0',ry:'0',opacity:'0'});
+  setAttrs($s('b-jaw'),        {ry:'0',opacity:'0'});
+  setAttrs($s('b-food-mouth'), {opacity:'0'});
+  setAttrs($s('b-injuries'),   {opacity:'0'});
+  setAttrs($s('b-bruise-eye'), {opacity:'0.0'});
+  setAttrs($s('b-bruise-cheek'),{opacity:'0.0'});
+  setAttrs($s('b-scratch'),    {opacity:'0'});
+  setAttrs($s('b-bump'),       {opacity:'0'});
+  setAttrs($s('b-eye-swell'),  {opacity:'0'});
+  setAttrs($s('b-sweat'),      {opacity:'0'});
+  setAttrs($s('b-tears'),      {opacity:'0'});
+  setAttrs($s('b-stars'),      {opacity:'0'});
+  // Reset arm transforms
+  var al = $s('b-arm-l'), ar = $s('b-arm-r');
+  if (al) { al.style.transform=''; al.style.transition=''; }
+  if (ar) { ar.style.transform=''; ar.style.transition=''; }
+  // Arm rotation is set fresh by updateBabySVG each render — no need to restore here
+  // Reset leg transforms
+  var ll = $s('b-leg-l'), lr = $s('b-leg-r');
+  if (ll) { ll.style.transform=''; ll.style.transition=''; }
+  if (lr) { lr.style.transform=''; lr.style.transition=''; }
+  var fl = $s('b-foot-l'), fr = $s('b-foot-r');
+  if (fl) fl.style.transform = '';
+  if (fr) fr.style.transform = '';
+  // Reset body-group CSS animation
+  var wrap = $s('b-anim-wrapper');
+  if (wrap) { wrap.setAttribute('class',''); wrap.style.animation = ''; }
+}
+
+// Sequenced frame runner
+function frames(steps) {
+  // steps: [{delay, fn}]
+  steps.forEach(function(s){ setTimeout(s.fn, s.delay); });
+}
+
+// Open and close mouth (eating/drinking sequence)
+function animateMouth(foodEmoji, isChewing, totalMs) {
+  var mouth = $s('b-mouth');
+  var mopen = $s('b-mouth-open');
+  var tongue = $s('b-tongue');
+  var jaw = $s('b-jaw');
+  var foodTxt = $s('b-food-mouth');
+
+  // Open
+  if (mouth) mouth.setAttribute('opacity','0');
+  setAttrs(mopen,  {rx:'9',ry:'6',opacity:'1',cy:'-9'});
+  setAttrs(tongue, {rx:'5',ry:'3',opacity:'1',cy:'-7'});
+  setAttrs(jaw,    {ry:'4',opacity:'1'});
+  if (foodTxt && foodEmoji) { foodTxt.textContent = foodEmoji; foodTxt.setAttribute('opacity','1'); }
+
+  if (isChewing) {
+    // Chew: repeatedly open/close jaw
+    var chewCount = Math.floor(totalMs / 300);
+    for (var i = 0; i < chewCount; i++) {
+      (function(ci){
+        setTimeout(function(){
+          var open = ci % 2 === 0;
+          setAttrs(jaw, {ry: open ? '4' : '1', cy: open ? '-6' : '-8'});
+          setAttrs(mopen, {ry: open ? '6' : '2'});
+          if (foodTxt) foodTxt.setAttribute('opacity', open ? '0.8' : '0.3');
+        }, ci * 280);
+      })(i);
+    }
+  }
+
+  // Close after totalMs
+  setTimeout(function(){
+    if (mouth) mouth.setAttribute('opacity','1');
+    setAttrs(mopen,  {rx:'0',ry:'0',opacity:'0'});
+    setAttrs(tongue, {rx:'0',ry:'0',opacity:'0'});
+    setAttrs(jaw,    {ry:'0',opacity:'0'});
+    if (foodTxt) foodTxt.setAttribute('opacity','0');
+  }, totalMs);
+}
+
+// Arm wave animation
+function animateArm(side, startAngle, endAngle, durationMs, repeat) {
+  var el = $s(side === 'l' ? 'b-arm-l' : 'b-arm-r');
+  if (!el) return;
+  var count = 0;
+  var maxRep = repeat || 1;
+  function swing() {
+    el.style.transition = 'transform '+Math.floor(durationMs/2)+'ms ease-in-out';
+    el.style.transform = 'rotate('+startAngle+'deg)';
+    setTimeout(function(){
+      el.style.transform = 'rotate('+endAngle+'deg)';
+      setTimeout(function(){
+        el.style.transform = '';
+        count++;
+        if (count < maxRep) swing();
+      }, durationMs/2);
+    }, durationMs/2);
+  }
+  swing();
+}
+
+// Apply a bruise/injury mark to the SVG
+function applyInjury(type) {
+  // type: 'blackeye' | 'bruise' | 'scratch' | 'bump' | 'multi'
+  var inj = $s('b-injuries');
+  if (inj) inj.setAttribute('opacity','1');
+  if (type === 'blackeye' || type === 'multi') {
+    setAttrs($s('b-bruise-eye'),  {opacity:'0.75'});
+    setAttrs($s('b-eye-swell'),   {opacity:'1'});
+    var pl = $s('b-pupil-l');
+    if (pl) { pl.setAttribute('cx','-11'); pl.setAttribute('ry','2'); }
+  }
+  if (type === 'bruise' || type === 'multi') {
+    setAttrs($s('b-bruise-cheek'),{opacity:'0.7'});
+  }
+  if (type === 'scratch' || type === 'multi') {
+    setAttrs($s('b-scratch'), {opacity:'0.9'});
+  }
+  if (type === 'bump') {
+    setAttrs($s('b-bump'), {opacity:'0.9'});
+  }
+  // Persist injuries across the session (cumulative trauma)
+  G._injuries = (G._injuries || 0) + 1;
+}
+
+// Clear injuries (restored after healing/time)
+function clearInjuries() {
+  setAttrs($s('b-injuries'),    {opacity:'0'});
+  setAttrs($s('b-bruise-eye'),  {'opacity':'0.0'});
+  setAttrs($s('b-bruise-cheek'),{'opacity':'0.0'});
+  setAttrs($s('b-scratch'),     {opacity:'0'});
+  setAttrs($s('b-bump'),        {opacity:'0'});
+  setAttrs($s('b-eye-swell'),   {opacity:'0'});
+  var pl = $s('b-pupil-l');
+  if (pl) { pl.setAttribute('ry','3.5'); }
+  G._injuries = 0;
+}
+
+// Body bounce using CSS animation on the group
+function bodyBounce(keyframe, duration, count) {
+  var el = document.getElementById('baby-canvas-2d')||document.getElementById('baby-wrap');
+  if (!el) return;
+  el.style.animation = '';
+  void el.getBoundingClientRect();
+  el.style.animation = keyframe+' '+(duration/1000)+'s ease-in-out '+count;
+  setTimeout(function(){
+    var e=document.getElementById('baby-canvas-2d'); if(e) e.style.animation='';
+  }, (duration/1000)*count*1000 + 200);
+}
+
+// ── animateBaby — master dispatcher ──────────────────────────────────────────
+function animateBaby(type, foodEmoji) {
+  clearTimeout(_animTimer);
+  resetAnimOverlays();
+  // Re-show persistent injuries
+  if (G._injuries && G._injuries > 0) {
+    var inj=$s('b-injuries'); if(inj) inj.setAttribute('opacity','1');
+    setAttrs($s('b-bruise-eye'),   {opacity:G._injuries>=3?'0.75':'0'});
+    setAttrs($s('b-bruise-cheek'), {opacity:G._injuries>=2?'0.7':'0'});
+    setAttrs($s('b-eye-swell'),    {opacity:G._injuries>=3?'1':'0'});
+  }
+  floatEmoji(type);
+  // Dispatch
+  if (type==='eat') {
+    if(foodEmoji==='🍼'||foodEmoji==='🥛') FOOD_ANIMS.drink(foodEmoji);
+    else if(['🍔','🍕','🍟','🍦','🍫'].indexOf(foodEmoji)>=0) FOOD_ANIMS.junk(foodEmoji);
+    else FOOD_ANIMS.chew(foodEmoji||'🥕');
+  } else if (ACTION_ANIMS[type]) {
+    ACTION_ANIMS[type]();
+  } else {
+    ACTION_ANIMS.bounce();
+  }
+  _animTimer = setTimeout(function(){}, 2200);
+}
+
+var ANIM_FLOATS = {
+  eat:['😋','👌','🍽️'], bounce:['😄','✨','🎉'], pulse:['💡','📚','🌟'],
+  float:['❤️','🌟','💫'], cry:['😭','💧','🌧️'], giggle:['😄','✨','🎉'],
+  shake:['😨','💧','😰'], wobble:['🎵','🍔','💃'], spank:['💥','😢','🚨'],
+  punch:['💥','🤕','😱'], yell:['😱','💢','😨'], ignore:['😔','💧','❓'],
+  sports:['⚽','💪','🏃'], drawing:['🎨','✏️','🖼️'], music:['🎵','🎶','🎤'],
+  science:['🔬','💡','🧪'], bath:['🛁','💦','✨'], jog:['🏃','💪','😅'],
+  nap:['😴','💤','🌙'], hug:['🤗','❤️','💕'], doctor:['🩺','💊','✅'],
+};
+
+function floatEmoji(type) {
+  var container=document.getElementById('float-emojis'); if(!container) return;
+  var emojis=ANIM_FLOATS[type]||['✨'];
+  emojis.forEach(function(em,i){
+    setTimeout(function(){
+      var span=document.createElement('div');
+      span.textContent=em;
+      span.style.cssText='position:absolute;font-size:18px;left:'+(15+Math.random()*70)+'%;top:80%;pointer-events:none;animation:floatUp 1s ease-out forwards;';
+      container.appendChild(span);
+      setTimeout(function(){if(span.parentNode)container.removeChild(span);},1000);
+    },i*140);
+  });
+}
+
+// Inject CSS keyframes once
+(function(){
+  var s=document.createElement('style');
+  s.textContent=[
+    '@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(1.2)}}',
+    '@keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}70%{transform:translateY(-6px)}}',
+    '@keyframes wobble{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg)}50%{transform:rotate(8deg)}80%{transform:rotate(-5deg)}}',
+    '@keyframes shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-7px)}35%{transform:translateX(7px)}55%{transform:translateX(-5px)}75%{transform:translateX(5px)}}',
+    '@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}',
+    '@keyframes eat{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3px) rotate(3deg)}60%{transform:translateY(2px) rotate(-2deg)}}',
+    '@keyframes cry{0%,100%{transform:translateY(0)}30%{transform:translateY(3px) rotate(-3deg)}70%{transform:translateY(1px)}}',
+    '@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}',
+    '@keyframes impactPop{0%{opacity:1;transform:scale(0.5)}40%{opacity:1;transform:scale(1.4)}100%{opacity:0;transform:scale(1) translateY(-40px)}}',
+  ].join('');
+  document.head.appendChild(s);
+})();
+
+// ── Per-action animation sequences ───────────────────────────────────────────
+
+var FOOD_ANIMS = {
+  // Drinking (milk, juice)
+  drink: function(foodEmoji) {
+    animateMouth(foodEmoji, false, 1400);
+    // Tilt head back to drink
+    var head = $s('b-head');
+    frames([
+      {delay:0,   fn:function(){ if(head) head.setAttribute('transform','rotate(-8,0,-22)'); }},
+      {delay:200, fn:function(){ if(head) head.setAttribute('transform','rotate(-12,0,-22)'); }},
+      {delay:600, fn:function(){ if(head) head.setAttribute('transform','rotate(-5,0,-22)'); }},
+      {delay:1200,fn:function(){ if(head) head.setAttribute('transform',''); }},
+    ]);
+    // Arm raises bottle
+    animateArm('r', -30, 10, 500, 2);
+    // Happy eyes (wide)
+    frames([
+      {delay:100, fn:function(){
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl){pl.setAttribute('r','4.5');} if(pr){pr.setAttribute('r','4.5');}
+      }},
+      {delay:1400,fn:function(){
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl){pl.setAttribute('r','3.5');} if(pr){pr.setAttribute('r','3.5');}
+      }},
+    ]);
+    bodyBounce('bounce',600,2);
+  },
+
+  // Chewing solid food (chicken, oatmeal, veggies, salmon, fruit, carrot)
+  chew: function(foodEmoji) {
+    animateMouth(foodEmoji, true, 1800);
+    // Jaw-bob: body group slight nod
+    bodyBounce('eat', 350, 4);
+    // Both arms raise for eating
+    animateArm('l', 20, -20, 400, 3);
+    animateArm('r', -20, 20, 400, 3);
+    // Cheeks puff (widen)
+    frames([
+      {delay:0,   fn:function(){
+        var cl=$s('b-cheek-l'),cr=$s('b-cheek-r');
+        if(cl){cl.setAttribute('rx','10');cl.setAttribute('opacity','0.8');}
+        if(cr){cr.setAttribute('rx','10');cr.setAttribute('opacity','0.8');}
+      }},
+      {delay:1600,fn:function(){
+        var cl=$s('b-cheek-l'),cr=$s('b-cheek-r');
+        if(cl){cl.setAttribute('rx','7');cl.setAttribute('opacity','0.5');}
+        if(cr){cr.setAttribute('rx','7');cr.setAttribute('opacity','0.5');}
+      }},
+    ]);
+  },
+
+  // Junk food — excited but messy
+  junk: function(foodEmoji) {
+    animateMouth(foodEmoji, true, 1600);
+    bodyBounce('wobble', 300, 4);
+    // Excited arm flap
+    animateArm('l',  40, -10, 250, 5);
+    animateArm('r', -40,  10, 250, 5);
+    // Eyes go wide with excitement
+    frames([
+      {delay:0,   fn:function(){
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl){pl.setAttribute('r','5');} if(pr){pr.setAttribute('r','5');}
+        var bl=$s('b-brow-l'),br=$s('b-brow-r');
+        if(bl) bl.setAttribute('d','M-17,-40 Q-11,-44 -5,-40');
+        if(br) br.setAttribute('d','M5,-40 Q11,-44 17,-40');
+      }},
+      {delay:1400,fn:function(){
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl){pl.setAttribute('r','3.5');} if(pr){pr.setAttribute('r','3.5');}
+        var bl=$s('b-brow-l'),br=$s('b-brow-r');
+        if(bl) bl.setAttribute('d','M-17,-37 Q-11,-40 -5,-37');
+        if(br) br.setAttribute('d','M5,-37 Q11,-40 17,-37');
+      }},
+    ]);
+    // Stars burst
+    var stars = $s('b-stars');
+    if(stars){stars.setAttribute('opacity','1'); setTimeout(function(){stars.setAttribute('opacity','0');},1200);}
+  },
+};
+
+var ACTION_ANIMS = {
+  // ── PLAY ──────────────────────────────────────────────────────────────────
+  bounce: function() { // Playground
+    bodyBounce('bounce',450,4);
+    animateArm('l', 50,-30,350,3); animateArm('r',-50,30,350,3);
+    var ll=$s('b-leg-l'),lr=$s('b-leg-r');
+    frames([
+      {delay:0,  fn:function(){if(ll){ll.style.transition='transform 0.2s';ll.style.transform='rotate(-20deg)';}if(lr){lr.style.transition='transform 0.2s';lr.style.transform='rotate(20deg)';}  }},
+      {delay:200,fn:function(){if(ll)ll.style.transform='rotate(15deg)';if(lr)lr.style.transform='rotate(-15deg)';}},
+      {delay:400,fn:function(){if(ll)ll.style.transform='';if(lr)lr.style.transform='';}},
+    ]);
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1400);}
+  },
+  puzzle: function() { // Puzzles
+    var head=$s('b-head'),ar=$s('b-arm-r');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(10,0,-22)');if(ar){ar.style.transition='transform 0.3s';ar.style.transform='rotate(-50deg) translate(-5px,-8px)';}}},
+      {delay:500,fn:function(){if(head)head.setAttribute('transform','rotate(-5,0,-22)');}},
+      {delay:900,fn:function(){if(head)head.setAttribute('transform','rotate(6,0,-22)');}},
+      {delay:1300,fn:function(){if(head)head.setAttribute('transform','');if(ar)ar.style.transform='';}},
+    ]);
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:0,fn:function(){if(pl)pl.setAttribute('ry','2');if(pr)pr.setAttribute('ry','2');}},{delay:1300,fn:function(){if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');}}]);
+  },
+  sports: function() { // Sports — full running animation
+    bodyBounce('bounce',300,5);
+    var ll=$s('b-leg-l'),lr=$s('b-leg-r'),al=$s('b-arm-l'),ar=$s('b-arm-r');
+    var t=0;
+    for(var i=0;i<4;i++){(function(step){
+      frames([
+        {delay:step*250,fn:function(){
+          if(ll){ll.style.transition='transform 0.15s';ll.style.transform='rotate(-30deg)';}
+          if(lr){lr.style.transition='transform 0.15s';lr.style.transform='rotate(30deg)';}
+          if(al){al.style.transition='transform 0.15s';al.style.transform='rotate(30deg)';}
+          if(ar){ar.style.transition='transform 0.15s';ar.style.transform='rotate(-30deg)';}
+        }},
+        {delay:step*250+130,fn:function(){
+          if(ll)ll.style.transform='rotate(25deg)';if(lr)lr.style.transform='rotate(-25deg)';
+          if(al)al.style.transform='rotate(-25deg)';if(ar)ar.style.transform='rotate(25deg)';
+        }},
+      ]);
+    })(i);}
+    setTimeout(function(){if(ll)ll.style.transform='';if(lr)lr.style.transform='';if(al)al.style.transform='';if(ar)ar.style.transform='';},1200);
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1200);}
+  },
+  drawing: function() { // Drawing — arm moves like drawing
+    var ar=$s('b-arm-r');
+    if(ar){ar.style.transition='none';}
+    var moves=[[-15,-5],[-25,5],[-10,0],[-20,-8],[-5,5],[-18,2]];
+    moves.forEach(function(m,i){
+      setTimeout(function(){
+        if(ar){ar.style.transition='transform 0.18s linear';ar.style.transform='rotate('+(m[0]+30)+'deg) translateX('+m[1]+'px)';}
+      },i*200);
+    });
+    setTimeout(function(){if(ar)ar.style.transform='';},1400);
+    // Tongue pokes out in concentration
+    var tongue=$s('b-tongue');
+    if(tongue){tongue.setAttribute('rx','4');tongue.setAttribute('ry','2');tongue.setAttribute('cx','6');tongue.setAttribute('opacity','1');}
+    setTimeout(function(){if(tongue)tongue.setAttribute('opacity','0');},1400);
+  },
+  videogames: function() { // Video games — thumbs up, eyes glued
+    animateArm('l',-10,10,200,5); animateArm('r',10,-10,200,5);
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    // Eyes widen and pupils shrink (screen-staring)
+    if(pl){pl.setAttribute('r','2.5');pl.setAttribute('cx','-9');} if(pr){pr.setAttribute('r','2.5');pr.setAttribute('cx','9');}
+    setTimeout(function(){if(pl){pl.setAttribute('r','3.5');pl.setAttribute('cx','-11');}if(pr){pr.setAttribute('r','3.5');pr.setAttribute('cx','11');}},1800);
+    bodyBounce('pulse',600,2);
+  },
+  cuddle: function() {
+    var wrap=$s('b-anim-wrapper'); // Cuddle — arms wrap, eyes close happy
+    animateArm('l',40,20,400,2); animateArm('r',-40,-20,400,2);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-10,-8 Q0,-2 10,-8');
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:0,fn:function(){if(pl)pl.setAttribute('ry','0.5');if(pr)pr.setAttribute('ry','0.5');}},{delay:1400,fn:function(){if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');}}]);
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1500);}
+  },
+
+  // ── LEARN ─────────────────────────────────────────────────────────────────
+  readbook: function() { // Read a book — eyes scan left to right
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r'),head=$s('b-head');
+    if(head)head.setAttribute('transform','rotate(5,0,-22)');
+    var xPos=[-14,-8,-2,4,10,14,-14,-8,-2,4];
+    xPos.forEach(function(x,i){
+      setTimeout(function(){
+        if(pl)pl.setAttribute('cx',x-11); if(pr)pr.setAttribute('cx',x+1);
+      },i*180);
+    });
+    setTimeout(function(){if(head)head.setAttribute('transform','');if(pl)pl.setAttribute('cx','-11');if(pr)pr.setAttribute('cx','11');},1900);
+    // Page turn arm motion
+    var al=$s('b-arm-l'),ar=$s('b-arm-r');
+    frames([{delay:0,fn:function(){if(al){al.style.transition='transform 0.3s';al.style.transform='rotate(20deg)';}if(ar){ar.style.transition='transform 0.3s';ar.style.transform='rotate(-20deg)';}}},{delay:800,fn:function(){if(ar)ar.style.transform='rotate(-35deg) translateX(5px)';setTimeout(function(){if(ar)ar.style.transform='rotate(-20deg)';},300);}},{delay:1500,fn:function(){if(al)al.style.transform='';if(ar)ar.style.transform='';}}]);
+  },
+  music: function() { // Music class — head bobs, arms conduct
+    bodyBounce('wobble',400,3);
+    animateArm('l',30,-20,350,3); animateArm('r',-30,20,350,3);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-10,-8 Q0,-1 10,-8');
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1500);
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1500);}
+  },
+  science: function() { // Science kit — peers at experiment
+    var head=$s('b-head'),al=$s('b-arm-l');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(-10,0,-22) translate(-4,6)');if(al){al.style.transition='transform 0.3s';al.style.transform='rotate(40deg) translateY(-5px)';}}},
+      {delay:600,fn:function(){if(head)head.setAttribute('transform','rotate(-6,0,-22) translate(-2,4)');}},
+      {delay:1000,fn:function(){if(head)head.setAttribute('transform','rotate(-12,0,-22) translate(-5,7)');}},
+      {delay:1500,fn:function(){if(head)head.setAttribute('transform','');if(al)al.style.transform='';}},
+    ]);
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:0,fn:function(){if(pl)pl.setAttribute('cx','-8');if(pr)pr.setAttribute('cx','8');}},{delay:1500,fn:function(){if(pl)pl.setAttribute('cx','-11');if(pr)pr.setAttribute('cx','11');}}]);
+  },
+  worldmap: function() { // World map — head turns side to side looking
+    var head=$s('b-head');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(0,0,-22) translate(8,0)');}},
+      {delay:400,fn:function(){if(head)head.setAttribute('transform','rotate(0,0,-22) translate(-8,0)');}},
+      {delay:800,fn:function(){if(head)head.setAttribute('transform','rotate(0,0,-22) translate(5,0)');}},
+      {delay:1200,fn:function(){if(head)head.setAttribute('transform','');}},
+    ]);
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:0,fn:function(){if(pl)pl.setAttribute('cx','-7');if(pr)pr.setAttribute('cx','7');}},{delay:1300,fn:function(){if(pl)pl.setAttribute('cx','-11');if(pr)pr.setAttribute('cx','11');}}]);
+  },
+  socialstory: function() { // Social story — nodding
+    var head=$s('b-head');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(5,0,-22)');}},
+      {delay:300,fn:function(){if(head)head.setAttribute('transform','rotate(-2,0,-22)');}},
+      {delay:600,fn:function(){if(head)head.setAttribute('transform','rotate(6,0,-22)');}},
+      {delay:900,fn:function(){if(head)head.setAttribute('transform','rotate(-1,0,-22)');}},
+      {delay:1200,fn:function(){if(head)head.setAttribute('transform','');}},
+    ]);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-9,-9 Q0,-4 9,-9');
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1400);
+    animateArm('l',20,-5,400,2);
+  },
+  tv: function() { // TV — slumped, eyes half closed, arm droops
+    var head=$s('b-head'),al=$s('b-arm-l'),ar=$s('b-arm-r');
+    frames([
+      {delay:0,fn:function(){
+        if(head)head.setAttribute('transform','rotate(12,0,-22) translate(0,4)');
+        if(al){al.style.transition='transform 0.5s';al.style.transform='rotate(-20deg) translateY(8px)';}
+        if(ar){ar.style.transition='transform 0.5s';ar.style.transform='rotate(20deg) translateY(8px)';}
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl)pl.setAttribute('ry','1.5');if(pr)pr.setAttribute('ry','1.5');
+      }},
+      {delay:1500,fn:function(){
+        if(head)head.setAttribute('transform','');
+        if(al)al.style.transform='';if(ar)ar.style.transform='';
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');
+      }},
+    ]);
+  },
+
+  // ── CARE ──────────────────────────────────────────────────────────────────
+  bath: function() { // Bath time — splash arms, squint happy
+    animateArm('l',40,-20,300,4); animateArm('r',-40,20,300,4);
+    bodyBounce('wobble',350,3);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-10,-8 Q0,-2 10,-8');
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1500);
+    var sweat=$s('b-sweat');if(sweat)sweat.setAttribute('opacity','1');
+    setTimeout(function(){if(sweat)sweat.setAttribute('opacity','0');},1200);
+  },
+  nap: function() { // Nap time — slow close eyes, head droops
+    var head=$s('b-head'),al=$s('b-arm-l'),ar=$s('b-arm-r');
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([
+      {delay:0,  fn:function(){if(pl)pl.setAttribute('ry','2');if(pr)pr.setAttribute('ry','2');}},
+      {delay:400,fn:function(){if(pl)pl.setAttribute('ry','0.8');if(pr)pr.setAttribute('ry','0.8');if(head)head.setAttribute('transform','rotate(10,0,-22) translate(0,3)');if(al){al.style.transition='transform 0.6s';al.style.transform='rotate(-15deg) translateY(6px)';}if(ar){ar.style.transition='transform 0.6s';ar.style.transform='rotate(15deg) translateY(6px)';}}},
+      {delay:1500,fn:function(){if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');if(head)head.setAttribute('transform','');if(al)al.style.transform='';if(ar)ar.style.transform='';}},
+    ]);
+  },
+  vitamins: function() { // Vitamins — reluctant open mouth, swallow
+    animateMouth('💊', false, 1400);
+    var head=$s('b-head');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(-5,0,-22)');}},
+      {delay:400,fn:function(){if(head)head.setAttribute('transform','rotate(3,0,-22)');}},
+      {delay:900,fn:function(){if(head)head.setAttribute('transform','rotate(-2,0,-22)');}},
+      {delay:1400,fn:function(){if(head)head.setAttribute('transform','');}},
+    ]);
+    // Brow furrow (reluctant)
+    var bl=$s('b-brow-l'),br=$s('b-brow-r');
+    if(bl)bl.setAttribute('d','M-17,-40 Q-11,-37 -5,-40');
+    if(br)br.setAttribute('d','M5,-40 Q11,-37 17,-40');
+    setTimeout(function(){if(bl)bl.setAttribute('d','M-17,-37 Q-11,-40 -5,-37');if(br)br.setAttribute('d','M5,-37 Q11,-40 17,-37');},1400);
+  },
+  jog: function() { // Morning jog — full running legs + arms + puffing
+    var ll=$s('b-leg-l'),lr=$s('b-leg-r'),al=$s('b-arm-l'),ar=$s('b-arm-r');
+    for(var i=0;i<5;i++){(function(step){
+      frames([
+        {delay:step*220,fn:function(){if(ll){ll.style.transition='transform 0.12s';ll.style.transform='rotate(-35deg)';}if(lr){lr.style.transition='transform 0.12s';lr.style.transform='rotate(35deg)';}if(al){al.style.transition='transform 0.12s';al.style.transform='rotate(35deg)';}if(ar){ar.style.transition='transform 0.12s';ar.style.transform='rotate(-35deg)';}}},
+        {delay:step*220+110,fn:function(){if(ll)ll.style.transform='rotate(30deg)';if(lr)lr.style.transform='rotate(-30deg)';if(al)al.style.transform='rotate(-30deg)';if(ar)ar.style.transform='rotate(30deg)';}},
+      ]);
+    })(i);}
+    setTimeout(function(){if(ll)ll.style.transform='';if(lr)lr.style.transform='';if(al)al.style.transform='';if(ar)ar.style.transform='';},1300);
+    bodyBounce('bounce',280,5);
+    var sweat=$s('b-sweat');if(sweat)sweat.setAttribute('opacity','1');
+    setTimeout(function(){if(sweat)sweat.setAttribute('opacity','0');},1500);
+  },
+  hug: function() { // Hug & talk — arms out, big smile
+    animateArm('l',50,25,500,2); animateArm('r',-50,-25,500,2);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-11,-8 Q0,-2 11,-8');
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1600);}
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1600);
+  },
+  doctor: function() { // Doctor — looks away nervously then relief
+    var head=$s('b-head'),al=$s('b-arm-l');
+    frames([
+      {delay:0,  fn:function(){if(head)head.setAttribute('transform','rotate(-15,0,-22) translate(-5,0)');if(al){al.style.transition='transform 0.3s';al.style.transform='rotate(-10deg) translateY(-3px)';}}},
+      {delay:500,fn:function(){if(head)head.setAttribute('transform','rotate(-10,0,-22) translate(-3,0)');}},
+      {delay:1000,fn:function(){if(head)head.setAttribute('transform','');if(al)al.style.transform='';}},
+      {delay:1100,fn:function(){var mouth=$s('b-mouth');if(mouth){mouth.setAttribute('d','M-9,-9 Q0,-4 9,-9');setTimeout(function(){mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},500);}}},
+    ]);
+    // Eyes squeeze shut at needle moment
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:400,fn:function(){if(pl)pl.setAttribute('ry','0.5');if(pr)pr.setAttribute('ry','0.5');}},{delay:900,fn:function(){if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');}}]);
+  },
+
+  // General fallbacks
+  pulse: function() { // Learn generic
+    var head=$s('b-head'),ar=$s('b-arm-r');
+    frames([{delay:0,fn:function(){if(head)head.setAttribute('transform','rotate(8,0,-22)');if(ar){ar.style.transition='transform 0.3s';ar.style.transform='rotate(-40deg) translateY(-10px)';}}},{delay:1400,fn:function(){if(head)head.setAttribute('transform','');if(ar)ar.style.transform='';}},]);
+  },
+  float: function() { // Care generic
+    bodyBounce('float',900,2);
+    animateArm('l',50,20,600,2); animateArm('r',-50,-20,600,2);
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1600);}
+  },
+  cry: function() {
+    bodyBounce('cry',500,4);
+    var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','1');
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-9,-8 Q0,-15 9,-8');
+    animateArm('l',-10,10,400,4); animateArm('r',10,-10,400,4);
+    var bl=$s('b-brow-l'),br=$s('b-brow-r');
+    if(bl)bl.setAttribute('d','M-17,-34 Q-11,-37 -5,-34');if(br)br.setAttribute('d','M5,-34 Q11,-37 17,-34');
+    setTimeout(function(){if(tears)tears.setAttribute('opacity','0');if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');if(bl)bl.setAttribute('d','M-17,-37 Q-11,-40 -5,-37');if(br)br.setAttribute('d','M5,-37 Q11,-40 17,-37');},2000);
+  },
+  giggle: function() {
+    bodyBounce('bounce',300,5);
+    animateArm('l',50,0,300,4); animateArm('r',-50,0,300,4);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-11,-8 Q0,-2 11,-8');
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1200);}
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1400);
+  },
+  shake: function() {
+    bodyBounce('shake',300,4);
+    var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0.5');
+    setTimeout(function(){var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0');},1500);
+  },
+  wobble: function() {
+    bodyBounce('wobble',350,5);
+    animateArm('l',40,-10,300,5); animateArm('r',-40,10,300,5);
+    var mouth=$s('b-mouth');if(mouth)mouth.setAttribute('d','M-10,-8 Q0,-2 10,-8');
+    var stars=$s('b-stars');if(stars){stars.setAttribute('opacity','1');setTimeout(function(){stars.setAttribute('opacity','0');},1500);}
+    setTimeout(function(){if(mouth)mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1600);
+  },
+  spanked: function() {
+    var head=$s('b-head'),neck=$s('b-neck');
+    frames([{delay:0,fn:function(){if(head)head.setAttribute('transform','rotate(20,0,-22) translate(8,0)');if(neck)neck.setAttribute('transform','rotate(10,0,0)');bodyBounce('shake',200,3);applyInjury('bruise');}},{delay:120,fn:function(){if(head)head.setAttribute('transform','rotate(-5,0,-22) translate(-4,0)');}},{delay:300,fn:function(){if(head)head.setAttribute('transform','rotate(8,0,-22) translate(3,0)');}},{delay:500,fn:function(){if(head)head.setAttribute('transform','');if(neck)neck.setAttribute('transform','');}},]);
+    frames([{delay:0,fn:function(){var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');if(pl)pl.setAttribute('ry','0.5');if(pr)pr.setAttribute('ry','0.5');var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','1');}},{delay:600,fn:function(){var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');if(pl)pl.setAttribute('ry','3.5');if(pr)pr.setAttribute('ry','3.5');}},{delay:1500,fn:function(){var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0');}}]);
+    var mouth=$s('b-mouth');if(mouth){mouth.setAttribute('d','M-9,-8 Q0,-16 9,-8');setTimeout(function(){mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1000);}
+  },
+  punched: function() {
+    var head=$s('b-head');
+    frames([{delay:0,fn:function(){if(head)head.setAttribute('transform','rotate(25,0,-22) translate(12,3)');applyInjury('multi');bodyBounce('shake',180,5);}},{delay:80,fn:function(){if(head)head.setAttribute('transform','rotate(-8,0,-22) translate(-6,0)');}},{delay:200,fn:function(){if(head)head.setAttribute('transform','rotate(12,0,-22) translate(5,0)');}},{delay:380,fn:function(){if(head)head.setAttribute('transform','rotate(3,0,-22)');}},{delay:600,fn:function(){if(head)head.setAttribute('transform','');}},]);
+    frames([{delay:0,fn:function(){var pr=$s('b-pupil-r');if(pr){pr.setAttribute('ry','0.3');pr.setAttribute('cx','14');}var es=$s('b-eye-swell');if(es)es.setAttribute('opacity','1');var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','1');}},{delay:1800,fn:function(){var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0');}}]);
+    var mouth=$s('b-mouth');if(mouth){mouth.setAttribute('d','M-10,-6 Q0,-15 10,-6');setTimeout(function(){mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1200);}
+  },
+  yelled: function() {
+    var wrap=$s('b-anim-wrapper');
+    bodyBounce('shake',200,3);
+    frames([
+      {delay:0,fn:function(){
+        if(wrap)wrap.style.transform='translate(-6px,4px) scale(0.93)';
+        var bl=$s('b-brow-l'),br=$s('b-brow-r');
+        if(bl)bl.setAttribute('d','M-17,-34 Q-11,-37 -5,-34');
+        if(br)br.setAttribute('d','M5,-34 Q11,-37 17,-34');
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl)pl.setAttribute('r','5');if(pr)pr.setAttribute('r','5');
+        var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0.7');
+      }},
+      {delay:350,fn:function(){if(wrap)wrap.style.transform='translate(4px,-2px) scale(0.97)';}},
+      {delay:700,fn:function(){
+        if(wrap)wrap.style.transform='';
+        var bl=$s('b-brow-l'),br=$s('b-brow-r');
+        if(bl)bl.setAttribute('d','M-17,-37 Q-11,-40 -5,-37');
+        if(br)br.setAttribute('d','M5,-37 Q11,-40 17,-37');
+        var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+        if(pl)pl.setAttribute('r','3.5');if(pr)pr.setAttribute('r','3.5');
+        setTimeout(function(){var t=$s('b-tears');if(t)t.setAttribute('opacity','0');},600);
+      }},
+    ]);
+  },
+  ignored: function() {
+    var pl=$s('b-pupil-l'),pr=$s('b-pupil-r');
+    frames([{delay:0,fn:function(){if(pl)pl.setAttribute('cx','-7');if(pr)pr.setAttribute('cx','7');}},{delay:400,fn:function(){if(pl)pl.setAttribute('cx','-14');if(pr)pr.setAttribute('cx','8');}},{delay:800,fn:function(){if(pl)pl.setAttribute('cx','-11');if(pr)pr.setAttribute('cx','11');}},{delay:1200,fn:function(){if(pl)pl.setAttribute('cx','-14');if(pr)pr.setAttribute('cx','14');}},{delay:1600,fn:function(){if(pl)pl.setAttribute('cx','-11');if(pr)pr.setAttribute('cx','11');}}]);
+    var mouth=$s('b-mouth');if(mouth){mouth.setAttribute('d','M-5,-10 Q0,-8 5,-10');setTimeout(function(){mouth.setAttribute('d','M-8,-10 Q0,-5 8,-10');},1800);}
+    var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0.4');
+    setTimeout(function(){var tears=$s('b-tears');if(tears)tears.setAttribute('opacity','0');},1800);
+  },
+  // ── Fallback / shared animations ─────────────────────────────────────────
+};
+
+
+var ANIM_FLOATS = {
+  eat:    ['😋','👌','🍽️'],
+  bounce: ['😄','✨','🎉'],
+  pulse:  ['💡','📚','🌟'],
+  float:  ['❤️','🌟','💫'],
+  cry:    ['😭','💧','🌧️'],
+  giggle: ['😄','✨','🎉'],
+  shake:  ['😨','💧','😰'],
+  wobble: ['🎵','🍔','💃'],
+  spank:  ['💥','😢','🚨'],
+  punch:  ['💥','🤕','😱'],
+  yell:   ['😱','💢','😨'],
+  ignore: ['😔','💧','❓'],
+};
+
+function floatEmoji(type) {
+  var container = document.getElementById('float-emojis');
+  if (!container) return;
+  var emojis = ANIM_FLOATS[type] || ['✨'];
+  emojis.forEach(function(em, i) {
+    setTimeout(function() {
+      var span = document.createElement('div');
+      span.textContent = em;
+      span.style.cssText = 'position:absolute;font-size:18px;left:'+(15+Math.random()*70)+'%;top:80%;pointer-events:none;animation:floatUp 1s ease-out forwards;';
+      container.appendChild(span);
+      setTimeout(function(){ if(span.parentNode) container.removeChild(span); }, 1000);
+    }, i * 140);
+  });
+}
+
+// Inject keyframes once
+(function(){
+  var s=document.createElement('style');
+  s.textContent=[
+    '@keyframes floatUp{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-60px) scale(1.2)}}',
+    '@keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}70%{transform:translateY(-6px)}}',
+    '@keyframes wobble{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg)}50%{transform:rotate(8deg)}80%{transform:rotate(-5deg)}}',
+    '@keyframes shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-7px)}35%{transform:translateX(7px)}55%{transform:translateX(-5px)}75%{transform:translateX(5px)}}',
+    '@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}',
+    '@keyframes eat{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3px) rotate(3deg)}60%{transform:translateY(2px) rotate(-2deg)}}',
+    '@keyframes cry{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(3px) rotate(-3deg)}70%{transform:translateY(1px) rotate(2deg)}}',
+    '@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}',
+    '.anim-bounce .baby-body-group,.anim-eat .baby-body-group,.anim-wobble .baby-body-group,.anim-shake .baby-body-group,.anim-pulse .baby-body-group,.anim-cry .baby-body-group,.anim-float .baby-body-group{animation:none}',
+    '@keyframes impactPop{0%{opacity:1;transform:scale(0.5)}40%{opacity:1;transform:scale(1.4)}100%{opacity:0;transform:scale(1) translateY(-40px)}}',
+  ].join('');
+  document.head.appendChild(s);
+})();
+
+var DISC_ANIM={
+  '😡':{weapon:'😡',style:'shout',  color:'#fef3c7'},
+  '👋':{weapon:'👊',style:'spank',  color:'#fee2e2'},
+  '🔇':{weapon:'🔇',style:'cold',   color:'#e0f2fe'},
+  '💢':{weapon:'💢',style:'verbal', color:'#fee2e2'},
+  '⭐':{weapon:'⭐',style:'praise', color:'#d1fae5'},
+  '🤝':{weapon:'🤝',style:'resolve',color:'#d1fae5'},
+  '📵':{weapon:'📵',style:'timeout',color:'#fef3c7'},
+};
+
+function animateDiscImpact(act, cb) {
+  var info = DISC_ANIM[act.e] || {weapon:act.e, style:'spank', color:'#fee2e2'};
+  var wrap = document.getElementById('baby-wrap');
+  if (!wrap) { cb(); return; }
+  var r = wrap.getBoundingClientRect();
+  var cx = r.left + r.width/2;
+  var cy = r.top  + r.height*0.33;
+  var wpn = document.createElement('div');
+  wpn.style.cssText='position:fixed;z-index:8700;pointer-events:none;font-size:44px;line-height:1;'+
+    'left:'+(cx+80)+'px;top:'+(cy-20)+'px;transform-origin:bottom right;transition:none;';
+  wpn.textContent = info.weapon;
+  document.body.appendChild(wpn);
+
+  function cleanup(delay) {
+    setTimeout(function(){
+      wpn.style.transition='opacity 0.25s'; wpn.style.opacity='0';
+      setTimeout(function(){ if(wpn.parentNode) wpn.parentNode.removeChild(wpn); cb(); }, 300);
+    }, delay);
+  }
+
+  if (info.style==='spank'||info.style==='generic') {
+    wpn.style.transform='rotate(-60deg)';
+    setTimeout(function(){
+      wpn.style.transition='transform 0.18s cubic-bezier(0.4,0,0.2,1), left 0.18s';
+      wpn.style.transform='rotate(20deg) scale(1.2)'; wpn.style.left=(cx-10)+'px';
+    }, 20);
+    setTimeout(function(){
+      flashImpact(info.color); SFX.discHarm();
+      animateBaby(info.style==='spank'?'punch':'spank'); setBubble('"'+act.s+'"');
+      spawnImpactEmoji('💥', true);
+    }, 200);
+    cleanup(350);
+
+  } else if (info.style==='shout') {
+    wpn.style.fontSize='28px'; wpn.style.left=(cx+60)+'px'; wpn.style.transform='scale(0.8)';
+    setTimeout(function(){
+      wpn.style.transition='transform 0.22s ease-out,left 0.22s,font-size 0.22s';
+      wpn.style.transform='scale(1.6)'; wpn.style.fontSize='50px'; wpn.style.left=(cx-24)+'px';
+    }, 20);
+    setTimeout(function(){
+      flashImpact(info.color); SFX.discHarm();
+      animateBaby('yell'); setBubble('"'+act.s+'"');
+      spawnImpactEmoji('😱', true);
+    }, 250);
+    cleanup(420);
+
+  } else if (info.style==='verbal') {
+    ['💢','😤','🗣️'].forEach(function(w,i){
+      setTimeout(function(){
+        var el=document.createElement('div');
+        el.style.cssText='position:fixed;z-index:8700;pointer-events:none;font-size:30px;'+
+          'left:'+(cx-20+(i-1)*30)+'px;top:'+(cy-40-i*20)+'px;animation:impactPop 0.5s ease-out forwards;';
+        el.textContent=w; document.body.appendChild(el);
+        setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },600);
+      }, i*100);
+    });
+    setTimeout(function(){
+      flashImpact(info.color); SFX.discHarm();
+      animateBaby('yell'); setBubble('"'+act.s+'"');
+    }, 320);
+    if(wpn.parentNode) wpn.parentNode.removeChild(wpn);
+    setTimeout(cb, 750);
+
+  } else if (info.style==='cold'||info.style==='timeout') {
+    wpn.style.opacity='0'; wpn.style.transform='scale(0.5)';
+    wpn.style.left=cx+'px'; wpn.style.top=(cy-10)+'px';
+    setTimeout(function(){
+      wpn.style.transition='transform 0.3s,opacity 0.3s';
+      wpn.style.opacity='1'; wpn.style.transform='scale(1.3)';
+    }, 20);
+    setTimeout(function(){
+      flashImpact(info.color); SFX.discHarm();
+      animateBaby('ignore'); setBubble('"'+act.s+'"');
+    }, 330);
+    cleanup(520);
+
+  } else {
+    // praise / resolve / talk
+    wpn.style.left=cx+'px'; wpn.style.top=(cy+20)+'px';
+    wpn.style.opacity='0'; wpn.style.transform='scale(0.8)';
+    setTimeout(function(){
+      wpn.style.transition='transform 0.35s,opacity 0.35s';
+      wpn.style.opacity='1'; wpn.style.transform='scale(1.4) translateY(-30px)';
+    }, 20);
+    setTimeout(function(){
+      flashImpact(info.color); SFX.discGood();
+      animateBaby(info.style==='resolve'||info.style==='talk'?'pulse':'bounce'); setBubble('"'+act.s+'"');
+      spawnImpactEmoji('✨', false);
+    }, 310);
+    cleanup(520);
+  }
+}
+
+// ── DRAG-ACTION ENGINE ────────────────────────────────────────────────────────
+var _drag = {active:false,ghost:null,card:null,action:null,tab:null,startX:0,startY:0,curX:0,curY:0};
+
+function initDropZone() {
+  var wrap = document.getElementById('baby-wrap');
+  if (!wrap || document.getElementById('drop-zone')) return;
+  var dz = document.createElement('div');
+  dz.className='drop-zone'; dz.id='drop-zone';
+  wrap.style.position='relative';
+  wrap.appendChild(dz);
+}
+
+function isOverBaby(x, y) {
+  var wrap = document.getElementById('baby-wrap');
+  if (!wrap) return false;
+  var r = wrap.getBoundingClientRect();
+  return x>=r.left-50 && x<=r.right+50 && y>=r.top-50 && y<=r.bottom+50;
+}
+
+function startDrag(e, card, action, tab) {
+  if (e.cancelable) e.preventDefault();
+  getAudioCtx();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  _drag.active=true; _drag.card=card; _drag.action=action; _drag.tab=tab;
+  _drag.startX=cx; _drag.startY=cy; _drag.curX=cx; _drag.curY=cy;
+  var ghost = document.createElement('div');
+  ghost.className='drag-ghost';
+  ghost.textContent = action.e || '?';
+  ghost.style.left=cx+'px'; ghost.style.top=cy+'px';
+  document.body.appendChild(ghost);
+  _drag.ghost = ghost;
+  card.classList.add('dragging');
+  initDropZone();
+  document.addEventListener('mousemove', onDragMove, {passive:false});
+  document.addEventListener('touchmove',  onDragMove, {passive:false});
+  document.addEventListener('mouseup',   onDragEnd);
+  document.addEventListener('touchend',  onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!_drag.active) return;
+  e.preventDefault();
+  var cx = e.touches ? e.touches[0].clientX : e.clientX;
+  var cy = e.touches ? e.touches[0].clientY : e.clientY;
+  _drag.curX=cx; _drag.curY=cy;
+  if (_drag.ghost) {
+    _drag.ghost.style.left=cx+'px';
+    _drag.ghost.style.top=cy+'px';
+    var dx=cx-_drag.startX, dy=cy-_drag.startY;
+    var ang=Math.atan2(dy,dx)*180/Math.PI;
+    _drag.ghost.style.transform='translate(-50%,-50%) rotate('+(ang+45)+'deg)';
+  }
+  var over=isOverBaby(cx,cy);
+  var dz=document.getElementById('drop-zone');
+  if (dz) {
+    dz.classList.toggle('active',      over && !(_drag.action && _drag.action.harm));
+    dz.classList.toggle('harm-active', over && !!(_drag.action && _drag.action.harm));
+  }
+}
+
+function onDragEnd(e) {
+  if (!_drag.active) return;
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('touchmove',  onDragMove);
+  document.removeEventListener('mouseup',   onDragEnd);
+  document.removeEventListener('touchend',  onDragEnd);
+  var cx=_drag.curX, cy=_drag.curY;
+  var over=isOverBaby(cx,cy);
+  if (_drag.ghost) { document.body.removeChild(_drag.ghost); _drag.ghost=null; }
+  if (_drag.card)  { _drag.card.classList.remove('dragging'); }
+  var dz=document.getElementById('drop-zone');
+  if (dz) dz.classList.remove('active','harm-active');
+  if (over && _drag.action) triggerDragAction(_drag.action, _drag.tab);
+  else if (_drag.action && (Math.abs(cx-_drag.startX)>8 || Math.abs(cy-_drag.startY)>8)) {
+    toast('Drag '+(_drag.action.e||'')+ ' onto baby!');
+  }
+  _drag.active=false; _drag.card=null; _drag.action=null; _drag.tab=null;
+}
+
+function triggerDragAction(action, tab) {
+  if (tab==='food') {
+    doFeed(action);
+    flashImpact(action.j>0 ? '#fef3c7' : '#d1fae5');
+    spawnImpactEmoji(action.e, false);
+  } else if (tab==='disc') {
+    animateDiscImpact(action, function(){ doDisc(action); });
+  } else {
+    doAct(tab, action.dl, action.s, action.e+' '+action.n+'!', action.anim);
+    flashImpact('#ede9fe');
+    spawnImpactEmoji(action.e, false);
+  }
+}
+
+function flashImpact(color) {
+  var el=document.getElementById('impact-flash');
+  if (!el) return;
+  el.style.background=color; el.style.opacity='0.45';
+  setTimeout(function(){ el.style.opacity='0'; }, 180);
+}
+
+function spawnImpactEmoji(emoji, isHarm) {
+  var wrap=document.getElementById('baby-wrap');
+  if (!wrap) return;
+  var r=wrap.getBoundingClientRect();
+  var el=document.createElement('div');
+  el.style.cssText='position:fixed;font-size:36px;line-height:1;pointer-events:none;z-index:8600;'+
+    'left:'+(r.left+r.width/2-18)+'px;top:'+(r.top+10)+'px;animation:impactPop 0.6s ease-out forwards;';
+  el.textContent=emoji;
+  document.body.appendChild(el);
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 700);
+}
+
+function mkDragCard(emoji, name, desc, extraClass, hint) {
+  var card = document.createElement('div');
+  card.className = 'drag-card'+(extraClass||'');
+  var isHarm = extraClass && extraClass.indexOf('harm')>=0;
+  // Compact layout: big emoji, short name, tiny hint — no desc to save space
+  card.innerHTML =
+    '<span class="drag-icon">'+emoji+'</span>'+
+    '<span class="drag-name" style="font-size:10px;line-height:1.2">'+name+'</span>'+
+    '<span class="drag-hint" style="font-size:8px;color:'+(isHarm?'#fca5a5':'#c4b5fd')+';margin-top:3px;display:block">drag up ↑</span>';
+  card.title = name + ' — ' + desc;
+  return card;
+}
+
+function bindDragCard(card, action, tab) {
+  // Mouse
+  card.addEventListener('mousedown', function(e){
+    if(!_drag.active) startDrag(e, card, action, tab);
+  }, {passive:false});
+
+  // Touch — use a hold-then-drag approach:
+  // Tap+hold 180ms on a card → visual pulse → enters drag mode
+  // Short tap → ignored (no scroll interference)
+  // Pure horizontal/vertical swipe → scroll passes through
+  var _holdTimer = null;
+  var _holdStartX = 0, _holdStartY = 0;
+  var _inHold = false;
+
+  card.addEventListener('touchstart', function(e){
+    if(_drag.active) return;
+    _holdStartX = e.touches[0].clientX;
+    _holdStartY = e.touches[0].clientY;
+    _inHold = false;
+    _holdTimer = setTimeout(function(){
+      _inHold = true;
+      // Visual pulse to signal drag-ready
+      card.style.transform = 'scale(0.95)';
+      card.style.borderColor = '#7c3aed';
+      card.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.3)';
+    }, 180);
+  }, {passive:true});
+
+  card.addEventListener('touchmove', function(e){
+    if(!_inHold) {
+      // Not in hold mode — cancel hold timer so scroll works
+      clearTimeout(_holdTimer);
+      return;
+    }
+    // In hold mode — this is a drag, prevent scroll and move ghost
+    e.preventDefault();
+    if(!_drag.active){
+      card.style.transform = '';
+      card.style.borderColor = '';
+      card.style.boxShadow = '';
+      startDrag(e, card, action, tab);
+    }
+  }, {passive:false});
+
+  card.addEventListener('touchend', function(e){
+    clearTimeout(_holdTimer);
+    card.style.transform = '';
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+    _inHold = false;
+  }, {passive:true});
+}
+
+function mkBtn(extra) {
+  var b = document.createElement('button');
+  b.type='button'; b.className='abtn'+(extra||'');
+  return b;
+}
+
+function buildFG() {
+  var g = document.getElementById('fg'); if(!g) return; g.innerHTML='';
+  var mx = G.uses.food >= LIM;
+  FOODS.forEach(function(f) {
+    if (mx) {
+      var b=document.createElement('div'); b.className='drag-card dimmed';
+      b.innerHTML='<span class="drag-icon">'+f.e+'</span><span class="drag-name" style="font-size:10px">'+f.n+'</span><span class="dbadge">done</span>';
+      g.appendChild(b);
+    } else {
+      var card=mkDragCard(f.e,f.n,f.t,f.j>0?' harm':'','drag onto baby to feed');
+      if(f.j>0) card.insertAdjacentHTML('afterbegin','<span class="jbadge">JUNK</span>');
+      (function(food){ bindDragCard(card,food,'food'); })(f);
+      g.appendChild(card);
+    }
+  });
+}
+
+function buildAG(gid, acts, tab) {
+  var g = document.getElementById(gid); if(!g) return; g.innerHTML='';
+  var mx = G.uses[tab] >= LIM;
+  var hints={play:'drag onto baby to play',learn:'drag onto baby to teach',care:'drag onto baby to care'};
+  acts.forEach(function(a) {
+    if (mx) {
+      var b=document.createElement('div'); b.className='drag-card dimmed';
+      b.innerHTML='<span class="drag-icon">'+a.e+'</span><span class="drag-name" style="font-size:10px">'+a.n+'</span><span class="dbadge">done</span>';
+      g.appendChild(b);
+    } else {
+      var card=mkDragCard(a.e,a.n,a.d,'',hints[tab]||'drag to baby');
+      (function(act,t){ bindDragCard(card,act,t); })(a,tab);
+      g.appendChild(card);
+    }
+  });
+}
+
+function buildDG() {
+  var g = document.getElementById('dg'); if(!g) return; g.innerHTML='';
+  var mx = G.uses.disc >= LIM;
+  DISC.forEach(function(a) {
+    if (mx) {
+      var b=document.createElement('div'); b.className='drag-card'+(a.harm?' harm':'')+' dimmed';
+      b.innerHTML='<span class="drag-icon">'+a.e+'</span><span class="drag-name" style="font-size:10px">'+a.n+'</span><span class="dbadge">done</span>';
+      g.appendChild(b);
+    } else {
+      var hint=a.harm?'⚠️ drag onto baby':'drag onto baby';
+      var card=mkDragCard(a.e,a.n,a.d,a.harm?' harm':'',hint);
+      if(a.harm) card.insertAdjacentHTML('afterbegin','<span class="harm-badge">HARMFUL</span>');
+      (function(act){ bindDragCard(card,act,'disc'); })(a);
+      g.appendChild(card);
+    }
+  });
+}
+
+// ── BUILD ALL / REBUILD ────────────────────────────────────────────────────────
+function buildAll() {
+  buildFG(); buildAG('pg',PLAY,'play'); buildAG('lg',LEARN,'learn');
+  buildAG('cg',CARE,'care'); buildDG();
+  ['pp','pl','pca','pdi'].forEach(function(id){
+    var e=document.getElementById(id); if(e) e.style.display='none';
+  });
+  var pf=document.getElementById('pf'); if(pf) pf.style.display='block';
+  st(curTab);
+}
+
+function rebuildGrid(tab) {
+  if(tab==='food') buildFG();
+  else if(tab==='play') buildAG('pg',PLAY,'play');
+  else if(tab==='learn') buildAG('lg',LEARN,'learn');
+  else if(tab==='care') buildAG('cg',CARE,'care');
+  else if(tab==='disc') buildDG();
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+function st(t) {
+  curTab = t;
+  var order = ['food','play','learn','care','disc'];
+  var panelIds = ['pf','pp','pl','pca','pdi'];
+  var allTabs = document.querySelectorAll('[data-tab]');
+  for (var i=0; i<allTabs.length; i++) {
+    allTabs[i].classList.toggle('on', allTabs[i].getAttribute('data-tab') === t);
+    allTabs[i].classList.toggle('disc-tab', allTabs[i].getAttribute('data-tab') === 'disc');
+  }
+  panelIds.forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var isOn = order[i] === t;
+    el.style.display = isOn ? 'block' : 'none';
+    el.classList.toggle('on', isOn);
+  });
+  updateLB();
+}
+
+// ── RENDER HELPERS ─────────────────────────────────────────────────────────────
+function setText(id, v) { var el=document.getElementById(id); if(el) el.textContent=v; }
+
+function setBar(bid, vid, v) {
+  v = Math.round(cl(v,0,100));
+  var b=document.getElementById(bid); if(b) b.style.width=v+'%';
+  setText(vid, v+'%');
+}
+
+function updateTabs() {
+  ['food','play','learn','care','disc'].forEach(function(t,i){
+    var left = LIM - G.uses[t];
+    var el = document.getElementById('tu'+i);
+    if(el) el.textContent = left>0 ? left+' left' : 'done ✓';
+    var tabs = document.querySelectorAll('[data-tab="'+t+'"]');
+    for(var j=0;j<tabs.length;j++) tabs[j].classList.toggle('maxed', left===0);
+  });
+}
+
+function updateLB() {
+  var isDisc = curTab==='disc';
+  var left = LIM - G.uses[curTab];
+  setText('ll', TLBLS[curTab]+' — '+(left>0 ? left+' action'+(left===1?'':'s')+' left today' : 'all done for today!'));
+  var lbar=document.getElementById('lbar');
+  if(lbar) lbar.classList.toggle('disc-bar', isDisc);
+  for(var i=0;i<LIM;i++){
+    var d=document.getElementById('ld'+i);
+    if(!d) continue;
+    d.classList.toggle('used', i<G.uses[curTab]);
+    d.classList.toggle('disc', isDisc);
+  }
+}
+
+function renderTl() {
+  var tl=document.getElementById('tl'); if(!tl) return; tl.innerHTML='';
+  var l7=[...G.log].slice(-7);
+  while(l7.length<7) l7.unshift(null);
+  l7.forEach(function(v,i){
+    var d=document.createElement('div'); d.className='dot';
+    if(v===true)  d.classList.add('fed');
+    if(v===false) d.classList.add('missed');
+    if(i===6 && G.day>1) d.classList.add('today');
+    tl.appendChild(d);
+  });
+}
+
+function renderAlerts() {
+  var a=document.getElementById('aa'); if(!a) return; a.innerHTML='';
+  if(G.mc>=2) a.innerHTML+='<div class="alert-box ad">🚨 Feed '+G.name+' today or they get taken away!</div>';
+  else if(G.mc===1) a.innerHTML+='<div class="alert-box aw">⚠️ Missed yesterday — feed today!</div>';
+  else if(G.ft) a.innerHTML+='<div class="alert-box as">✅ Fed today!</div>';
+  if(G.traits && G.traits.indexOf('fat')>=0) a.innerHTML+='<div class="alert-box ai">⚠️ Overweight! Try veggies + morning jog.</div>';
+  else if(G.js>25 && G.day%3===0) a.innerHTML+='<div class="alert-box aw">🍔 Too much junk — gaining weight!</div>';
+  if(G.abuseCount>=3) a.innerHTML+='<div class="alert-box ah">🚨 Abuse detected ('+G.abuseCount+'x). '+(8-G.abuseCount)+' more → child services.</div>';
+  if(G.trauma>20) a.innerHTML+='<div class="alert-box ah">💔 '+G.name+' shows signs of trauma.</div>';
+}
+
+function renderAll() {
+  updateBabySVG();
+  setText('bnm', G.name || '...');
+  setText('dlbl', 'Day '+G.day);
+  setText('slbl', STAGES[G.si].label);
+  setText('sprog', 'Stage '+(G.si+1)+' · '+G.sdf+'/'+(STAGES[G.si].days||'—')+' fed days');
+
+  var devBadge=document.getElementById('dev-badge');
+  if(devBadge) devBadge.style.display = G.mode==='dev' ? '' : 'none';
+  var devPanel=document.getElementById('dev-panel');
+  if(devPanel) devPanel.style.display = G.mode==='dev' ? 'block' : 'none';
+
+  var cm={fat:'pfa',fit:'pfi',smart:'ps',social:'pso',shy:'psh',lazy:'pl',
+          kind:'pk',grumpy:'pg',creative:'pc',traumatised:'ptr',anxious:'pan',aggressive:'pag'};
+  var pills = (G.traits||[]).map(function(tr){ return '<span class="pill '+(cm[tr]||'ps')+'">'+tr+'</span>'; }).join('');
+  if(G.pers) pills += ' <span class="pill ps">'+G.pers+'</span>';
+  var tp=document.getElementById('tpills'); if(tp) tp.innerHTML=pills;
+
+  setBar('bhr','vh',G.hu);
+  setBar('bhpr','vhp',G.hp);
+  setBar('bhlr','vhl',G.hl);
+  setText('vi', Math.round(G.i));
+  setText('vs', Math.round(G.so));
+  setText('vf', Math.round(G.f));
+  renderTl(); renderAlerts(); updateTabs(); updateLB(); renderGate();
+}
+
+// ── GROWTH ────────────────────────────────────────────────────────────────────
+function checkGrow() {
+  var s = STAGES[G.si];
+  if (G.sdf >= s.days && G.si < STAGES.length-1) {
+    G.si++; G.sdf = 0;
+    SFX.grow();
+    toast('🌱 '+G.name+' grew into a '+STAGES[G.si].label+'!');
+    var svg=document.getElementById('baby-svg');
+    if(svg){svg.classList.add('stage-grow');setTimeout(function(){svg.classList.remove('stage-grow');},1600);}
+    // Stop poop timer once past toddler
+    if (!isPoopPhase()) {
+      clearTimeout(_poopTimer);
+      _poopActive = false;
+      var ov = document.getElementById('poop-overlay');
+      if (ov) ov.style.display = 'none';
+    } else {
+      scheduleNextPoop();
+    }
+    // Reschedule incidents for new stage
+    clearTimeout(_incTimer);
+    _incActive = false;
+    scheduleNextIncident();
+    if (G.si === STAGES.length-1) setTimeout(grownSc, 1600);
+  }
+}
+
+// ── ADVANCE DAY ───────────────────────────────────────────────────────────────
+function advanceDayLogic() {
+  if (!G.ft) {
+    G.mc++; G.tm++; G.stk=0; G.log.push(false);
+    G.hu=cl(G.hu-25,0,100); G.hp=cl(G.hp-15,0,100); G.hl=cl(G.hl-10,0,100);
+    if (G.mc >= 3) {
+      SFX.gameOver();
+      try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+      var rn2 = document.getElementById('rn2'); if (rn2) rn2.textContent = G.name;
+      showScreen('srem'); return false;
+    }
+  }
+  G.day++; G.ft=false;
+  G.uses = {food:0,play:0,learn:0,care:0,disc:0};
+  // Heal injuries over time
+  if (G._injuries && G._injuries > 0) { G._injuries = Math.max(0, G._injuries - 1); if (G._injuries === 0) clearInjuries(); }
+  G.hu=cl(G.hu-18,0,100); G.hp=cl(G.hp-8,0,100);
+  setBubble(getbub());
+  comp(); buildAll(); renderAll(); saveGame();
+  return true;
+}
+
+function nextDay() {
+  if (G.mode==='normal' && isGated()) { toast('Come back tomorrow! 📅'); return; }
+  SFX.nextDay();
+  var ok = advanceDayLogic();
+  if (ok && G.mode==='normal') { G.lastPlayedDate=todayStr(); saveGame(); }
+}
+
+// ── DEV TOOLS ────────────────────────────────────────────────────────────────
+function devSkip() {
+  var n = parseInt(document.getElementById('skip-n').value)||1;
+  for (var i=0; i<n; i++) { var ok=advanceDayLogic(); if (!ok) return; }
+  toast('⚡ Skipped '+n+' day'+(n>1?'s':''));
+}
+function devSet(field) {
+  var v = parseInt(document.getElementById('set-'+field).value)||0;
+  G[field]=cl(v,0,100); renderAll(); saveGame(); toast('⚡ Set '+field+' to '+v);
+}
+function devGrow() {
+  if (G.si < STAGES.length-1) { G.si++; G.sdf=0; toast('⚡ Grew to '+STAGES[G.si].label); renderAll(); saveGame(); }
+  else toast('Already at max stage!');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+var _tt;
+function toast(msg) {
+  var t = document.getElementById('tst');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_tt); _tt = setTimeout(function(){ t.classList.remove('show'); }, 2600);
+}
+
+// ── REPORT ────────────────────────────────────────────────────────────────────
+function outlook() {
+  var p = [];
+  if (G.trauma > 30) p.push('Significant childhood trauma — professional support is strongly recommended.');
+  if (G.i > 60) p.push('Academically brilliant — scientist, doctor, or professor potential.');
+  else if (G.i > 35) p.push('A solid thinker with good problem-solving potential.');
+  else p.push('Struggles academically — more books and puzzles could help.');
+  if (G.f > 60 && G.w < 5) p.push('Athletic and energetic — high sports potential.');
+  else if (G.w > 20) p.push('Overweight and inactive — health will suffer without lifestyle changes.');
+  else p.push('Average physical development.');
+  if (G.so > 50) p.push('Socially confident — will thrive in team environments.');
+  else if (G.traits.indexOf('shy') >= 0) p.push('Shy and introverted — may struggle in social settings.');
+  if (G.ki > 40) p.push('Deeply empathetic — a natural caregiver or leader.');
+  if (G.cr > 40) p.push('Creative and artistic spirit.');
+  if (G.js > 30) p.push('Years of junk food have taken a toll on long-term health.');
+  return p.join(' ');
+}
+function rpt() {
+  var rs=document.getElementById('rs'); if(rs) rs.textContent=getSpr();
+  var rn=document.getElementById('rn'); if(rn) rn.textContent=G.name+' · '+STAGES[G.si].label;
+  var cm={fat:'pfa',fit:'pfi',smart:'ps',social:'pso',shy:'psh',lazy:'pl',
+          kind:'pk',grumpy:'pg',creative:'pc',traumatised:'ptr',anxious:'pan',aggressive:'pag'};
+  var rp=document.getElementById('rp');
+  if(rp) rp.innerHTML=G.traits.map(function(tr){ return '<span class="pill '+(cm[tr]||'ps')+'">'+tr+'</span>'; }).join('')+' <span class="pill ps">'+G.pers+'</span>';
+  var rows=[
+    ['🧠 Intelligence',Math.round(G.i)+'/100'],
+    ['💬 Social',Math.round(G.so)+'/100'],
+    ['💪 Fitness',Math.round(G.f)+'/100'],
+    ['❤️ Health',Math.round(G.hl)+'%'],
+    ['😊 Happiness',Math.round(G.hp)+'%'],
+    ['💔 Trauma',Math.round(G.trauma)],
+    ['🍔 Junk score',Math.round(G.js)],
+    ['⚖️ Weight delta',(G.w>0?'+':'')+Math.round(G.w)],
+    ['🔥 Streak',G.stk+' days'],
+    ['📅 Day',G.day]
+  ];
+  var rr=document.getElementById('rr');
+  if(rr) rr.innerHTML=rows.map(function(r){ return '<div class="rrow"><span class="rk">'+r[0]+'</span><span class="rv">'+r[1]+'</span></div>'; }).join('');
+  var ro=document.getElementById('ro'); if(ro) ro.textContent=outlook();
+  showScreen('sr');
+}
+function grownSc() {
+  var ge=document.getElementById('ge'); if(ge) ge.textContent=getSpr();
+  var gt=document.getElementById('gt'); if(gt) gt.textContent=G.name+' is all grown up!';
+  var gtx=document.getElementById('gtx'); if(gtx) gtx.textContent=G.pers+(G.traits.length?' · '+G.traits.join(', '):'');
+  var gr=document.getElementById('gr'); if(gr) gr.innerHTML='<div style="font-size:13px;color:#6b7280;line-height:1.75">'+outlook()+'</div>';
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+  showScreen('sgr');
+}
+
+// ── BIND ALL BUTTONS ─────────────────────────────────────────────────────────
+// Called once on boot — attaches every handler via addEventListener (no onclick in HTML)
+// ── CONFIRM MODAL ────────────────────────────────────────────────────────────
+var _confirmCb = null;
+function showConfirm(msg, cb) {
+  _confirmCb = cb;
+  var el = document.getElementById('confirm-msg');
+  if (el) el.textContent = msg;
+  var modal = document.getElementById('confirm-modal');
+  if (modal) modal.style.display = 'flex';
+}
+function hideConfirm() {
+  var modal = document.getElementById('confirm-modal');
+  if (modal) modal.style.display = 'none';
+  _confirmCb = null;
+}
+
+function bindButtons() {
+  // Welcome screen
+  on('gb',       function(){ setGender('boy'); });
+  on('gg',       function(){ setGender('girl'); });
+  on('m-normal', function(){ setMode('normal'); });
+  on('m-dev',    function(){ setMode('dev'); });
+  on('btn-start',function(){ start(); });
+
+  // Main screen
+  on('btn-reset',   function(){ showConfirm('Reset and start a new game? Your save will be deleted.', hardReset); });
+  on('next-day-btn',function(){ nextDay(); });
+  on('btn-report',  function(){ rpt(); });
+
+  // Tabs — attached via data-tab attribute
+  var tabs = document.querySelectorAll('[data-tab]');
+  for (var i=0; i<tabs.length; i++) {
+    (function(el){ el.addEventListener('click', function(){ st(el.getAttribute('data-tab')); }); })(tabs[i]);
+  }
+
+  // Dev panel
+  on('btn-devskip', function(){ devSkip(); });
+  on('btn-sethu',   function(){ devSet('hu'); });
+  on('btn-sethp',   function(){ devSet('hp'); });
+  on('btn-devgrow', function(){ devGrow(); });
+  on('btn-devpoop',     function(){ if(isPoopPhase()){ clearTimeout(_poopTimer); triggerPoop(); } else { toast('Only in Newborn/Toddler phase!'); } });
+  on('btn-devincident', function(){ clearTimeout(_incTimer); triggerIncident(); });
+
+  on('btn-customise', function(){ openCustomise(); });
+  // btn-close-customise is inside modal — bind via delegation on document
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    while(t && t !== document){
+      if(t.id === 'btn-close-customise'){ closeCustomise(); return; }
+      t = t.parentElement;
+    }
+  });
+  on('btn-theme', function(){ toggleTheme(); });
+  on('btn-sound', function(){ toggleSound(); });
+
+  // iOS requires AudioContext to be created inside user gesture
+  document.addEventListener('touchstart', function unlock() {
+    getAudioCtx();
+    document.removeEventListener('touchstart', unlock);
+  }, {once: true, passive: true});
+
+  // Confirm modal
+  // Confirm modal — use delegation so it works regardless of DOM order
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    while(t && t !== document){
+      if(t.id === 'confirm-yes'){ var cb=_confirmCb; hideConfirm(); if(cb) cb(); return; }
+      if(t.id === 'confirm-no') { hideConfirm(); return; }
+      t = t.parentElement;
+    }
+  });
+
+  // Report screen
+  on('btn-backtomain', function(){ showScreen('sm'); });
+
+  // End screens
+  on('btn-tryagain1', function(){ hardReset(); });
+  on('btn-tryagain2', function(){ hardReset(); });
+  on('btn-playagain', function(){ hardReset(); });
+}
+
+function on(id, fn) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', fn);
+}
+
+// ── INCIDENT SYSTEM ──────────────────────────────────────────────────────────
+// Incidents are grouped by life stage (si index).
+// Each incident has: emoji, title, desc, babySays, and responses[].
+// Each response has: label (shown), type ('good'|'harm'), disc action key, effect desc, dl (stat deltas).
+
+var INCIDENTS = {
+  // si=0 Newborn: basic infant fussiness
+  0: [
+    {
+      e:'😭', title:'Non-stop crying',
+      desc:'Baby has been crying for 2 hours straight. Nothing seems to help.',
+      babySays:'"WAAAAH! WAAAAH!"',
+      responses:[
+        {label:'Cuddle & soothe gently',    type:'good',  effect:'+happy +trust',    dl:{hp:15,so:3,ki:2},    say:'...sniff... okay.'},
+        {label:'Sing a lullaby',             type:'good',  effect:'+calm +bond',      dl:{hp:12,so:2,ki:3},    say:'...zzz...'},
+        {label:'Check diaper & feed',        type:'good',  effect:'+health +hunger',  dl:{hp:10,hl:8,hu:20},   say:'Ahhhh. Better.'},
+        {label:'Leave alone to cry it out',  type:'harm',  effect:'-trust -happy',    dl:{hp:-10,so:-3,tr:1},  say:'...nobody comes?'},
+        {label:'Shout at baby to stop',      type:'harm',  effect:'-trust ++trauma',  dl:{hp:-20,tr:4,so:-5},  say:'...scared.'},
+      ]
+    },
+    {
+      e:'🍼', title:'Refuses to feed',
+      desc:'Baby keeps turning away from every food you offer today.',
+      babySays:'"Mmph! No! Bleh!"',
+      responses:[
+        {label:'Try a different food gently', type:'good', effect:'+patience +health', dl:{hl:5,hp:5},          say:'...okay, that one is okay.'},
+        {label:'Wait and try again later',    type:'good', effect:'+trust',            dl:{hp:8,so:2},          say:'...hungry now.'},
+        {label:'Force feed',                  type:'harm', effect:'-trust ++trauma',   dl:{hp:-15,tr:3,hl:-5},  say:'No no no!'},
+      ]
+    },
+  ],
+
+  // si=1 Toddler: classic tantrums
+  1: [
+    {
+      e:'😤', title:'Supermarket tantrum',
+      desc:'You said no to candy. Baby threw themselves on the floor screaming in the middle of the supermarket.',
+      babySays:'"I WANT IT! I WANT IT NOW! WAAAAAH!"',
+      responses:[
+        {label:'Calmly hold firm: "No means no"', type:'good', effect:'+boundaries +respect',  dl:{hp:-5,i:3,ki:2},  say:'...fine. You always say no.'},
+        {label:'Get down to their level & talk',   type:'good', effect:'+emotional bond',       dl:{hp:5,so:4,ki:3},  say:'I understand now...'},
+        {label:'Give in and buy the candy',        type:'harm', effect:'+happy now -discipline', dl:{hp:10,i:-2,ki:-2},say:'YESSS! I knew it!'},
+        {label:'Drag them away angrily',           type:'harm', effect:'-trust -social',        dl:{hp:-15,so:-4,tr:2},say:'You hurt me!'},
+        {label:'Yell publicly',                    type:'harm', effect:'++trauma -social',      dl:{hp:-20,tr:4,so:-6},say:'Everyone is looking...'},
+      ]
+    },
+    {
+      e:'🧸', title:'Destroyed a toy',
+      desc:'Your toddler smashed their sibling\'s favourite toy on purpose.',
+      babySays:'"I did it! Hehe! ...uh oh."',
+      responses:[
+        {label:'Explain why it was wrong',         type:'good', effect:'+empathy +moral',       dl:{hp:-3,ki:4,i:2},  say:'I made them sad. Sorry.'},
+        {label:'Time-out + apology required',      type:'good', effect:'+accountability',       dl:{hp:-8,ki:3,i:3},  say:"That wasn't nice..."},
+        {label:'Ignore it — kids will be kids',    type:'harm', effect:'-discipline -empathy',  dl:{hp:2,ki:-3,i:-1}, say:'I can do that again!'},
+        {label:'Spank as punishment',              type:'harm', effect:'++trauma -trust',       dl:{hp:-18,tr:4,ki:-4},say:'OW! ...I hate you.'},
+      ]
+    },
+    {
+      e:'🙅', title:'Refuses bedtime',
+      desc:'"ONE MORE STORY!" for the 6th time. It\'s 10pm. They\'re kicking and screaming.',
+      babySays:'"I\'M NOT TIRED! I\'M NOT! NEVER EVER SLEEPY!"',
+      responses:[
+        {label:'Stick to routine, firm but calm',  type:'good', effect:'+health +structure',    dl:{hl:10,hp:-3,i:2}, say:'...okay. Night night.'},
+        {label:'One last story — then lights out', type:'good', effect:'+bond',                 dl:{hp:5,so:2,ki:2},  say:'That was a good story.'},
+        {label:'Give up — let them stay up',       type:'harm', effect:'-health -discipline',   dl:{hl:-10,i:-2,hp:5},say:'Yay! I win!'},
+        {label:'Threaten and yell',                type:'harm', effect:'-trust ++trauma',       dl:{hp:-15,tr:3,so:-3},say:'I\'m scared to sleep now.'},
+      ]
+    },
+  ],
+
+  // si=2 Child: school-age behaviour issues
+  2: [
+    {
+      e:'🏫', title:'Skipping school',
+      desc:'Teacher called. Your child has been hiding in the bathroom all morning instead of going to class.',
+      babySays:'"School is boring and the teacher hates me."',
+      responses:[
+        {label:'Have a calm talk about why',        type:'good', effect:'+trust +intel',         dl:{hp:5,i:5,so:3},   say:'Maybe I can try again.'},
+        {label:'Meet the teacher together',         type:'good', effect:'+social +confidence',   dl:{so:5,i:3,hp:4},   say:'The teacher isn\'t that bad.'},
+        {label:'Ground them for a week',            type:'harm', effect:'-social -trust',        dl:{hp:-12,so:-5,tr:2},say:'This is so unfair.'},
+        {label:'Yell and call them lazy',           type:'harm', effect:'++trauma -confidence',  dl:{hp:-20,tr:4,i:-3}, say:'I\'m so stupid...'},
+        {label:'Ignore it — their problem',         type:'harm', effect:'-intel -social',        dl:{i:-4,so:-3,hp:-5}, say:'Nobody cares anyway.'},
+      ]
+    },
+    {
+      e:'👊', title:'Fighting at school',
+      desc:'You got a call — your child punched another kid at school today.',
+      babySays:'"They started it! They said something mean first!"',
+      responses:[
+        {label:'Listen first, then set limits',     type:'good', effect:'+trust +intel',         dl:{hp:3,so:4,ki:3,i:2},say:'You listened. I feel better.'},
+        {label:'Restorative talk + apology',        type:'good', effect:'+empathy +social',      dl:{so:5,ki:5,hp:2},    say:'Fighting wasn\'t the answer.'},
+        {label:'Punish without listening',          type:'harm', effect:'-trust -social',        dl:{hp:-15,so:-4,tr:2},  say:'You never hear my side.'},
+        {label:'Praise for "defending themselves"', type:'harm', effect:'+aggression -empathy',  dl:{hp:5,ki:-5,so:-3,tr:1},say:'Fighting is okay then?'},
+        {label:'Physical discipline at home too',   type:'harm', effect:'++trauma -trust',       dl:{hp:-22,tr:5,ki:-5},  say:'Why does everyone hit me?'},
+      ]
+    },
+    {
+      e:'🎮', title:'Failed exam — was gaming all night',
+      desc:'Report card came. They failed their math exam. Their game controller was still warm.',
+      babySays:'"It doesn\'t matter! Games are more important!"',
+      responses:[
+        {label:'Discuss balance: fun & study',      type:'good', effect:'+intel +discipline',    dl:{i:6,hp:2,so:2},    say:'I\'ll try to balance better.'},
+        {label:'Set a screen-time schedule',        type:'good', effect:'+structure +intel',     dl:{i:5,hp:-3,ki:2},   say:'Rules are annoying but okay.'},
+        {label:'Take away all screens forever',     type:'harm', effect:'-social -trust',        dl:{hp:-15,so:-5,tr:2}, say:'I hate this house.'},
+        {label:'Call them stupid for failing',      type:'harm', effect:'++trauma -intel',       dl:{hp:-22,tr:5,i:-5},  say:'Maybe I really am dumb.'},
+      ]
+    },
+    {
+      e:'🤥', title:'Caught lying',
+      desc:'You found out they told you they were at a friend\'s house — but they were somewhere completely different.',
+      babySays:'"...I can explain. Kind of. Please don\'t be mad."',
+      responses:[
+        {label:'Stay calm, ask why they lied',      type:'good', effect:'+trust +honesty',       dl:{hp:4,so:4,ki:3,i:2},say:'I was scared you\'d say no.'},
+        {label:'Give a fair consequence + talk',    type:'good', effect:'+accountability',       dl:{hp:-5,ki:4,i:3},    say:'I won\'t lie again. Promise.'},
+        {label:'Explode and ground them harshly',   type:'harm', effect:'-trust -social',        dl:{hp:-18,so:-5,tr:3}, say:'I\'ll just lie more carefully.'},
+        {label:'Dismiss it — all kids lie',         type:'harm', effect:'-integrity -discipline',dl:{ki:-4,i:-2,hp:3},   say:'Lying works. Good to know.'},
+      ]
+    },
+  ],
+
+  // si=3 Teen: bigger rebellion
+  3: [
+    {
+      e:'🚬', title:'Caught smoking',
+      desc:'You found cigarettes in their bag. They\'re 14.',
+      babySays:'"Everyone does it. It\'s not a big deal. Stop overreacting."',
+      responses:[
+        {label:'Have a non-judgemental talk',        type:'good', effect:'+trust +health',        dl:{hp:5,hl:8,so:4,i:3},  say:'I didn\'t think you\'d listen.'},
+        {label:'Explain health risks calmly',        type:'good', effect:'+intel +trust',         dl:{hl:10,i:5,hp:3},       say:'I hadn\'t really thought about it.'},
+        {label:'Ground them indefinitely',           type:'harm', effect:'-social -trust',        dl:{hp:-15,so:-7,tr:3},    say:'I\'ll just do it somewhere else.'},
+        {label:'Call them disgusting & shameful',    type:'harm', effect:'++trauma -confidence',  dl:{hp:-25,tr:6,ki:-6},    say:'I hate myself enough already.'},
+        {label:'Ignore it — they\'ll grow out of it',type:'harm', effect:'-health -intel',       dl:{hl:-10,i:-4,hp:-5},    say:'They don\'t care. Neither do I.'},
+      ]
+    },
+    {
+      e:'😈', title:'Sneaking out at night',
+      desc:'It\'s 2am. Their bed is empty. You get a text: "Don\'t freak out, I\'m fine, just out with friends."',
+      babySays:'"I\'m not a little kid anymore. I can make my own choices!"',
+      responses:[
+        {label:'Wait up, have a serious talk',       type:'good', effect:'+trust +boundaries',    dl:{hp:3,so:4,ki:3,i:2},  say:'You actually waited up for me?'},
+        {label:'Set clear curfew rules together',    type:'good', effect:'+respect +autonomy',    dl:{hp:5,so:5,i:3,ki:2},  say:'I can live with that, I guess.'},
+        {label:'Lock them in — no freedoms at all',  type:'harm', effect:'-social -trust',        dl:{hp:-18,so:-8,tr:3},   say:'I\'ll run away for real next time.'},
+        {label:'Yell, cry, and guilt trip them',     type:'harm', effect:'-social +trauma',       dl:{hp:-15,tr:4,so:-5},   say:'This manipulation won\'t work.'},
+        {label:'Physical confrontation',             type:'harm', effect:'+++trauma -trust',      dl:{hp:-25,tr:7,ki:-7,hl:-5},say:'I\'m leaving this house forever.'},
+      ]
+    },
+    {
+      e:'🗣️', title:'Talking back constantly',
+      desc:'"You\'re ruining my life!" "I hate this family!" "You don\'t understand ANYTHING!"',
+      babySays:'"You\'re always on my case. Leave me alone!"',
+      responses:[
+        {label:'Stay calm: "I hear you"',           type:'good', effect:'+trust +emotional IQ',  dl:{hp:8,so:5,ki:4,i:2},  say:'...you\'re actually listening?'},
+        {label:'Give space, then talk later',        type:'good', effect:'+maturity +bond',       dl:{hp:5,so:4,ki:3},       say:'Sorry. I was just frustrated.'},
+        {label:'Match their energy — shout back',   type:'harm', effect:'-trust -social',        dl:{hp:-15,so:-6,tr:3},   say:'This house is a warzone.'},
+        {label:'Take away phone as punishment',      type:'harm', effect:'-social -trust',        dl:{hp:-12,so:-7,tr:2},   say:'I\'ll text from a friend\'s phone.'},
+        {label:'Humiliate them in front of family', type:'harm', effect:'+++trauma -social',     dl:{hp:-22,tr:6,so:-8,ki:-5},say:'I will never forgive this.'},
+      ]
+    },
+    {
+      e:'🚓', title:'Called by police',
+      desc:'The police station called. Your teenager was caught vandalising property with a group.',
+      babySays:'"It was just a dare. Nobody got hurt. It\'s not like I killed someone."',
+      responses:[
+        {label:'Hold accountable: make them pay',    type:'good', effect:'+accountability +intel',dl:{hp:-8,i:5,ki:5,so:2}, say:'I have to fix what I broke.'},
+        {label:'Involve them in community service',  type:'good', effect:'+social +empathy',      dl:{so:6,ki:6,i:4,hp:2},  say:'This actually changed how I think.'},
+        {label:'Bail them out, ignore it',           type:'harm', effect:'-accountability -intel', dl:{hp:5,i:-5,ki:-5},      say:'I can do whatever I want.'},
+        {label:'Kick them out of the house',         type:'harm', effect:'+++trauma -trust',      dl:{hp:-30,tr:8,so:-10,ki:-6},say:'I have nowhere to go.'},
+        {label:'Beat them as punishment',            type:'harm', effect:'+++trauma -trust',      dl:{hp:-28,tr:8,hl:-8,ki:-7},say:'Violence is the answer then?'},
+      ]
+    },
+    {
+      e:'📉', title:'Failing multiple subjects',
+      desc:'School report: failing 3 subjects. "I don\'t see the point of any of it."',
+      babySays:'"School is just a system designed to make us miserable."',
+      responses:[
+        {label:'Explore what they actually enjoy',   type:'good', effect:'+intel +purpose',       dl:{i:6,hp:6,so:4,cr:3},  say:'Maybe I do have something I like.'},
+        {label:'Get a tutor, be supportive',         type:'good', effect:'+intel +trust',         dl:{i:8,hp:4,so:2},        say:'I\'m actually starting to get it.'},
+        {label:'Threaten to cut all privileges',     type:'harm', effect:'-trust -intel',         dl:{hp:-14,tr:3,i:-4},    say:'I give up. What\'s the point?'},
+        {label:'Compare to more successful siblings',type:'harm', effect:'++trauma -intel',       dl:{hp:-20,tr:5,i:-6,ki:-4},say:'I\'ll never be good enough.'},
+      ]
+    },
+  ],
+};
+
+// Responses that fit the available DISC actions (mapped for display)
+// We use the incident's own response definitions, not the DISC array directly.
+
+var _incTimer = null;
+var _incActive = false;
+var _currentInc = null;
+
+function scheduleNextIncident() {
+  clearTimeout(_incTimer);
+  if (_incActive) return;
+  // Don't schedule for newborns (si=0) at game start — let it warm up
+  if (G.si === 0 && G.day < 3) { _incTimer = setTimeout(scheduleNextIncident, 60000); return; }
+  var minMs = G.mode === 'dev' ?  20000 :  3 * 60 * 1000;
+  var maxMs = G.mode === 'dev' ?  50000 : 10 * 60 * 1000;
+  var delay = minMs + Math.random() * (maxMs - minMs);
+  _incTimer = setTimeout(triggerIncident, delay);
+}
+
+function triggerIncident() {
+  if (_incActive || _poopActive) {
+    // Defer if poop is showing
+    _incTimer = setTimeout(triggerIncident, 15000);
+    return;
+  }
+  var pool = INCIDENTS[G.si];
+  if (!pool || pool.length === 0) { scheduleNextIncident(); return; }
+  _currentInc = pool[Math.floor(Math.random() * pool.length)];
+  _incActive = true;
+  showIncidentModal(_currentInc);
+}
+
+function showIncidentModal(inc) {
+  var stageNames = ['Newborn','Toddler','Child','Teen','Adult'];
+  setText('inc-stage-badge', '📍 '+stageNames[G.si||0]+' · Day '+G.day);
+  setText('inc-emoji', inc.e);
+  setText('inc-title', G.name+' — '+inc.title);
+  setText('inc-desc', inc.desc);
+  setText('inc-baby-says', inc.babySays);
+
+  // Animate baby
+  setBubble(inc.babySays.replace(/['"]/g,'').substring(0,40)+'...');
+  SFX.incident();
+  animateBaby('shake');
+
+  // Build response buttons
+  var opts = document.getElementById('inc-options');
+  opts.innerHTML = '';
+  inc.responses.forEach(function(r, idx) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'inc-btn ' + (r.type === 'good' ? 'good' : 'harm');
+    btn.innerHTML =
+      '<span class="inc-btn-label '+(r.type==='good'?'good':'harm')+'">'+(r.type==='good'?'✅ Healthy response':'⚠️ Harmful response')+'</span>'+
+      r.label+
+      '<span class="inc-btn-effect">'+r.effect+'</span>';
+    (function(resp){ btn.addEventListener('click', function(){ resolveIncident(resp); }); })(r);
+    opts.appendChild(btn);
+  });
+
+  var overlay = document.getElementById('incident-overlay');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+function resolveIncident(response) {
+  var overlay = document.getElementById('incident-overlay');
+  if (overlay) overlay.style.display = 'none';
+
+  // Apply stat changes
+  ap(response.dl);
+
+  // Track abuse for harmful responses (same as DISC system)
+  if (response.type === 'harm') {
+    G.abuseCount++;
+    if (G.abuseCount >= 8) {
+      try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+      setText('rn3', G.name);
+      showScreen('sabuse');
+      _incActive = false;
+      return;
+    }
+  }
+
+  // Baby reaction
+  if (response.say) setBubble('"'+response.say+'"');
+  if (response.type === 'good') SFX.incidentGood(); else SFX.incidentBad();
+  animateBaby(response.type === 'good' ? 'giggle' : (response.dl && response.dl.tr && response.dl.tr >= 4 ? 'punch' : 'yell'));
+
+  var emoji = response.type === 'good' ? '✅' : '⚠️';
+  toast(emoji+' '+response.label);
+
+  comp(); renderAll(); saveGame();
+  G.incidentsResolved = (G.incidentsResolved||0) + 1;
+  _incActive = false;
+  _currentInc = null;
+  scheduleNextIncident();
+}
+
+// ── POOP SYSTEM ──────────────────────────────────────────────────────────────
+var _poopTimer = null;
+var _poopActive = false;
+var _poopCtx = null;
+var _poopTotal = 0;
+var _poopWiped = 0;
+var _poopIsDrawing = false;
+var _poopLastX = 0;
+var _poopLastY = 0;
+
+var POOP_EMOJIS = ['💩','💩','🤢','😖'];
+var POOP_COLORS = [
+  '#7c4f1e','#8b5e2e','#6b3f12','#996633','#7a4a15'
+];
+
+function isPoopPhase() {
+  // Only during Newborn and Toddler phases (si 0 and 1)
+  return G.si <= 1;
+}
+
+function scheduleNextPoop() {
+  clearTimeout(_poopTimer);
+  if (!isPoopPhase() || _poopActive) return;
+  // Random 30s–90s in dev mode, 4–12 hours real-time otherwise
+  // For demo/playability: dev=30-90s, normal=2-8 min (scaled down so it's fun, not 8 hrs)
+  var minMs = G.mode === 'dev' ? 30000  : 2 * 60 * 1000;
+  var maxMs = G.mode === 'dev' ? 90000  : 8 * 60 * 1000;
+  var delay = minMs + Math.random() * (maxMs - minMs);
+  _poopTimer = setTimeout(triggerPoop, delay);
+}
+
+function triggerPoop() {
+  if (!isPoopPhase() || _poopActive) return;
+  _poopActive = true;
+
+  // Shake baby as warning
+  setBubble('Uh oh... 💩');
+  SFX.poop();
+  animateBaby('shake');
+
+  setTimeout(function() {
+    showPoopOverlay();
+  }, 800);
+}
+
+function showPoopOverlay() {
+  var overlay = document.getElementById('poop-overlay');
+  var nameEl  = document.getElementById('poop-baby-name');
+  if (!overlay) return;
+
+  if (nameEl) nameEl.textContent = G.name;
+  overlay.style.display = 'flex';
+
+  // Draw poop splatter on canvas
+  var canvas = document.getElementById('poop-canvas');
+  if (!canvas) return;
+  _poopCtx = canvas.getContext('2d');
+  drawPoopScene(_poopCtx, canvas.width, canvas.height);
+
+  // Count dirty pixels for progress tracking
+  _poopTotal = countDirtyPixels();
+  _poopWiped = 0;
+  updatePoopProgress();
+
+  // Bind wipe events
+  bindWipeEvents(canvas);
+}
+
+function drawPoopScene(ctx, w, h) {
+  ctx.clearRect(0, 0, w, h);
+
+  // Background tint
+  ctx.fillStyle = '#f5e6c8';
+  ctx.fillRect(0, 0, w, h);
+
+  // Draw multiple splats
+  var splats = 6 + Math.floor(Math.random() * 5);
+  for (var i = 0; i < splats; i++) {
+    var x = 30 + Math.random() * (w - 60);
+    var y = 30 + Math.random() * (h - 60);
+    var r = 20 + Math.random() * 40;
+    drawSplat(ctx, x, y, r, POOP_COLORS[i % POOP_COLORS.length]);
+  }
+
+  // Poop emoji text scattered
+  ctx.font = '36px serif';
+  ctx.globalAlpha = 0.9;
+  for (var j = 0; j < 4; j++) {
+    ctx.fillText('💩', 20 + Math.random() * (w - 60), 60 + Math.random() * (h - 80));
+  }
+  ctx.globalAlpha = 1;
+
+  // Smell lines
+  ctx.strokeStyle = 'rgba(100,60,0,0.3)';
+  ctx.lineWidth = 2;
+  for (var k = 0; k < 6; k++) {
+    var sx = 20 + Math.random() * (w - 40);
+    var sy = 20 + Math.random() * (h * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.bezierCurveTo(sx - 10, sy - 20, sx + 10, sy - 35, sx - 5, sy - 50);
+    ctx.stroke();
+  }
+}
+
+function drawSplat(ctx, x, y, r, color) {
+  ctx.fillStyle = color;
+  // Main blob
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  // Drips
+  var drips = 3 + Math.floor(Math.random() * 4);
+  for (var i = 0; i < drips; i++) {
+    var angle = Math.random() * Math.PI * 2;
+    var len = r * 0.4 + Math.random() * r * 0.8;
+    var dx = x + Math.cos(angle) * r * 0.7;
+    var dy = y + Math.sin(angle) * r * 0.7;
+    ctx.beginPath();
+    ctx.arc(dx + Math.cos(angle) * len * 0.5,
+            dy + Math.sin(angle) * len * 0.5,
+            r * 0.25 + Math.random() * r * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function countDirtyPixels() {
+  if (!_poopCtx) return 1;
+  var canvas = document.getElementById('poop-canvas');
+  var data = _poopCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+  var count = 0;
+  for (var i = 0; i < data.length; i += 16) { // sample every 4th pixel
+    if (data[i] > 200 && data[i+1] < 200) count++; // brownish pixels
+    if (data[i+3] > 50) count++;
+  }
+  return Math.max(count, 1);
+}
+
+function bindWipeEvents(canvas) {
+  // Remove old listeners by cloning
+  var newCanvas = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(newCanvas, canvas);
+  _poopCtx = newCanvas.getContext('2d');
+  drawPoopScene(_poopCtx, newCanvas.width, newCanvas.height);
+  _poopTotal = Math.max(countDirtyPixels(), 100);
+
+  function getPos(e, el) {
+    var rect = el.getBoundingClientRect();
+    var scaleX = el.width / rect.width;
+    var scaleY = el.height / rect.height;
+    var cx, cy;
+    if (e.touches && e.touches.length > 0) {
+      cx = e.touches[0].clientX; cy = e.touches[0].clientY;
+    } else {
+      cx = e.clientX; cy = e.clientY;
+    }
+    return { x: (cx - rect.left) * scaleX, y: (cy - rect.top) * scaleY };
+  }
+
+  function startWipe(e) {
+    e.preventDefault();
+    _poopIsDrawing = true;
+    var p = getPos(e, newCanvas);
+    _poopLastX = p.x; _poopLastY = p.y;
+    wipeAt(p.x, p.y);
+  }
+  function doWipe(e) {
+    e.preventDefault();
+    if (!_poopIsDrawing) return;
+    var p = getPos(e, newCanvas);
+    wipeStroke(_poopLastX, _poopLastY, p.x, p.y);
+    _poopLastX = p.x; _poopLastY = p.y;
+  }
+  function endWipe(e) { _poopIsDrawing = false; }
+
+  newCanvas.addEventListener('mousedown',  startWipe, {passive:false});
+  newCanvas.addEventListener('mousemove',  doWipe,    {passive:false});
+  newCanvas.addEventListener('mouseup',    endWipe);
+  newCanvas.addEventListener('mouseleave', endWipe);
+  newCanvas.addEventListener('touchstart', startWipe, {passive:false});
+  newCanvas.addEventListener('touchmove',  doWipe,    {passive:false});
+  newCanvas.addEventListener('touchend',   endWipe,   {passive:false});
+}
+
+function wipeAt(x, y) {
+  if (!_poopCtx) return;
+  _poopCtx.save();
+  _poopCtx.globalCompositeOperation = 'destination-out';
+  _poopCtx.beginPath();
+  _poopCtx.arc(x, y, 28, 0, Math.PI * 2);
+  _poopCtx.fillStyle = 'rgba(0,0,0,1)';
+  _poopCtx.fill();
+  _poopCtx.restore();
+  _poopWiped += 80;
+  updatePoopProgress();
+}
+
+function wipeStroke(x1, y1, x2, y2) {
+  if (!_poopCtx) return;
+  SFX.wipe();
+  _poopCtx.save();
+  _poopCtx.globalCompositeOperation = 'destination-out';
+  _poopCtx.strokeStyle = 'rgba(0,0,0,1)';
+  _poopCtx.lineWidth = 56;
+  _poopCtx.lineCap = 'round';
+  _poopCtx.lineJoin = 'round';
+  _poopCtx.beginPath();
+  _poopCtx.moveTo(x1, y1);
+  _poopCtx.lineTo(x2, y2);
+  _poopCtx.stroke();
+  _poopCtx.restore();
+  var dist = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+  _poopWiped += dist * 2;
+  updatePoopProgress();
+}
+
+function updatePoopProgress() {
+  var pct = Math.min(100, Math.floor((_poopWiped / (_poopTotal * 0.6)) * 100));
+  var pctEl = document.getElementById('poop-pct');
+  var barEl = document.getElementById('poop-bar');
+  if (pctEl) pctEl.textContent = pct + '% clean';
+  if (barEl) barEl.style.width = pct + '%';
+  if (pct >= 100) {
+    setTimeout(finishWipe, 400);
+  }
+}
+
+function finishWipe() {
+  _poopActive = false;
+  var overlay = document.getElementById('poop-overlay');
+  if (overlay) overlay.style.display = 'none';
+
+  // Reward: happiness boost for clean baby
+  G.hp = Math.min(100, G.hp + 15);
+  G.hl = Math.min(100, G.hl + 5);
+  setBubble('Ahhh, all clean! 😊✨');
+  SFX.clean();
+  animateBaby('bounce');
+  toast('✅ '+G.name+' is clean and happy! +15 happiness');
+  renderAll();
+  saveGame();
+
+  // Schedule next poop
+  scheduleNextPoop();
+}
+
+// Allow skipping poop if ignored too long (penalty)
+function poopIgnorePenalty() {
+  if (!_poopActive) return;
+  G.hp = Math.max(0, G.hp - 20);
+  G.hl = Math.max(0, G.hl - 10);
+  toast('⚠️ '+G.name+' stayed dirty too long! -20 happiness');
+  finishWipe();
+}
+
+// ── SOUND SYSTEM ─────────────────────────────────────────────────────────────
+// All sounds are synthesized via Web Audio API — no files needed, works offline.
+// iOS requires AudioContext to be created/resumed inside a user gesture.
+
+var _audioCtx = null;
+var _soundEnabled = true;
+
+function getAudioCtx() {
+  if (!_audioCtx) {
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e) { return null; }
+  }
+  if (_audioCtx.state === 'suspended') {
+    _audioCtx.resume();
+  }
+  return _audioCtx;
+}
+
+// Low-level: play a tone with an envelope
+function playTone(freq, type, attack, sustain, release, gain, when, ctx) {
+  if (!ctx) return;
+  var g = ctx.createGain();
+  g.connect(ctx.destination);
+  var now = when || ctx.currentTime;
+  g.gain.setValueAtTime(0, now);
+  g.gain.linearRampToValueAtTime(gain, now + attack);
+  g.gain.setValueAtTime(gain, now + attack + sustain);
+  g.gain.exponentialRampToValueAtTime(0.001, now + attack + sustain + release);
+
+  var osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  osc.connect(g);
+  osc.start(now);
+  osc.stop(now + attack + sustain + release + 0.05);
+}
+
+// Low-level: noise burst (for poop splat, etc.)
+function playNoise(durationSec, filterFreq, gain, when, ctx) {
+  if (!ctx) return;
+  var bufSize = ctx.sampleRate * durationSec;
+  var buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+  var data = buf.getChannelData(0);
+  for (var i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+
+  var src = ctx.createBufferSource();
+  src.buffer = buf;
+
+  var filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = filterFreq;
+
+  var g = ctx.createGain();
+  var now = when || ctx.currentTime;
+  g.gain.setValueAtTime(gain, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
+
+  src.connect(filt);
+  filt.connect(g);
+  g.connect(ctx.destination);
+  src.start(now);
+  src.stop(now + durationSec);
+}
+
+// ── Named sound effects ────────────────────────────────────────────────────
+
+var SFX = {
+
+  // Happy feed (healthy food) — cheerful rising ding
+  feedHealthy: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    var notes = [523, 659, 784];
+    notes.forEach(function(f, i) {
+      playTone(f, 'sine', 0.01, 0.08, 0.15, 0.18, ctx.currentTime + i * 0.09, ctx);
+    });
+  },
+
+  // Junk food — satisfying but slightly "bad" sound
+  feedJunk: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(392, 'sawtooth', 0.01, 0.04, 0.1, 0.12, ctx.currentTime, ctx);
+    playTone(349, 'sawtooth', 0.01, 0.04, 0.1, 0.12, ctx.currentTime + 0.07, ctx);
+    playTone(330, 'sine',     0.01, 0.06, 0.2, 0.10, ctx.currentTime + 0.14, ctx);
+  },
+
+  // Play / bounce — bouncy boing
+  play: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(440, 'sine', 0.01, 0.05, 0.25, 0.15, ctx.currentTime, ctx);
+    playTone(660, 'sine', 0.01, 0.03, 0.2,  0.10, ctx.currentTime + 0.06, ctx);
+    playTone(880, 'sine', 0.01, 0.02, 0.18, 0.08, ctx.currentTime + 0.11, ctx);
+  },
+
+  // Learn — thoughtful ascending chime
+  learn: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [523, 587, 659, 698].forEach(function(f, i) {
+      playTone(f, 'triangle', 0.01, 0.06, 0.22, 0.12, ctx.currentTime + i * 0.1, ctx);
+    });
+  },
+
+  // Care (bath, sleep, hug) — soft warm pulse
+  care: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(349, 'sine', 0.04, 0.15, 0.35, 0.12, ctx.currentTime, ctx);
+    playTone(440, 'sine', 0.04, 0.12, 0.30, 0.08, ctx.currentTime + 0.1, ctx);
+  },
+
+  // Good discipline — firm but positive click + tone
+  discGood: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(523, 'square', 0.005, 0.02, 0.08, 0.10, ctx.currentTime, ctx);
+    playTone(659, 'sine',   0.01,  0.06, 0.18, 0.12, ctx.currentTime + 0.05, ctx);
+  },
+
+  // Harmful discipline — harsh thud
+  discHarm: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playNoise(0.12, 800, 0.3, ctx.currentTime, ctx);
+    playTone(120, 'sawtooth', 0.005, 0.05, 0.15, 0.18, ctx.currentTime, ctx);
+  },
+
+  // Baby crying — whiny oscillating tone,
+
+  // Giggle / tap — light bubbly tones,
+
+  // Sad tap reaction — low descending tone
+  sad: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(370, 'sine', 0.02, 0.1, 0.4, 0.12, ctx.currentTime, ctx);
+    playTone(311, 'sine', 0.02, 0.1, 0.5, 0.09, ctx.currentTime + 0.15, ctx);
+  },
+
+  // Poop appears — wet splat
+  poop: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playNoise(0.18, 400, 0.35, ctx.currentTime, ctx);
+    playTone(98, 'sine', 0.005, 0.06, 0.18, 0.15, ctx.currentTime + 0.02, ctx);
+  },
+
+  // Wipe stroke — squeaky clean
+  wipe: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playNoise(0.06, 3000, 0.08, ctx.currentTime, ctx);
+  },
+
+  // All clean! — ta-dah
+  clean: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [523, 659, 784, 1047].forEach(function(f, i) {
+      playTone(f, 'sine', 0.01, 0.08, 0.25, 0.15, ctx.currentTime + i * 0.1, ctx);
+    });
+  },
+
+  // Incident alert — urgent attention ding
+  incident: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [880, 880, 698].forEach(function(f, i) {
+      playTone(f, 'square', 0.005, 0.04, 0.08, 0.12, ctx.currentTime + i * 0.12, ctx);
+    });
+  },
+
+  // Incident resolved — good outcome
+  incidentGood: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [523, 659, 784].forEach(function(f, i) {
+      playTone(f, 'triangle', 0.01, 0.07, 0.2, 0.13, ctx.currentTime + i * 0.09, ctx);
+    });
+  },
+
+  // Incident resolved — bad outcome
+  incidentBad: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [440, 370, 311].forEach(function(f, i) {
+      playTone(f, 'sawtooth', 0.01, 0.06, 0.18, 0.12, ctx.currentTime + i * 0.1, ctx);
+    });
+  },
+
+  // Baby grows — magical ascending sparkle
+  grow: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    var magic = [523,587,659,698,784,880,988,1047];
+    magic.forEach(function(f, i) {
+      playTone(f, 'sine', 0.01, 0.05, 0.3, 0.12, ctx.currentTime + i * 0.07, ctx);
+    });
+    // Add a shimmer layer
+    [1319,1568,2093].forEach(function(f, i) {
+      playTone(f, 'triangle', 0.01, 0.03, 0.4, 0.06, ctx.currentTime + 0.3 + i * 0.08, ctx);
+    });
+  },
+
+  // Next day — soft clock tick
+  nextDay: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(220, 'square', 0.005, 0.01, 0.05, 0.08, ctx.currentTime, ctx);
+    playTone(330, 'square', 0.005, 0.01, 0.05, 0.06, ctx.currentTime + 0.07, ctx);
+  },
+
+  // Game over (neglect/abuse) — sad descending
+  gameOver: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [494, 440, 392, 349, 294].forEach(function(f, i) {
+      playTone(f, 'sine', 0.02, 0.12, 0.4, 0.14, ctx.currentTime + i * 0.18, ctx);
+    });
+  },
+
+  // Button tap — light UI click
+  tap: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    playTone(1200, 'square', 0.002, 0.005, 0.04, 0.06, ctx.currentTime, ctx);
+  },
+
+  // Toggle sound on
+  soundOn: function() {
+    var ctx = getAudioCtx(); if (!ctx) return;
+    [523, 659, 784].forEach(function(f, i) {
+      playTone(f, 'sine', 0.01, 0.05, 0.15, 0.15, ctx.currentTime + i * 0.08, ctx);
+    });
+  },
+
+  // Baby crying,
+
+  // Giggle,
+
+  // Cry sound
+  cry: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    var osc=ctx.createOscillator(), g=ctx.createGain();
+    osc.type='sine';
+    osc.frequency.setValueAtTime(580,ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(720,ctx.currentTime+0.15);
+    osc.frequency.linearRampToValueAtTime(560,ctx.currentTime+0.35);
+    osc.frequency.linearRampToValueAtTime(0,ctx.currentTime+0.65);
+    g.gain.setValueAtTime(0.18,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.67);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime+0.7);
+  },
+  // Giggle sound
+  giggle: function() {
+    var ctx = getAudioCtx(); if (!ctx || !_soundEnabled) return;
+    [880,1047,1175,1047,1319].forEach(function(f,i){
+      playTone(f,'sine',0.005,0.03,0.09,0.10,ctx.currentTime+i*0.06,ctx);
+    });
+  },
+  // Toggle sound off — descending
+  soundOff: function() {
+    var ctx = getAudioCtx(); if (!ctx) return;
+    [784, 659, 523].forEach(function(f, i) {
+      playTone(f, 'sine', 0.01, 0.05, 0.15, 0.10, ctx.currentTime + i * 0.08, ctx);
+    });
+  },
+};
+
+function toggleTheme() {
+  var isLight = document.documentElement.classList.toggle('light');
+  var btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = isLight ? '☀️' : '🌙';
+  try { localStorage.setItem('baiby_theme', isLight ? 'light' : 'dark'); } catch(e) {}
+  // Re-render nursery bg for current stage
+  updateBabySVG();
+}
+
+function toggleSound() {
+  _soundEnabled = !_soundEnabled;
+  var btn = document.getElementById('btn-sound');
+  if (btn) btn.textContent = _soundEnabled ? '🔊' : '🔇';
+  if (_soundEnabled) SFX.soundOn();
+  else SFX.soundOff();
+  try { localStorage.setItem('baiby_sound', _soundEnabled ? '1' : '0'); } catch(e) {}
+}
+
+// ── CUSTOMISATION SYSTEM ──────────────────────────────────────────────────────
+var CUST_OPTIONS = {
+  skin:   ['🟡','🟤','🟠','⬜','🟫'],
+  skinColors: ['#fde68a','#a0522d','#d97706','#fef9c3','#7c4a00'],
+  outfit: ['👕','👔','🎽','👘','🥋','🧥','👗','🩱'],
+  acc:    ['🎒','👓','🕶️','📱','🎸','⚽','📚','🪀','🧸','❌'],
+  hat:    ['🎩','⛑️','👒','🧢','👑','🪖','🎓','❌'],
+  hair:   ['🟤','⚫','🟡','🔴','🟠','🔵','🟣','⬜'],
+  hairColors: ['#92400e','#1f2937','#fbbf24','#dc2626','#f97316','#3b82f6','#7c3aed','#f3f4f6'],
+  mood:   ['✨','💕','🌟','🔥','💫','🎉','🌈','😴','❤️','❌'],
+};
+
+// Defaults
+if (!G.custom) G.custom = {skin:0, outfit:0, acc:9, hat:7, hair:0, mood:8};
+
+function openCustomise() {
+  if (!G.custom) G.custom = {skin:0,outfit:0,acc:9,hat:7,hair:0,mood:8};
+  var modal = document.getElementById('customise-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  buildCustomRows();
+  updateCustomPreview();
+}
+
+function closeCustomise() {
+  var modal = document.getElementById('customise-modal');
+  if (modal) modal.style.display = 'none';
+  // Apply skin color to SVG
+  applyCustomToSVG();
+  saveGame();
+}
+
+function buildCustomRows() {
+  buildCustRow('cust-skin',   CUST_OPTIONS.skin,   'skin');
+  buildCustRow('cust-outfit', CUST_OPTIONS.outfit, 'outfit');
+  buildCustRow('cust-acc',    CUST_OPTIONS.acc,    'acc');
+  buildCustRow('cust-hat',    CUST_OPTIONS.hat,    'hat');
+  buildCustRow('cust-hair',   CUST_OPTIONS.hair,   'hair');
+  buildCustRow('cust-mood',   CUST_OPTIONS.mood,   'mood');
+}
+
+function buildCustRow(containerId, opts, key) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  opts.forEach(function(opt, i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'cust-opt' + (G.custom[key] === i ? ' sel' : '');
+    btn.textContent = opt;
+    (function(idx){ btn.addEventListener('click', function(){
+      G.custom[key] = idx;
+      buildCustRow(containerId, opts, key);
+      updateCustomPreview();
+    }); })(i);
+    el.appendChild(btn);
+  });
+}
+
+function updateCustomPreview() {
+  var c = G.custom;
+  var hat    = c.hat   < CUST_OPTIONS.hat.length-1  ? CUST_OPTIONS.hat[c.hat]   : '';
+  var acc    = c.acc   < CUST_OPTIONS.acc.length-1  ? CUST_OPTIONS.acc[c.acc]   : '';
+  var outfit = CUST_OPTIONS.outfit[c.outfit] || '';
+  var mood   = c.mood  < CUST_OPTIONS.mood.length-1 ? CUST_OPTIONS.mood[c.mood] : '';
+  var setText2 = function(id,v){ var el=document.getElementById(id); if(el) el.textContent=v; };
+  setText2('prev-spr',    getSpr());
+  setText2('prev-hat',    hat);
+  setText2('prev-acc',    acc);
+  setText2('prev-outfit', outfit);
+  setText2('prev-mood',   mood);
+  setText2('prev-name',   G.name || '');
+}
+
+function applyCustomToSVG() {
+  if (!G.custom) return;
+  var c = G.custom;
+  // Skin color
+  var skinCol = CUST_OPTIONS.skinColors[c.skin] || '#fde68a';
+  var skinDark = shadeColor(skinCol, -15);
+  var head=$s('b-head'),neck=$s('b-neck');
+  var earL=$s('b-ear-l'),earR=$s('b-ear-r');
+  var legL=$s('b-leg-l'),legR=$s('b-leg-r');
+  if(head) head.setAttribute('fill', skinCol);
+  if(neck) neck.setAttribute('fill', skinCol);
+  if(earL) earL.setAttribute('fill', skinDark);
+  if(earR) earR.setAttribute('fill', skinDark);
+  // Arms and hands
+  var armL = $s('b-arm-l'), armR = $s('b-arm-r');
+  if (armL) { var rs=armL.querySelectorAll('rect,circle'); rs.forEach(function(r){r.setAttribute('fill',r.tagName==='circle'?skinDark:skinCol);}); }
+  if (armR) { var rs=armR.querySelectorAll('rect,circle'); rs.forEach(function(r){r.setAttribute('fill',r.tagName==='circle'?skinDark:skinCol);}); }
+  if(legL) legL.setAttribute('fill', skinCol);
+  if(legR) legR.setAttribute('fill', skinCol);
+  var fL=$s('b-foot-l'),fR=$s('b-foot-r');
+  if(fL) fL.setAttribute('fill', skinDark);
+  if(fR) fR.setAttribute('fill', skinDark);
+  // Hair color
+  var hairCol = CUST_OPTIONS.hairColors[c.hair] || '#92400e';
+  var hairEl = $s('b-hair');
+  if (hairEl) {
+    var paths = hairEl.querySelectorAll('path,ellipse,rect,circle');
+    paths.forEach(function(p){ if(p.getAttribute('fill')&&p.getAttribute('fill')!=='none') p.setAttribute('fill',hairCol); if(p.getAttribute('stroke')&&p.getAttribute('stroke')!=='none'&&p.getAttribute('stroke')!=='transparent') p.setAttribute('stroke',hairCol); });
+  }
+  // Outfit badge (show as floating text near body)
+  var outfitEl = document.getElementById('b-outfit-badge');
+  if (!outfitEl) {
+    outfitEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    outfitEl.setAttribute('id','b-outfit-badge');
+    outfitEl.setAttribute('x','-8');
+    outfitEl.setAttribute('y','30');
+    outfitEl.setAttribute('font-size','14');
+    outfitEl.setAttribute('text-anchor','middle');
+    var grp = $s('b-anim-wrapper');
+    if (grp) grp.appendChild(outfitEl);
+  }
+  outfitEl.textContent = CUST_OPTIONS.outfit[c.outfit]||'';
+  // Hat badge
+  var hatEl = document.getElementById('b-hat-badge');
+  if (!hatEl) {
+    hatEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    hatEl.setAttribute('id','b-hat-badge');
+    hatEl.setAttribute('x','0');
+    hatEl.setAttribute('y','-50');
+    hatEl.setAttribute('font-size','18');
+    hatEl.setAttribute('text-anchor','middle');
+    var grp = $s('b-anim-wrapper');
+    if (grp) grp.appendChild(hatEl);
+  }
+  hatEl.textContent = c.hat < CUST_OPTIONS.hat.length-1 ? CUST_OPTIONS.hat[c.hat] : '';
+  // Acc badge (beside baby)
+  var accEl = document.getElementById('b-acc-badge');
+  if (!accEl) {
+    accEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    accEl.setAttribute('id','b-acc-badge');
+    accEl.setAttribute('x','42');
+    accEl.setAttribute('y','10');
+    accEl.setAttribute('font-size','16');
+    var grp = $s('b-anim-wrapper');
+    if (grp) grp.appendChild(accEl);
+  }
+  accEl.textContent = c.acc < CUST_OPTIONS.acc.length-1 ? CUST_OPTIONS.acc[c.acc] : '';
+  // Mood sticker (top-left of head)
+  var moodEl = document.getElementById('b-mood-badge');
+  if (!moodEl) {
+    moodEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    moodEl.setAttribute('id','b-mood-badge');
+    moodEl.setAttribute('x','-42');
+    moodEl.setAttribute('y','-42');
+    moodEl.setAttribute('font-size','14');
+    var grp = $s('b-anim-wrapper');
+    if (grp) grp.appendChild(moodEl);
+  }
+  moodEl.textContent = c.mood < CUST_OPTIONS.mood.length-1 ? CUST_OPTIONS.mood[c.mood] : '';
+}
+
+function shadeColor(hex, pct) {
+  // Simple lighten/darken by percentage
+  try {
+    var n = parseInt(hex.slice(1),16);
+    var r=Math.min(255,Math.max(0,((n>>16)&0xff)+pct));
+    var g=Math.min(255,Math.max(0,((n>>8)&0xff)+pct));
+    var b=Math.min(255,Math.max(0,(n&0xff)+pct));
+    return '#'+[r,g,b].map(function(x){return x.toString(16).padStart(2,'0');}).join('');
+  } catch(e) { return hex; }
+}
+
+// ── CUSTOM CONFIRM ────────────────────────────────────────────────────────────
+// showConfirm/hideConfirm moved to earlier in file
+
+// ── BOOT ─────────────────────────────────────────────────────────────────────
+// Idle blink loop
+function startIdleBlink() {
+  function blink() {
+    var eyeL = document.getElementById('b-pupil-l');
+    var eyeR = document.getElementById('b-pupil-r');
+    if (!eyeL || !eyeR) return;
+    // Squint eyes
+    eyeL.setAttribute('ry', '1');
+    eyeR.setAttribute('ry', '1');
+    setTimeout(function(){
+      eyeL.setAttribute('ry', '3.5');
+      eyeR.setAttribute('ry', '3.5');
+    }, 120);
+  }
+  // Blink every 3-5 seconds
+  function scheduleBlink() {
+    var delay = 3000 + Math.random()*2000;
+    setTimeout(function(){ blink(); scheduleBlink(); }, delay);
+  }
+  scheduleBlink();
+}
+
+// Tap baby to make it react
+function bindBabyTap() {
+  var wrap = document.getElementById('baby-wrap');
+  if (!wrap) return;
+  wrap.addEventListener('click', function() {
+    // Don't react during overlay screens
+    if (_poopActive || _incActive) return;
+
+    var hu = G.hu, hp = G.hp, hl = G.hl;
+    var tr = G.traits;
+    var isTrauma   = tr.indexOf('traumatised') >= 0;
+    var isAnxious  = tr.indexOf('anxious')     >= 0;
+    var isAggress  = tr.indexOf('aggressive')  >= 0;
+    var isGrumpy   = tr.indexOf('grumpy')      >= 0;
+    var isShy      = tr.indexOf('shy')         >= 0;
+    var isKind     = tr.indexOf('kind')        >= 0;
+    var isFat      = tr.indexOf('fat')         >= 0;
+    var isFit      = tr.indexOf('fit')         >= 0;
+    var isHappy    = hp > 65 && hu > 40;
+    var isSad      = hp < 30 || hu < 25;
+    var isStarving = hu < 15;
+    var isSick     = hl < 30;
+    var r;
+
+    // Priority order: worst state wins
+    if (isStarving) {
+      var pool = [
+        {anim:'cry',   say:'Please... I\'m so hungry. 😢'},
+        {anim:'cry',   say:'Feed me first. I can\'t play right now.'},
+        {anim:'shake', say:'My tummy hurts... food please?'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isTrauma) {
+      var pool = [
+        {anim:'shake', say:'Please don\'t hurt me...'},
+        {anim:'cry',   say:'I don\'t feel safe. 💔'},
+        {anim:'shake', say:'Stop, stop, stop...'},
+        {anim:'cry',   say:'I just want it to stop.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isAnxious) {
+      var pool = [
+        {anim:'shake', say:'Don\'t touch me, I\'m scared!'},
+        {anim:'cry',   say:'I\'m nervous... please be gentle.'},
+        {anim:'wobble',say:'...okay. Just don\'t startle me.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isAggress) {
+      var pool = [
+        {anim:'shake', say:'Get away from me!'},
+        {anim:'shake', say:'Don\'t touch me!'},
+        {anim:'wobble',say:'...leave me alone.'},
+        {anim:'shake', say:'I\'m not in the mood.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isSick) {
+      var pool = [
+        {anim:'cry',   say:'I don\'t feel well... 🤒'},
+        {anim:'wobble',say:'My head hurts. Can we rest?'},
+        {anim:'cry',   say:'I feel terrible. Please help.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isSad) {
+      var pool = [
+        {anim:'cry',   say:'I don\'t really feel like playing...'},
+        {anim:'wobble',say:'I\'m sad today. Can we cuddle instead?'},
+        {anim:'cry',   say:'Everything feels bad right now. 😔'},
+        {anim:'wobble',say:'Hold me please?'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isGrumpy) {
+      var pool = [
+        {anim:'shake', say:'Not now. I\'m grumpy.'},
+        {anim:'wobble',say:'Ugh. Fine. But I\'m still grumpy.'},
+        {anim:'shake', say:'Stop it. Go away.'},
+        {anim:'wobble',say:'I\'m in a BAD mood today.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isShy) {
+      var pool = [
+        {anim:'wobble',say:'...hi. 👋'},
+        {anim:'pulse', say:'Um... okay I guess. 😊'},
+        {anim:'wobble',say:'You\'re not a stranger so it\'s okay.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isFat) {
+      var pool = [
+        {anim:'wobble',say:'Ehh... do we have to? I\'m tired.'},
+        {anim:'wobble',say:'Can we do something less... active?'},
+        {anim:'pulse', say:'Hehe. Okay. But slowly. 😅'},
+        {anim:'wobble',say:'I\'m too full to move much.'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isFit) {
+      var pool = [
+        {anim:'bounce',say:'LET\'S GO! ⚡ I\'m so fast!'},
+        {anim:'bounce',say:'Race you! I\'ll win! 🏆'},
+        {anim:'float', say:'Haha! Tickle me more! I can take it!'},
+        {anim:'bounce',say:'AGAIN! AGAIN! I love this!'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isKind) {
+      var pool = [
+        {anim:'float', say:'Aww! I love you so much! ❤️'},
+        {anim:'pulse', say:'You\'re my favourite person! 🤗'},
+        {anim:'bounce',say:'This makes me so happy!'},
+        {anim:'float', say:'I just want everyone to be happy! ✨'},
+      ];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else if (isHappy) {
+      // Stage-appropriate happy reactions
+      var stagePools = [
+        // Newborn
+        [{anim:'bounce',say:'Goo goo gaa gaa! 😄'},{anim:'wobble',say:'*giggle giggle*'},{anim:'bounce',say:'AHHH! 😁'}],
+        // Toddler
+        [{anim:'bounce',say:'Hehe! Tickles! Do it again!'},{anim:'bounce',say:'AGAIN! AGAIN!'},{anim:'wobble',say:'You\'re so funny! 😂'}],
+        // Child
+        [{anim:'bounce',say:'Haha! That tickles! Stop! ...don\'t stop.'},{anim:'float',say:'Weee! 🌟 Do it again!'},{anim:'bounce',say:'Play with me!'}],
+        // Teen
+        [{anim:'wobble',say:'Okay okay, I\'m smiling. Happy now? 😏'},{anim:'pulse',say:'...that was actually funny. Don\'t tell anyone.'},{anim:'float',say:'Ugh fine, I love you too. 🙄❤️'}],
+        // Adult
+        [{anim:'float',say:'Haha! Still get me every time. 😄'},{anim:'pulse',say:'You know I love you, right? ❤️'},{anim:'bounce',say:'Okay I\'m in a good mood now.'}],
+      ];
+      var si = Math.min(G.si||0, stagePools.length-1);
+      var pool = stagePools[si];
+      r = pool[~~(Math.random()*pool.length)];
+
+    } else {
+      // Neutral / default — stage-appropriate
+      var stagePools = [
+        [{anim:'wobble',say:'Goo? Gaa! 👶'},{anim:'pulse',say:'*blinks at you*'}],
+        [{anim:'wobble',say:'Ehh? What you doing?'},{anim:'bounce',say:'Play! Play! Play!'}],
+        [{anim:'wobble',say:'What do you want? I\'m busy.'},{anim:'pulse',say:'Okay fine. Hi.'}],
+        [{anim:'wobble',say:'Can you not right now? 🙄'},{anim:'pulse',say:'...what?'}],
+        [{anim:'float', say:'Hey. How are you doing?'},{anim:'pulse',say:'Good to see you. ❤️'}],
+      ];
+      var si = Math.min(G.si||0, stagePools.length-1);
+      var pool = stagePools[si];
+      r = pool[~~(Math.random()*pool.length)];
+    }
+
+    setBubble(r.say);
+    // Sound matches mood
+    if (isSad || isStarving || isSick || isTrauma || isAnxious) SFX.cry();
+    else if (isGrumpy || isAggress) SFX.discHarm();
+    else SFX.giggle();
+    animateBaby(r.anim);
+  });
+}
+(function boot() {
+  bindButtons();
+  setSel('gb','gg');
+  setSel('m-normal','m-dev');
+  // Restore sound preference
+  // Restore theme preference
+  try {
+    var th = localStorage.getItem('baiby_theme');
+    if (th === 'light') {
+      document.documentElement.classList.add('light');
+      var tb = document.getElementById('btn-theme'); if(tb) tb.textContent='☀️';
+    }
+  } catch(e) {}
+  try {
+    var sp = localStorage.getItem('baiby_sound');
+    if (sp === '0') { _soundEnabled = false; var b = document.getElementById('btn-sound'); if(b) b.textContent='🔇'; }
+  } catch(e) {}
+  if (loadGame()) {
+    checkDayRollover();
+    comp(); showScreen('sm'); buildAll(); renderAll();
+    startIdleBlink(); bindBabyTap();
+    scheduleNextPoop();
+    scheduleNextIncident();
+    showSaveInd('Save loaded ✓');
+  } else {
+    showScreen('sw');
+  }
+})();
+</script>
+
+<!-- ── CUSTOMISE MODAL ──────────────────────────────────────────────────────── -->
+<div id="customise-modal" style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.6);align-items:center;justify-content:flex-end;flex-direction:column">
+  <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:420px;padding:16px 16px max(28px,env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:#111">👗 Customise Baby</div>
+      <button type="button" id="btn-close-customise" style="background:#7c3aed;border:none;border-radius:10px;padding:9px 20px;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:rgba(255,255,255,0.2)">Done ✓</button>
+    </div>
+    <!-- Live Preview -->
+    <div style="background:#f9f5ff;border:1px solid #e9d5ff;border-radius:14px;padding:12px;margin-bottom:14px;text-align:center">
+      <div style="font-size:10px;font-weight:600;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Live Preview</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+        <div id="prev-hat"    style="font-size:26px;line-height:1;min-width:30px"></div>
+        <div id="prev-spr"    style="font-size:52px;line-height:1">👶</div>
+        <div id="prev-acc"    style="font-size:26px;line-height:1;min-width:30px"></div>
+      </div>
+      <div style="margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px">
+        <div id="prev-outfit" style="font-size:20px;line-height:1"></div>
+        <div id="prev-mood"   style="font-size:20px;line-height:1"></div>
+      </div>
+      <div id="prev-name" style="font-size:11px;font-weight:700;color:#7c3aed;margin-top:4px"></div>
+    </div>
+
+    <!-- Skin tone -->
+    <div style="margin-bottom:14px">
+      <div class="cust-label">🎨 Skin tone</div>
+      <div class="cust-row" id="cust-skin"></div>
+    </div>
+    <!-- Outfit -->
+    <div style="margin-bottom:14px">
+      <div class="cust-label">👕 Outfit</div>
+      <div class="cust-row" id="cust-outfit"></div>
+    </div>
+    <!-- Accessory -->
+    <div style="margin-bottom:14px">
+      <div class="cust-label">🎒 Accessory</div>
+      <div class="cust-row" id="cust-acc"></div>
+    </div>
+    <!-- Hat -->
+    <div style="margin-bottom:14px">
+      <div class="cust-label">🎩 Hat</div>
+      <div class="cust-row" id="cust-hat"></div>
+    </div>
+    <!-- Hair colour -->
+    <div style="margin-bottom:14px">
+      <div class="cust-label">💇 Hair colour</div>
+      <div class="cust-row" id="cust-hair"></div>
+    </div>
+    <!-- Mood sticker -->
+    <div style="margin-bottom:6px">
+      <div class="cust-label">✨ Mood sticker</div>
+      <div class="cust-row" id="cust-mood"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
