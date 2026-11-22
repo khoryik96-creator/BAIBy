@@ -40,7 +40,8 @@ namespace BAIby.Character
             return visuals;
         }
 
-        public void Present(bool adopted, bool canSitAndReach, Reaction newReaction, Toy selectedToy = Toy.Rattle)
+        public void Present(bool adopted, bool canSitAndReach, Reaction newReaction,
+            Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null)
         {
             toy.gameObject.SetActive(adopted);
             if (!hasPresented)
@@ -50,7 +51,7 @@ namespace BAIby.Character
             }
 
             canSit = canSitAndReach;
-            ambientToy = selectedToy;
+            ambientToy = ambientSelection ?? selectedToy;
             if (newReaction != Reaction.None)
             {
                 reaction = newReaction;
