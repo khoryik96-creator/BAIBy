@@ -42,8 +42,13 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Soothe");
             Assert.That(Reaction(view.gameObject), Does.Contain("relaxes"));
             var initialEnergy = EnergyMeter(view.gameObject);
-            Tap(view.gameObject, "Play");
-            Assert.That(Reaction(view.gameObject), Does.Contain("follows the toy"));
+            Tap(view.gameObject, "Play with rattle");
+            Assert.That(Reaction(view.gameObject), Does.Contain("follows the rattle"));
+            Tap(view.gameObject, "Play with plush");
+            Assert.That(Reaction(view.gameObject), Does.Contain("follows the plush"));
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.Empty);
+            Tap(view.gameObject, "Play with plush");
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             var afterPlay = EnergyMeter(view.gameObject);
             Assert.That(afterPlay, Is.LessThan(initialEnergy));
             Tap(view.gameObject, "Rest");
@@ -63,8 +68,9 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Early sitter"));
             Assert.That(EnergyMeter(restored.gameObject), Is.EqualTo(beforeReload).Within(0.01f));
-            Tap(restored.gameObject, "Play");
-            Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the toy"));
+            Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            Tap(restored.gameObject, "Play with plush");
+            Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the plush"));
         }
 
         [UnityTearDown]

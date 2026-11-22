@@ -64,10 +64,10 @@ namespace BAIby.Application
             return update.UnlockedSitting;
         }
 
-        public (Reaction Reaction, bool UnlockedSitting) ApplyCare(CareAction action)
+        public (Reaction Reaction, bool UnlockedSitting) ApplyCare(CareAction action, Toy toy = Toy.Rattle)
         {
             var elapsed = simulation.Advance(GetAdoptedBaby(), now());
-            var caredFor = simulation.ApplyCare(elapsed.State, action);
+            var caredFor = simulation.ApplyCare(elapsed.State, action, toy);
             Commit(caredFor.State);
             return (caredFor.Reaction, elapsed.UnlockedSitting);
         }

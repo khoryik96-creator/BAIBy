@@ -25,6 +25,7 @@ namespace BAIby.Presentation
         private GameObject controls;
         private Text title;
         private Text age;
+        private Text favorite;
         private Text status;
         private Text saveError;
         private Text wake;
@@ -113,12 +114,12 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Care(CareAction action)
+        private void Care(CareAction action, Toy toy = Toy.Rattle)
         {
             try
             {
-                var result = session.ApplyCare(action);
-                Paint(result.Reaction, result.UnlockedSitting);
+                var result = session.ApplyCare(action, toy);
+                Paint(result.Reaction, result.UnlockedSitting, action == CareAction.Play ? toy : (Toy?)null);
             }
             catch (Exception error)
             {
@@ -138,7 +139,7 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Paint(Reaction reaction, bool unlocked)
+        private void Paint(Reaction reaction, bool unlocked, Toy? playedToy = null)
         {
             var state = session.State;
             var adopted = state != null;
@@ -148,7 +149,8 @@ namespace BAIby.Presentation
             comfort.Root.gameObject.SetActive(adopted);
             energy.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
-            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction);
+            var visibleToy = playedToy ?? state?.FavoriteToy ?? Toy.Rattle;
+            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy);
 
             if (!adopted)
                 return;
@@ -158,28 +160,31 @@ namespace BAIby.Presentation
             var days = (int)state.Age.TotalDays;
             var stage = state.CanSitAndReach ? "Early sitter" : "Newborn";
             age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
+            favorite.text = state.FavoriteToy is Toy favored ? $"Favorite: {ToyName(favored)}" : string.Empty;
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
             energy.Set(state.Energy);
             if (unlocked)
                 status.text = reaction == Reaction.None
                     ? $"{state.Name} can sit up now. Try playing with the toy."
-                    : $"{state.Name} can sit up now. {DescribeReaction(state.Name, reaction)}";
+                    : $"{state.Name} can sit up now. {DescribeReaction(state.Name, reaction, visibleToy)}";
             else if (reaction != Reaction.None)
-                status.text = DescribeReaction(state.Name, reaction);
+                status.text = DescribeReaction(state.Name, reaction, visibleToy);
             else
                 status.text = DescribeNeeds(state);
         }
 
-        private static string DescribeReaction(string name, Reaction reaction)
+        private static string ToyName(Toy toy) => toy == Toy.Plush ? "Plush" : "Rattle";
+
+        private static string DescribeReaction(string name, Reaction reaction, Toy toy)
         {
             switch (reaction)
             {
                 case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
-                case Reaction.TracksToy: return $"{name} follows the toy with their eyes.";
-                case Reaction.ReachesForToy: return $"{name} sits up and reaches for the toy.";
+                case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
+                case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
                 default: return string.Empty;
             }
         }
@@ -235,6 +240,8 @@ namespace BAIby.Presentation
             title.resizeTextMaxSize = 48;
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
                 new Vector2(0, 59), new Vector2(1, 1), new Vector2(0, -101));
+            favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
+                new Vector2(0, 59), Vector2.one, new Vector2(0, -101));
             satiety = Meter("Fullness", top, 0, 1f / 3);
             comfort = Meter("Comfort", top, 1f / 3, 2f / 3);
             energy = Meter("Energy", top, 2f / 3, 1);
@@ -258,17 +265,18 @@ namespace BAIby.Presentation
             saveError = Label("Save Message", starter, "", 17, Ink, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.right, new Vector2(0, 30));
 
-            var panel = Tray("Care", false, 264);
+            var panel = Tray("Care", false, 360);
             controls = panel.parent.gameObject;
             status = Label("Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 187), Vector2.right, new Vector2(0, 251));
+                new Vector2(0, 283), Vector2.right, new Vector2(0, 347));
             status.resizeTextForBestFit = true;
             status.resizeTextMinSize = 19;
             status.resizeTextMaxSize = 25;
-            ActionButton("Feed", panel, 0, 0.25f, 99, 187, () => Care(CareAction.Feed), Fern, Color.white);
-            ActionButton("Soothe", panel, 0.25f, 0.5f, 99, 187, () => Care(CareAction.Soothe), Fern, Color.white);
-            ActionButton("Rest", panel, 0.5f, 0.75f, 99, 187, () => Care(CareAction.Rest), Fern, Color.white);
-            ActionButton("Play", panel, 0.75f, 1, 99, 187, () => Care(CareAction.Play), Fern, Color.white);
+            ActionButton("Feed", panel, 0, 1f / 3, 195, 283, () => Care(CareAction.Feed), Fern, Color.white);
+            ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
+            ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
+            ActionButton("Play with rattle", panel, 0, 0.5f, 99, 187, () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
+            ActionButton("Play with plush", panel, 0.5f, 1, 99, 187, () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
             ActionButton("Preview next day", panel, 0, 1, 7, 91, NextPreviewDay, Mist, Ink);
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
