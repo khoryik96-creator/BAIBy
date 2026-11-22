@@ -7,7 +7,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
 from urllib.parse import quote
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 
 class QuietHandler(SimpleHTTPRequestHandler):
@@ -41,7 +41,7 @@ def check_build(root):
                 if response.headers.get_content_type() != "text/html":
                     raise ValueError("The preview index must serve as text/html")
             wasm = quote(assets[".wasm"].relative_to(root).as_posix())
-            with urlopen(f"{base}/{wasm}", timeout=5) as response:
+            with urlopen(Request(f"{base}/{wasm}", method="HEAD"), timeout=5) as response:
                 if response.headers.get_content_type() != "application/wasm":
                     raise ValueError("The preview server must serve .wasm as application/wasm")
         finally:
