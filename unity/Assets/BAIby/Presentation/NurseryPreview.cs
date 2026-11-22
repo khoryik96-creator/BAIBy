@@ -150,7 +150,8 @@ namespace BAIby.Presentation
             energy.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
-            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, playedToy ?? ambientToy, ambientToy);
+            var visibleToy = playedToy ?? ambientToy;
+            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy);
 
             if (!adopted)
                 return;
