@@ -185,7 +185,7 @@ namespace BAIby.Character
         {
             bool isPlush = displayedToy == Toy.Plush;
             var offered = new Vector3(visibleWidth * (.39f - play * .07f),
-                -1.50f + play * 1.12f + Mathf.Sin(now * 8f) * play * .075f, 0);
+                -1.17f + play * .79f + Mathf.Sin(now * 8f) * play * .075f, 0);
             if (reach > 0 && sitter.sprite != null)
             {
                 // Align the lower toy edge with the raised hand painted into the sitter pose.
