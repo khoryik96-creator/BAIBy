@@ -4,7 +4,7 @@ The first release should let players get to know a baby, see how their care chan
 
 ## 1. Prove the character on a phone
 
-Build one nursery camera, one toy, and two developmental looks in Unity with URP. Try a newborn who tracks a toy and an older baby who can sit and reach for it. Use a cohesive character model with age-appropriate proportions, eyelids, hands, facial poses, and distinct posture. Test animation transitions, gaze and hand contact at gameplay camera distance. Record the reference clips and profile a physical Android phone and iPhone before ordering a full set of age-stage assets.
+Build one illustrated nursery, one toy, and two developmental looks in Unity. Show the swaddled newborn from the welcome screen and give the same baby a distinct sitting pose as they grow. Use awake and sleeping illustrations and readable care reactions at phone size. Record reference clips and profile a physical Android phone and iPhone before producing more age-stage assets.
 
 ## 2. Ship an internal playable slice
 

@@ -4,6 +4,7 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 
 | Step | Expected result |
 | --- | --- |
+| Open the nursery with a fresh save | The newborn is visible above the name prompt before adoption. |
 | Adopt a baby and select Play | The newborn tracks the toy and starts to remember it. |
 | Play, then rest | Play spends energy. Rest raises energy and cues a short nap. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |

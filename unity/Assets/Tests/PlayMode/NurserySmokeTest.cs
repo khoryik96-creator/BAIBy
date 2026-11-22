@@ -31,6 +31,9 @@ namespace BAIby.Tests
             var view = NurseryStartup.StartPreview(saveKey);
             yield return null;
 
+            var newborn = Child<SpriteRenderer>(view.gameObject, "Newborn artwork");
+            Assert.That(newborn.gameObject.activeInHierarchy && newborn.enabled, Is.True);
+            Assert.That(newborn.sprite, Is.Not.Null);
             Child<InputField>(view.gameObject, "Name").text = "Mia";
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));

@@ -1,6 +1,6 @@
 # Mobile architecture
 
-Use a single Unity project with URP and assembly definitions. Android, iOS, and the browser preview share the same simulation and content. Start with one nursery and a local save. The following are planned boundaries for the first playable slice.
+Use a single Unity project with assembly definitions and a layered 2D nursery. Android, iOS, and the browser preview share the same simulation and content. Start with one nursery and a local save. The following are planned boundaries for the first playable slice.
 
 | Assembly | Owns | Dependencies |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ Advance elapsed time on launch, resume, and explicit session ticks. Commit the t
 
 Use ScriptableObjects for authoring, then translate gameplay values into plain C# definitions at the boundary. Give catalog entries stable IDs and validate missing references, duplicates and invalid ranges in editor checks. A new toy or outfit should need catalog and asset changes only. Shared behavior goes into an existing rule or a tested simulation extension.
 
-Map developmental stages to rig and animation profiles. Keep expressions and actions semantic, such as tired or reaching, so art can vary by stage without changing the simulation. Use compressed textures and profile asset loading in the nursery. Introduce on-demand packs when device measurements show the need.
+Map developmental stages to illustrated poses and animation profiles. Keep expressions and actions semantic, such as tired or reaching, so art can vary by stage without changing the simulation. Use compressed textures and profile asset loading in the nursery. Introduce on-demand packs when device measurements show the need.
 
 ## Storage and platform growth
 

@@ -1,24 +1,32 @@
+using System.Collections.Generic;
 using BAIby.Simulation;
 using UnityEngine;
-using static BAIby.Character.Modeling;
 
 namespace BAIby.Character
 {
     public sealed class NurseryVisuals : MonoBehaviour
     {
-        private static readonly Vector3 ToyRest = new Vector3(.51f, .23f, -.49f);
-        private static readonly Vector3 ToyOffer = new Vector3(.37f, .63f, -.36f);
-        private static readonly Vector3 ToyHandle = new Vector3(0, -.037f, 0);
-
-        private BabyRig baby;
-        private Transform toy;
-        private Transform pillow;
+        private const string Art = "BAIby/";
+        private const float QuiltSurface = -1.62f;
+        private readonly List<Object> generatedAssets = new List<Object>();
         private Camera nurseryCamera;
-        private Reaction reaction;
-        private float reactionStarted;
-        private bool canSit;
-        private float sitBlend;
+        private SpriteRenderer backdrop;
+        private SpriteRenderer rug;
+        private SpriteRenderer cushion;
+        private SpriteRenderer shade;
+        private SpriteRenderer newborn;
+        private SpriteRenderer newbornRest;
+        private SpriteRenderer sitter;
+        private SpriteRenderer sitterRest;
+        private SpriteRenderer toy;
+        private Transform baby;
+        private float visibleWidth;
         private float aspect;
+        private float reactionStarted;
+        private Reaction reaction;
+        private bool hasPresented;
+        private bool canSit;
+        private float stageBlend;
 
         public static NurseryVisuals Create()
         {
@@ -29,7 +37,13 @@ namespace BAIby.Character
 
         public void Present(bool adopted, bool canSitAndReach, Reaction newReaction)
         {
-            baby.Root.gameObject.SetActive(adopted);
+            toy.gameObject.SetActive(adopted);
+            if (!hasPresented)
+            {
+                stageBlend = canSitAndReach ? 1 : 0;
+                hasPresented = true;
+            }
+
             canSit = canSitAndReach;
             if (newReaction != Reaction.None)
             {
@@ -42,158 +56,235 @@ namespace BAIby.Character
         {
             nurseryCamera = new GameObject("Nursery Camera").AddComponent<Camera>();
             nurseryCamera.transform.SetParent(transform, false);
+            nurseryCamera.transform.localPosition = new Vector3(0, 0, -10);
             nurseryCamera.tag = "MainCamera";
             nurseryCamera.clearFlags = CameraClearFlags.SolidColor;
-            nurseryCamera.backgroundColor = new Color(.68f, .75f, .66f);
+            nurseryCamera.backgroundColor = new Color32(207, 221, 205, 255);
             nurseryCamera.orthographic = true;
-            nurseryCamera.transform.position = new Vector3(.26f, 2.13f, -6.1f);
-            nurseryCamera.transform.LookAt(new Vector3(.035f, .76f, -.02f));
-            nurseryCamera.farClipPlane = 35;
+            nurseryCamera.orthographicSize = 3.60f;
             nurseryCamera.allowHDR = false;
-            nurseryCamera.allowMSAA = true;
-            FrameCamera();
 
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(.31f, .31f, .32f);
-            Light("Afternoon window", new Color(1f, .88f, .76f), .68f, new Vector3(47, -34, 0));
-            Light("Soft bounce", new Color(.80f, .90f, 1f), .19f, new Vector3(23, 43, 0));
-            Light("Rim", new Color(1f, .91f, .79f), .28f, new Vector3(43, 158, 0));
-
-            var wall = Matte("#A7B6A3");
-            var cream = Matte("#F2E5CF");
-            var wood = Matte("#CB9C78");
-            var darkWood = Matte("#AC7E60");
-            var moss = Matte("#587871");
-            var saffron = Matte("#E6B36C");
-            var clay = Matte("#BE755D");
-
-            Box("Sage back wall", new Vector3(0, 1.8f, 2.4f), new Vector3(16, 5, .14f), wall);
-            Box("Wooden floor", new Vector3(0, -.095f, -.2f), new Vector3(16, .15f, 12), wood);
-            Box("Baseboard", new Vector3(0, .09f, 2.29f), new Vector3(16, .16f, .09f), cream);
-            for (int board = -7; board <= 7; board++)
-                Box("Floorboard seam", new Vector3(board * .62f, -.018f, 0),
-                    new Vector3(.010f, .005f, 10), darkWood);
-
-            Form(transform, "Oval nursery rug", new Vector3(0, .008f, -.21f),
-                new Vector3(3.45f, .078f, 2.59f), moss);
-            Form(transform, "Quilt base", new Vector3(0, .076f, -.095f),
-                new Vector3(1.45f, .15f, 1.48f), darkWood);
-            var quilt = Form(transform, "Quilt cushion", new Vector3(0, .137f, -.075f),
-                new Vector3(1.53f, .16f, 1.57f), cream);
-            ContactShade(quilt);
-            pillow = Form(transform, "Back support cushion", new Vector3(0, .36f, .37f),
-                new Vector3(.92f, .54f, .57f), saffron);
-            pillow.localRotation = Quaternion.Euler(-18, 0, 0);
-
-            Box("Oak ledge", new Vector3(1.25f, 1.18f, 2.02f), new Vector3(1.54f, .085f, .43f), wood);
-            for (int book = 0; book < 4; book++)
+            var roomArt = LoadSprite(Art + "Nursery/Backdrop");
+            if (roomArt != null)
             {
-                Box("Picture book", new Vector3(.73f + book * .11f, 1.36f, 1.98f),
-                    new Vector3(.09f, .28f + (book % 3) * .032f, .22f),
-                    book % 2 == 0 ? moss : clay).localRotation =
-                    Quaternion.Euler(0, 0, book == 3 ? -10 : 0);
+                backdrop = AddLayer(transform, "Nursery illustration", roomArt, Color.white, -10);
             }
-            Box("Picture frame", new Vector3(-.89f, 1.76f, 2.28f), new Vector3(.63f, .67f, .05f), darkWood);
-            Box("Print paper", new Vector3(-.89f, 1.76f, 2.249f), new Vector3(.54f, .58f, .01f), cream);
-            Form(transform, "Sun illustration", new Vector3(-.89f, 1.79f, 2.235f),
-                new Vector3(.25f, .25f, .014f), saffron);
+            else
+            {
+                var panel = Shape(.14f, false);
+                var ellipse = Shape(.49f, false);
+                var floor = AddLayer(transform, "Warm floor", panel, new Color32(227, 202, 173, 255), -9);
+                floor.transform.localPosition = new Vector3(0, -3.35f, 0);
+                floor.transform.localScale = new Vector3(40, 4.10f, 1);
+                var light = AddLayer(transform, "Window light", ellipse, new Color32(236, 229, 197, 255), -8);
+                light.transform.localPosition = new Vector3(-1.12f, .80f, 0);
+                light.transform.localScale = new Vector3(3.85f, 5.10f, 1);
+                light.transform.localRotation = Quaternion.Euler(0, 0, -25);
+                rug = AddLayer(transform, "Sage play mat", ellipse, new Color32(125, 157, 141, 255), -7);
+                cushion = AddLayer(transform, "Quilt", ellipse, new Color32(247, 232, 207, 255), -6);
+            }
 
-            toy = Joint(transform, "Wooden rattle", ToyRest);
-            Form(toy, "Rattle stem", Vector3.zero, new Vector3(.032f, .111f, .032f), wood, PrimitiveType.Cylinder);
-            Form(toy, "Rattle cap", new Vector3(0, -.102f, 0), new Vector3(.082f, .081f, .083f), moss);
-            Form(toy, "Rattle head", new Vector3(0, .114f, 0), new Vector3(.135f, .138f, .136f), saffron);
-            Form(toy, "Rattle collar", new Vector3(0, .069f, 0), new Vector3(.10f, .06f, .10f), clay);
-            baby = new BabyRig(transform);
-            baby.Root.gameObject.SetActive(false);
+            shade = AddLayer(transform, "Soft contact shade", Shape(.49f, true),
+                new Color32(89, 68, 56, 64), -5);
+
+            baby = new GameObject("Baby rig").transform;
+            baby.SetParent(transform, false);
+            newborn = AddLayer(baby, "Newborn artwork", LoadSprite(Art + "Baby/Newborn"), Color.white, 0);
+            sitter = AddLayer(baby, "Sitter artwork", LoadSprite(Art + "Baby/Sitter"), Color.white, 2);
+            newbornRest = AddOptionalStage("Newborn nap artwork", "Baby/NewbornRest", 1);
+            sitterRest = AddOptionalStage("Sitter nap artwork", "Baby/SitterRest", 3);
+            SetStageOpacity(0);
+            if (newborn.sprite == null || sitter.sprite == null)
+                Debug.LogError("BAIby requires Newborn and Sitter sprites in Resources/BAIby/Baby.");
+
+            var toySprite = LoadSprite(Art + "Baby/Toy");
+            toy = AddLayer(transform, "Nursery rattle", toySprite, Color.white, 4);
+            if (toySprite == null)
+                BuildFallbackToy();
+
+            toy.gameObject.SetActive(false);
+            Frame();
+        }
+
+        private SpriteRenderer AddOptionalStage(string label, string resourcePath, int order)
+        {
+            var sprite = LoadSprite(Art + resourcePath);
+            return sprite == null ? null : AddLayer(baby, label, sprite, Color.white, order);
+        }
+
+        private void BuildFallbackToy()
+        {
+            var shape = Shape(.47f, false);
+            var handle = AddLayer(toy.transform, "Rattle handle", shape, new Color32(182, 130, 92, 255), 4);
+            handle.transform.localScale = new Vector3(.09f, .25f, 1);
+            var head = AddLayer(toy.transform, "Rattle top", shape, new Color32(228, 165, 83, 255), 5);
+            head.transform.localPosition = new Vector3(0, .13f, 0);
+            head.transform.localScale = new Vector3(.22f, .21f, 1);
         }
 
         private void Update()
         {
             if (!Mathf.Approximately(aspect, nurseryCamera.aspect))
-                FrameCamera();
+                Frame();
 
-            if (!baby.Root.gameObject.activeSelf)
-                return;
+            var now = Time.unscaledTime;
+            var elapsed = now - reactionStarted;
+            float response = Window(elapsed, 0, .22f, 1.55f, 2.35f);
+            float feed = reaction == Reaction.Satisfied ? response : 0;
+            float soothe = reaction == Reaction.Calmed ? response : 0;
+            float rest = reaction == Reaction.Rested ? Window(elapsed, 0, .65f, 3.10f, 4.35f) : 0;
+            bool playing = reaction == Reaction.TracksToy || reaction == Reaction.ReachesForToy;
+            float play = playing ? response : 0;
+            float reach = reaction == Reaction.ReachesForToy ? Window(elapsed, .25f, .85f, 1.40f, 2.20f) : 0;
 
-            float t = Time.unscaledTime;
-            float elapsed = t - reactionStarted;
-            float response = Mathf.Clamp01(elapsed * 6f) * Mathf.Clamp01((2.6f - elapsed) * 1.4f);
-            float tracking = reaction == Reaction.TracksToy || reaction == Reaction.ReachesForToy ? response : 0;
-            bool isReach = reaction == Reaction.ReachesForToy;
-            float reaching = isReach ? CueWindow(elapsed, .28f, .88f, 1.88f, 2.60f) : 0;
-            float holding = isReach ? CueWindow(elapsed, .76f, 1.04f, 1.74f, 2.19f) : 0;
-            float calming = reaction == Reaction.Calmed ? response : 0;
-            float feeding = reaction == Reaction.Satisfied ? response : 0;
-            float resting = reaction == Reaction.Rested ? CueWindow(elapsed, 0, .70f, 3.30f, 4.30f) : 0;
-            sitBlend = Mathf.MoveTowards(sitBlend, canSit ? 1 : 0, Time.unscaledDeltaTime * 1.35f);
+            stageBlend = Mathf.MoveTowards(stageBlend, canSit ? 1 : 0, Time.unscaledDeltaTime * 2.45f);
+            SetStageOpacity(Mathf.SmoothStep(0, 1, rest));
 
-            baby.Torso.localRotation = Quaternion.Euler(Mathf.Lerp(43, 3, sitBlend) - 12 * reaching + 4 * calming + 10 * resting, 0, 0);
-            baby.Torso.localScale = Vector3.one * (1f + .052f * sitBlend + Mathf.Sin(t * 2.4f) * Mathf.Lerp(.008f, .004f, resting));
-            baby.Head.localRotation = Quaternion.Euler(-21 * (1f - sitBlend) + 6 * feeding - 3 * calming + 7 * resting,
-                -23 * tracking + Mathf.Sin(t * 1.37f) * 2.7f * (1 - resting), 2 * calming + 11 * resting);
-            float mouthOpen = feeding * (.5f + Mathf.Sin(elapsed * 13f) * .5f);
-            baby.Mouth.localScale = new Vector3(.075f, .009f + mouthOpen * .023f, .017f);
-            baby.LowerLip.localPosition = new Vector3(0, -.008f - .017f * mouthOpen, -.005f);
-            float blink = Mathf.Clamp01(Mathf.Abs(Mathf.Repeat(t + 1.1f, 3.8f) - 3.6f) / .095f);
-            float eyeOpening = blink * (1f - .45f * calming) * (1f - resting);
-            for (int i = 0; i < 2; i++)
-            {
-                int side = i == 0 ? -1 : 1;
-                float activeReach = i == 1 ? reaching : 0;
-                bool eyesOpen = eyeOpening > .12f;
-                if (baby.Eyes[i].gameObject.activeSelf != eyesOpen)
-                {
-                    baby.Eyes[i].gameObject.SetActive(eyesOpen);
-                    baby.ClosedLids[i].gameObject.SetActive(!eyesOpen);
-                }
-                baby.Eyes[i].localScale = new Vector3(1, Mathf.Max(.12f, eyeOpening), 1);
-                baby.Pupils[i].localPosition = new Vector3(.008f * tracking - .005f * side, -.002f * tracking, -.018f);
-                baby.Arms[i].localRotation = Quaternion.Euler(
-                    Mathf.Lerp(38f, 12f, sitBlend) + 64 * activeReach - 9 * resting, -18 * activeReach,
-                    side * (34 - 8 * resting + Mathf.Sin(t * 2.8f + i) * 3.5f * (1 - resting)));
-                baby.Elbows[i].localRotation = Quaternion.Euler(40 - 29 * activeReach, 0, -side * 27);
-                baby.Legs[i].localRotation = Quaternion.Euler(
-                    72 + 12 * sitBlend + Mathf.Sin(t * 2.7f + i) * (1 - sitBlend) * 4,
-                    -side * 16, side * 31);
-            }
+            float breath = Mathf.Sin(now * 2.25f) * Mathf.Lerp(.008f, .004f, rest);
+            baby.localPosition = new Vector3(.08f * play + .10f * reach, QuiltSurface - .024f * rest + .022f * feed, 0);
+            baby.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach);
+            baby.localScale = new Vector3(1 + breath * .5f, 1 + breath + .022f * feed, 1);
 
-            var offeredPosition = transform.TransformPoint(Vector3.Lerp(ToyRest, ToyOffer, tracking));
-            var offeredRotation = transform.rotation * Quaternion.Euler(0, 0, 52 + tracking * Mathf.Sin(t * 12) * 11);
-            var heldRotation = baby.RightGrip.rotation * Quaternion.Euler(-62, 0, 28);
-            var heldPosition = baby.RightGrip.position - heldRotation * ToyHandle;
-            toy.SetPositionAndRotation(Vector3.Lerp(offeredPosition, heldPosition, holding),
-                Quaternion.Slerp(offeredRotation, heldRotation, holding));
-            pillow.localPosition = Vector3.Lerp(new Vector3(0, .36f, .37f),
-                new Vector3(0, .25f, .38f), sitBlend);
-            pillow.localScale = Vector3.Lerp(new Vector3(.92f, .54f, .57f),
-                new Vector3(.92f, .22f, .57f), sitBlend);
+            float toySide = visibleWidth * .39f;
+            toy.transform.localPosition = new Vector3(toySide - play * visibleWidth * .07f,
+                -1.50f + play * 1.12f + Mathf.Sin(now * 8f) * play * .075f, 0);
+            toy.transform.localRotation = Quaternion.Euler(0, 0, 25 + Mathf.Sin(now * 9f) * play * 23);
         }
 
-        private static float CueWindow(float elapsed, float start, float full, float release, float end)
+        private void SetStageOpacity(float resting)
+        {
+            float alpha = Mathf.SmoothStep(0, 1, stageBlend);
+            SetOpacity(newborn, (1 - alpha) * (newbornRest == null ? 1 : 1 - resting));
+            SetOpacity(sitter, alpha * (sitterRest == null ? 1 : 1 - resting));
+            SetOpacity(newbornRest, (1 - alpha) * resting);
+            SetOpacity(sitterRest, alpha * resting);
+        }
+
+        private static void SetOpacity(SpriteRenderer layer, float opacity)
+        {
+            if (layer == null)
+                return;
+            layer.enabled = opacity > 0;
+            layer.color = new Color(1, 1, 1, opacity);
+        }
+
+        private void Frame()
+        {
+            aspect = nurseryCamera.aspect;
+            float worldWidth = 2 * nurseryCamera.orthographicSize * aspect;
+            visibleWidth = Mathf.Min(worldWidth * .95f, 5.17f);
+            if (backdrop != null)
+            {
+                float worldHeight = 2 * nurseryCamera.orthographicSize;
+                float artHeight = Fit(backdrop, worldWidth, worldHeight, true);
+                float overscan = (artHeight - worldHeight) * .5f;
+                // The quilt center is 24% up from the bottom of this illustration.
+                float y = Mathf.Clamp(QuiltSurface + artHeight * .26f, -overscan, overscan);
+                backdrop.transform.localPosition = new Vector3(0, y, 0);
+            }
+            if (rug != null)
+            {
+                rug.transform.localPosition = new Vector3(0, -1.76f, 0);
+                rug.transform.localScale = new Vector3(visibleWidth * 1.34f, .83f, 1);
+                cushion.transform.localPosition = new Vector3(0, -1.42f, 0);
+                cushion.transform.localScale = new Vector3(visibleWidth * .92f, .73f, 1);
+            }
+
+            shade.transform.localPosition = new Vector3(0, QuiltSurface - .06f, 0);
+            shade.transform.localScale = new Vector3(visibleWidth * .75f, .46f, 1);
+            AnchorStage(newborn, .94f);
+            AnchorStage(sitter, .87f);
+            if (newbornRest != null)
+                AnchorStage(newbornRest, .94f);
+            if (sitterRest != null)
+                AnchorStage(sitterRest, .87f);
+            Fit(toy, .46f, .46f);
+            baby.localPosition = new Vector3(0, QuiltSurface, 0);
+        }
+
+        private void AnchorStage(SpriteRenderer layer, float widthFraction)
+        {
+            float height = Fit(layer, visibleWidth * widthFraction, 3.68f);
+            layer.transform.localPosition = new Vector3(0, height * .5f, 0);
+        }
+
+        private static float Fit(SpriteRenderer layer, float width, float height, bool cover = false)
+        {
+            if (layer.sprite == null)
+                return 0;
+            var size = layer.sprite.bounds.size;
+            float scale = cover ? Mathf.Max(width / size.x, height / size.y)
+                : Mathf.Min(width / size.x, height / size.y);
+            layer.transform.localScale = new Vector3(scale, scale, 1);
+            return size.y * scale;
+        }
+
+        private static SpriteRenderer AddLayer(Transform parent, string name, Sprite sprite, Color tint, int order)
+        {
+            var layer = new GameObject(name).AddComponent<SpriteRenderer>();
+            layer.transform.SetParent(parent, false);
+            layer.sprite = sprite;
+            layer.color = tint;
+            layer.sortingOrder = order;
+            return layer;
+        }
+
+        private Sprite LoadSprite(string resourcePath)
+        {
+            var imported = Resources.Load<Sprite>(resourcePath);
+            if (imported != null)
+                return imported;
+            var texture = Resources.Load<Texture2D>(resourcePath);
+            if (texture == null)
+                return null;
+            var sprite = SpriteFrom(texture, 100);
+            generatedAssets.Add(sprite);
+            return sprite;
+        }
+
+        private Sprite Shape(float radius, bool feather)
+        {
+            const int size = 64;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float px = Mathf.Abs((x + .5f) / size - .5f);
+                    float py = Mathf.Abs((y + .5f) / size - .5f);
+                    float dx = Mathf.Max(0, px - .5f + radius);
+                    float dy = Mathf.Max(0, py - .5f + radius);
+                    var distance = Mathf.Sqrt(dx * dx + dy * dy);
+                    float alpha = Mathf.Clamp01((radius - distance) / (feather ? radius : .032f));
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255));
+                }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            var sprite = SpriteFrom(texture, size);
+            generatedAssets.Add(sprite);
+            generatedAssets.Add(texture);
+            return sprite;
+        }
+
+        private static Sprite SpriteFrom(Texture2D texture, float pixelsPerUnit)
+        {
+            var bounds = new Rect(0, 0, texture.width, texture.height);
+            return Sprite.Create(texture, bounds, new Vector2(.5f, .5f), pixelsPerUnit, 0, SpriteMeshType.FullRect, Vector4.zero, false);
+        }
+
+        private static float Window(float elapsed, float start, float full, float release, float end)
         {
             float fadeIn = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(start, full, elapsed));
             float fadeOut = Mathf.SmoothStep(1, 0, Mathf.InverseLerp(release, end, elapsed));
             return fadeIn * fadeOut;
         }
 
-        private void FrameCamera()
+        private void OnDestroy()
         {
-            aspect = nurseryCamera.aspect;
-            nurseryCamera.orthographicSize = Mathf.Max(1.16f, .69f / Mathf.Max(.25f, aspect));
-        }
-
-        private Transform Box(string name, Vector3 position, Vector3 scale, Material material)
-        {
-            return Form(transform, name, position, scale, material, PrimitiveType.Cube);
-        }
-
-        private void Light(string label, Color color, float intensity, Vector3 rotation)
-        {
-            var light = Joint(transform, label, Vector3.zero).gameObject.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.color = color;
-            light.intensity = intensity;
-            light.transform.rotation = Quaternion.Euler(rotation);
+            foreach (var asset in generatedAssets)
+                Destroy(asset);
         }
     }
 }
