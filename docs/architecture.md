@@ -27,3 +27,13 @@ Map developmental stages to rig and animation profiles. Keep expressions and act
 Store a versioned save envelope with stable content IDs, a time checkpoint and the baby state. Keep platform storage behind the same interface. Native builds should keep a recoverable previous save. The Web build should use browser-backed persistence and verify reload and storage behavior independently. Cloud sync, if added, can use the same versioned state with explicit revision and conflict handling.
 
 Build and test the plain C# simulation separately from scenes. Add an assembly dependency check when Unity CI lands. Add an editor content validator and platform smoke tests with the first content catalog and first save implementation. Use the browser build for frequent playtests and physical devices for performance and lifecycle acceptance.
+
+## Design for 100,000 players
+
+Use 100,000 monthly active players as an initial planning scenario. Track daily and peak concurrent players separately when forecasts exist. With the simulation and saves running locally, player count does not increase simulation compute or write traffic on a shared server. Plan distribution and optional services separately. Use Codespaces for individual playtesting, and static hosting backed by a CDN for a public Web build if demand warrants it.
+
+If cross-device saves become necessary, add sync at the save interface. Start with managed authentication, one stateless API and a managed database keyed by player ID. Sync checkpoints instead of streaming care actions. Queue writes offline, retry with backoff, and use revision checks and idempotency keys so two devices cannot silently overwrite each other's progress.
+
+As a provisional sync workload, assume 20,000 daily players with five sync requests each, or about 100,000 requests per day. Load-test a starting peak of 25 requests per second and a reconnect burst at 50 requests per second. Replace those assumptions with beta data before rollout. Check p95 latency, errors, database throughput, payload size and cost. Exercise retries and simultaneous saves from two devices with real-shaped fixtures. Increase capacity based on those measurements.
+
+Preserve compatibility across app releases. Keep stable IDs, explicit save versions and tested migrations from every supported version. Run old-client and new-client contract tests before changing a sync API. Roll out service changes independently of app store releases where possible.
