@@ -1,0 +1,12 @@
+{
+  "name": "BAIby.PlayModeTests",
+  "references": [
+    "BAIby.Bootstrap",
+    "BAIby.Presentation",
+    "UnityEngine.UI"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "autoReferenced": false
+}

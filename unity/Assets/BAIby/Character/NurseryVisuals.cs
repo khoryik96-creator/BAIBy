@@ -6,6 +6,10 @@ namespace BAIby.Character
 {
     public sealed class NurseryVisuals : MonoBehaviour
     {
+        private static readonly Vector3 ToyRest = new Vector3(.51f, .23f, -.49f);
+        private static readonly Vector3 ToyOffer = new Vector3(.37f, .63f, -.36f);
+        private static readonly Vector3 ToyHandle = new Vector3(0, -.037f, 0);
+
         private BabyRig baby;
         private Transform toy;
         private Transform pillow;
@@ -42,8 +46,8 @@ namespace BAIby.Character
             nurseryCamera.clearFlags = CameraClearFlags.SolidColor;
             nurseryCamera.backgroundColor = new Color(.68f, .75f, .66f);
             nurseryCamera.orthographic = true;
-            nurseryCamera.transform.position = new Vector3(0.35f, 2.30f, -6.1f);
-            nurseryCamera.transform.LookAt(new Vector3(0, 0.75f, 0));
+            nurseryCamera.transform.position = new Vector3(.26f, 2.13f, -6.1f);
+            nurseryCamera.transform.LookAt(new Vector3(.035f, .76f, -.02f));
             nurseryCamera.farClipPlane = 35;
             nurseryCamera.allowHDR = false;
             nurseryCamera.allowMSAA = true;
@@ -79,8 +83,8 @@ namespace BAIby.Character
                 new Vector3(1.51f, .15f, 1.56f), darkWood);
             Form(transform, "Quilt cushion", new Vector3(0, .137f, -.075f),
                 new Vector3(1.53f, .16f, 1.57f), cream);
-            pillow = Form(transform, "Back support cushion", new Vector3(0, .255f, .275f),
-                new Vector3(.92f, .32f, .57f), saffron);
+            pillow = Form(transform, "Back support cushion", new Vector3(0, .36f, .37f),
+                new Vector3(.92f, .54f, .57f), saffron);
             pillow.localRotation = Quaternion.Euler(-18, 0, 0);
 
             Box("Oak ledge", new Vector3(1.25f, 1.18f, 2.02f), new Vector3(1.54f, .085f, .43f), wood);
@@ -96,7 +100,7 @@ namespace BAIby.Character
             Form(transform, "Sun illustration", new Vector3(-.89f, 1.79f, 2.235f),
                 new Vector3(.25f, .25f, .014f), saffron);
 
-            toy = Joint(transform, "Wooden rattle", new Vector3(.59f, .22f, -.49f));
+            toy = Joint(transform, "Wooden rattle", ToyRest);
             Form(toy, "Rattle stem", Vector3.zero, new Vector3(.032f, .111f, .032f), wood, PrimitiveType.Cylinder);
             Form(toy, "Rattle cap", new Vector3(0, -.102f, 0), new Vector3(.082f, .081f, .083f), moss);
             Form(toy, "Rattle head", new Vector3(0, .114f, 0), new Vector3(.135f, .138f, .136f), saffron);
@@ -117,7 +121,9 @@ namespace BAIby.Character
             float elapsed = t - reactionStarted;
             float response = Mathf.Clamp01(elapsed * 6f) * Mathf.Clamp01((2.6f - elapsed) * 1.4f);
             float tracking = reaction == Reaction.TracksToy || reaction == Reaction.ReachesForToy ? response : 0;
-            float reaching = reaction == Reaction.ReachesForToy ? response : 0;
+            bool isReach = reaction == Reaction.ReachesForToy;
+            float reaching = isReach ? CueWindow(elapsed, .28f, .88f, 1.88f, 2.60f) : 0;
+            float holding = isReach ? CueWindow(elapsed, .76f, 1.04f, 1.74f, 2.19f) : 0;
             float calming = reaction == Reaction.Calmed ? response : 0;
             float feeding = reaction == Reaction.Satisfied ? response : 0;
             sitBlend = Mathf.MoveTowards(sitBlend, canSit ? 1 : 0, Time.unscaledDeltaTime * 1.35f);
@@ -145,17 +151,29 @@ namespace BAIby.Character
                     -side * 16, side * 31);
             }
 
-            toy.localPosition = Vector3.Lerp(new Vector3(.59f, .22f, -.49f),
-                new Vector3(.375f, .63f, -.36f), tracking);
-            toy.localRotation = Quaternion.Euler(0, 0, 52 + tracking * Mathf.Sin(t * 12) * 11);
-            pillow.localScale = Vector3.Lerp(new Vector3(.92f, .32f, .57f),
+            var offeredPosition = transform.TransformPoint(Vector3.Lerp(ToyRest, ToyOffer, tracking));
+            var offeredRotation = transform.rotation * Quaternion.Euler(0, 0, 52 + tracking * Mathf.Sin(t * 12) * 11);
+            var heldRotation = baby.RightGrip.rotation * Quaternion.Euler(-62, 0, 28);
+            var heldPosition = baby.RightGrip.position - heldRotation * ToyHandle;
+            toy.SetPositionAndRotation(Vector3.Lerp(offeredPosition, heldPosition, holding),
+                Quaternion.Slerp(offeredRotation, heldRotation, holding));
+            pillow.localPosition = Vector3.Lerp(new Vector3(0, .36f, .37f),
+                new Vector3(0, .25f, .38f), sitBlend);
+            pillow.localScale = Vector3.Lerp(new Vector3(.92f, .54f, .57f),
                 new Vector3(.92f, .22f, .57f), sitBlend);
+        }
+
+        private static float CueWindow(float elapsed, float start, float full, float release, float end)
+        {
+            float fadeIn = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(start, full, elapsed));
+            float fadeOut = Mathf.SmoothStep(1, 0, Mathf.InverseLerp(release, end, elapsed));
+            return fadeIn * fadeOut;
         }
 
         private void FrameCamera()
         {
             aspect = nurseryCamera.aspect;
-            nurseryCamera.orthographicSize = Mathf.Max(1.47f, .82f / Mathf.Max(.25f, aspect));
+            nurseryCamera.orthographicSize = Mathf.Max(1.16f, .69f / Mathf.Max(.25f, aspect));
         }
 
         private Transform Box(string name, Vector3 position, Vector3 scale, Material material)

@@ -10,6 +10,7 @@ namespace BAIby.Character
         internal Transform Head { get; }
         internal Transform Mouth { get; }
         internal Transform LowerLip { get; }
+        internal Transform RightGrip { get; }
         internal Transform[] Eyes { get; } = new Transform[2];
         internal Transform[] Pupils { get; } = new Transform[2];
         internal Transform[] Arms { get; } = new Transform[2];
@@ -113,6 +114,9 @@ namespace BAIby.Character
                 for (int finger = 0; finger < 4; finger++)
                     Form(elbow, "Curled finger", new Vector3(-.034f + .022f * finger, -.197f, -.027f),
                         new Vector3(.026f, .054f - .004f * Mathf.Abs(finger - 1), .034f), skin);
+
+                if (side == 1)
+                    RightGrip = Joint(elbow, "Right hand grip", new Vector3(0, -.174f, -.047f));
 
                 var leg = Legs[index] = Joint(Root, "Hip", new Vector3(side * .112f, -.04f, -.025f));
                 Loft(leg, "Footed romper leg", Vector3.zero, jumper,

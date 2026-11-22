@@ -4,25 +4,34 @@ using BAIby.Infrastructure;
 using BAIby.Presentation;
 using BAIby.Simulation;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace BAIby.Bootstrap
 {
-    internal static class NurseryStartup
+    public static class NurseryStartup
     {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Open()
+        {
+            if (SceneManager.GetActiveScene().path == "Assets/Scenes/Nursery.unity")
+                StartPreview(PlayerPrefsBabySaveStore.DefaultKey);
+        }
+
+        public static NurseryPreview StartPreview(string saveKey)
         {
             var view = new GameObject("Nursery Preview").AddComponent<NurseryPreview>();
             try
             {
                 var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4));
-                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(), () => DateTimeOffset.UtcNow);
+                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), () => DateTimeOffset.UtcNow);
                 view.Open(session);
             }
             catch (Exception error)
             {
                 view.ReportStartupFailure(error);
             }
+
+            return view;
         }
     }
 }

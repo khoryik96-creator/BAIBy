@@ -16,6 +16,19 @@ Open the branch in a Codespace. The preview starts on port **8000** and opens in
 
 The preview opens the archived HTML game at the root. After you export a Unity Web build into `build/Web`, open `/nursery/` on the same forwarded URL. You can also serve both versions locally with `bash .devcontainer/start-preview.sh`. Android and iOS device checks cover native lifecycle and graphics performance.
 
+### Play a GitHub build
+
+The [Build Unity Web preview workflow](https://github.com/khoryik96-creator/BAIBy/actions/workflows/unity-web-preview.yml) produces a `baiby-web` artifact. GitHub requires the workflow on the default branch before the first manual run. The repository needs `UNITY_EMAIL`, `UNITY_PASSWORD`, and either `UNITY_LICENSE` for an activated Personal license or `UNITY_SERIAL` for an eligible serial-based seat. Configure those as GitHub Actions secrets.
+
+In a Codespace, download the artifact from a successful run into an empty `build/Web` directory. Use the run ID shown on the GitHub run page.
+
+```sh
+gh run download RUN_ID --name baiby-web --dir build/Web
+python3 tools/check-web-build.py build/Web
+```
+
+Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
+
 ## Mobile restart development
 
 Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try the three care actions, and use **Preview next day** to exercise the first milestone.
@@ -28,6 +41,8 @@ Unity -batchmode -quit -projectPath "$PWD/unity" -buildTarget WebGL \
 ```
 
 You can also select **BAIby → Build Browser Preview** in the Editor. An activated Editor is required. The export goes to `build/Web`. Serve it through the preview route above.
+
+In the Editor, open **Window → General → Test Runner** and run the Play Mode smoke test. It adopts a baby through the nursery UI, exercises the care buttons, and reopens an isolated save to verify that the milestone and toy familiarity persist.
 
 The [simulation](unity/Assets/BAIby/Simulation) and [session](unity/Assets/BAIby/Application) compile as plain C#. Run their regression checks with the .NET 8 SDK.
 

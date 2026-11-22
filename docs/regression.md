@@ -10,7 +10,7 @@ CI compiles and exercises the engine-independent simulation and session. It cove
 
 ## Unity restart acceptance checks
 
-Add Unity Edit Mode and Play Mode checks with the first playable slice. Use a fake clock and seed for automated simulation tests. Keep a save fixture for every released schema once beta saves exist.
+The Unity Play Mode smoke test loads the nursery, drives the care controls, advances the milestone, and restores an isolated save. The manual Web workflow checks its exported files and HTTP serving before uploading a preview artifact. Use a fake clock and seed for automated simulation tests. Keep a save fixture for every released schema once beta saves exist.
 
 | Change | Evidence to attach to the pull request |
 | --- | --- |

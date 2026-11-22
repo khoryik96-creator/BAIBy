@@ -37,6 +37,7 @@ namespace BAIby.Presentation
         private void Awake()
         {
             nursery = NurseryVisuals.Create();
+            nursery.transform.SetParent(transform, true);
             nursery.Present(false, false, Reaction.None);
             BuildInterface();
         }
@@ -191,7 +192,10 @@ namespace BAIby.Presentation
         private void BuildInterface()
         {
             if (FindFirstObjectByType<EventSystem>() == null)
-                new GameObject("Nursery Input", typeof(EventSystem), typeof(StandaloneInputModule));
+            {
+                var input = new GameObject("Nursery Input", typeof(EventSystem), typeof(StandaloneInputModule));
+                input.transform.SetParent(transform, false);
+            }
 
             var canvasObject = new GameObject("Nursery Overlay", typeof(RectTransform),
                 typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
