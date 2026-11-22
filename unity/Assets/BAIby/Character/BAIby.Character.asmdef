@@ -1,0 +1,5 @@
+{
+  "name": "BAIby.Character",
+  "rootNamespace": "BAIby.Character",
+  "references": ["BAIby.Simulation"]
+}

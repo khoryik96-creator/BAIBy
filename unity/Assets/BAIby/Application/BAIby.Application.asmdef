@@ -1,0 +1,6 @@
+{
+  "name": "BAIby.Application",
+  "rootNamespace": "BAIby.Application",
+  "references": ["BAIby.Simulation"],
+  "noEngineReferences": true
+}

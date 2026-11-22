@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../unity/Assets/BAIby/Simulation/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Application/*.cs" />
   </ItemGroup>
 </Project>

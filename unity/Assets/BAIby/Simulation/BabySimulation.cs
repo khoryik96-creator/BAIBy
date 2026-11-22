@@ -6,7 +6,7 @@ namespace BAIby.Simulation
     {
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
-        private const int MaxFamiliarity = 3;
+        internal const int MaxFamiliarity = 3;
 
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay)
         {
@@ -32,7 +32,20 @@ namespace BAIby.Simulation
             if (now <= state.TimeCheckpoint)
                 return (state, false);
 
-            var elapsed = now - state.TimeCheckpoint;
+            return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
+        }
+
+        public (BabyState State, bool UnlockedSitting) AdvancePreview(BabyState state, TimeSpan elapsed)
+        {
+            if (elapsed <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(elapsed));
+
+            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
+        }
+
+        private (BabyState State, bool UnlockedSitting) AdvanceElapsed(
+            BabyState state, DateTimeOffset now, TimeSpan elapsed)
+        {
             var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
             var age = state.Age + elapsed;
             var canSit = state.CanSitAndReach || age >= sittingAge;

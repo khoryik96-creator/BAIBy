@@ -4,6 +4,10 @@
 
 GitHub Actions runs the legacy checks on pushes and pull requests. They verify that the archived file matches the upload, its inline script parses, the first feed advances the legacy growth counter once per day, and the legacy save round-trips. The rule tests isolate browser side effects and do not cover touch, rendering, or lifecycle behavior. Update the archive checksum only when intentionally replacing the historical baseline.
 
+## Automated restart checks
+
+CI compiles and exercises the engine-independent simulation and session. It covers care and elapsed-time rules, milestone delivery, save reload, corrupt-payload recovery, unsupported save versions, and failed-write handling. An assembly check enforces the dependency direction for the runtime assemblies. Build and device checks still need the Unity runtime.
+
 ## Unity restart acceptance checks
 
 Add Unity Edit Mode and Play Mode checks with the first playable slice. Use a fake clock and seed for automated simulation tests. Keep a save fixture for every released schema once beta saves exist.

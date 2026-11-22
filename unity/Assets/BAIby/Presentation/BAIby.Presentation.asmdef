@@ -1,0 +1,10 @@
+{
+  "name": "BAIby.Presentation",
+  "rootNamespace": "BAIby.Presentation",
+  "references": [
+    "BAIby.Application",
+    "BAIby.Simulation",
+    "BAIby.Character",
+    "UnityEngine.UI"
+  ]
+}
