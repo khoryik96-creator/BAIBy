@@ -2,8 +2,8 @@ using System;
 
 namespace BAIby.Simulation
 {
-    public enum CareAction { Feed, Soothe, Play }
-    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy }
+    public enum CareAction { Feed, Soothe, Play, Rest }
+    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested }
 
     public sealed class BabyState
     {
@@ -12,11 +12,12 @@ namespace BAIby.Simulation
         public TimeSpan Age { get; }
         public double Satiety { get; }
         public double Comfort { get; }
+        public double Energy { get; }
         public int ToyFamiliarity { get; }
         public bool CanSitAndReach { get; }
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, int toyFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, bool canSitAndReach)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -26,20 +27,23 @@ namespace BAIby.Simulation
                 throw new ArgumentOutOfRangeException(nameof(satiety));
             if (double.IsNaN(comfort) || comfort < 0 || comfort > 100)
                 throw new ArgumentOutOfRangeException(nameof(comfort));
+            if (double.IsNaN(energy) || energy < 0 || energy > 100)
+                throw new ArgumentOutOfRangeException(nameof(energy));
             if (toyFamiliarity < 0 || toyFamiliarity > BabySimulation.MaxFamiliarity)
                 throw new ArgumentOutOfRangeException(nameof(toyFamiliarity));
 
-            return new BabyState(name, timeCheckpoint, age, satiety, comfort, toyFamiliarity, canSitAndReach);
+            return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy, toyFamiliarity, canSitAndReach);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, int toyFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, bool canSitAndReach)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
             Age = age;
             Satiety = satiety;
             Comfort = comfort;
+            Energy = energy;
             ToyFamiliarity = toyFamiliarity;
             CanSitAndReach = canSitAndReach;
         }

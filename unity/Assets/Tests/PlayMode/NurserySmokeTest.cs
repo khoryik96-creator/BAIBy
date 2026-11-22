@@ -38,13 +38,20 @@ namespace BAIby.Tests
             Assert.That(Reaction(view.gameObject), Does.Contain("satisfied"));
             Tap(view.gameObject, "Soothe");
             Assert.That(Reaction(view.gameObject), Does.Contain("relaxes"));
+            var initialEnergy = EnergyMeter(view.gameObject);
             Tap(view.gameObject, "Play");
             Assert.That(Reaction(view.gameObject), Does.Contain("follows the toy"));
+            var afterPlay = EnergyMeter(view.gameObject);
+            Assert.That(afterPlay, Is.LessThan(initialEnergy));
+            Tap(view.gameObject, "Rest");
+            Assert.That(Reaction(view.gameObject), Does.Contain("woke up rested"));
+            Assert.That(EnergyMeter(view.gameObject), Is.GreaterThan(afterPlay));
 
             for (var day = 0; day < 3; day++)
                 Tap(view.gameObject, "Preview next day");
 
             Assert.That(Reaction(view.gameObject), Does.Contain("can sit up now"));
+            var beforeReload = EnergyMeter(view.gameObject);
             UnityEngine.Object.Destroy(view.gameObject);
             yield return null;
 
@@ -52,6 +59,7 @@ namespace BAIby.Tests
             yield return null;
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Early sitter"));
+            Assert.That(EnergyMeter(restored.gameObject), Is.EqualTo(beforeReload).Within(0.01f));
             Tap(restored.gameObject, "Play");
             Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the toy"));
         }
@@ -77,6 +85,9 @@ namespace BAIby.Tests
             view.GetComponentsInChildren<T>(true).Single(component => component.name == name);
 
         private static string Reaction(GameObject view) => Child<Text>(view, "Reaction").text;
+
+        private static float EnergyMeter(GameObject view) =>
+            Child<RectTransform>(view, "Energy").Find("Bar/Fill").GetComponent<RectTransform>().anchorMax.x;
 
         private static void Tap(GameObject view, string name)
         {

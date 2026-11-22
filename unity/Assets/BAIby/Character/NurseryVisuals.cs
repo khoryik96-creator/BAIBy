@@ -54,17 +54,16 @@ namespace BAIby.Character
             FrameCamera();
 
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(.54f, .50f, .46f);
-            Light("Afternoon window", new Color(1f, .88f, .76f), 1.35f, new Vector3(48, -36, 0));
-            Light("Soft bounce", new Color(.80f, .90f, 1f), .48f, new Vector3(18, 46, 0));
-            Light("Rim", new Color(1f, .91f, .79f), .65f, new Vector3(55, 165, 0));
+            RenderSettings.ambientLight = new Color(.31f, .31f, .32f);
+            Light("Afternoon window", new Color(1f, .88f, .76f), .68f, new Vector3(47, -34, 0));
+            Light("Soft bounce", new Color(.80f, .90f, 1f), .19f, new Vector3(23, 43, 0));
+            Light("Rim", new Color(1f, .91f, .79f), .28f, new Vector3(43, 158, 0));
 
             var wall = Matte("#A7B6A3");
             var cream = Matte("#F2E5CF");
             var wood = Matte("#CB9C78");
             var darkWood = Matte("#AC7E60");
             var moss = Matte("#587871");
-            var pale = Matte("#8EAD9D");
             var saffron = Matte("#E6B36C");
             var clay = Matte("#BE755D");
 
@@ -76,13 +75,12 @@ namespace BAIby.Character
                     new Vector3(.010f, .005f, 10), darkWood);
 
             Form(transform, "Oval nursery rug", new Vector3(0, .008f, -.21f),
-                new Vector3(3.45f, .072f, 2.59f), moss);
-            Form(transform, "Woven rug inset", new Vector3(0, .032f, -.21f),
-                new Vector3(3.26f, .039f, 2.40f), pale);
+                new Vector3(3.45f, .078f, 2.59f), moss);
             Form(transform, "Quilt base", new Vector3(0, .076f, -.095f),
-                new Vector3(1.51f, .15f, 1.56f), darkWood);
-            Form(transform, "Quilt cushion", new Vector3(0, .137f, -.075f),
+                new Vector3(1.45f, .15f, 1.48f), darkWood);
+            var quilt = Form(transform, "Quilt cushion", new Vector3(0, .137f, -.075f),
                 new Vector3(1.53f, .16f, 1.57f), cream);
+            ContactShade(quilt);
             pillow = Form(transform, "Back support cushion", new Vector3(0, .36f, .37f),
                 new Vector3(.92f, .54f, .57f), saffron);
             pillow.localRotation = Quaternion.Euler(-18, 0, 0);
@@ -126,25 +124,33 @@ namespace BAIby.Character
             float holding = isReach ? CueWindow(elapsed, .76f, 1.04f, 1.74f, 2.19f) : 0;
             float calming = reaction == Reaction.Calmed ? response : 0;
             float feeding = reaction == Reaction.Satisfied ? response : 0;
+            float resting = reaction == Reaction.Rested ? CueWindow(elapsed, 0, .70f, 3.30f, 4.30f) : 0;
             sitBlend = Mathf.MoveTowards(sitBlend, canSit ? 1 : 0, Time.unscaledDeltaTime * 1.35f);
 
-            baby.Torso.localRotation = Quaternion.Euler(Mathf.Lerp(43, 3, sitBlend) - 12 * reaching + 4 * calming, 0, 0);
-            baby.Torso.localScale = Vector3.one * (1f + .052f * sitBlend + Mathf.Sin(t * 2.4f) * .008f);
-            baby.Head.localRotation = Quaternion.Euler(-21 * (1f - sitBlend) + 6 * feeding - 3 * calming,
-                -23 * tracking + Mathf.Sin(t * 1.37f) * 2.7f, 2 * calming);
+            baby.Torso.localRotation = Quaternion.Euler(Mathf.Lerp(43, 3, sitBlend) - 12 * reaching + 4 * calming + 10 * resting, 0, 0);
+            baby.Torso.localScale = Vector3.one * (1f + .052f * sitBlend + Mathf.Sin(t * 2.4f) * Mathf.Lerp(.008f, .004f, resting));
+            baby.Head.localRotation = Quaternion.Euler(-21 * (1f - sitBlend) + 6 * feeding - 3 * calming + 7 * resting,
+                -23 * tracking + Mathf.Sin(t * 1.37f) * 2.7f * (1 - resting), 2 * calming + 11 * resting);
             float mouthOpen = feeding * (.5f + Mathf.Sin(elapsed * 13f) * .5f);
             baby.Mouth.localScale = new Vector3(.075f, .009f + mouthOpen * .023f, .017f);
             baby.LowerLip.localPosition = new Vector3(0, -.008f - .017f * mouthOpen, -.005f);
             float blink = Mathf.Clamp01(Mathf.Abs(Mathf.Repeat(t + 1.1f, 3.8f) - 3.6f) / .095f);
+            float eyeOpening = blink * (1f - .45f * calming) * (1f - resting);
             for (int i = 0; i < 2; i++)
             {
                 int side = i == 0 ? -1 : 1;
                 float activeReach = i == 1 ? reaching : 0;
-                baby.Eyes[i].localScale = new Vector3(1, Mathf.Max(.075f, blink * (1f - .50f * calming)), 1);
-                baby.Pupils[i].localPosition = new Vector3(.0075f * tracking, -.002f * tracking, -.021f);
+                bool eyesOpen = eyeOpening > .12f;
+                if (baby.Eyes[i].gameObject.activeSelf != eyesOpen)
+                {
+                    baby.Eyes[i].gameObject.SetActive(eyesOpen);
+                    baby.ClosedLids[i].gameObject.SetActive(!eyesOpen);
+                }
+                baby.Eyes[i].localScale = new Vector3(1, Mathf.Max(.12f, eyeOpening), 1);
+                baby.Pupils[i].localPosition = new Vector3(.008f * tracking - .005f * side, -.002f * tracking, -.018f);
                 baby.Arms[i].localRotation = Quaternion.Euler(
-                    Mathf.Lerp(38f, 12f, sitBlend) + 64 * activeReach, -18 * activeReach,
-                    side * (34 + Mathf.Sin(t * 2.8f + i) * 3.5f));
+                    Mathf.Lerp(38f, 12f, sitBlend) + 64 * activeReach - 9 * resting, -18 * activeReach,
+                    side * (34 - 8 * resting + Mathf.Sin(t * 2.8f + i) * 3.5f * (1 - resting)));
                 baby.Elbows[i].localRotation = Quaternion.Euler(40 - 29 * activeReach, 0, -side * 27);
                 baby.Legs[i].localRotation = Quaternion.Euler(
                     72 + 12 * sitBlend + Mathf.Sin(t * 2.7f + i) * (1 - sitBlend) * 4,

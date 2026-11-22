@@ -26,9 +26,11 @@ namespace BAIby.Editor
 
             var output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", "..", "build", "Web"));
             var previousCompression = PlayerSettings.WebGL.compressionFormat;
+            var previousTemplate = PlayerSettings.WebGL.template;
             try
             {
                 PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+                PlayerSettings.WebGL.template = "PROJECT:BAIby";
                 var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
                     scenes = scenes,
@@ -44,6 +46,7 @@ namespace BAIby.Editor
             finally
             {
                 PlayerSettings.WebGL.compressionFormat = previousCompression;
+                PlayerSettings.WebGL.template = previousTemplate;
             }
         }
     }

@@ -36,11 +36,65 @@ namespace BAIby.Character
             return part.transform;
         }
 
+        internal static void ContactShade(Transform quilt)
+        {
+            var shader = Shader.Find("Sprites/Default");
+            if (shader == null)
+                return;
+
+            const int sides = 36;
+            const int rings = 6;
+            var vertices = new Vector3[(rings + 1) * sides];
+            var colors = new Color[vertices.Length];
+            var triangles = new int[rings * sides * 6];
+            int index = 0;
+            for (int ring = 0; ring <= rings; ring++)
+            {
+                float radius = ring / (float)rings;
+                float alpha = .37f * Mathf.Pow(1 - radius * radius, 2);
+                for (int side = 0; side < sides; side++)
+                {
+                    float angle = 2 * Mathf.PI * side / sides;
+                    float x = Mathf.Cos(angle) * radius * .405f;
+                    float z = Mathf.Sin(angle) * radius * .33f + .030f;
+                    int here = ring * sides + side;
+                    vertices[here] = new Vector3(x, Mathf.Sqrt(.25f - x * x - z * z) + .010f, z);
+                    colors[here] = new Color(.20f, .13f, .10f, alpha);
+                    if (ring == rings)
+                        continue;
+
+                    int adjacent = ring * sides + (side + 1) % sides;
+                    triangles[index++] = here;
+                    triangles[index++] = adjacent;
+                    triangles[index++] = here + sides;
+                    triangles[index++] = adjacent;
+                    triangles[index++] = adjacent + sides;
+                    triangles[index++] = here + sides;
+                }
+            }
+
+            var mesh = new Mesh
+            {
+                name = "Quilt contact shade",
+                vertices = vertices,
+                colors = colors,
+                uv = new Vector2[vertices.Length],
+                triangles = triangles
+            };
+            mesh.RecalculateBounds();
+            var shade = Joint(quilt, "Quilt contact shade", Vector3.zero);
+            shade.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = shade.gameObject.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = new Material(shader);
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
         // Each row is y, half width, half depth, and depth of the cross-section center.
         internal static Transform Loft(Transform parent, string name, Vector3 at, Material material,
             params Vector4[] sections)
         {
-            const int sides = 32;
+            const int sides = 48;
             const int subdivisions = 3;
             int rings = (sections.Length - 1) * subdivisions + 1;
             var vertices = new Vector3[rings * sides + 2];

@@ -32,6 +32,7 @@ namespace BAIby.Presentation
         private InputField nameField;
         private NeedMeter satiety;
         private NeedMeter comfort;
+        private NeedMeter energy;
         private float refreshIn;
 
         private void Awake()
@@ -145,6 +146,7 @@ namespace BAIby.Presentation
             controls.SetActive(adopted);
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
+            energy.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction);
 
@@ -158,14 +160,15 @@ namespace BAIby.Presentation
             age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
+            energy.Set(state.Energy);
             if (unlocked)
                 status.text = reaction == Reaction.None
                     ? $"{state.Name} can sit up now. Try playing with the toy."
                     : $"{state.Name} can sit up now. {DescribeReaction(state.Name, reaction)}";
             else if (reaction != Reaction.None)
                 status.text = DescribeReaction(state.Name, reaction);
-            else if (string.IsNullOrEmpty(status.text))
-                status.text = $"Spend a little time with {state.Name}.";
+            else
+                status.text = DescribeNeeds(state);
         }
 
         private static string DescribeReaction(string name, Reaction reaction)
@@ -174,10 +177,23 @@ namespace BAIby.Presentation
             {
                 case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
+                case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
                 case Reaction.TracksToy: return $"{name} follows the toy with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the toy.";
                 default: return string.Empty;
             }
+        }
+
+        private static string DescribeNeeds(BabyState state)
+        {
+            const double low = 45;
+            if (state.Energy < low && state.Energy <= state.Satiety && state.Energy <= state.Comfort)
+                return $"{state.Name} rubs their eyes. It might be time for a nap.";
+            if (state.Satiety < low && state.Satiety <= state.Comfort)
+                return $"{state.Name} seems hungry.";
+            if (state.Comfort < low)
+                return $"{state.Name} is unsettled and might like some soothing.";
+            return $"{state.Name} is looking around the nursery.";
         }
 
         private void ReportFailure(Exception error, string message)
@@ -219,8 +235,9 @@ namespace BAIby.Presentation
             title.resizeTextMaxSize = 48;
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
                 new Vector2(0, 59), new Vector2(1, 1), new Vector2(0, -101));
-            satiety = Meter("Fullness", top, 0, 0.5f);
-            comfort = Meter("Comfort", top, 0.5f, 1);
+            satiety = Meter("Fullness", top, 0, 1f / 3);
+            comfort = Meter("Comfort", top, 1f / 3, 2f / 3);
+            energy = Meter("Energy", top, 2f / 3, 1);
 
             var starter = Tray("Welcome", false, 250);
             welcome = starter.parent.gameObject;
@@ -241,20 +258,22 @@ namespace BAIby.Presentation
             saveError = Label("Save Message", starter, "", 17, Ink, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.right, new Vector2(0, 30));
 
-            var panel = Tray("Care", false, 229);
+            var panel = Tray("Care", false, 264);
             controls = panel.parent.gameObject;
             status = Label("Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 135), Vector2.right, new Vector2(0, 216));
+                new Vector2(0, 187), Vector2.right, new Vector2(0, 251));
             status.resizeTextForBestFit = true;
             status.resizeTextMinSize = 19;
             status.resizeTextMaxSize = 25;
-            ActionButton("Feed", panel, 0, 1f / 3, 61, 134, () => Care(CareAction.Feed), Fern, Color.white);
-            ActionButton("Soothe", panel, 1f / 3, 2f / 3, 61, 134, () => Care(CareAction.Soothe), Fern, Color.white);
-            ActionButton("Play", panel, 2f / 3, 1, 61, 134, () => Care(CareAction.Play), Fern, Color.white);
-            ActionButton("Preview next day", panel, 0, 1, 7, 54, NextPreviewDay, Mist, Ink);
+            ActionButton("Feed", panel, 0, 0.25f, 99, 187, () => Care(CareAction.Feed), Fern, Color.white);
+            ActionButton("Soothe", panel, 0.25f, 0.5f, 99, 187, () => Care(CareAction.Soothe), Fern, Color.white);
+            ActionButton("Rest", panel, 0.5f, 0.75f, 99, 187, () => Care(CareAction.Rest), Fern, Color.white);
+            ActionButton("Play", panel, 0.75f, 1, 99, 187, () => Care(CareAction.Play), Fern, Color.white);
+            ActionButton("Preview next day", panel, 0, 1, 7, 91, NextPreviewDay, Mist, Ink);
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
+            energy.Root.gameObject.SetActive(false);
         }
 
         private RectTransform Tray(string label, bool top, float height)

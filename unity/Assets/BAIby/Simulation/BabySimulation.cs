@@ -7,6 +7,7 @@ namespace BAIby.Simulation
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
         internal const int MaxFamiliarity = 3;
+        private const double InitialEnergy = 80;
 
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay)
         {
@@ -24,7 +25,7 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, 0, false);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, false);
         }
 
         public (BabyState State, bool UnlockedSitting) Advance(BabyState state, DateTimeOffset now)
@@ -52,6 +53,7 @@ namespace BAIby.Simulation
             var updated = new BabyState(state.Name, now, age,
                 Math.Max(0, state.Satiety - decayHours * 10),
                 Math.Max(0, state.Comfort - decayHours * 5),
+                Math.Max(0, state.Energy - decayHours * 8),
                 state.ToyFamiliarity, canSit);
 
             return (updated, canSit && !state.CanSitAndReach);
@@ -61,6 +63,7 @@ namespace BAIby.Simulation
         {
             var satiety = state.Satiety;
             var comfort = state.Comfort;
+            var energy = state.Energy;
             var familiarity = state.ToyFamiliarity;
             Reaction reaction;
 
@@ -74,7 +77,12 @@ namespace BAIby.Simulation
                     comfort = Math.Min(100, comfort + 20);
                     reaction = Reaction.Calmed;
                     break;
+                case CareAction.Rest:
+                    energy = Math.Min(100, energy + 35);
+                    reaction = Reaction.Rested;
+                    break;
                 case CareAction.Play:
+                    energy = Math.Max(0, energy - 12);
                     familiarity = Math.Min(MaxFamiliarity, familiarity + 1);
                     reaction = state.CanSitAndReach && familiarity >= 2
                         ? Reaction.ReachesForToy : Reaction.TracksToy;
@@ -84,7 +92,7 @@ namespace BAIby.Simulation
             }
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
-                satiety, comfort, familiarity, state.CanSitAndReach), reaction);
+                satiety, comfort, energy, familiarity, state.CanSitAndReach), reaction);
         }
     }
 }

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>BAIby Nursery</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html, body {
+      box-sizing: border-box;
+      margin: 0;
+      height: 100%;
+      background: #e0e8d9;
+    }
+
+    body {
+      display: grid;
+      justify-items: center;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        env(safe-area-inset-bottom) env(safe-area-inset-left);
+      height: 100dvh;
+      color: #2b332c;
+      font: 1rem system-ui, sans-serif;
+    }
+
+    main {
+      position: relative;
+      width: min(100%, 640px);
+      min-height: 0;
+      background: #aebcab;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    #unity-loading-bar {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      gap: .75rem;
+      padding: 1rem;
+      text-align: center;
+      background: #e0e8d9;
+    }
+
+    progress {
+      width: min(15rem, 68vw);
+      accent-color: #3a5946;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <canvas id="unity-canvas" aria-label="BAIby nursery game" tabindex="0"></canvas>
+    <div id="unity-loading-bar" role="status">
+      <span id="unity-status">Opening the nursery…</span>
+      <progress id="unity-progress" max="1" value="0" aria-label="Loading progress"></progress>
+    </div>
+  </main>
+  <script>
+    const canvas = document.querySelector("#unity-canvas");
+    const loading = document.querySelector("#unity-loading-bar");
+    const progress = document.querySelector("#unity-progress");
+    const status = document.querySelector("#unity-status");
+    const build = "Build/";
+    const config = {
+      dataUrl: build + "{{{ DATA_FILENAME }}}",
+      frameworkUrl: build + "{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl: build + "{{{ CODE_FILENAME }}}",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+      productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+      productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+    };
+
+    function showFailure(error) {
+      console.error(error);
+      status.textContent = "The nursery couldn't open. Reload to try again.";
+      progress.hidden = true;
+    }
+
+    const script = document.createElement("script");
+    script.src = build + "{{{ LOADER_FILENAME }}}";
+    script.onload = () => {
+      createUnityInstance(canvas, config, value => { progress.value = value; }).then(() => {
+        loading.style.display = "none";
+      }).catch(showFailure);
+    };
+    script.onerror = showFailure;
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

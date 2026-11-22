@@ -8,7 +8,9 @@ namespace BAIby.Application
 {
     internal static class BabySaveCodec
     {
-        private const int Version = 1;
+        private const int Version = 2;
+        private const int VersionBeforeEnergy = 1;
+        private const double MigratedEnergy = 80;
 
         public static string Encode(BabyState state) =>
             new XElement("baby",
@@ -18,6 +20,7 @@ namespace BAIby.Application
                 new XElement("age", state.Age.Ticks),
                 new XElement("satiety", state.Satiety),
                 new XElement("comfort", state.Comfort),
+                new XElement("energy", state.Energy),
                 new XElement("toy-familiarity", state.ToyFamiliarity),
                 new XElement("can-sit-and-reach", state.CanSitAndReach))
             .ToString(SaveOptions.DisableFormatting);
@@ -31,7 +34,7 @@ namespace BAIby.Application
                     throw new InvalidDataException("The baby save header is invalid.");
 
                 var version = (int)root.Attribute("version");
-                if (version != Version)
+                if (version != VersionBeforeEnergy && version != Version)
                     throw new NotSupportedException($"Baby save version {version} is unsupported.");
 
                 return BabyState.Restore((string)Field(root, "name"),
@@ -39,6 +42,7 @@ namespace BAIby.Application
                     TimeSpan.FromTicks((long)Field(root, "age")),
                     (double)Field(root, "satiety"),
                     (double)Field(root, "comfort"),
+                    version == VersionBeforeEnergy ? MigratedEnergy : (double)Field(root, "energy"),
                     (int)Field(root, "toy-familiarity"),
                     (bool)Field(root, "can-sit-and-reach"));
             }

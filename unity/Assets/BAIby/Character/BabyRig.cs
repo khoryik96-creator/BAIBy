@@ -12,6 +12,7 @@ namespace BAIby.Character
         internal Transform LowerLip { get; }
         internal Transform RightGrip { get; }
         internal Transform[] Eyes { get; } = new Transform[2];
+        internal Transform[] ClosedLids { get; } = new Transform[2];
         internal Transform[] Pupils { get; } = new Transform[2];
         internal Transform[] Arms { get; } = new Transform[2];
         internal Transform[] Elbows { get; } = new Transform[2];
@@ -19,11 +20,12 @@ namespace BAIby.Character
 
         internal BabyRig(Transform room)
         {
-            var skin = Matte("#EAB193", 0.30f);
-            var pink = Matte("#C57D6E", 0.18f);
+            var skin = Matte("#E8AA8C", 0.16f);
+            var pink = Matte("#BD786B", 0.12f);
             var hair = Matte("#673F32");
-            var brow = Matte("#91624D");
-            var white = Matte("#FFF4E5", 0.45f);
+            var brow = Matte("#9B684F");
+            var eyelid = Matte("#CF957A");
+            var white = Matte("#FCEDD9", 0.20f);
             var iris = Matte("#5B382E", 0.55f);
             var pupil = Matte("#251B20", 0.5f);
             var light = Matte("#FFFCF5");
@@ -57,10 +59,10 @@ namespace BAIby.Character
                 new Vector4(.421f, .231f, .213f, .025f),
                 new Vector4(.479f, .155f, .160f, .019f),
                 new Vector4(.509f, .022f, .036f, .014f));
-            Loft(Head, "Small nose", new Vector3(0, .142f, -.206f), skin,
-                new Vector4(.002f, .022f, .010f, 0),
-                new Vector4(.026f, .050f, .032f, -.017f),
-                new Vector4(.047f, .039f, .033f, -.016f),
+            Loft(Head, "Small nose", new Vector3(0, .146f, -.198f), skin,
+                new Vector4(.002f, .014f, .008f, .006f),
+                new Vector4(.026f, .043f, .029f, -.012f),
+                new Vector4(.047f, .037f, .030f, -.013f),
                 new Vector4(.077f, .024f, .018f, -.007f),
                 new Vector4(.100f, .006f, .007f, 0));
             var mouth = Joint(Head, "Mouth", new Vector3(0, .116f, -.209f));
@@ -69,11 +71,11 @@ namespace BAIby.Character
             LowerLip = Form(mouth, "Lower lip", new Vector3(0, -.008f, -.005f),
                 new Vector3(.085f, .021f, .017f), pink);
             Form(mouth, "Upper lip", new Vector3(0, .005f, -.001f),
-                new Vector3(.092f, .013f, .025f), pink);
-            Form(Head, "Swept crown hair", new Vector3(-.012f, .471f, .012f),
-                new Vector3(.279f, .09f, .289f), hair).localRotation = Quaternion.Euler(0, -17, 10);
-            Form(Head, "Side-swept curl", new Vector3(.056f, .479f, -.072f),
-                new Vector3(.158f, .102f, .13f), hair).localRotation = Quaternion.Euler(0, -10, 27);
+                new Vector3(.089f, .014f, .017f), pink);
+            Form(Head, "Swept crown hair", new Vector3(-.012f, .467f, -.035f),
+                new Vector3(.245f, .086f, .253f), hair).localRotation = Quaternion.Euler(0, -17, 10);
+            Form(Head, "Side-swept curl", new Vector3(.042f, .467f, -.115f),
+                new Vector3(.149f, .089f, .128f), hair).localRotation = Quaternion.Euler(0, -10, 27);
 
             for (int index = 0; index < 2; index++)
             {
@@ -83,18 +85,21 @@ namespace BAIby.Character
                 Form(Head, "Ear fold", new Vector3(side * .281f, .174f, -.012f),
                     new Vector3(.041f, .067f, .022f), pink);
                 var socket = Joint(Head, "Eye socket", new Vector3(side * .112f, .236f, -.196f));
-                socket.localRotation = Quaternion.Euler(0, -side * 22, side * 8);
-                Form(socket, "Eyelid rim", Vector3.zero, new Vector3(.127f, .071f, .049f), pink);
-                var eye = Eyes[index] = Joint(socket, "Blink", new Vector3(0, -.001f, -.012f));
-                Form(eye, "Sclera", Vector3.zero, new Vector3(.113f, .055f, .041f), white);
-                var gaze = Pupils[index] = Joint(eye, "Gaze", new Vector3(0, 0, -.021f));
-                Form(gaze, "Iris", Vector3.zero, new Vector3(.041f, .046f, .014f), iris);
-                Form(gaze, "Pupil", new Vector3(0, 0, -.006f), new Vector3(.026f, .031f, .006f), pupil);
-                Form(gaze, "Catchlight", new Vector3(-.007f, .01f, -.009f), new Vector3(.012f, .012f, .006f), light);
-                Form(socket, "Soft eyebrow", new Vector3(0, .052f, .005f),
-                    new Vector3(.078f, .013f, .019f), brow);
-                Form(Head, "Nostril", new Vector3(side * .025f, .176f, -.242f),
-                    new Vector3(.015f, .009f, .006f), pink);
+                socket.localRotation = Quaternion.Euler(0, -side * 20, side * 3);
+                Form(socket, "Soft eyelid", Vector3.zero, new Vector3(.126f, .071f, .042f), eyelid);
+                var eye = Eyes[index] = Joint(socket, "Blink", new Vector3(0, -.001f, -.008f));
+                Form(eye, "Sclera", Vector3.zero, new Vector3(.109f, .057f, .039f), white);
+                var gaze = Pupils[index] = Joint(eye, "Gaze", new Vector3(0, 0, -.018f));
+                Form(gaze, "Iris", Vector3.zero, new Vector3(.048f, .051f, .013f), iris);
+                Form(gaze, "Pupil", new Vector3(0, 0, -.006f), new Vector3(.029f, .033f, .005f), pupil);
+                Form(gaze, "Catchlight", new Vector3(-.007f, .01f, -.009f), new Vector3(.010f, .010f, .005f), light);
+                ClosedLids[index] = Form(socket, "Closed eyelid crease", new Vector3(0, -.003f, -.021f),
+                    new Vector3(.096f, .011f, .008f), brow);
+                ClosedLids[index].gameObject.SetActive(false);
+                Form(socket, "Soft eyebrow", new Vector3(0, .059f, .004f),
+                    new Vector3(.075f, .011f, .015f), brow);
+                Form(Head, "Nostril", new Vector3(side * .020f, .171f, -.230f),
+                    new Vector3(.011f, .006f, .005f), pink);
 
                 var arm = Arms[index] = Joint(Torso, "Shoulder", new Vector3(side * .181f, .319f, .005f));
                 Loft(arm, "Romper sleeve", Vector3.zero, jumper,

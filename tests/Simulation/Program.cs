@@ -14,7 +14,15 @@ Equal(TimeSpan.Zero, fed.State.Age, "care leaves age unchanged");
 Equal(Reaction.Satisfied, fed.Reaction, "feeding cue");
 Equal(95.0, game.ApplyCare(newborn, CareAction.Soothe).State.Comfort, "soothing improves comfort");
 
+Equal(80.0, newborn.Energy, "newborn starts with energy");
+var rested = game.ApplyCare(newborn, CareAction.Rest);
+Equal(100.0, rested.State.Energy, "rest caps energy at 100");
+Equal(Reaction.Rested, rested.Reaction, "rest reaction cue");
+Equal(newborn.Age, rested.State.Age, "rest leaves age unchanged");
+Equal(newborn.Satiety, rested.State.Satiety, "rest leaves satiety unchanged");
+
 var played = game.ApplyCare(newborn, CareAction.Play);
+Equal(68.0, played.State.Energy, "play uses energy");
 Equal(1, played.State.ToyFamiliarity, "play creates familiarity");
 Equal(Reaction.TracksToy, played.Reaction, "newborn tracks toy");
 
@@ -31,6 +39,13 @@ Equal(Reaction.TracksToy, game.ApplyCare(game.Advance(newborn, start.AddDays(3))
 var resume = game.Advance(newborn, start.AddDays(10));
 Equal(30.0, resume.State.Satiety, "offline satiety decay is capped");
 Equal(55.0, resume.State.Comfort, "offline comfort decay is capped");
+Equal(48.0, resume.State.Energy, "offline energy decay is capped");
+var tired = resume.State;
+for (var i = 0; i < 6; i++)
+    tired = game.ApplyCare(tired, CareAction.Play).State;
+Equal(0.0, tired.Energy, "play cannot reduce energy below zero");
+Equal(0.0, game.Advance(tired, tired.TimeCheckpoint.AddHours(1)).State.Energy, "elapsed time cannot reduce energy below zero");
+Equal(35.0, game.ApplyCare(tired, CareAction.Rest).State.Energy, "rest recovers energy at zero");
 var repeat = game.Advance(resume.State, resume.State.TimeCheckpoint.ToOffset(TimeSpan.FromHours(8)));
 Equal(resume.State, repeat.State, "same instant in a new timezone is a no-op");
 Equal(false, repeat.UnlockedSitting, "milestone cannot fire twice");
@@ -49,6 +64,7 @@ var reopened = new BabySession(game, saves, () => now);
 Equal("Mia & Co", reopened.State.Name, "name survives XML round trip");
 Equal(TimeSpan.FromDays(3), reopened.State.Age, "preview aging persists");
 Equal(1, reopened.State.ToyFamiliarity, "familiarity persists");
+Equal(36.0, reopened.State.Energy, "energy persists");
 Equal(true, reopened.State.CanSitAndReach, "milestone persists");
 Equal(false, reopened.Refresh(), "same-time reopen does not unlock or write");
 Equal(3, saves.Writes, "each edit writes one save and no-op refresh skips a write");
@@ -80,7 +96,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"2\" />";
+saves.Primary = "<baby version=\"3\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -88,8 +104,27 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"2\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"3\" />", saves.Primary, "future save is preserved");
 }
+
+const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort>" +
+    "<toy-familiarity>2</toy-familiarity><can-sit-and-reach>true</can-sit-and-reach></baby>";
+var migratedSaves = new MemorySaveStore { Primary = legacySave };
+var migrated = new BabySession(game, migratedSaves, () => start);
+Equal("Sam", migrated.State.Name, "v1 migration preserves name");
+Equal(start, migrated.State.TimeCheckpoint, "v1 migration preserves time checkpoint");
+Equal(TimeSpan.FromDays(3), migrated.State.Age, "v1 migration preserves age");
+Equal(41.0, migrated.State.Satiety, "v1 migration preserves satiety");
+Equal(52.0, migrated.State.Comfort, "v1 migration preserves comfort");
+Equal(2, migrated.State.ToyFamiliarity, "v1 migration preserves familiarity");
+Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
+Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
+migrated.ApplyCare(CareAction.Rest);
+Equal(true, migratedSaves.Primary.Contains("version=\"2\""), "first edit after migration writes v2");
+Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
+Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
+    "rest on migrated save persists energy in v2");
 
 Console.WriteLine("Simulation checks passed.");
 
