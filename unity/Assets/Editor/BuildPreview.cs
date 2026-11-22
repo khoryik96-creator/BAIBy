@@ -24,7 +24,7 @@ namespace BAIby.Editor
             if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.WebGL, BuildTarget.WebGL))
                 throw new BuildFailedException("Install Web Build Support for this Unity editor.");
 
-            var output = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "build", "Web"));
+            var output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", "..", "build", "Web"));
             var previousCompression = PlayerSettings.WebGL.compressionFormat;
             try
             {
