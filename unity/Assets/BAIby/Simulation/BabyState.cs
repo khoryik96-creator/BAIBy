@@ -2,6 +2,7 @@ using System;
 
 namespace BAIby.Simulation
 {
+    public enum Toy { Rattle, Plush }
     public enum CareAction { Feed, Soothe, Play, Rest }
     public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested }
 
@@ -13,11 +14,25 @@ namespace BAIby.Simulation
         public double Satiety { get; }
         public double Comfort { get; }
         public double Energy { get; }
+        // The original familiarity count is now specific to the rattle.
         public int ToyFamiliarity { get; }
+        public int PlushFamiliarity { get; }
+        public Toy? FavoriteToy
+        {
+            get
+            {
+                if (ToyFamiliarity >= 2 && ToyFamiliarity > PlushFamiliarity)
+                    return Toy.Rattle;
+                if (PlushFamiliarity >= 2 && PlushFamiliarity > ToyFamiliarity)
+                    return Toy.Plush;
+
+                return null;
+            }
+        }
         public bool CanSitAndReach { get; }
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, double energy, int toyFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -29,14 +44,16 @@ namespace BAIby.Simulation
                 throw new ArgumentOutOfRangeException(nameof(comfort));
             if (double.IsNaN(energy) || energy < 0 || energy > 100)
                 throw new ArgumentOutOfRangeException(nameof(energy));
-            if (toyFamiliarity < 0 || toyFamiliarity > BabySimulation.MaxFamiliarity)
+            if (toyFamiliarity < 0)
                 throw new ArgumentOutOfRangeException(nameof(toyFamiliarity));
+            if (plushFamiliarity < 0)
+                throw new ArgumentOutOfRangeException(nameof(plushFamiliarity));
 
-            return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy, toyFamiliarity, canSitAndReach);
+            return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy, toyFamiliarity, plushFamiliarity, canSitAndReach);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, double energy, int toyFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -45,6 +62,7 @@ namespace BAIby.Simulation
             Comfort = comfort;
             Energy = energy;
             ToyFamiliarity = toyFamiliarity;
+            PlushFamiliarity = plushFamiliarity;
             CanSitAndReach = canSitAndReach;
         }
     }

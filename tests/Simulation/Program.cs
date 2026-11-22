@@ -96,7 +96,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"3\" />";
+saves.Primary = "<baby version=\"4\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -104,7 +104,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"3\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"4\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -117,14 +117,47 @@ Equal(start, migrated.State.TimeCheckpoint, "v1 migration preserves time checkpo
 Equal(TimeSpan.FromDays(3), migrated.State.Age, "v1 migration preserves age");
 Equal(41.0, migrated.State.Satiety, "v1 migration preserves satiety");
 Equal(52.0, migrated.State.Comfort, "v1 migration preserves comfort");
-Equal(2, migrated.State.ToyFamiliarity, "v1 migration preserves familiarity");
+Equal(2, migrated.State.ToyFamiliarity, "v1 migration preserves rattle familiarity");
+Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unfamiliar");
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"2\""), "first edit after migration writes v2");
+Equal(true, migratedSaves.Primary.Contains("version=\"3\""), "first edit after migration writes v3");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v2");
+    "rest on migrated save persists energy in v3");
+
+const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>3</toy-familiarity><can-sit-and-reach>true</can-sit-and-reach></baby>";
+var toySaves = new MemorySaveStore { Primary = energySave };
+var toys = new BabySession(game, toySaves, () => start);
+Equal(63.0, toys.State.Energy, "v2 migration preserves energy");
+Equal(3, toys.State.ToyFamiliarity, "v2 migration preserves rattle familiarity");
+Equal(0, toys.State.PlushFamiliarity, "v2 migration establishes plush as unfamiliar");
+Equal<Toy?>(Toy.Rattle, toys.State.FavoriteToy, "v2 history counts toward favoring the rattle");
+
+Equal(Reaction.TracksToy, toys.ApplyCare(CareAction.Play, Toy.Plush).Reaction,
+    "first play with plush is unfamiliar despite rattle history");
+Equal(Reaction.ReachesForToy, toys.ApplyCare(CareAction.Play, Toy.Plush).Reaction,
+    "sitting baby reaches for the plush once it is familiar");
+Equal(3, toys.State.ToyFamiliarity, "playing with plush leaves rattle familiarity unchanged");
+Equal<Toy?>(Toy.Rattle, toys.State.FavoriteToy, "rattle keeps the lead after two plush plays");
+toys.ApplyCare(CareAction.Play, Toy.Plush);
+Equal<Toy?>(null, toys.State.FavoriteToy, "equally familiar toys have no clear favorite");
+toys.ApplyCare(CareAction.Play, Toy.Plush);
+Equal<Toy?>(Toy.Plush, toys.State.FavoriteToy, "favorite can switch beyond the original count cap");
+var persistedToys = new BabySession(game, toySaves, () => start);
+Equal<Toy?>(Toy.Plush, persistedToys.State.FavoriteToy, "favorite derives from saved toy history");
+Equal(3, persistedToys.State.ToyFamiliarity, "rattle count persists independently");
+Equal(4, persistedToys.State.PlushFamiliarity, "plush count persists independently");
+persistedToys.ApplyCare(CareAction.Play);
+Equal<Toy?>(null, persistedToys.State.FavoriteToy, "default play still counts toward the rattle");
+Equal(4, persistedToys.State.PlushFamiliarity, "default play leaves plush familiarity unchanged");
+
+var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false);
+Equal(int.MaxValue, game.ApplyCare(maxToyPlay, CareAction.Play).State.ToyFamiliarity,
+    "repeated play cannot overflow familiarity");
 
 Console.WriteLine("Simulation checks passed.");
 

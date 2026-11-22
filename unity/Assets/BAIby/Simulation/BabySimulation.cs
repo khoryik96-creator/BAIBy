@@ -6,7 +6,6 @@ namespace BAIby.Simulation
     {
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
-        internal const int MaxFamiliarity = 3;
         private const double InitialEnergy = 80;
 
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay)
@@ -25,7 +24,7 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, false);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false);
         }
 
         public (BabyState State, bool UnlockedSitting) Advance(BabyState state, DateTimeOffset now)
@@ -54,17 +53,18 @@ namespace BAIby.Simulation
                 Math.Max(0, state.Satiety - decayHours * 10),
                 Math.Max(0, state.Comfort - decayHours * 5),
                 Math.Max(0, state.Energy - decayHours * 8),
-                state.ToyFamiliarity, canSit);
+                state.ToyFamiliarity, state.PlushFamiliarity, canSit);
 
             return (updated, canSit && !state.CanSitAndReach);
         }
 
-        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action)
+        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action, Toy toy = Toy.Rattle)
         {
             var satiety = state.Satiety;
             var comfort = state.Comfort;
             var energy = state.Energy;
-            var familiarity = state.ToyFamiliarity;
+            var rattleFamiliarity = state.ToyFamiliarity;
+            var plushFamiliarity = state.PlushFamiliarity;
             Reaction reaction;
 
             switch (action)
@@ -83,7 +83,19 @@ namespace BAIby.Simulation
                     break;
                 case CareAction.Play:
                     energy = Math.Max(0, energy - 12);
-                    familiarity = Math.Min(MaxFamiliarity, familiarity + 1);
+                    switch (toy)
+                    {
+                        case Toy.Rattle:
+                            rattleFamiliarity = CountPlay(rattleFamiliarity);
+                            break;
+                        case Toy.Plush:
+                            plushFamiliarity = CountPlay(plushFamiliarity);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(toy));
+                    }
+
+                    var familiarity = toy == Toy.Rattle ? rattleFamiliarity : plushFamiliarity;
                     reaction = state.CanSitAndReach && familiarity >= 2
                         ? Reaction.ReachesForToy : Reaction.TracksToy;
                     break;
@@ -92,7 +104,9 @@ namespace BAIby.Simulation
             }
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
-                satiety, comfort, energy, familiarity, state.CanSitAndReach), reaction);
+                satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach), reaction);
         }
+
+        private static int CountPlay(int count) => count == int.MaxValue ? count : count + 1;
     }
 }
