@@ -10,6 +10,13 @@ namespace BAIby.Character
         private const string Art = "BAIby/";
         private const string AppearanceArt = Art + "Baby/Appearance/";
         private const float QuiltSurface = -1.62f;
+        private const float PoseHeight = 3.68f;
+        private const float WalkerGround = .22f;
+        private const float WalkerHeight = 3.47f;
+        // The top of the tallest pose's art rectangle (the walker stands on a raised ground). The rectangles
+        // leave transparent room above every head, which covers the small breathing and stride lifts. UI that
+        // must never cover the baby's head stays above it.
+        private const float PoseCeiling = QuiltSurface + WalkerGround + WalkerHeight;
         private const float PlayDuration = 2.35f;
         private const float CrawlDuration = 3.10f;
         private const float WalkDuration = 3.40f;
@@ -84,6 +91,10 @@ namespace BAIby.Character
         private int messItems;
         private readonly SpriteRenderer[] messSpots = new SpriteRenderer[CareRecord.MaxMess];
 
+        // The screen-space y (pixels from the bottom) of the pose ceiling at the current aspect.
+        public float PoseCeilingScreenY =>
+            nurseryCamera == null ? 0 : nurseryCamera.WorldToScreenPoint(transform.TransformPoint(new Vector3(0, PoseCeiling, 0))).y;
+
         public static NurseryVisuals Create()
         {
             var visuals = new GameObject("BAIby Nursery").AddComponent<NurseryVisuals>();
@@ -108,7 +119,8 @@ namespace BAIby.Character
             {
                 reaction = newReaction;
                 reactionStarted = Time.unscaledTime;
-                if (IsPlayReaction(reaction))
+                // A refused toy is the one that was offered, so that is the toy pushed away.
+                if (IsPlayReaction(reaction) || reaction == Reaction.PushesToyAway)
                     playedToy = selectedToy;
                 if (reaction == Reaction.Satisfied || reaction == Reaction.TooFull)
                     servedFood = food;
@@ -116,8 +128,13 @@ namespace BAIby.Character
 
             float elapsed = Time.unscaledTime - reactionStarted;
             UpdateToyVisibility(elapsed);
-            ShowToy(IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction) ? playedToy : ambientToy);
+            ShowToy(ShowsOfferedToy(elapsed) ? playedToy : ambientToy);
         }
+
+        // While a play cue or a refusal runs, the toy on screen is the one the player offered.
+        private bool ShowsOfferedToy(float elapsed) =>
+            (IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction)) ||
+            (reaction == Reaction.PushesToyAway && elapsed < RefuseCueDuration);
 
         // Prepares the room for a different baby: the next Present snaps to that baby's stage, and the
         // previous baby's reaction cues and sound preview do not carry over.
@@ -668,7 +685,7 @@ namespace BAIby.Character
             float walkerWeight = StageOpacity(3);
             float stageOffset = -.04f * StageOpacity(2) - .085f * walkerWeight;
             // Leave the walker's feet above the expanded nursery card.
-            float stageGround = QuiltSurface + .22f * walkerWeight;
+            float stageGround = QuiltSurface + WalkerGround * walkerWeight;
             float travel = visibleWidth * (stageOffset + .13f * (crawl + stride * .022f) + .215f * (walk + step * .023f));
             float lift = Mathf.Abs(stride) * .055f + Mathf.Abs(step) * .075f;
             baby.localPosition = new Vector3(.08f * play + .10f * reach + travel - .05f * pushAway,
@@ -683,7 +700,7 @@ namespace BAIby.Character
             shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);
 
-            var displayedToy = playing ? playedToy : ambientToy;
+            var displayedToy = ShowsOfferedToy(elapsed) ? playedToy : ambientToy;
             UpdateToyVisibility(elapsed);
             ShowToy(displayedToy);
             PoseToy(displayedToy, now, play, reach, crawling || walking, crawl + walk, pushAway);
@@ -976,11 +993,11 @@ namespace BAIby.Character
             AnchorStage(sitterRest, .87f);
             AnchorStage(crawler, .80f, 2.95f);
             AnchorStage(crawlerRest, .83f, 2.95f);
-            AnchorStage(walker, .68f, 3.47f);
+            AnchorStage(walker, .68f, WalkerHeight);
             AnchorStage(walkerRest, .76f, 3.07f);
         }
 
-        private void AnchorStage(SpriteRenderer layer, float widthFraction, float maxHeight = 3.68f)
+        private void AnchorStage(SpriteRenderer layer, float widthFraction, float maxHeight = PoseHeight)
         {
             if (layer == null)
                 return;

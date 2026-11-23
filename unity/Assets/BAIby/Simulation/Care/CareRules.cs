@@ -230,7 +230,7 @@ namespace BAIby.Simulation
             return false;
         }
 
-        // 0 to 1. Excused and Covered entries never count; empty rings count as 1.
+        // 0 to 1. Excused and Covered entries never count; unfilled ring slots (and so empty rings) count as 1.
         public static double Score(CareRecord record, CareTunables tunables)
         {
             if (record == null)

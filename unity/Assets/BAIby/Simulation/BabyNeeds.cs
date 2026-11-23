@@ -8,7 +8,9 @@ namespace BAIby.Simulation
     // - Night (quiet hours, from the bedtime window's due time until the wake time, on the local clock):
     //   Fullness -2.5, Comfort -1, Cleanliness -5, and Energy +9 up to 100 after an on-time bedtime, 85 after
     //   a late one, and 65 without one (the baby dozes on the mat). Each night reads its own evening's bedtime
-    //   rest, so splitting a night into several advances changes nothing.
+    //   rest, and time before the first care-day boundary of a gap is placed with the clock and routine of the
+    //   day it belongs to (a new offset or routine applies from the next care day), so splitting a night into
+    //   several advances changes nothing.
     // - Away mode holds needs: they fall at awake rates but never below the hold level, or below where they
     //   were if that was lower. Health holds too.
     // - Outside Away mode at most `cap` hours count, from the start of the gap.
@@ -56,27 +58,71 @@ namespace BAIby.Simulation
             Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0);
 
         // Real time from `before.Checkpoint` to `after.Checkpoint`. `before` is the ledger at the start of the gap
-        // (its away period); `after` places the night on the local clock and holds the bedtime rest.
-        public static Values Real(Values start, CareRecord before, CareRecord after, TimeSpan cap, double holdLevel)
+        // (its away period); `after` is the ledger CareRules.Advance produced and holds the bedtime rest. Until the
+        // first care-day boundary the gap is placed on `before`'s offset and routine, after it on `after`'s, as
+        // CareRules.BeginDay switches them, so one advance and many short ones agree.
+        public static Values Real(Values start, CareRecord before, CareRecord after, TimeSpan cap, double holdLevel,
+            TimeSpan dayStart)
         {
             var from = before.Checkpoint.UtcTicks;
             var to = after.Checkpoint.UtcTicks;
             if (to <= from)
                 return start;
 
+            var boundary = from;
+            if (!before.AwaitingAnchor && after.CareDay > before.CareDay)
+            {
+                // CareRules.Advance closes the day at this instant, under the offset it reads at `now`.
+                boundary = RoutineCalendar.CareDayStart(before.CareDay + 1, after.NextOffset, dayStart);
+                boundary = Math.Max(from, Math.Min(to, boundary));
+            }
+
+            var placing = new Placement(before, after, boundary);
             var awayFrom = Math.Max(from, before.AwayFrom.UtcTicks);
             var awayUntil = Math.Min(to, before.AwayUntil.UtcTicks);
             var budget = cap.Ticks;
-            var night = RoutineCalendar.Night(after.Preset, after.WakeTime);
             var values = start;
             if (awayUntil > awayFrom)
             {
-                values = Counted(values, from, awayFrom, after, night, ref budget);
+                values = Placed(values, from, awayFrom, placing, ref budget);
                 values = Held(values, Hours(awayUntil - awayFrom), holdLevel);
-                return Counted(values, awayUntil, to, after, night, ref budget);
+                return Placed(values, awayUntil, to, placing, ref budget);
             }
 
-            return Counted(values, from, to, after, night, ref budget);
+            return Placed(values, from, to, placing, ref budget);
+        }
+
+        private readonly struct Placement
+        {
+            public readonly CareRecord Before;
+            public readonly CareRecord After;
+            public readonly long Boundary;
+
+            public Placement(CareRecord before, CareRecord after, long boundary)
+            {
+                Before = before;
+                After = after;
+                Boundary = boundary;
+            }
+        }
+
+        private static Values Placed(Values values, long from, long to, Placement placing, ref long budget)
+        {
+            if (from < placing.Boundary)
+            {
+                var split = Math.Min(to, placing.Boundary);
+                var before = placing.Before;
+                values = Counted(values, from, split, before.Offset, RoutineCalendar.Night(before.Preset, before.WakeTime),
+                    placing.After, ref budget);
+                from = split;
+            }
+
+            if (from >= to)
+                return values;
+
+            var after = placing.After;
+            return Counted(values, from, to, after.Offset, RoutineCalendar.Night(after.Preset, after.WakeTime), after,
+                ref budget);
         }
 
         // A night belongs to the care day whose evening it follows; only that day's bedtime rest counts.
@@ -93,10 +139,10 @@ namespace BAIby.Simulation
             }
         }
 
-        private static Values Counted(Values values, long from, long to, CareRecord record, (TimeSpan Start, TimeSpan End) night,
-            ref long budget)
+        // `rest` holds the bedtime rest; `offset` and `night` place the stretch on the local clock.
+        private static Values Counted(Values values, long from, long to, TimeSpan offset, (TimeSpan Start, TimeSpan End) night,
+            CareRecord rest, ref long budget)
         {
-            var offset = record.Offset;
             var at = from;
             while (at < to && budget > 0)
             {
@@ -113,7 +159,7 @@ namespace BAIby.Simulation
                 var length = Math.Min(Math.Min(to - at, boundary), budget);
                 // The morning part of a night belongs to the previous evening's care day.
                 var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (timeOfDay < night.End.Ticks ? 1 : 0);
-                values = Segment(values, Hours(length), isNight, isNight ? NightEnergyCap(record, nightDay) : 0);
+                values = Segment(values, Hours(length), isNight, isNight ? NightEnergyCap(rest, nightDay) : 0);
                 budget -= length;
                 at += length;
             }

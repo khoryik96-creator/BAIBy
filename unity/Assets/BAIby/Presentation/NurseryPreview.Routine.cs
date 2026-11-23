@@ -3,12 +3,18 @@ using System.Collections.Generic;
 using System.Globalization;
 using BAIby.Simulation;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace BAIby.Presentation
 {
     // The routine strip under the header (today's care windows) and the Routine panel it opens: the care
     // style and Away mode. Copy stays calm: it names what helps, never blames.
+    //
+    // The world baby keeps its size while the canvas follows the screen's aspect, so the strip shows only
+    // while it ends above the tallest pose (NurseryVisuals.PoseCeilingScreenY). On shorter screens (a phone
+    // browser with its toolbars, a notched phone, a desktop window) it folds into a Routine button in the
+    // Care tray's status row that names the next window to look after.
     public sealed partial class NurseryPreview
     {
         private static readonly Color Honey = new Color32(240, 214, 160, 255);
@@ -16,16 +22,86 @@ namespace BAIby.Presentation
         private static readonly Color Leaf = new Color32(208, 226, 202, 255);
         private RoutineStripView routineStrip;
         private RoutinePanel routine;
+        private Button routineButton;
+        private Text routineButtonLabel;
+        private bool routineStripWanted;
+        private bool routineStripFits = true;
+        private readonly Vector3[] stripCorners = new Vector3[4];
+
+        // The control that opened the Routine panel, for focus when it closes.
+        private Selectable RoutineOpener => routineStripFits ? routineStrip.Open : (Selectable)routineButton;
 
         private void BuildRoutine()
         {
             // A slim 52-unit tray just below the header. On a 390 x 844 screen it ends above the tallest pose's head;
-            // a notched phone's safe area moves it down with the header.
+            // where it would not (FitRoutineStrip), the Routine button below stands in for it.
             var root = Box("Routine Strip", safeArea, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 new Vector2(-332, -314), new Vector2(332, -262));
             routineStrip = new RoutineStripView(root, () => ShowPanel(NurseryPanel.Routine));
+            routineButton = ActionButton("Routine", status.transform.parent, 0.73f, 1, 291, 361,
+                () => ShowPanel(NurseryPanel.Routine), Mist, Ink);
+            routineButton.name = "Open routine";
+            routineButtonLabel = routineButton.GetComponentInChildren<Text>();
+            routineButtonLabel.rectTransform.offsetMin = new Vector2(8, 0);
+            routineButtonLabel.rectTransform.offsetMax = new Vector2(-8, 0);
+            routineButtonLabel.resizeTextForBestFit = true;
+            routineButtonLabel.resizeTextMinSize = 15;
+            routineButtonLabel.resizeTextMaxSize = 22;
+            SoftShapes.Round(routineButton.image, 0.7f);
+            routineButton.gameObject.SetActive(false);
             routine = new RoutinePanel(Tray("Routine Panel", false, 378), () => ShowPanel(NurseryPanel.Care),
                 ChooseCareStyle, StartAway, EndAway);
+        }
+
+        // Checks every frame, since the safe area, the window and the browser's toolbars can all change.
+        private void FitRoutineStrip()
+        {
+            if (routineStrip == null || nursery == null)
+                return;
+
+            // A Screen Space Overlay canvas places its corners in screen pixels, like the camera projection.
+            ((RectTransform)routineStrip.Root.transform).GetWorldCorners(stripCorners);
+            var fits = stripCorners[0].y >= nursery.PoseCeilingScreenY;
+            if (fits == routineStripFits)
+                return;
+
+            var focused = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null &&
+                EventSystem.current.currentSelectedGameObject == RoutineOpener.gameObject;
+            routineStripFits = fits;
+            UpdateRoutineEntry();
+            if (focused && RoutineOpener.gameObject.activeInHierarchy)
+                RoutineOpener.Select();
+        }
+
+        // The strip, or the Routine button standing in for it. A pending new sound fills the status row for a
+        // moment, so the button waits for it.
+        private void UpdateRoutineEntry()
+        {
+            routineStrip.Root.SetActive(routineStripWanted && routineStripFits);
+            var folded = !routineStripFits && !newSoundNotice.gameObject.activeSelf;
+            routineButton.gameObject.SetActive(folded);
+            status.rectTransform.anchorMax = new Vector2(folded ? 0.72f : 1, 0);
+        }
+
+        private void UpdateRoutineSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
+        {
+            routineStrip.UpdateSlots(slots, preset);
+            routineButtonLabel.text = FoldedLabel(slots, preset);
+        }
+
+        // "Routine", or the first window that is late or due now, such as "Snack late" or "Breakfast now".
+        private static string FoldedLabel(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
+        {
+            foreach (var wanted in new[] { RoutineSlotState.Overdue, RoutineSlotState.Due })
+            {
+                foreach (var slot in slots)
+                {
+                    if (slot.State == wanted && slot.Kind != RoutineSlotKind.Play && slot.Kind != RoutineSlotKind.Wash)
+                        return SlotName(slot.Kind, preset) + (wanted == RoutineSlotState.Overdue ? " late" : " now");
+                }
+            }
+
+            return "Routine";
         }
 
         private void ChooseCareStyle(CareStyle choice)
@@ -115,6 +191,7 @@ namespace BAIby.Presentation
         private sealed class RoutineStripView
         {
             public GameObject Root { get; }
+            public Button Open { get; }
             private readonly Image[] chips = new Image[6];
             private readonly Text[] names = new Text[6];
             private readonly Text[] states = new Text[6];
@@ -124,9 +201,9 @@ namespace BAIby.Presentation
                 Root = root.gameObject;
                 var surface = Surface(root, Paper);
                 surface.raycastTarget = true;
-                var button = Root.AddComponent<Button>();
-                button.targetGraphic = surface;
-                button.onClick.AddListener(() => open());
+                Open = Root.AddComponent<Button>();
+                Open.targetGraphic = surface;
+                Open.onClick.AddListener(() => open());
                 var content = Box("Routine Chips", root, Vector2.zero, Vector2.one, new Vector2(10, 5), new Vector2(-10, -5));
                 for (var i = 0; i < chips.Length; i++)
                 {

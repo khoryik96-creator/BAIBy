@@ -58,6 +58,7 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
+            FitRoutineStrip();
             if (Input.GetKeyDown(KeyCode.Escape))
                 GoBack();
 
@@ -280,7 +281,7 @@ namespace BAIby.Presentation
             else
                 status.text = reaction == Reaction.None ? DescribeCondition(state) ?? DescribeNeeds(state) : reactionText;
 
-            routineStrip.UpdateSlots(session.Routine, state.Care.Preset);
+            UpdateRoutineSlots(session.Routine, state.Care.Preset);
             routine.UpdateDetails(state, DescribeCondition(state) ??
                 $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
             development.UpdateDetails(state, age.text, status.text);
@@ -541,7 +542,7 @@ namespace BAIby.Presentation
                         case NurseryPanel.Hygiene: washUpButton.Select(); break;
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.Style: styleButton.Select(); break;
-                        case NurseryPanel.Routine: feedButton.Select(); break;
+                        case NurseryPanel.Routine: RoutineOpener.Select(); break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -562,13 +563,14 @@ namespace BAIby.Presentation
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
-            routineStrip.Root.SetActive(adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine));
+            routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             UpdateHouseholdChips(adopted && activePanel == NurseryPanel.Care);
             var hasPendingSound = adopted && session.State.HasPendingNewSound;
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);
+            UpdateRoutineEntry();
         }
 
         private RectTransform Tray(string label, bool top, float height)

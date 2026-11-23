@@ -14,12 +14,15 @@ static class ConsequenceChecks
     {
         NeedRetuneAndCap();
         NightAndBedtime();
+        ClockAndRoutineChangesAtTheDayBoundary();
         OnTimeLateAndMissed();
         FussyAndUpset();
         OneRungPerAdvance();
         Mess();
         Overfeeding();
         AwayMode();
+        AwayHoldsTheLadder();
+        MissedMealsUpset();
         GentleIsGentler();
         RoutineStripStates();
         Migration();
@@ -118,8 +121,8 @@ static class ConsequenceChecks
         Equal("M", answered.Care.Meals.ToCode(), "answering never erases the miss");
 
         var ignored = game.Advance(missed, At(2026, 3, 2, 12, 50)).State;
-        Equal(CareMood.Upset, ignored.Care.Mood, "an unanswered miss that pulls CareScore below 0.6 upsets the baby");
-        Equal(CareMoodCause.LowCareScore, ignored.Care.MoodCause, "the upset names the CareScore");
+        Near(0.6 * (8.0 / 9) + 0.25 + 0.15, CareRules.Score(ignored.Care, Tunables), "one miss weighs one ninth of the meals");
+        Equal(CareMood.Fussy, ignored.Care.Mood, "a young ledger's first miss never upsets the baby through CareScore");
     }
 
     private static void FussyAndUpset()
@@ -161,7 +164,7 @@ static class ConsequenceChecks
         Equal(CareMood.Content, answered.Care.Mood, "soothing answers fussing from low comfort");
         Equal(CareMood.Content, game.Advance(answered, At(2026, 3, 2, 16, 55)).State.Care.Mood,
             "answered fussing does not escalate");
-        Near(answered.Health, Math.Min(answered.Health, 100), "health stays in range");
+        Near(90 - 5, answered.Health, "an hour with Comfort below 30 costs Health 5");
     }
 
     private static void OneRungPerAdvance()
@@ -172,7 +175,7 @@ static class ConsequenceChecks
         Equal(CareMood.Fussy, first.Care.Mood, "one advance moves at most one rung");
         var second = game.Advance(first, At(2026, 3, 2, 18, 20)).State;
         Equal(CareMood.Upset, second.Care.Mood, "the next advance can move the next rung");
-        Equal(true, second.Health >= 0, "health never falls below zero");
+        Near(90 - 5 * (4 + 20 / 60.0), second.Health, "Health falls 5 an hour while a need is below 30");
         var preview = game.AdvancePreview(first, TimeSpan.FromDays(1)).State;
         Equal(CareMood.Fussy, preview.Care.Mood, "a preview day never moves the mood");
     }
@@ -291,6 +294,107 @@ static class ConsequenceChecks
         session.EndAway();
         Equal(false, session.State.Care.IsAway, "the session ends Away mode");
         Equal(false, new BabySession(Game(), saves, () => clock).State.Care.IsAway, "the end survives a reload");
+    }
+
+    // A new offset or routine applies from the next care day, so time before the boundary keeps the old clock and
+    // routine whether it passes in one advance or in many short ones.
+    private static void ClockAndRoutineChangesAtTheDayBoundary()
+    {
+        var game = Game();
+        // Paris springs forward on 2026-03-29 at 02:00 (01:00 UTC).
+        var springForward = new DateTimeOffset(2026, 3, 29, 1, 0, 0, TimeSpan.Zero);
+        Func<DateTimeOffset, DateTimeOffset> paris = utc =>
+            utc.ToOffset(utc < springForward ? TimeSpan.FromHours(1) : TimeSpan.FromHours(2));
+        var evening = Baby(At(2026, 3, 28, 21, 0), satiety: 80);
+        var morning = new DateTimeOffset(2026, 3, 29, 4, 30, 0, TimeSpan.FromHours(2));
+        SameNeeds(Whole(game, evening, morning), Stepped(game, evening, morning, paris), "across a DST change");
+
+        var start = At(2026, 3, 2, 20, 30);
+        var home = Baby(start);
+        home = BabyState.Restore("Mia", start, home.Age, 80, 80, 80, 3, 0, true, false, 10, 1, 90, 90, true,
+            care: CareRules.ChangeRoutine(home.Care, RoutinePreset.Home, RoutineCalendar.DefaultWakeTime));
+        var nextDay = At(2026, 3, 3, 4, 15);
+        var whole = Whole(game, home, nextDay);
+        Equal(RoutinePreset.Home, whole.Care.Preset, "the new routine applies from the next care day");
+        SameNeeds(whole, Stepped(game, home, nextDay, at => at), "across a routine change");
+        var split = game.Advance(game.Advance(home, At(2026, 3, 2, 21, 15)).State, nextDay).State;
+        SameNeeds(whole, split, "across a routine change split once");
+    }
+
+    private static BabyState Whole(BabySimulation game, BabyState state, DateTimeOffset until) =>
+        game.Advance(state, until).State;
+
+    private static BabyState Stepped(BabySimulation game, BabyState state, DateTimeOffset until,
+        Func<DateTimeOffset, DateTimeOffset> local)
+    {
+        for (var at = state.TimeCheckpoint.AddMinutes(5); at < until; at = at.AddMinutes(5))
+            state = game.Advance(state, local(at)).State;
+        return game.Advance(state, until).State;
+    }
+
+    private static void SameNeeds(BabyState expected, BabyState actual, string description)
+    {
+        Near(expected.Satiety, actual.Satiety, $"Fullness is the same in one advance or many {description}");
+        Near(expected.Comfort, actual.Comfort, $"Comfort is the same in one advance or many {description}");
+        Near(expected.Energy, actual.Energy, $"Energy is the same in one advance or many {description}");
+        Near(expected.Cleanliness, actual.Cleanliness, $"Cleanliness is the same in one advance or many {description}");
+        Near(expected.Health, actual.Health, $"Health is the same in one advance or many {description}");
+    }
+
+    // Away mode freezes the ladder: nothing moves it while away, and time away never counts towards escalation.
+    private static void AwayHoldsTheLadder()
+    {
+        var game = Game();
+        var low = Baby(At(2026, 3, 2, 14, 0), comfort: 30);
+        var owing = low.Care.ToBuilder();
+        owing.Owed = CareTags.Meal;
+        var away = game.StartAway(BabyState.Restore("Mia", low.TimeCheckpoint, low.Age, 80, 30, 80, 3, 0, true, false, 10, 1,
+            90, 90, true, care: owing.Build()), TimeSpan.FromHours(3));
+        var inside = game.Advance(away, At(2026, 3, 2, 16, 0)).State;
+        Equal(true, inside.Care.IsAway, "still away at 16:00");
+        Equal(CareMood.Content, inside.Care.Mood, "a low need or an owed meal never moves the ladder while away");
+
+        var fussy = game.Advance(low, At(2026, 3, 2, 14, 5)).State;
+        Equal(CareMood.Fussy, fussy.Care.Mood, "Comfort 30 makes the baby fussy");
+        var leaving = game.StartAway(fussy, TimeSpan.FromHours(3));
+        var back = game.Advance(leaving, At(2026, 3, 2, 17, 20)).State;
+        Equal(CareMood.Fussy, back.Care.Mood, "fussing before Away mode does not escalate while away");
+        Equal(leaving.Care.AwayUntil, back.Care.MoodSince, "the fussing counts again from the planned end");
+        var nearly = game.Advance(back, At(2026, 3, 2, 19, 0)).State;
+        Equal(CareMood.Fussy, nearly.Care.Mood, "no escalation before two hours of fussing outside Away mode");
+        var escalated = game.Advance(nearly, At(2026, 3, 2, 19, 10)).State;
+        Equal(CareMood.Upset, escalated.Care.Mood, "two hours of unanswered fussing after the return upsets the baby");
+        Equal(CareMoodCause.Unanswered, escalated.Care.MoodCause, "the upset names the unanswered fussing");
+
+        var morningAway = game.StartAway(Baby(At(2026, 3, 2, 6, 0)), TimeSpan.FromHours(3));
+        var afterBreakfast = game.Advance(morningAway, At(2026, 3, 2, 10, 30)).State;
+        Equal(false, CareRules.HasOverdueMeal(afterBreakfast.Care), "a meal window that overlaps Away mode is never overdue");
+        Equal(CareMood.Content, afterBreakfast.Care.Mood, "a window covered by Away mode never makes the baby fussy");
+    }
+
+    // Two of the last three meals missed, with a miss unanswered, upsets a fussing baby.
+    private static void MissedMealsUpset()
+    {
+        var game = Game();
+        Equal(CareMood.Upset, Owing("OMM").Care.Mood, "two of the last three meals missed upsets the baby");
+        Equal(CareMoodCause.MissedMeals, Owing("OMM").Care.MoodCause, "the upset names the missed meals");
+        Equal(CareMood.Upset, Owing("MOM").Care.Mood, "two misses among the last three meals count however they fall");
+        Equal(CareMoodCause.MissedMeals, Owing("MOM").Care.MoodCause, "misses need not be consecutive");
+        Equal(CareMood.Fussy, Owing("OOM").Care.Mood, "one recent miss alone keeps the baby fussy");
+
+        BabyState Owing(string meals)
+        {
+            var at = At(2026, 3, 2, 14, 0);
+            var draft = Anchored(at).ToBuilder();
+            draft.Meals = CareRing.Parse(meals);
+            draft.Owed = CareTags.Meal;
+            draft.Mood = CareMood.Fussy;
+            draft.MoodCause = CareMoodCause.MissedWindow;
+            draft.MoodSince = at.AddMinutes(-30);
+            var baby = BabyState.Restore("Mia", at, TimeSpan.FromDays(4), 80, 80, 80, 3, 0, true, false, 10, 1, 90, 90, true,
+                care: draft.Build());
+            return game.Advance(baby, At(2026, 3, 2, 14, 5)).State;
+        }
     }
 
     private static void GentleIsGentler()

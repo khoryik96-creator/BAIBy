@@ -71,7 +71,8 @@ namespace BAIby.Simulation
                 return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care);
 
             var care = CareRules.Advance(state.Care, now, careTunables);
-            var needs = BabyNeeds.Real(BabyNeeds.From(state), state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel);
+            var needs = BabyNeeds.Real(BabyNeeds.From(state), state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
+                careTunables.DayStart);
             // The first advance of a migrated ledger excuses the whole gap and moves nobody on the ladder.
             if (!state.Care.AwaitingAnchor)
                 care = CareConsequences.Settle(care, Snapshot(needs), careTunables);

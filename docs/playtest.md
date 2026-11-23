@@ -40,17 +40,20 @@ Care slice 2 of [care and growth](care-and-growth.md). Needs follow the real clo
 | Step | Expected result |
 | --- | --- |
 | Look under the header at 390 x 844 | A slim strip shows Breakfast, Snack (Lunch on the Home preset), Dinner, Play, Bed and Wash. Each chip reads its opening time, **Now**, **Late**, **On time**, **Done late**, **Missed**, **Free** or **Away**. The strip ends above the baby's head and never overlaps the header or the care tray. |
+| Shrink the window (a phone browser with its toolbars, about 390 x 664, or a desktop window such as 640 x 950) | The strip never covers the baby's head: where it would, it folds into a **Routine** button at the right of the status line, which names the window to look after (**Breakfast now**, **Snack late**) or reads **Routine**. Tapping it opens the Routine panel. |
+| Open the Routine panel from the strip or the button, then press Escape or **Done** | Keyboard focus returns to the strip or the button that opened it. |
 | Feed inside the breakfast window | The Breakfast chip reads **On time**. |
 | Leave breakfast past 10:00 | The chip reads **Late** and the baby starts fussing: a gentle fidget, a slightly cooler tint and "is fussing. It's past mealtime." Feeding calms it and the chip reads **Done late**. |
 | Leave breakfast past 12:00 | The chip reads **Missed** and the baby fusses for the missed meal until fed. Left unanswered, the baby becomes upset. |
-| Let a need fall below 35, then below 15 | The baby fusses, then (after at least 15 minutes) becomes upset: crying copy, a stronger fidget, a droop and a cooler tint. Play, stories and blocks are pushed away and give nothing. |
+| Let a need fall below 35, then below 15 | The baby fusses, then (after at least 15 minutes) becomes upset: crying copy, a stronger fidget, a droop and a cooler tint. Play, stories and blocks are pushed away and give nothing: **Play with plush** shows the plush sliding away, and **Stack blocks** is refused at once instead of after the tower is built. |
+| Miss one meal on a new baby and leave it | The baby fusses until fed; one miss alone never upsets it. Two of the last three meals missed, unanswered, do. |
 | Calm an upset baby | Feed until Fullness is 50 or more, then **Soothe** (or comfort a new sound). The baby is content again and plays. |
 | Skip the day's wash | The next morning one spot appears on the floor (up to three). Each spot trims comfort gains by 5%. **Wash up** (bath or diaper) clears them all. |
 | Feed when Fullness is 90 or more | The baby is "too full" and spits up a little: Comfort -10, Cleanliness -15, no Health change. It never counts as a meal. |
 | Put the baby to bed in the bedtime window, then reopen in the morning | Energy is back to 100 (85 after a late bedtime). With no bedtime the baby dozes to 65 and wakes fussing until it rests. |
-| Tap the strip, then **Away 1 day** (or 3 days, 1 week, 2 weeks) | The chips read **Away**, the status says needs stay steady, and **We're back** replaces the choices. While away, needs settle no lower than 60 (lower needs stay put), Health holds, nothing is missed and age keeps its normal pace. |
+| Tap the strip (or **Routine**), then **Away 1 day** (or 3 days, 1 week, 2 weeks) | The chips read **Away**, the status says needs stay steady, and **We're back** replaces the choices. While away, needs settle no lower than 60 (lower needs stay put), Health holds, nothing is missed and age keeps its normal pace. |
 | Reopen after the Away period ends | Windows count again from the planned end; a return a day late is an ordinary absence. Any care, or **We're back**, ends Away mode early. |
-| Tap the strip and choose **Gentle** | Fussing starts only below 25, overdue meals never fuss, escalation waits 4 hours, and overfeeding costs less. **Standard** is the default. |
+| Tap the strip (or **Routine**) and choose **Gentle** | Fussing starts only below 25, overdue meals never fuss, escalation waits 4 hours, and overfeeding costs less. **Standard** is the default. |
 | Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v13 on the next write. |
 
 ## Household

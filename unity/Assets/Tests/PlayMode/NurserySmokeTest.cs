@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using BAIby.Bootstrap;
+using BAIby.Character;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -54,11 +55,29 @@ namespace BAIby.Tests
             Assert.That(peach.color.a, Is.EqualTo(1f).Within(0.01f));
             Tap(view.gameObject, "Close decor");
 
-            // The routine strip shows today's windows (all free on the first day) and opens the Routine panel.
-            Assert.That(Child<RectTransform>(view.gameObject, "Routine Strip").gameObject.activeInHierarchy, Is.True);
-            Assert.That(Child<Image>(view.gameObject, "Routine Breakfast").gameObject.activeInHierarchy, Is.True);
-            Assert.That(Child<Image>(view.gameObject, "Routine Wash").gameObject.activeInHierarchy, Is.True);
-            Tap(view.gameObject, "Routine Strip");
+            // The routine strip shows today's windows (all free on the first day) only while it ends above the
+            // tallest pose at this aspect; otherwise the Routine button in the Care tray stands in for it.
+            yield return null;
+            var routineStrip = Child<RectTransform>(view.gameObject, "Routine Strip");
+            var stripCorners = new Vector3[4];
+            routineStrip.GetWorldCorners(stripCorners);
+            var poseCeiling = view.GetComponentInChildren<NurseryVisuals>().PoseCeilingScreenY;
+            var stripShown = routineStrip.gameObject.activeInHierarchy;
+            Assert.That(stripShown, Is.EqualTo(stripCorners[0].y >= poseCeiling), "the strip shows exactly when it clears the baby");
+            Assert.That(Child<Button>(view.gameObject, "Open routine").gameObject.activeInHierarchy, Is.EqualTo(!stripShown));
+            var routineOpener = stripShown ? "Routine Strip" : "Open routine";
+            if (stripShown)
+            {
+                Assert.That(Child<Image>(view.gameObject, "Routine Breakfast").gameObject.activeInHierarchy, Is.True);
+                Assert.That(Child<Image>(view.gameObject, "Routine Wash").gameObject.activeInHierarchy, Is.True);
+            }
+            else
+            {
+                Assert.That(Child<Text>(view.gameObject, "Reaction").rectTransform.anchorMax.x, Is.LessThan(1f),
+                    "the status makes room for the Routine button");
+            }
+
+            Tap(view.gameObject, routineOpener);
             Assert.That(Child<RectTransform>(view.gameObject, "Routine Panel").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<RectTransform>(view.gameObject, "Routine Panel").rect.height,
                 Is.LessThanOrEqualTo(Child<RectTransform>(view.gameObject, "Care").rect.height));
@@ -73,6 +92,8 @@ namespace BAIby.Tests
             Tap(view.gameObject, "End away");
             Assert.That(Child<Button>(view.gameObject, "Away 1 day").gameObject.activeInHierarchy, Is.True);
             Tap(view.gameObject, "Close routine");
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, routineOpener).gameObject), "closing the routine returns to its opener");
             Assert.That(Child<Text>(view.gameObject, "Age").text, Is.EqualTo(originalAge));
             // Away mode advanced the real clock by a moment; the style checks below compare against this.
             originalFullness = NeedValue(view.gameObject, "Fullness");

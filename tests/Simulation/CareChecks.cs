@@ -136,7 +136,8 @@ static class CareChecks
         Equal("OLMMOM", care.Meals.ToCode(), "a skipped day records its missed meals");
         Equal("OM", care.Bedtimes.ToCode(), "a skipped bedtime is missed");
         Equal("OM", care.TogetherDays.ToCode(), "a day without together time is missed");
-        Equal(0.6 * (2.5 / 6) + 0.25 * 0.5 + 0.15 * 0.5, CareRules.Score(care, Tunables), "CareScore weighs the three rings");
+        Equal(0.6 * (5.5 / 9) + 0.25 * (2.0 / 3) + 0.15 * (2.0 / 3), CareRules.Score(care, Tunables),
+            "CareScore weighs the three rings, unfilled slots counting as on time");
         Equal(1.0, CareRules.Score(Anchored(At(2026, 3, 2, 6, 0, Paris)), Tunables), "empty rings count as 1");
 
         var bedtime = Anchored(At(2026, 3, 2, 6, 0, Paris));

@@ -55,18 +55,20 @@ namespace BAIby.Simulation
             return new CareRing(next);
         }
 
-        // Mean credit of the newest entries: on time 1, late lateCredit, missed 0. An empty ring counts as 1.
+        // Mean credit over the newest `window` slots: on time 1, late lateCredit, missed 0. Slots not filled yet
+        // count as on time, so an empty ring counts as 1 and a young ledger's first miss weighs no more than a
+        // long-cared one's.
         public double Credit(int window, double lateCredit)
         {
-            var count = Math.Min(window, marks.Length);
-            if (count <= 0)
+            if (window <= 0)
                 return 1;
 
+            var count = Math.Min(window, marks.Length);
             var total = 0.0;
             for (var i = marks.Length - count; i < marks.Length; i++)
                 total += marks[i] == CareMark.OnTime ? 1 : marks[i] == CareMark.Late ? lateCredit : 0;
 
-            return total / count;
+            return (total + (window - count)) / window;
         }
 
         public string ToCode()
