@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 namespace BAIby.Presentation
 {
-    public sealed class NurseryPreview : MonoBehaviour
+    public sealed partial class NurseryPreview : MonoBehaviour
     {
         private static readonly Color Ink = new Color32(43, 51, 44, 255);
         private static readonly Color Secondary = new Color32(75, 85, 74, 255);
@@ -147,7 +147,8 @@ namespace BAIby.Presentation
             var state = session.State;
             var adopted = state != null;
             welcome.SetActive(!adopted);
-            controls.SetActive(adopted);
+            controls.SetActive(adopted && !developmentOpen);
+            development.Root.SetActive(adopted && developmentOpen);
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
             energy.Root.gameObject.SetActive(adopted);
@@ -178,6 +179,8 @@ namespace BAIby.Presentation
                     (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
             else
                 status.text = reaction == Reaction.None ? DescribeNeeds(state) : reactionText;
+
+            development.UpdateDetails(state, age.text, status.text);
         }
 
         private static string StageName(BabyState state)
@@ -197,6 +200,7 @@ namespace BAIby.Presentation
                 case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
+                case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
                 case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
@@ -219,7 +223,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (controls.activeSelf)
+            if (development.Root.activeSelf)
+                development.Feedback.text = message;
+            else if (controls.activeSelf)
                 status.text = message;
             else
                 saveError.text = message;
@@ -292,7 +298,11 @@ namespace BAIby.Presentation
             ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
             ActionButton("Play with rattle", panel, 0, 0.5f, 99, 187, () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
             ActionButton("Play with plush", panel, 0.5f, 1, 99, 187, () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
-            ActionButton("Preview next day", panel, 0, 1, 7, 91, NextPreviewDay, Mist, Ink);
+            ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
+            developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
+                () => SetDevelopmentOpen(true), Mist, Ink);
+            development = new DevelopmentPanel(Tray("Development Panel", false, 360),
+                () => SetDevelopmentOpen(false), () => Care(CareAction.ReadStory));
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
