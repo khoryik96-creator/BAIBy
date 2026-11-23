@@ -52,6 +52,37 @@ namespace BAIby.Tests
             Assert.That(peach.enabled && peach.sprite != null, Is.True);
             Assert.That(peach.color.a, Is.EqualTo(1f).Within(0.01f));
             Tap(view.gameObject, "Close decor");
+
+            var originalNewborn = newborn.sprite;
+            var originalSitter = Child<SpriteRenderer>(view.gameObject, "Sitter artwork").sprite;
+            Tap(view.gameObject, "Style");
+            Assert.That(Child<Image>(view.gameObject, "Skin Warm Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, "Skin Warm").gameObject));
+            var saveBeforeStyle = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Skin Deep");
+            Assert.That(Child<Image>(view.gameObject, "Skin Deep Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Skin Warm Selection").gameObject.activeInHierarchy, Is.False);
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.Not.EqualTo(saveBeforeStyle));
+            Assert.That(newborn.sprite != null && newborn.sprite != originalNewborn, Is.True);
+            Assert.That(newborn.sprite.rect.size, Is.EqualTo(originalNewborn.rect.size));
+            Tap(view.gameObject, "Style tab Hair");
+            Assert.That(Child<RectTransform>(view.gameObject, "Hair Choices").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Skin Choices").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "Hair Honey");
+            Tap(view.gameObject, "Style tab Cut");
+            Tap(view.gameObject, "Cut Coils");
+            Tap(view.gameObject, "Style tab Outfit");
+            Tap(view.gameObject, "Outfit Midnight");
+            Tap(view.gameObject, "Style tab Hat");
+            Tap(view.gameObject, "Hat Bear beanie");
+            Assert.That(Child<Image>(view.gameObject, "Hat Bear beanie Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Hat None Selection").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Is.EqualTo(originalAge));
+            Assert.That(NeedValue(view.gameObject, "Fullness"), Is.EqualTo(originalFullness));
+            Tap(view.gameObject, "Close style");
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, "Style").gameObject));
             Assert.That(Child<Button>(view.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
             Tap(view.gameObject, "Feed");
             Assert.That(Child<Button>(view.gameObject, "Mashed banana").interactable, Is.False);
@@ -194,6 +225,18 @@ namespace BAIby.Tests
             Tap(restored.gameObject, "Decor");
             Assert.That(Child<Text>(restored.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
             Tap(restored.gameObject, "Close decor");
+            Tap(restored.gameObject, "Style");
+            Assert.That(Child<Image>(restored.gameObject, "Skin Deep Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Image>(restored.gameObject, "Skin Warm Selection").gameObject.activeSelf, Is.False);
+            Assert.That(Child<Image>(restored.gameObject, "Hair Honey Selection").gameObject.activeSelf, Is.True);
+            Assert.That(Child<Image>(restored.gameObject, "Cut Coils Selection").gameObject.activeSelf, Is.True);
+            Assert.That(Child<Image>(restored.gameObject, "Outfit Midnight Selection").gameObject.activeSelf, Is.True);
+            Assert.That(Child<Image>(restored.gameObject, "Hat Bear beanie Selection").gameObject.activeSelf, Is.True);
+            var restoredSitter = Child<SpriteRenderer>(restored.gameObject, "Sitter artwork");
+            Assert.That(restoredSitter.sprite != null && restoredSitter.sprite != originalSitter, Is.True);
+            Assert.That(restoredSitter.sprite.rect.size, Is.EqualTo(originalSitter.rect.size));
+            Assert.That(Child<SpriteRenderer>(restored.gameObject, "Newborn artwork").sprite != originalNewborn, Is.True);
+            Tap(restored.gameObject, "Close style");
             Assert.That(NeedValue(restored.gameObject, "Energy"), Is.EqualTo(energyBeforeReload).Within(0.01f));
             Assert.That(NeedValue(restored.gameObject, "Health"), Is.EqualTo(healthBeforeReload).Within(0.01f));
             Assert.That(NeedValue(restored.gameObject, "Cleanliness"), Is.EqualTo(cleanlinessBeforeReload).Within(0.01f));

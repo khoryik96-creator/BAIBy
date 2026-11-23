@@ -184,6 +184,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
             ApplyNurseryTheme(state?.NurseryTheme ?? NurseryTheme.Sage);
+            ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
@@ -277,6 +278,8 @@ namespace BAIby.Presentation
                 blocks.Feedback.text = message;
             else if (decor.Root.activeSelf)
                 decor.Feedback.text = message;
+            else if (style.Root.activeSelf)
+                style.Feedback.text = message;
             else if (diaper.Root.activeSelf)
                 diaper.Feedback.text = message;
             else if (hygiene.Root.activeSelf)
@@ -317,12 +320,13 @@ namespace BAIby.Presentation
             wake = Label("Header Label", top, "BAIby", 19, Fern, TextAnchor.MiddleLeft,
                 new Vector2(0, 195), new Vector2(1, 1), new Vector2(0, -15));
             title = Label("Baby Name", top, "Your nursery", 48, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 135), new Vector2(0.73f, 1), new Vector2(0, -38), FontStyle.Bold);
+                new Vector2(0, 135), new Vector2(0.56f, 1), new Vector2(0, -38), FontStyle.Bold);
             title.resizeTextForBestFit = true;
             title.resizeTextMinSize = 27;
             title.resizeTextMaxSize = 48;
-            decorButton = ActionButton("Decor", top, 0.76f, 1, 143, 231, () => ShowPanel(NurseryPanel.Decor), Mist, Ink);
+            decorButton = ActionButton("Decor", top, 0.79f, 1, 143, 231, () => ShowPanel(NurseryPanel.Decor), Mist, Ink);
             decorButton.gameObject.SetActive(false);
+            BuildStyleButton(top);
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
                 new Vector2(0, 108), new Vector2(1, 1), new Vector2(0, -101));
             favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
@@ -389,6 +393,7 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Hygiene), CompleteDiaper);
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
+            style = new StylePanel(Tray("Style Panel", false, 430), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
@@ -397,7 +402,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -437,6 +442,9 @@ namespace BAIby.Presentation
                 case NurseryPanel.Decor:
                     decor.ChoiceFor(session.State.NurseryTheme).Select();
                     break;
+                case NurseryPanel.Style:
+                    style.Open(session.State.Appearance);
+                    break;
                 default:
                     switch (previous)
                     {
@@ -445,6 +453,7 @@ namespace BAIby.Presentation
                         case NurseryPanel.Diaper:
                         case NurseryPanel.Hygiene: washUpButton.Select(); break;
                         case NurseryPanel.Decor: decorButton.Select(); break;
+                        case NurseryPanel.Style: styleButton.Select(); break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -463,7 +472,9 @@ namespace BAIby.Presentation
             hygiene.Root.SetActive(adopted && activePanel == NurseryPanel.Hygiene);
             diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
+            style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
+            styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             var hasPendingSound = adopted && session.State.HasPendingNewSound;
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);
