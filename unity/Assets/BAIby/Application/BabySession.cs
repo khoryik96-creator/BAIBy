@@ -52,32 +52,33 @@ namespace BAIby.Application
             Commit(simulation.Adopt(name, now()));
         }
 
-        public bool Refresh()
+        public (bool UnlockedSitting, bool UnlockedCrawling) Refresh()
         {
             if (State == null)
-                return false;
+                return (false, false);
 
             var update = simulation.Advance(State, now());
             if (update.State != State)
                 Commit(update.State);
 
-            return update.UnlockedSitting;
+            return (update.UnlockedSitting, update.UnlockedCrawling);
         }
 
-        public (Reaction Reaction, bool UnlockedSitting) ApplyCare(CareAction action, Toy toy = Toy.Rattle)
+        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) ApplyCare(CareAction action, Toy toy = Toy.Rattle)
         {
             var elapsed = simulation.Advance(GetAdoptedBaby(), now());
             var caredFor = simulation.ApplyCare(elapsed.State, action, toy);
             Commit(caredFor.State);
-            return (caredFor.Reaction, elapsed.UnlockedSitting);
+            return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling);
         }
 
-        public bool AdvancePreview(TimeSpan elapsed)
+        public (bool UnlockedSitting, bool UnlockedCrawling) AdvancePreview(TimeSpan elapsed)
         {
             var current = simulation.Advance(GetAdoptedBaby(), now());
             var preview = simulation.AdvancePreview(current.State, elapsed);
             Commit(preview.State);
-            return current.UnlockedSitting || preview.UnlockedSitting;
+            return (current.UnlockedSitting || preview.UnlockedSitting,
+                current.UnlockedCrawling || preview.UnlockedCrawling);
         }
 
         private BabyState GetAdoptedBaby() =>

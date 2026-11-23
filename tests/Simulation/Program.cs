@@ -4,7 +4,7 @@ using BAIby.Application;
 using BAIby.Simulation;
 
 var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-var game = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4));
+var game = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4), TimeSpan.FromDays(7));
 var newborn = game.Adopt("Mia", start);
 
 var fed = game.ApplyCare(newborn, CareAction.Feed);
@@ -57,7 +57,7 @@ var session = new BabySession(game, saves, () => now);
 Equal<BabyState>(null, session.State, "new session starts with no baby");
 session.Adopt("Mia & Co");
 session.ApplyCare(CareAction.Play);
-Equal(true, session.AdvancePreview(TimeSpan.FromDays(3)), "preview unlocks sitting");
+Equal((true, false), session.AdvancePreview(TimeSpan.FromDays(3)), "preview unlocks sitting");
 Equal(start, session.State.TimeCheckpoint, "preview leaves real clock alone");
 
 var reopened = new BabySession(game, saves, () => now);
@@ -66,7 +66,7 @@ Equal(TimeSpan.FromDays(3), reopened.State.Age, "preview aging persists");
 Equal(1, reopened.State.ToyFamiliarity, "familiarity persists");
 Equal(36.0, reopened.State.Energy, "energy persists");
 Equal(true, reopened.State.CanSitAndReach, "milestone persists");
-Equal(false, reopened.Refresh(), "same-time reopen does not unlock or write");
+Equal((false, false), reopened.Refresh(), "same-time reopen does not unlock or write");
 Equal(3, saves.Writes, "each edit writes one save and no-op refresh skips a write");
 
 now = now.AddHours(1);
@@ -96,7 +96,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"4\" />";
+saves.Primary = "<baby version=\"5\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -104,7 +104,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"4\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"5\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -122,10 +122,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"3\""), "first edit after migration writes v3");
+Equal(true, migratedSaves.Primary.Contains("version=\"4\""), "first edit after migration writes v4");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v3");
+    "rest on migrated save persists energy in v4");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -155,9 +155,58 @@ persistedToys.ApplyCare(CareAction.Play);
 Equal<Toy?>(null, persistedToys.State.FavoriteToy, "default play still counts toward the rattle");
 Equal(4, persistedToys.State.PlushFamiliarity, "default play leaves plush familiarity unchanged");
 
-var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false);
+var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false, false);
 Equal(int.MaxValue, game.ApplyCare(maxToyPlay, CareAction.Play).State.ToyFamiliarity,
     "repeated play cannot overflow familiarity");
+
+var almostCrawling = game.Advance(threshold.State, start.AddDays(7).AddTicks(-1));
+Equal(false, almostCrawling.UnlockedCrawling, "crawling waits for age threshold");
+Equal(Reaction.ReachesForToy, game.ApplyCare(almostCrawling.State, CareAction.Play).Reaction,
+    "sitter continues to reach for a familiar toy");
+var crawler = game.Advance(almostCrawling.State, start.AddDays(7));
+Equal(false, crawler.UnlockedSitting, "crawling does not re-award sitting");
+Equal(true, crawler.UnlockedCrawling, "crawling unlocks at exact threshold");
+Equal(true, crawler.State.CanCrawl, "crawling persists in simulation state");
+Equal(Reaction.CrawlsToToy, game.ApplyCare(crawler.State, CareAction.Play).Reaction,
+    "crawler moves toward a familiar toy");
+Equal(Reaction.TracksToy, game.ApplyCare(crawler.State, CareAction.Play, Toy.Plush).Reaction,
+    "crawler still tracks an unfamiliar toy");
+Equal(false, game.Advance(crawler.State, start.AddDays(8)).UnlockedCrawling,
+    "future time cannot re-award crawling");
+var overnight = game.Advance(newborn, start.AddDays(7));
+Equal(true, overnight.UnlockedSitting && overnight.UnlockedCrawling, "long absence can unlock both milestones");
+
+const string oldCrawlerSave = "<baby version=\"3\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>6912000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach></baby>";
+var crawlerSaves = new MemorySaveStore { Primary = oldCrawlerSave };
+var crawlerSession = new BabySession(game, crawlerSaves, () => start);
+Equal(3, crawlerSession.State.PlushFamiliarity, "v3 migration preserves plush history");
+Equal((false, true), crawlerSession.Refresh(), "migration unlocks already earned crawling at same instant");
+Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
+Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
+Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
+Equal(true, crawlerSaves.Primary.Contains("version=\"4\""), "crawling state writes v4");
+var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
+Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
+Equal((false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
+Equal(Reaction.CrawlsToToy, persistedCrawler.ApplyCare(CareAction.Play, Toy.Plush).Reaction,
+    "v4 restarts with familiar toy crawl behavior");
+var previewCrawler = new BabySession(game, new MemorySaveStore(), () => start);
+previewCrawler.Adopt("Mia");
+Equal((true, true), previewCrawler.AdvancePreview(TimeSpan.FromDays(7)), "preview forwards both unlocks");
+Equal((false, false), previewCrawler.AdvancePreview(TimeSpan.FromDays(1)), "preview does not re-award milestones");
+
+var careClock = start;
+var crawlingCare = new BabySession(game, new MemorySaveStore(), () => careClock);
+crawlingCare.Adopt("Mia");
+crawlingCare.ApplyCare(CareAction.Play, Toy.Plush);
+careClock = start.AddDays(7);
+Equal((Reaction.CrawlsToToy, true, true), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
+    "care forwards new milestones and uses the newly unlocked ability");
+Equal((Reaction.CrawlsToToy, false, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
+    "same-time care does not re-award milestones");
 
 Console.WriteLine("Simulation checks passed.");
 

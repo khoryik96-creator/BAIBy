@@ -8,7 +8,8 @@ namespace BAIby.Application
 {
     internal static class BabySaveCodec
     {
-        private const int Version = 3;
+        private const int Version = 4;
+        private const int VersionBeforeCrawling = 3;
         private const int VersionBeforePlush = 2;
         private const int VersionBeforeEnergy = 1;
         private const double MigratedEnergy = 80;
@@ -24,7 +25,8 @@ namespace BAIby.Application
                 new XElement("energy", state.Energy),
                 new XElement("toy-familiarity", state.ToyFamiliarity),
                 new XElement("plush-familiarity", state.PlushFamiliarity),
-                new XElement("can-sit-and-reach", state.CanSitAndReach))
+                new XElement("can-sit-and-reach", state.CanSitAndReach),
+                new XElement("can-crawl", state.CanCrawl))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -36,7 +38,7 @@ namespace BAIby.Application
                     throw new InvalidDataException("The baby save header is invalid.");
 
                 var version = (int)root.Attribute("version");
-                if (version != VersionBeforeEnergy && version != VersionBeforePlush && version != Version)
+                if (version < VersionBeforeEnergy || version > Version)
                     throw new NotSupportedException($"Baby save version {version} is unsupported.");
 
                 return BabyState.Restore((string)Field(root, "name"),
@@ -46,8 +48,9 @@ namespace BAIby.Application
                     (double)Field(root, "comfort"),
                     version == VersionBeforeEnergy ? MigratedEnergy : (double)Field(root, "energy"),
                     (int)Field(root, "toy-familiarity"),
-                    version == Version ? (int)Field(root, "plush-familiarity") : 0,
-                    (bool)Field(root, "can-sit-and-reach"));
+                    version > VersionBeforePlush ? (int)Field(root, "plush-familiarity") : 0,
+                    (bool)Field(root, "can-sit-and-reach"),
+                    version > VersionBeforeCrawling && (bool)Field(root, "can-crawl"));
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)

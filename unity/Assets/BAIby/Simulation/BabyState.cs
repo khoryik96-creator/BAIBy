@@ -4,7 +4,7 @@ namespace BAIby.Simulation
 {
     public enum Toy { Rattle, Plush }
     public enum CareAction { Feed, Soothe, Play, Rest }
-    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested }
+    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy }
 
     public sealed class BabyState
     {
@@ -30,9 +30,10 @@ namespace BAIby.Simulation
             }
         }
         public bool CanSitAndReach { get; }
+        public bool CanCrawl { get; }
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach, bool canCrawl)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -49,11 +50,15 @@ namespace BAIby.Simulation
             if (plushFamiliarity < 0)
                 throw new ArgumentOutOfRangeException(nameof(plushFamiliarity));
 
-            return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy, toyFamiliarity, plushFamiliarity, canSitAndReach);
+            if (canCrawl && !canSitAndReach)
+                throw new ArgumentException("Crawling requires the sitting milestone.", nameof(canCrawl));
+
+            return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
+                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
-            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach)
+            double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity, bool canSitAndReach, bool canCrawl)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -64,6 +69,7 @@ namespace BAIby.Simulation
             ToyFamiliarity = toyFamiliarity;
             PlushFamiliarity = plushFamiliarity;
             CanSitAndReach = canSitAndReach;
+            CanCrawl = canCrawl;
         }
     }
 }

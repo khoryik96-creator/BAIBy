@@ -6,17 +6,22 @@ namespace BAIby.Simulation
     {
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
+        private readonly TimeSpan crawlingAge;
         private const double InitialEnergy = 80;
 
-        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay)
+        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
             if (maxNeedDecay <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(maxNeedDecay));
 
+            if (crawlingAge <= sittingAge)
+                throw new ArgumentOutOfRangeException(nameof(crawlingAge), "Crawling follows sitting.");
+
             this.sittingAge = sittingAge;
             this.maxNeedDecay = maxNeedDecay;
+            this.crawlingAge = crawlingAge;
         }
 
         public BabyState Adopt(string name, DateTimeOffset now)
@@ -24,18 +29,18 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false);
         }
 
-        public (BabyState State, bool UnlockedSitting) Advance(BabyState state, DateTimeOffset now)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) Advance(BabyState state, DateTimeOffset now)
         {
             if (now <= state.TimeCheckpoint)
-                return (state, false);
+                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero);
 
             return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
         }
 
-        public (BabyState State, bool UnlockedSitting) AdvancePreview(BabyState state, TimeSpan elapsed)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) AdvancePreview(BabyState state, TimeSpan elapsed)
         {
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
@@ -43,19 +48,25 @@ namespace BAIby.Simulation
             return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
         }
 
-        private (BabyState State, bool UnlockedSitting) AdvanceElapsed(
+        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) AdvanceElapsed(
             BabyState state, DateTimeOffset now, TimeSpan elapsed)
         {
-            var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
             var age = state.Age + elapsed;
             var canSit = state.CanSitAndReach || age >= sittingAge;
+            var canCrawl = state.CanCrawl || age >= crawlingAge;
+            var unlockedSitting = canSit && !state.CanSitAndReach;
+            var unlockedCrawling = canCrawl && !state.CanCrawl;
+            if (elapsed == TimeSpan.Zero && !unlockedSitting && !unlockedCrawling)
+                return (state, false, false);
+
+            var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
             var updated = new BabyState(state.Name, now, age,
                 Math.Max(0, state.Satiety - decayHours * 10),
                 Math.Max(0, state.Comfort - decayHours * 5),
                 Math.Max(0, state.Energy - decayHours * 8),
-                state.ToyFamiliarity, state.PlushFamiliarity, canSit);
+                state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl);
 
-            return (updated, canSit && !state.CanSitAndReach);
+            return (updated, unlockedSitting, unlockedCrawling);
         }
 
         public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action, Toy toy = Toy.Rattle)
@@ -96,15 +107,24 @@ namespace BAIby.Simulation
                     }
 
                     var familiarity = toy == Toy.Rattle ? rattleFamiliarity : plushFamiliarity;
-                    reaction = state.CanSitAndReach && familiarity >= 2
-                        ? Reaction.ReachesForToy : Reaction.TracksToy;
+                    reaction = ToyReaction(state, familiarity);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action));
             }
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
-                satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach), reaction);
+                satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach, state.CanCrawl), reaction);
+        }
+
+        private static Reaction ToyReaction(BabyState state, int familiarity)
+        {
+            if (familiarity < 2)
+                return Reaction.TracksToy;
+            if (state.CanCrawl)
+                return Reaction.CrawlsToToy;
+
+            return state.CanSitAndReach ? Reaction.ReachesForToy : Reaction.TracksToy;
         }
 
         private static int CountPlay(int count) => count == int.MaxValue ? count : count + 1;

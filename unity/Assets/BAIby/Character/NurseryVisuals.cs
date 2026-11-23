@@ -9,6 +9,7 @@ namespace BAIby.Character
         private const string Art = "BAIby/";
         private const float QuiltSurface = -1.62f;
         private const float PlayDuration = 2.35f;
+        private const float CrawlDuration = 3.10f;
         private readonly List<Object> generatedAssets = new List<Object>();
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
@@ -19,6 +20,8 @@ namespace BAIby.Character
         private SpriteRenderer newbornRest;
         private SpriteRenderer sitter;
         private SpriteRenderer sitterRest;
+        private SpriteRenderer crawler;
+        private SpriteRenderer crawlerRest;
         private Transform toy;
         private SpriteRenderer rattle;
         private SpriteRenderer plush;
@@ -30,7 +33,7 @@ namespace BAIby.Character
         private float reactionStarted;
         private Reaction reaction;
         private bool hasPresented;
-        private bool canSit;
+        private int targetStage;
         private float stageBlend;
 
         public static NurseryVisuals Create()
@@ -41,16 +44,16 @@ namespace BAIby.Character
         }
 
         public void Present(bool adopted, bool canSitAndReach, Reaction newReaction,
-            Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null)
+            Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null, bool canCrawl = false)
         {
             toy.gameObject.SetActive(adopted);
+            targetStage = canCrawl ? 2 : canSitAndReach ? 1 : 0;
             if (!hasPresented)
             {
-                stageBlend = canSitAndReach ? 1 : 0;
+                stageBlend = targetStage;
                 hasPresented = true;
             }
 
-            canSit = canSitAndReach;
             ambientToy = ambientSelection ?? selectedToy;
             if (newReaction != Reaction.None)
             {
@@ -60,7 +63,7 @@ namespace BAIby.Character
                     playedToy = selectedToy;
             }
 
-            ShowToy(IsPlayReaction(reaction) && Time.unscaledTime - reactionStarted < PlayDuration
+            ShowToy(IsPlayReaction(reaction) && Time.unscaledTime - reactionStarted < ReactionDuration(reaction)
                 ? playedToy : ambientToy);
         }
 
@@ -105,14 +108,16 @@ namespace BAIby.Character
             sitter = AddLayer(baby, "Sitter artwork", LoadSprite(Art + "Baby/Sitter"), Color.white, 2);
             newbornRest = AddOptionalStage("Newborn nap artwork", "Baby/NewbornRest", 1);
             sitterRest = AddOptionalStage("Sitter nap artwork", "Baby/SitterRest", 3);
+            crawler = AddLayer(baby, "Crawler artwork", LoadSprite(Art + "Baby/Crawler"), Color.white, 4);
+            crawlerRest = AddOptionalStage("Crawler nap artwork", "Baby/CrawlerRest", 5);
             SetStageOpacity(0);
-            if (newborn.sprite == null || sitter.sprite == null)
-                Debug.LogError("BAIby requires Newborn and Sitter sprites in Resources/BAIby/Baby.");
+            if (newborn.sprite == null || sitter.sprite == null || crawler.sprite == null)
+                Debug.LogError("BAIby requires Newborn, Sitter and Crawler sprites in Resources/BAIby/Baby.");
 
             toy = new GameObject("Nursery toys").transform;
             toy.SetParent(transform, false);
-            rattle = AddLayer(toy, "Nursery rattle", LoadSprite(Art + "Baby/Toy"), Color.white, 4);
-            plush = AddLayer(toy, "Nursery plush", LoadSprite(Art + "Baby/Plush"), Color.white, 4);
+            rattle = AddLayer(toy, "Nursery rattle", LoadSprite(Art + "Baby/Toy"), Color.white, 6);
+            plush = AddLayer(toy, "Nursery plush", LoadSprite(Art + "Baby/Plush"), Color.white, 6);
             if (rattle.sprite == null)
                 BuildFallbackToy();
             if (plush.sprite == null)
@@ -132,9 +137,9 @@ namespace BAIby.Character
         private void BuildFallbackToy()
         {
             var shape = Shape(.47f, false);
-            var handle = AddLayer(rattle.transform, "Rattle handle", shape, new Color32(182, 130, 92, 255), 4);
+            var handle = AddLayer(rattle.transform, "Rattle handle", shape, new Color32(182, 130, 92, 255), 6);
             handle.transform.localScale = new Vector3(.09f, .25f, 1);
-            var head = AddLayer(rattle.transform, "Rattle top", shape, new Color32(228, 165, 83, 255), 5);
+            var head = AddLayer(rattle.transform, "Rattle top", shape, new Color32(228, 165, 83, 255), 7);
             head.transform.localPosition = new Vector3(0, .13f, 0);
             head.transform.localScale = new Vector3(.22f, .21f, 1);
         }
@@ -150,26 +155,40 @@ namespace BAIby.Character
             float feed = reaction == Reaction.Satisfied ? response : 0;
             float soothe = reaction == Reaction.Calmed ? response : 0;
             float rest = reaction == Reaction.Rested ? Window(elapsed, 0, .65f, 3.10f, 4.35f) : 0;
-            bool playing = IsPlayReaction(reaction) && elapsed < PlayDuration;
-            float play = playing ? response : 0;
+            bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
+            bool crawling = playing && reaction == Reaction.CrawlsToToy;
+            float play = playing && !crawling ? response : 0;
             float reach = reaction == Reaction.ReachesForToy ? Window(elapsed, .25f, .85f, 1.40f, 2.20f) : 0;
+            float crawl = crawling ? Window(elapsed, .35f, 1.45f, 2.15f, CrawlDuration) : 0;
+            float stride = Mathf.Sin(crawl * Mathf.PI * 6);
 
-            stageBlend = Mathf.MoveTowards(stageBlend, canSit ? 1 : 0, Time.unscaledDeltaTime * 2.45f);
+            stageBlend = Mathf.MoveTowards(stageBlend, targetStage, Time.unscaledDeltaTime * 2.45f);
             SetStageOpacity(Mathf.SmoothStep(0, 1, rest));
 
             float breath = Mathf.Sin(now * 2.25f) * Mathf.Lerp(.008f, .004f, rest);
-            baby.localPosition = new Vector3(.08f * play + .10f * reach, QuiltSurface - .024f * rest + .022f * feed, 0);
-            baby.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach);
+            float crawlerOffset = -.04f * Mathf.Clamp01(stageBlend - 1);
+            float crawlShift = visibleWidth * (crawlerOffset + .13f * (crawl + stride * .022f));
+            float crawlLift = Mathf.Abs(stride) * .055f;
+            baby.localPosition = new Vector3(.08f * play + .10f * reach + crawlShift,
+                QuiltSurface - .024f * rest + .022f * feed + crawlLift, 0);
+            baby.localRotation = Quaternion.Euler(0, 0,
+                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f);
             baby.localScale = new Vector3(1 + breath * .5f, 1 + breath + .022f * feed, 1);
+            shade.transform.localPosition = new Vector3(crawlShift, QuiltSurface - .06f, 0);
 
             var displayedToy = playing ? playedToy : ambientToy;
             ShowToy(displayedToy);
-            PoseToy(displayedToy, now, play, reach);
+            PoseToy(displayedToy, now, play, reach, crawling, crawl);
         }
 
         private static bool IsPlayReaction(Reaction value)
         {
-            return value == Reaction.TracksToy || value == Reaction.ReachesForToy;
+            return value == Reaction.TracksToy || value == Reaction.ReachesForToy || value == Reaction.CrawlsToToy;
+        }
+
+        private static float ReactionDuration(Reaction value)
+        {
+            return value == Reaction.CrawlsToToy ? CrawlDuration : PlayDuration;
         }
 
         private void ShowToy(Toy selectedToy)
@@ -181,12 +200,16 @@ namespace BAIby.Character
                 plush.gameObject.SetActive(showPlush);
         }
 
-        private void PoseToy(Toy displayedToy, float now, float play, float reach)
+        private void PoseToy(Toy displayedToy, float now, float play, float reach, bool crawling, float crawl)
         {
             bool isPlush = displayedToy == Toy.Plush;
             var offered = new Vector3(visibleWidth * (.39f - play * .07f),
                 -1.17f + play * .79f + Mathf.Sin(now * 8f) * play * .075f, 0);
-            if (reach > 0 && sitter.sprite != null)
+            if (crawling)
+            {
+                toy.localPosition = offered + new Vector3(0, Mathf.Max(0, crawl - .85f) * .45f, 0);
+            }
+            else if (reach > 0 && sitter.sprite != null)
             {
                 // Align the lower toy edge with the raised hand painted into the sitter pose.
                 var spriteSize = sitter.sprite.bounds.size;
@@ -201,16 +224,25 @@ namespace BAIby.Character
             }
 
             var angle = isPlush ? -6 : 25;
-            toy.localRotation = Quaternion.Euler(0, 0, angle + Mathf.Sin(now * 9f) * play * (isPlush ? 12 : 23) * (1 - reach));
+            float wiggle = play * (isPlush ? 12 : 23) * (1 - reach);
+            float contact = crawling ? Mathf.Max(0, crawl - .85f) * 70 : 0;
+            toy.localRotation = Quaternion.Euler(0, 0, angle + Mathf.Sin(now * 9f) * (wiggle + contact));
         }
 
         private void SetStageOpacity(float resting)
         {
-            float alpha = Mathf.SmoothStep(0, 1, stageBlend);
-            SetOpacity(newborn, (1 - alpha) * (newbornRest == null ? 1 : 1 - resting));
-            SetOpacity(sitter, alpha * (sitterRest == null ? 1 : 1 - resting));
-            SetOpacity(newbornRest, (1 - alpha) * resting);
-            SetOpacity(sitterRest, alpha * resting);
+            float newbornAlpha = 1 - Mathf.SmoothStep(0, 1, Mathf.Clamp01(stageBlend));
+            float crawlerAlpha = Mathf.SmoothStep(0, 1, Mathf.Clamp01(stageBlend - 1));
+            float sitterAlpha = 1 - newbornAlpha - crawlerAlpha;
+            SetPose(newborn, newbornRest, newbornAlpha, resting);
+            SetPose(sitter, sitterRest, sitterAlpha, resting);
+            SetPose(crawler, crawlerRest, crawlerAlpha, resting);
+        }
+
+        private static void SetPose(SpriteRenderer awake, SpriteRenderer nap, float opacity, float resting)
+        {
+            SetOpacity(awake, opacity * (nap == null ? 1 : 1 - resting));
+            SetOpacity(nap, opacity * resting);
         }
 
         private static void SetOpacity(SpriteRenderer layer, float opacity)
@@ -247,18 +279,20 @@ namespace BAIby.Character
             shade.transform.localScale = new Vector3(visibleWidth * .75f, .46f, 1);
             AnchorStage(newborn, .94f);
             AnchorStage(sitter, .87f);
-            if (newbornRest != null)
-                AnchorStage(newbornRest, .94f);
-            if (sitterRest != null)
-                AnchorStage(sitterRest, .87f);
+            AnchorStage(newbornRest, .94f);
+            AnchorStage(sitterRest, .87f);
+            AnchorStage(crawler, .80f, 2.95f);
+            AnchorStage(crawlerRest, .83f, 2.95f);
             Fit(rattle, .46f, .46f);
             Fit(plush, .59f, .59f);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
         }
 
-        private void AnchorStage(SpriteRenderer layer, float widthFraction)
+        private void AnchorStage(SpriteRenderer layer, float widthFraction, float maxHeight = 3.68f)
         {
-            float height = Fit(layer, visibleWidth * widthFraction, 3.68f);
+            if (layer == null)
+                return;
+            float height = Fit(layer, visibleWidth * widthFraction, maxHeight);
             layer.transform.localPosition = new Vector3(0, height * .5f, 0);
         }
 

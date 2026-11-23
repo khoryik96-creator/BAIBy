@@ -18,7 +18,7 @@ namespace BAIby.Tests
         private string saveKey;
 
         [UnityTest]
-        public IEnumerator NurseryAcceptsCareAndRestoresTheMilestone()
+        public IEnumerator NurseryAcceptsCareAndRestoresGrowth()
         {
             previousScene = SceneManager.GetActiveScene();
             const string scenePath = "Assets/Scenes/Nursery";
@@ -71,6 +71,26 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             Tap(restored.gameObject, "Play with plush");
             Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the plush"));
+
+            for (var day = 3; day < 6; day++)
+                Tap(restored.gameObject, "Preview next day");
+
+            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("6 days old  ·  Early sitter"));
+            Tap(restored.gameObject, "Preview next day");
+            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("7 days old  ·  Crawler"));
+            Assert.That(Reaction(restored.gameObject), Does.Contain("can crawl now"));
+            yield return new WaitForSecondsRealtime(0.95f);
+            var crawling = Child<SpriteRenderer>(restored.gameObject, "Crawler artwork");
+            Assert.That(crawling.gameObject.activeInHierarchy && crawling.enabled, Is.True);
+            Assert.That(crawling.sprite, Is.Not.Null);
+            Tap(restored.gameObject, "Play with plush");
+            Assert.That(Reaction(restored.gameObject), Does.Contain("crawls toward the plush"));
+
+            UnityEngine.Object.Destroy(restored.gameObject);
+            yield return null;
+            var crawler = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Crawler"));
         }
 
         [UnityTearDown]
