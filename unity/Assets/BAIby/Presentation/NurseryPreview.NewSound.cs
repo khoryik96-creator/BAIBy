@@ -57,7 +57,7 @@ namespace BAIby.Presentation
                     new Vector2(0, 202), Vector2.right, new Vector2(0, 265));
                 Comfort = Choice(content, "Comfort them", "Comfort +16  ·  Connection +2", 103,
                     () => choose(CareAction.ComfortNewSound));
-                Choice(content, "Explore together", "Connection +5  ·  Energy −6", 9,
+                Choice(content, "Explore together", "Connection +5  ·  Energy -6", 9,
                     () => choose(CareAction.ExploreNewSound));
                 Root.SetActive(false);
             }
