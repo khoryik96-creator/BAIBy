@@ -90,6 +90,13 @@ namespace BAIby.Application
                 Commit(updated);
         }
 
+        public void SetAppearance(BabyAppearance appearance)
+        {
+            var updated = GetAdoptedBaby().WithAppearance(appearance);
+            if (updated != State)
+                Commit(updated);
+        }
+
         private BabyState GetAdoptedBaby() =>
             State ?? throw new InvalidOperationException("Adopt a baby first.");
 

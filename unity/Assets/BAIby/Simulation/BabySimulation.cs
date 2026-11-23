@@ -42,7 +42,8 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
+                BabyAppearance.Default);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
@@ -81,7 +82,7 @@ namespace BAIby.Simulation
                 Math.Max(0, state.Energy - decayHours * EnergyDecay),
                 state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
                 Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours),
-                state.NewSoundResolved, state.NurseryTheme, canWalk, state.BlockTowers);
+                state.NewSoundResolved, state.NurseryTheme, canWalk, state.BlockTowers, state.Appearance);
 
             return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
         }
@@ -204,7 +205,8 @@ namespace BAIby.Simulation
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
                 satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk, blockTowers), reaction);
+                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk, blockTowers,
+                state.Appearance), reaction);
         }
 
         private static double HealthAfterDecay(BabyState state, double hours)

@@ -8,7 +8,8 @@ namespace BAIby.Application
 {
     internal static class BabySaveCodec
     {
-        private const int Version = 10;
+        private const int Version = 11;
+        private const int VersionBeforeAppearance = 10;
         private const int VersionBeforeBlockTowers = 9;
         private const int VersionBeforeWalking = 8;
         private const int VersionBeforeNurseryTheme = 7;
@@ -40,7 +41,13 @@ namespace BAIby.Application
                 new XElement("new-sound-resolved", state.NewSoundResolved),
                 new XElement("nursery-theme", (int)state.NurseryTheme),
                 new XElement("can-walk", state.CanWalk),
-                new XElement("block-towers", state.BlockTowers))
+                new XElement("block-towers", state.BlockTowers),
+                new XElement("appearance",
+                    new XAttribute("skin", (int)state.Appearance.SkinTone),
+                    new XAttribute("hair-color", (int)state.Appearance.HairColor),
+                    new XAttribute("hair-style", (int)state.Appearance.HairStyle),
+                    new XAttribute("outfit", (int)state.Appearance.Outfit),
+                    new XAttribute("headwear", (int)state.Appearance.Headwear)))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -72,7 +79,8 @@ namespace BAIby.Application
                     version > VersionBeforeNewSound && (bool)Field(root, "new-sound-resolved"),
                     version > VersionBeforeNurseryTheme ? (NurseryTheme)(int)Field(root, "nursery-theme") : NurseryTheme.Sage,
                     version > VersionBeforeWalking && (bool)Field(root, "can-walk"),
-                    version > VersionBeforeBlockTowers ? (int)Field(root, "block-towers") : 0);
+                    version > VersionBeforeBlockTowers ? (int)Field(root, "block-towers") : 0,
+                    version > VersionBeforeAppearance ? DecodeAppearance(Field(root, "appearance")) : BabyAppearance.Default);
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)
@@ -80,6 +88,18 @@ namespace BAIby.Application
                 throw new InvalidDataException("The baby save contains invalid data.", exception);
             }
         }
+
+        // Out-of-range IDs make the BabyAppearance constructor throw, which surfaces as InvalidDataException.
+        private static BabyAppearance DecodeAppearance(XElement appearance) =>
+            new BabyAppearance(
+                (SkinTone)(int)Attribute(appearance, "skin"),
+                (HairColor)(int)Attribute(appearance, "hair-color"),
+                (HairStyle)(int)Attribute(appearance, "hair-style"),
+                (Outfit)(int)Attribute(appearance, "outfit"),
+                (Headwear)(int)Attribute(appearance, "headwear"));
+
+        private static XAttribute Attribute(XElement element, string name) =>
+            element.Attribute(name) ?? throw new InvalidDataException($"The baby save is missing {element.Name} {name}.");
 
         private static XElement Field(XElement root, string name) =>
             root.Element(name) ?? throw new InvalidDataException($"The baby save is missing {name}.");

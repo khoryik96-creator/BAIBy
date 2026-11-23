@@ -97,7 +97,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"11\" />";
+saves.Primary = "<baby version=\"12\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -105,7 +105,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"11\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"12\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -123,10 +123,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"10\""), "first edit after migration writes v10");
+Equal(true, migratedSaves.Primary.Contains("version=\"11\""), "first edit after migration writes v11");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v10");
+    "rest on migrated save persists energy in v11");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -188,7 +188,7 @@ Equal((false, true, false), crawlerSession.Refresh(), "migration unlocks already
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"10\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"11\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -302,7 +302,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"10\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"11\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -449,8 +449,9 @@ themeSession.SetNurseryTheme(NurseryTheme.Peach);
 Equal(1, themeSaves.Writes, "new theme saves immediately");
 Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
 var expectedTheme = XElement.Parse(preThemeSave);
-expectedTheme.SetAttributeValue("version", 10);
-expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false), new XElement("block-towers", 0));
+expectedTheme.SetAttributeValue("version", 11);
+expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false), new XElement("block-towers", 0),
+    DefaultAppearanceElement());
 Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
     "theme change preserves all existing save fields despite elapsed time");
 var themedReload = new BabySession(game, themeSaves, () => themeClock);
@@ -568,8 +569,8 @@ var migratedWalker = new BabySession(game, walkingMigrationSaves, () => start);
 Equal(false, migratedWalker.State.CanWalk, "v8 has no stored walking flag");
 Equal((false, false, true), migratedWalker.Refresh(), "an eligible v8 player unlocks walking without elapsed time");
 var expectedWalker = XElement.Parse(preWalkingSave);
-expectedWalker.SetAttributeValue("version", 10);
-expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0));
+expectedWalker.SetAttributeValue("version", 11);
+expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0), DefaultAppearanceElement());
 Equal(true, XNode.DeepEquals(expectedWalker, XElement.Parse(walkingMigrationSaves.Primary)),
     "same-time migration does not decay needs or alter any other existing fields");
 var walkingReloaded = new BabySession(game, walkingMigrationSaves, () => start);
@@ -644,8 +645,8 @@ var migratedBlocks = new BabySession(game, olderBlocksSaves, () => start);
 Equal(true, migratedBlocks.State.CanWalk, "v9 migration keeps walking unlocked");
 Equal(0, migratedBlocks.State.BlockTowers, "v9 starts with zero block towers");
 migratedBlocks.ApplyCare(CareAction.StackBlocks);
-Equal(true, olderBlocksSaves.Primary.Contains("version=\"10\""), "stacking migrates v9 to the current schema");
-Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v10 restores the first tower");
+Equal(true, olderBlocksSaves.Primary.Contains("version=\"11\""), "stacking migrates v9 to the current schema");
+Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v11 restores the first tower");
 
 var newbornReport = BabyReport.From(newborn);
 Equal("Mia", newbornReport.Name, "report shows adopted name");
@@ -702,6 +703,196 @@ Equal(reportState, reportReloaded.State, "creating a report leaves session state
 Equal(reportPayload, reportSaves.Primary, "creating a report leaves the save unchanged");
 Equal(reportWrites, reportSaves.Writes, "creating a report performs no save writes");
 
+Equal(BabyAppearance.Default, newborn.Appearance, "new adoption starts with the default look");
+Equal(BabyAppearance.Default, BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, 0, 0, false, false, 0, 0, 100, 100, false).Appearance,
+    "restoring without a look uses the default look");
+var customLook = new BabyAppearance(SkinTone.Deep, HairColor.Platinum, HairStyle.Coils, Outfit.Midnight, Headwear.BearBeanie);
+Equal(false, customLook.Equals(BabyAppearance.Default), "custom look differs from the default");
+Equal(newborn, newborn.WithAppearance(BabyAppearance.Default), "applying the same look returns the same state");
+try
+{
+    newborn.WithAppearance(null);
+    throw new InvalidOperationException("A missing look should be rejected.");
+}
+catch (ArgumentNullException)
+{
+}
+
+var lookSaves = new MemorySaveStore();
+var lookClock = start;
+var lookSession = new BabySession(game, lookSaves, () => lookClock);
+try
+{
+    lookSession.SetAppearance(customLook);
+    throw new InvalidOperationException("Styling requires an adopted baby.");
+}
+catch (InvalidOperationException exception) when (exception.Message == "Adopt a baby first.")
+{
+    Equal(0, lookSaves.Writes, "styling before adoption writes nothing");
+}
+lookSession.Adopt("Mia");
+Equal(BabyAppearance.Default, lookSession.State.Appearance, "session adoption starts with the default look");
+Equal(true, XNode.DeepEquals(DefaultAppearanceElement(), XElement.Parse(lookSaves.Primary).Element("appearance")),
+    "adoption saves the default look in v11");
+var adoptedLookPayload = lookSaves.Primary;
+lookSession.SetAppearance(BabyAppearance.Default);
+Equal(1, lookSaves.Writes, "selecting the current look skips writes");
+lookSession.SetAppearance(new BabyAppearance(SkinTone.Warm, HairColor.Chestnut, HairStyle.Curls, Outfit.Sage, Headwear.None));
+Equal(1, lookSaves.Writes, "an equal look instance skips writes");
+try
+{
+    lookSession.SetAppearance(null);
+    throw new InvalidOperationException("A missing look should be rejected by the session.");
+}
+catch (ArgumentNullException)
+{
+    Equal(1, lookSaves.Writes, "a missing look cannot alter the save");
+}
+var lookStateBeforeFailure = lookSession.State;
+lookSaves.FailWrites = true;
+try
+{
+    lookSession.SetAppearance(customLook);
+    throw new InvalidOperationException("Failed look write should be surfaced.");
+}
+catch (IOException)
+{
+    Equal(lookStateBeforeFailure, lookSession.State, "failed look write leaves visible state unchanged");
+    Equal(adoptedLookPayload, lookSaves.Primary, "failed look write leaves persisted state unchanged");
+}
+lookSaves.FailWrites = false;
+lookSession.SetAppearance(customLook);
+Equal(2, lookSaves.Writes, "a new look saves immediately");
+Equal(customLook, lookSession.State.Appearance, "a new look applies immediately");
+var expectedLook = XElement.Parse(adoptedLookPayload);
+expectedLook.Element("appearance").ReplaceWith(new XElement("appearance",
+    new XAttribute("skin", 5), new XAttribute("hair-color", 5), new XAttribute("hair-style", 1),
+    new XAttribute("outfit", 7), new XAttribute("headwear", 2)));
+Equal(true, XNode.DeepEquals(expectedLook, XElement.Parse(lookSaves.Primary)),
+    "a look change saves stable IDs and preserves all other fields");
+lookSession.SetAppearance(customLook);
+Equal(2, lookSaves.Writes, "reselecting the saved look skips writes");
+
+var lookReload = new BabySession(game, lookSaves, () => lookClock);
+Equal(customLook, lookReload.State.Appearance, "a custom look survives save reload");
+Equal(customLook, BabySaveCodec.Decode(BabySaveCodec.Encode(lookReload.State)).Appearance, "codec round-trips a custom look");
+foreach (var skin in Enum.GetValues<SkinTone>())
+    foreach (var outfit in Enum.GetValues<Outfit>())
+    {
+        var look = new BabyAppearance(skin, (HairColor)((int)skin % 6), (HairStyle)((int)outfit % 4), outfit, (Headwear)((int)outfit % 5));
+        Equal(look, BabySaveCodec.Decode(BabySaveCodec.Encode(newborn.WithAppearance(look))).Appearance,
+            $"codec round-trips {skin} skin with the {outfit} outfit");
+    }
+foreach (var hairColor in Enum.GetValues<HairColor>())
+    foreach (var headwear in Enum.GetValues<Headwear>())
+    {
+        var look = BabyAppearance.Default.WithHairColor(hairColor).WithHeadwear(headwear).WithHairStyle(HairStyle.Tuft);
+        Equal(look, BabySaveCodec.Decode(BabySaveCodec.Encode(newborn.WithAppearance(look))).Appearance,
+            $"codec round-trips {hairColor} hair with {headwear} headwear");
+    }
+
+lookClock = start.AddDays(3);
+Equal((true, false, false), lookReload.Refresh(), "elapsed time unlocks sitting for a styled baby");
+Equal(customLook, lookReload.State.Appearance, "aging preserves the look");
+lookReload.AdvancePreview(TimeSpan.FromDays(1));
+Equal(customLook, lookReload.State.Appearance, "preview day preserves the look");
+lookReload.ApplyCare(CareAction.Feed);
+lookReload.ApplyCare(CareAction.Play, Toy.Plush);
+Equal(customLook, lookReload.State.Appearance, "session care preserves the look");
+lookReload.SetNurseryTheme(NurseryTheme.Peach);
+Equal(customLook, lookReload.State.Appearance, "changing the nursery theme preserves the look");
+Equal(customLook, new BabySession(game, lookSaves, () => lookClock).State.Appearance,
+    "the look persists after aging, preview, care and decor");
+
+var styledToddler = BabyState.Restore("Mia", start, TimeSpan.FromDays(12), 71, 47, 53,
+    2, 3, true, true, 42, 8, 23, 89, false, NurseryTheme.Peach, canWalk: true, blockTowers: 1, appearance: customLook);
+Equal(customLook, styledToddler.Appearance, "restore keeps the given look");
+foreach (var careAction in Enum.GetValues<CareAction>())
+{
+    var styledCare = game.ApplyCare(styledToddler, careAction);
+    Equal(customLook, styledCare.State.Appearance, $"{careAction} preserves the look");
+}
+foreach (var food in Enum.GetValues<Food>())
+    Equal(customLook, game.ApplyCare(styledToddler, CareAction.Feed, food: food).State.Appearance, $"feeding {food} preserves the look");
+var styledNewborn = game.Adopt("Mia", start).WithAppearance(customLook);
+var styledSitter = game.Advance(styledNewborn, start.AddDays(3));
+Equal(customLook, styledSitter.State.Appearance, "reaching sitting preserves the look");
+var styledWalker = game.AdvancePreview(styledSitter.State, TimeSpan.FromDays(9));
+Equal((true, true), (styledWalker.UnlockedCrawling, styledWalker.UnlockedWalking), "preview crosses crawling and walking");
+Equal(customLook, styledWalker.State.Appearance, "every growth stage keeps the look");
+Equal(customLook, styledWalker.State.WithNurseryTheme(NurseryTheme.Peach).Appearance, "decor changes keep the look");
+Equal(NurseryTheme.Peach, styledWalker.State.WithNurseryTheme(NurseryTheme.Peach).WithAppearance(BabyAppearance.Default).NurseryTheme,
+    "look changes keep the nursery theme");
+var restyled = styledToddler.WithAppearance(BabyAppearance.Default);
+var expectedRestyle = XElement.Parse(BabySaveCodec.Encode(styledToddler));
+expectedRestyle.Element("appearance").ReplaceWith(DefaultAppearanceElement());
+Equal(true, XNode.DeepEquals(expectedRestyle, XElement.Parse(BabySaveCodec.Encode(restyled))),
+    "a look change preserves all unrelated fields");
+
+const string preAppearanceSave = "<baby version=\"10\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>11232000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach><can-crawl>true</can-crawl>" +
+    "<connection>34</connection><story-sessions>8</story-sessions><cleanliness>51</cleanliness><health>74</health>" +
+    "<new-sound-resolved>true</new-sound-resolved><nursery-theme>1</nursery-theme>" +
+    "<can-walk>true</can-walk><block-towers>2</block-towers></baby>";
+var preAppearanceSaves = new MemorySaveStore { Primary = preAppearanceSave };
+var migratedLook = new BabySession(game, preAppearanceSaves, () => start);
+Equal(BabyAppearance.Default, migratedLook.State.Appearance, "v10 saves start with the default look");
+Equal(NurseryTheme.Peach, migratedLook.State.NurseryTheme, "v10 migration keeps the nursery theme");
+Equal(2, migratedLook.State.BlockTowers, "v10 migration keeps block towers");
+Equal(true, migratedLook.State.CanWalk, "v10 migration keeps walking");
+Equal((false, false, false), migratedLook.Refresh(), "same-time v10 reopen does not unlock or write");
+Equal(0, preAppearanceSaves.Writes, "loading a v10 save writes nothing");
+migratedLook.SetAppearance(BabyAppearance.Default);
+Equal(0, preAppearanceSaves.Writes, "keeping the default look on a v10 save writes nothing");
+migratedLook.SetAppearance(customLook);
+var expectedMigratedLook = XElement.Parse(preAppearanceSave);
+expectedMigratedLook.SetAttributeValue("version", 11);
+expectedMigratedLook.Add(new XElement("appearance",
+    new XAttribute("skin", 5), new XAttribute("hair-color", 5), new XAttribute("hair-style", 1),
+    new XAttribute("outfit", 7), new XAttribute("headwear", 2)));
+Equal(true, XNode.DeepEquals(expectedMigratedLook, XElement.Parse(preAppearanceSaves.Primary)),
+    "styling a v10 baby writes v11 and preserves every existing field");
+Equal(preAppearanceSave, preAppearanceSaves.Backup, "v10 backup remains recoverable");
+Equal(customLook, new BabySession(game, preAppearanceSaves, () => start).State.Appearance, "migrated v11 restores the look");
+
+foreach (var oldSave in new[] { legacySave, energySave, oldCrawlerSave, preJournalSave, preHealthSave, preIncidentSave, preThemeSave, preWalkingSave, preBlocks.ToString(SaveOptions.DisableFormatting), preAppearanceSave })
+    Equal(BabyAppearance.Default, BabySaveCodec.Decode(oldSave).Appearance,
+        $"save version {XElement.Parse(oldSave).Attribute("version").Value} decodes to the default look");
+
+var validStyled = XElement.Parse(BabySaveCodec.Encode(styledToddler));
+foreach (var (attribute, value) in new[] {
+    ("skin", "6"), ("skin", "-1"), ("hair-color", "6"), ("hair-style", "4"), ("outfit", "8"), ("headwear", "5"),
+    ("headwear", "99"), ("skin", "Deep"), ("outfit", ""), ("hair-style", "99999999999") })
+{
+    var badLook = new XElement(validStyled);
+    badLook.Element("appearance").SetAttributeValue(attribute, value);
+    ExpectInvalidSave(badLook.ToString(SaveOptions.DisableFormatting), $"appearance {attribute}=\"{value}\" is rejected");
+}
+foreach (var attribute in new[] { "skin", "hair-color", "hair-style", "outfit", "headwear" })
+{
+    var missingAttribute = new XElement(validStyled);
+    missingAttribute.Element("appearance").Attribute(attribute).Remove();
+    ExpectInvalidSave(missingAttribute.ToString(SaveOptions.DisableFormatting), $"missing appearance {attribute} is rejected");
+}
+var missingLook = new XElement(validStyled);
+missingLook.Element("appearance").Remove();
+ExpectInvalidSave(missingLook.ToString(SaveOptions.DisableFormatting), "a v11 save without a look is rejected");
+
+var invalidLookSaves = new MemorySaveStore();
+var invalidLookSession = new BabySession(game, invalidLookSaves, () => start);
+invalidLookSession.Adopt("Mia");
+invalidLookSession.SetAppearance(customLook);
+var corruptLook = XElement.Parse(invalidLookSaves.Primary);
+corruptLook.Element("appearance").SetAttributeValue("skin", 99);
+invalidLookSaves.Primary = corruptLook.ToString(SaveOptions.DisableFormatting);
+var lookRecovered = new BabySession(game, invalidLookSaves, () => start);
+Equal("Mia", lookRecovered.State.Name, "an invalid look ID falls back to the backup save");
+Equal(BabyAppearance.Default, lookRecovered.State.Appearance, "backup restores the last valid look");
+lookRecovered.SetAppearance(customLook);
+Equal(customLook, new BabySession(game, invalidLookSaves, () => start).State.Appearance, "recovery can save a look again");
+
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)
@@ -717,6 +908,24 @@ static void ExpectUnavailable(Action attempt)
 
     throw new InvalidOperationException("An unavailable care choice should be rejected.");
 }
+
+static void ExpectInvalidSave(string payload, string description)
+{
+    try
+    {
+        BabySaveCodec.Decode(payload);
+    }
+    catch (InvalidDataException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException($"{description}: expected InvalidDataException");
+}
+
+static XElement DefaultAppearanceElement() =>
+    new XElement("appearance", new XAttribute("skin", 0), new XAttribute("hair-color", 0),
+        new XAttribute("hair-style", 0), new XAttribute("outfit", 0), new XAttribute("headwear", 0));
 
 static void Equal<T>(T expected, T actual, string description)
 {
