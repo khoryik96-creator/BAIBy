@@ -899,6 +899,7 @@ Equal(customLook, new BabySession(game, invalidLookSaves, () => start).State.App
 
 PetChecks.Run();
 CareChecks.Run();
+HouseholdChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)

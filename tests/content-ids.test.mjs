@@ -108,8 +108,9 @@ function unrecordedAppends(snapshot, current) {
   return appends;
 }
 
-const simulation = sources('Simulation');
-const current = contentIds(parseEnums(simulation));
+// Saved enums live in Simulation and, for household records, in Application.
+const saved = [...sources('Simulation'), ...sources('Application')];
+const current = contentIds(parseEnums(saved));
 const snapshot = JSON.parse(readFileSync(snapshotUrl, 'utf8'));
 
 test('saved enums keep every committed content ID', () => {

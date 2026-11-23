@@ -1,4 +1,10 @@
 {
+  "BabyStage": {
+    "Newborn": 0,
+    "Sitter": 1,
+    "Crawler": 2,
+    "Walker": 3
+  },
   "BondTier": {
     "Acquainted": 0,
     "Trusting": 1,
@@ -62,6 +68,11 @@
   "CompanionKind": {
     "Baby": 0,
     "Pet": 1
+  },
+  "CompanionMilestone": {
+    "Sitting": 0,
+    "Crawling": 1,
+    "Walking": 2
   },
   "EarnedGoal": {
     "FirstFullCareDay": 0,

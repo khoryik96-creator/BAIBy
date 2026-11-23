@@ -108,6 +108,15 @@ namespace BAIby.Character
             ShowToy(IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction) ? playedToy : ambientToy);
         }
 
+        // Prepares the room for a different baby: the next Present snaps to that baby's stage, and the
+        // previous baby's reaction cues and sound preview do not carry over.
+        public void ResetPresentation()
+        {
+            hasPresented = false;
+            reaction = Reaction.None;
+            playedSoundPreview = false;
+        }
+
         public void SetTheme(NurseryTheme theme)
         {
             targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;

@@ -33,4 +33,23 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Close and reopen the same build | The same baby, look, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
+## Household
+
+A household holds up to two babies for free (`HouseholdRules.FreeCompanions`). The first baby, and any baby saved before households existed, is slot 1 and keeps the original save key. Other babies are saved as `{key}.slot2` to `{key}.slot8`, and the household manifest is `{key}.household`. Each key has a `.backup`.
+
+| Step | Expected result |
+| --- | --- |
+| Open a build that already has a baby | The nursery opens straight to that baby with no new onboarding. Stats, look and decor are unchanged, and a **Home** chip appears in the top bar. |
+| Select **Home** | Home shows a rounded card with the baby's portrait for the current stage, name, stage and a mood line. Below the limit, a dashed **+ Adopt** card appears. |
+| Select **+ Adopt**, enter a name and select **Start raising** | The same naming flow adopts a second newborn. **Back to home** returns to Home without adopting. The first baby's save is untouched. |
+| Look at the nursery after the second adoption | The room shows the new baby's own look, decor and stats. A **Switch to …** chip next to **Home** names the other baby. |
+| Select **Switch to …** | The nursery switches to the other baby's state, look and decor in one tap. Switching does not advance time or change needs. |
+| Open **Home** with two babies | Both cards fit side by side at phone width, the active baby has an outline, and a calm "Your home is full" card replaces **+ Adopt**. There is no shop link. |
+| Leave a baby off screen until a milestone age, then open their room | The milestone is announced once, the first time the room opens. Their Home card shows **New!** until then. |
+| Let a baby who is off screen get very hungry or tired | A dot appears on the **Home** chip. |
+| Close and reopen | The last active baby opens, and both babies keep their own progress. |
+| On Home, select **Say goodbye**, then **Continue** and **Say goodbye** | Two confirmations are needed. The slot is freed, **+ Adopt** returns, and a keepsake line keeps the name and dates. **Keep** at either step changes nothing. |
+| Corrupt one slot's save in storage and reopen | Home shows "Couldn't open this save" for that slot. The slot still counts toward the limit and is never reused or deleted. |
+| Open the Web build in two tabs | Each tab overwrites the other's saves. Test with one tab at a time. |
+
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.
