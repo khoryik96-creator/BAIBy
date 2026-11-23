@@ -148,6 +148,11 @@ namespace BAIby.Simulation.Pets
 
         public static string BreedProductId(Species species, string breedKey) => $"breed.{Key(species)}.{breedKey}";
 
+        // Breed packs (docs/monetization.md): one per species, and one for every species.
+        public const string AllBreedsPackProductId = "breedpack.all";
+
+        public static string BreedPackProductId(Species species) => $"breedpack.{Key(species)}";
+
         // Store product IDs allow lowercase letters, digits, underscores and periods.
         public static bool IsIdSegment(string value)
         {

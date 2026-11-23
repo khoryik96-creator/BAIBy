@@ -81,6 +81,23 @@ function breakingChanges(snapshot, current) {
   return problems;
 }
 
+// The snapshot to write for UPDATE_CONTENT_IDS=1: the committed snapshot plus appended members.
+// Refuses (throws) when anything committed would be renumbered or removed, and never drops an
+// enum or member the snapshot already holds.
+function recordAppends(snapshot, current) {
+  const problems = breakingChanges(snapshot, current);
+  assert.deepEqual(problems, [], `Refusing to record content IDs; these need a save migration:\n${problems.join('\n')}`);
+  const names = [...new Set([...Object.keys(snapshot), ...Object.keys(current)])].sort((a, b) => a.localeCompare(b));
+  const merged = {};
+  for (const name of names) {
+    merged[name] = { ...snapshot[name] };
+    for (const [member, value] of Object.entries(current[name] ?? {})) {
+      if (!(member in merged[name])) merged[name][member] = value;
+    }
+  }
+  return merged;
+}
+
 function unrecordedAppends(snapshot, current) {
   const appends = [];
   for (const [name, members] of Object.entries(current)) {
@@ -103,7 +120,7 @@ test('saved enums keep every committed content ID', () => {
 test('new content IDs are recorded in the snapshot', () => {
   const appends = unrecordedAppends(snapshot, current);
   if (appends.length > 0 && process.env.UPDATE_CONTENT_IDS === '1') {
-    writeFileSync(snapshotUrl, `${JSON.stringify(current, null, 2)}\n`);
+    writeFileSync(snapshotUrl, `${JSON.stringify(recordAppends(snapshot, current), null, 2)}\n`);
     return;
   }
   assert.deepEqual(appends, [], `Record appended content IDs with UPDATE_CONTENT_IDS=1:\n${appends.join('\n')}`);
@@ -139,6 +156,12 @@ test('the content-ID checks catch renumbers, removals and reused values', () => 
   assert.equal(breakingChanges(before, { Coat: { Cream: 0, Red: 1 } }).length, 2);
   assert.equal(breakingChanges(before, {}).length, 1);
   assert.deepEqual(unrecordedAppends(before, { Coat: { Cream: 0, Ginger: 1, Gray: 2 } }), ['Coat.Gray = 2']);
+  // The update path records appends only, and refuses a removal or renumber that comes with one.
+  assert.deepEqual(recordAppends(before, { Coat: { Cream: 0, Ginger: 1, Gray: 2 }, Aura: { Calm: 0 } }),
+    { Aura: { Calm: 0 }, Coat: { Cream: 0, Ginger: 1, Gray: 2 } });
+  assert.throws(() => recordAppends(before, { Coat: { Cream: 0, Gray: 2, Marmalade: 21 } }), /Refusing to record/);
+  assert.throws(() => recordAppends(before, { Coat: { Cream: 0, Ginger: 22, Gray: 2 } }), /Refusing to record/);
+  assert.throws(() => recordAppends(before, { Other: { A: 0 } }), /Refusing to record/);
   const parsed = contentIds(parseEnums([{ path: 'x.cs', text: 'enum Plain { A, B } enum Saved { A = 3, B = 5 }' }]));
   assert.deepEqual(parsed, { Saved: { A: 3, B: 5 } });
   assert.throws(() => contentIds(parseEnums([{ path: 'x.cs', text: 'enum Half { A = 0, B }' }])), /number every member/);

@@ -47,7 +47,8 @@ namespace BAIby.Simulation.Pets
     }
 
     // Which breeds a household may adopt. Free starters always; earned breeds only through their
-    // visible goal, never through a purchase; premium breeds only with their owned product ID.
+    // visible goal, never through a purchase; premium breeds only with an owned product that grants
+    // them: the breed's own breed.<species>.<breed> or a breed pack listing it.
     // No store code: the caller passes the product IDs the player owns.
     public static class PetUnlocks
     {
@@ -83,7 +84,7 @@ namespace BAIby.Simulation.Pets
                 case BreedUnlock.Earned:
                     return definition.Goal.HasValue && IsGoalMet(definition.Goal.Value, progress);
                 case BreedUnlock.Premium:
-                    return definition.ProductId != null && ownedProductIds != null && ownedProductIds.Contains(definition.ProductId);
+                    return ownedProductIds != null && catalog.ProductsGranting(breed).Any(ownedProductIds.Contains);
                 default:
                     return false;
             }

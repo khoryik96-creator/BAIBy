@@ -12,6 +12,8 @@ namespace BAIby.Simulation.Pets
         public const int MinTendencyPercent = 10;
         public const int MaxTendencyPercent = 20;
         public const int MaxPersonalityBias = 20;
+        // Need per hour; tendency trades are exact, so this only absorbs floating-point error.
+        private const double BalanceTolerance = 1e-9;
 
         public static readonly PetCatalog Default = CreateDefault();
 
@@ -20,12 +22,21 @@ namespace BAIby.Simulation.Pets
 
         public IReadOnlyList<SpeciesDefinition> AllSpecies { get; }
         public IReadOnlyList<BreedDefinition> AllBreeds { get; }
+        public IReadOnlyList<BreedPackDefinition> AllPacks { get; }
+
+        // A catalog without breed packs.
+        public PetCatalog(IEnumerable<SpeciesDefinition> species, IEnumerable<BreedDefinition> breeds)
+            : this(species, breeds, null)
+        {
+        }
 
         // Does not validate, so a broken catalog can be built and reported by Validate.
-        public PetCatalog(IEnumerable<SpeciesDefinition> species, IEnumerable<BreedDefinition> breeds)
+        public PetCatalog(IEnumerable<SpeciesDefinition> species, IEnumerable<BreedDefinition> breeds,
+            IEnumerable<BreedPackDefinition> packs)
         {
             AllSpecies = Array.AsReadOnly((species ?? throw new ArgumentNullException(nameof(species))).ToArray());
             AllBreeds = Array.AsReadOnly((breeds ?? throw new ArgumentNullException(nameof(breeds))).ToArray());
+            AllPacks = Array.AsReadOnly((packs ?? Enumerable.Empty<BreedPackDefinition>()).ToArray());
             foreach (var definition in AllSpecies)
             {
                 if (definition != null && !speciesById.ContainsKey(definition.Species))
@@ -53,6 +64,42 @@ namespace BAIby.Simulation.Pets
 
         public IReadOnlyList<BreedDefinition> BreedsOf(Species species) =>
             AllBreeds.Where(breed => breed != null && breed.Species == species).ToArray();
+
+        // True when owning this product unlocks the premium breed: its own breed.<species>.<breed>
+        // product, or a breed pack that lists it. Free and earned breeds are never sold.
+        public bool GrantsBreed(string productId, PetBreed breed)
+        {
+            if (productId == null || !breedsById.TryGetValue(breed, out var definition) || definition.Unlock != BreedUnlock.Premium)
+                return false;
+            if (string.Equals(productId, definition.ProductId, StringComparison.Ordinal))
+                return true;
+
+            foreach (var pack in AllPacks)
+            {
+                if (pack != null && string.Equals(pack.ProductId, productId, StringComparison.Ordinal) && pack.Includes(breed))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // Every product that unlocks the breed, single purchase first, for the store and the picker.
+        public IReadOnlyList<string> ProductsGranting(PetBreed breed)
+        {
+            var products = new List<string>();
+            if (!breedsById.TryGetValue(breed, out var definition) || definition.Unlock != BreedUnlock.Premium)
+                return products;
+            if (definition.ProductId != null)
+                products.Add(definition.ProductId);
+
+            foreach (var pack in AllPacks)
+            {
+                if (pack != null && pack.ProductId != null && pack.Includes(breed) && !products.Contains(pack.ProductId))
+                    products.Add(pack.ProductId);
+            }
+
+            return products;
+        }
 
         // The coat to render: a saved coat the breed no longer offers falls back to the breed default.
         public PetCoat EffectiveCoat(PetAppearance appearance)
@@ -90,6 +137,7 @@ namespace BAIby.Simulation.Pets
             var problems = new List<string>();
             ValidateSpecies(problems);
             ValidateBreeds(problems);
+            ValidatePacks(problems);
             return problems;
         }
 
@@ -276,7 +324,6 @@ namespace BAIby.Simulation.Pets
                 problems.Add($"Breed {name} has more than {MaxTendencies} tendencies.");
 
             var meters = new HashSet<PetMeter>();
-            var net = 0;
             foreach (var tendency in breed.Tendencies)
             {
                 var size = Math.Abs(tendency.Percent);
@@ -286,12 +333,53 @@ namespace BAIby.Simulation.Pets
                     problems.Add($"Breed {name} tendency names {tendency.Meter}, which {species.Species} does not show.");
                 if (!meters.Add(tendency.Meter))
                     problems.Add($"Breed {name} has two tendencies for {tendency.Meter}.");
-                net += tendency.Percent;
             }
 
-            // No breed is harder or easier: a faster need is always balanced by a slower one.
-            if (net != 0)
-                problems.Add($"Breed {name} tendencies must balance; they sum to {net}%.");
+            // No breed is harder or easier: the need a faster meter loses each hour is exactly the
+            // need a slower one keeps. Balanced by absolute decay, since meters decay at different rates.
+            var net = breed.NetDecayChangePerHour(species);
+            if (Math.Abs(net) > BalanceTolerance)
+                problems.Add($"Breed {name} tendencies must balance by decay rate; they change need lost by {net:0.###} per hour.");
+        }
+
+        private void ValidatePacks(List<string> problems)
+        {
+            var packIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var pack in AllPacks)
+            {
+                if (pack == null)
+                {
+                    problems.Add("A breed pack definition is missing.");
+                    continue;
+                }
+
+                var name = pack.ProductId ?? "(no product ID)";
+                if (pack.Species.HasValue && !speciesById.ContainsKey(pack.Species.Value))
+                    problems.Add($"Breed pack {name} covers {pack.Species.Value}, which has no definition.");
+
+                var expected = pack.Species.HasValue
+                    ? (PetIds.IsDefined(pack.Species.Value) ? PetIds.BreedPackProductId(pack.Species.Value) : null)
+                    : PetIds.AllBreedsPackProductId;
+                if (expected == null || !string.Equals(pack.ProductId, expected, StringComparison.Ordinal))
+                    problems.Add($"Breed pack {name} needs the product ID {expected ?? "breedpack.<species>"}.");
+                else if (!packIds.Add(pack.ProductId))
+                    problems.Add($"Breed pack {name} is defined twice.");
+
+                if (pack.Breeds.Count == 0)
+                    problems.Add($"Breed pack {name} grants no breeds.");
+                if (pack.Breeds.Distinct().Count() != pack.Breeds.Count)
+                    problems.Add($"Breed pack {name} lists a breed twice.");
+
+                foreach (var breed in pack.Breeds)
+                {
+                    if (!breedsById.TryGetValue(breed, out var definition))
+                        problems.Add($"Breed pack {name} grants {breed}, which has no definition.");
+                    else if (definition.Unlock != BreedUnlock.Premium)
+                        problems.Add($"Breed pack {name} grants {breed}, which is not premium.");
+                    else if (pack.Species.HasValue && definition.Species != pack.Species.Value)
+                        problems.Add($"Breed pack {name} grants {breed}, which is not a {pack.Species.Value}.");
+                }
+            }
         }
 
         private void ValidateSpeciesBreeds(Species species, List<string> problems)
@@ -407,104 +495,123 @@ namespace BAIby.Simulation.Pets
             var breeds = new[]
             {
                 Free(PetBreed.DomesticShorthair, recolor, Coats(PetCoat.Ginger, PetCoat.Gray, PetCoat.Black, PetCoat.Cream, PetCoat.White),
-                    Trade(PetMeter.Energy, PetMeter.Comfort, 15), 5, 5),
+                    Trade(PetMeter.Energy, 10, PetMeter.Comfort, 15), 5, 5),
                 Earned(PetBreed.Tabby, EarnedGoal.FirstFullCareDay, recolor, Coats(PetCoat.Brown, PetCoat.Ginger, PetCoat.Silver),
-                    Trade(PetMeter.Energy, PetMeter.Fullness, 15), 10, 5),
+                    Trade(PetMeter.Energy, 14, PetMeter.Fullness, 12), 10, 5),
                 Earned(PetBreed.Tuxedo, EarnedGoal.Bond40, recolor, Coats(PetCoat.Black, PetCoat.Gray),
-                    Trade(PetMeter.Fullness, PetMeter.Comfort, 10), 0, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 14), 0, 10),
                 Earned(PetBreed.Siamese, EarnedGoal.RaisedToGrown, recolor, Coats(PetCoat.Seal, PetCoat.Blue, PetCoat.Lilac),
-                    Trade(PetMeter.Comfort, PetMeter.Energy, 15), 10, 15),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Energy, 10), 10, 15),
                 Earned(PetBreed.Calico, EarnedGoal.SevenOnTimeCareDays, recolor, Coats(PetCoat.Tricolor, PetCoat.Cream),
-                    Trade(PetMeter.Comfort, PetMeter.Cleanliness, 10), 5, 0),
+                    Trade(PetMeter.Comfort, 12, PetMeter.Cleanliness, 16), 5, 0),
                 Premium(PetBreed.Ragdoll, "ragdoll", overlay, Coats(PetCoat.Seal, PetCoat.Blue, PetCoat.Lilac),
-                    Trade(PetMeter.Comfort, PetMeter.Energy, 15), -15, 5),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Energy, 10), -15, 5),
                 Premium(PetBreed.MaineCoon, "maine_coon", overlay, Coats(PetCoat.Brown, PetCoat.Silver, PetCoat.Red),
-                    Trade(PetMeter.Fullness, PetMeter.Energy, 15), -5, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 14), -5, 10),
                 Premium(PetBreed.Bengal, "bengal", recolor, Coats(PetCoat.Golden, PetCoat.Silver, PetCoat.Brown),
-                    Trade(PetMeter.Energy, PetMeter.Comfort, 15), 15, 10),
+                    Trade(PetMeter.Energy, 10, PetMeter.Comfort, 15), 15, 10),
                 Premium(PetBreed.BritishShorthair, "british_shorthair", recolor, Coats(PetCoat.Blue, PetCoat.Cream, PetCoat.Silver),
-                    Trade(PetMeter.Fullness, PetMeter.Energy, 10), -10, 0),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 14), -10, 0),
                 Premium(PetBreed.RussianBlue, "russian_blue", recolor, Coats(PetCoat.Blue),
-                    Trade(PetMeter.Comfort, PetMeter.Cleanliness, 10), 0, -10),
+                    Trade(PetMeter.Comfort, 12, PetMeter.Cleanliness, 16), 0, -10),
                 Premium(PetBreed.Sphynx, "sphynx", silhouette, Coats(PetCoat.Cream, PetCoat.Gray, PetCoat.Black),
-                    Trade(PetMeter.Cleanliness, PetMeter.Comfort, 10), 10, 10),
+                    Trade(PetMeter.Cleanliness, 16, PetMeter.Comfort, 12), 10, 10),
 
                 Free(PetBreed.MixedBreed, recolor, Coats(PetCoat.Tan, PetCoat.Black, PetCoat.Brown, PetCoat.Cream, PetCoat.White),
-                    Trade(PetMeter.Exercise, PetMeter.Fullness, 15), 5, 5),
+                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 5, 5),
                 Earned(PetBreed.Golden, EarnedGoal.FirstFullCareDay, overlay, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Red),
-                    Trade(PetMeter.Exercise, PetMeter.Cleanliness, 10), 10, 10),
+                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 10), 10, 10),
                 Earned(PetBreed.Beagle, EarnedGoal.Bond40, overlay, Coats(PetCoat.Tricolor, PetCoat.Tan),
-                    Trade(PetMeter.Fullness, PetMeter.Energy, 15), 10, 5),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 14), 10, 5),
                 Earned(PetBreed.Shiba, EarnedGoal.RaisedToGrown, recolor, Coats(PetCoat.Red, PetCoat.Sable, PetCoat.Cream, PetCoat.Black),
-                    Trade(PetMeter.Exercise, PetMeter.Cleanliness, 15), 5, 0),
+                    Trade(PetMeter.Exercise, 15, PetMeter.Cleanliness, 15), 5, 0),
                 Premium(PetBreed.Corgi, "corgi", silhouette, Coats(PetCoat.Red, PetCoat.Sable, PetCoat.Tricolor),
-                    Trade(PetMeter.Exercise, PetMeter.Energy, 10), 10, 10),
+                    Trade(PetMeter.Exercise, 10, PetMeter.Energy, 10), 10, 10),
                 Premium(PetBreed.Poodle, "poodle", overlay, Coats(PetCoat.White, PetCoat.Black, PetCoat.Chocolate, PetCoat.Cream),
-                    Trade(PetMeter.Cleanliness, PetMeter.Exercise, 15), 5, 5),
+                    Trade(PetMeter.Cleanliness, 15, PetMeter.Exercise, 15), 5, 5),
                 Premium(PetBreed.Dachshund, "dachshund", silhouette, Coats(PetCoat.Red, PetCoat.Chocolate, PetCoat.Black),
-                    Trade(PetMeter.Fullness, PetMeter.Exercise, 10), 0, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Exercise, 14), 0, 10),
                 Premium(PetBreed.Husky, "husky", recolor, Coats(PetCoat.Gray, PetCoat.Black, PetCoat.Red),
-                    Trade(PetMeter.Exercise, PetMeter.Fullness, 15), 15, 10),
+                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 15, 10),
                 Premium(PetBreed.Samoyed, "samoyed", overlay, Coats(PetCoat.White, PetCoat.Cream),
-                    Trade(PetMeter.Cleanliness, PetMeter.Energy, 15), 10, 10),
+                    Trade(PetMeter.Cleanliness, 15, PetMeter.Energy, 15), 10, 10),
                 Premium(PetBreed.Pomeranian, "pomeranian", overlay, Coats(PetCoat.Orange, PetCoat.Cream, PetCoat.Black),
-                    Trade(PetMeter.Energy, PetMeter.Exercise, 10), 15, 5),
+                    Trade(PetMeter.Energy, 10, PetMeter.Exercise, 10), 15, 5),
                 Premium(PetBreed.Dalmatian, "dalmatian", recolor, Coats(PetCoat.White),
-                    Trade(PetMeter.Exercise, PetMeter.Cleanliness, 10), 10, 5),
+                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 10), 10, 5),
                 Premium(PetBreed.BorderCollie, "border_collie", overlay, Coats(PetCoat.Black, PetCoat.Red, PetCoat.Blue),
-                    Trade(PetMeter.Exercise, PetMeter.Fullness, 15), 15, 5),
+                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 15, 5),
 
                 Free(PetBreed.Goldfish, recolor, Coats(PetCoat.Orange, PetCoat.Red, PetCoat.White, PetCoat.Yellow),
-                    Trade(PetMeter.Water, PetMeter.Calm, 15), 0, 5),
+                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), 0, 5),
                 Earned(PetBreed.Guppy, EarnedGoal.FirstFullCareDay, overlay, Coats(PetCoat.Blue, PetCoat.Orange, PetCoat.Yellow, PetCoat.Purple),
-                    Trade(PetMeter.Fullness, PetMeter.Calm, 10), 15, 5),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), 15, 5),
                 Earned(PetBreed.Betta, EarnedGoal.Bond40, overlay, Coats(PetCoat.Red, PetCoat.Blue, PetCoat.Purple, PetCoat.White),
-                    Trade(PetMeter.Calm, PetMeter.Water, 15), 5, 15),
+                    Trade(PetMeter.Calm, 12, PetMeter.Water, 16), 5, 15),
                 Premium(PetBreed.NeonTetraSchool, "neon_tetra_school", silhouette, Coats(PetCoat.Blue, PetCoat.Red),
-                    Trade(PetMeter.Fullness, PetMeter.Calm, 10), 10, -10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), 10, -10),
                 Premium(PetBreed.Angelfish, "angelfish", overlay, Coats(PetCoat.Silver, PetCoat.Black, PetCoat.Golden),
-                    Trade(PetMeter.Calm, PetMeter.Water, 10), -10, 5),
+                    Trade(PetMeter.Calm, 12, PetMeter.Water, 16), -10, 5),
                 Premium(PetBreed.Koi, "koi", recolor, Coats(PetCoat.White, PetCoat.Orange, PetCoat.Red, PetCoat.Black),
-                    Trade(PetMeter.Fullness, PetMeter.Calm, 15), -5, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), -5, 10),
                 Premium(PetBreed.Clownfish, "clownfish", recolor, Coats(PetCoat.Orange, PetCoat.Black),
-                    Trade(PetMeter.Water, PetMeter.Fullness, 10), 10, 10),
+                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), 10, 10),
                 Premium(PetBreed.Discus, "discus", overlay, Coats(PetCoat.Blue, PetCoat.Red, PetCoat.Brown),
-                    Trade(PetMeter.Water, PetMeter.Calm, 15), -10, 0),
+                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), -10, 0),
 
                 Free(PetBreed.Dutch, recolor, Coats(PetCoat.Black, PetCoat.Brown, PetCoat.Gray, PetCoat.Chocolate),
-                    Trade(PetMeter.Hay, PetMeter.Litter, 15), 5, 5),
+                    Trade(PetMeter.Hay, 15, PetMeter.Litter, 15), 5, 5),
                 Earned(PetBreed.NetherlandDwarf, EarnedGoal.FirstFullCareDay, recolor, Coats(PetCoat.White, PetCoat.Black, PetCoat.Fawn),
-                    Trade(PetMeter.Comfort, PetMeter.Fullness, 10), 10, -5),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Fullness, 12), 10, -5),
                 Earned(PetBreed.HollandLop, EarnedGoal.Bond40, overlay, Coats(PetCoat.Fawn, PetCoat.Brown, PetCoat.White),
-                    Trade(PetMeter.Comfort, PetMeter.Litter, 15), -5, 10),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 10), -5, 10),
                 Premium(PetBreed.Lionhead, "lionhead", silhouette, Coats(PetCoat.Cream, PetCoat.Gray, PetCoat.Brown),
-                    Trade(PetMeter.Hay, PetMeter.Comfort, 10), 5, 5),
+                    Trade(PetMeter.Hay, 10, PetMeter.Comfort, 15), 5, 5),
                 Premium(PetBreed.Angora, "angora", overlay, Coats(PetCoat.White, PetCoat.Cream, PetCoat.Gray),
-                    Trade(PetMeter.Comfort, PetMeter.Litter, 15), -10, 0),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 10), -10, 0),
                 Premium(PetBreed.Rex, "rex", recolor, Coats(PetCoat.Chocolate, PetCoat.Black, PetCoat.Lilac),
-                    Trade(PetMeter.Fullness, PetMeter.Hay, 10), 0, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Hay, 10), 0, 10),
                 Premium(PetBreed.FlemishGiant, "flemish_giant", silhouette, Coats(PetCoat.Gray, PetCoat.Fawn, PetCoat.Black),
-                    Trade(PetMeter.Fullness, PetMeter.Comfort, 15), -15, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Comfort, 15), -15, 10),
                 Premium(PetBreed.Harlequin, "harlequin", recolor, Coats(PetCoat.Tricolor, PetCoat.Fawn),
-                    Trade(PetMeter.Hay, PetMeter.Litter, 10), 10, 5),
+                    Trade(PetMeter.Hay, 10, PetMeter.Litter, 10), 10, 5),
 
                 Free(PetBreed.SyrianGolden, recolor, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Brown),
-                    Trade(PetMeter.Exercise, PetMeter.Bedding, 15), 5, 5),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Bedding, 20), 5, 5),
                 Earned(PetBreed.WinterWhite, EarnedGoal.FirstFullCareDay, recolor, Coats(PetCoat.White, PetCoat.Gray, PetCoat.Sable),
-                    Trade(PetMeter.Fullness, PetMeter.Energy, 10), -5, 0),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Energy, 10), -5, 0),
                 Earned(PetBreed.Roborovski, EarnedGoal.Bond40, recolor, Coats(PetCoat.Tan, PetCoat.White),
-                    Trade(PetMeter.Exercise, PetMeter.Energy, 15), 15, -10),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Energy, 10), 15, -10),
                 Premium(PetBreed.TeddyBear, "teddy_bear", overlay, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Chocolate),
-                    Trade(PetMeter.Bedding, PetMeter.Exercise, 10), -10, 5),
+                    Trade(PetMeter.Bedding, 20, PetMeter.Exercise, 12), -10, 5),
                 Premium(PetBreed.Panda, "panda", recolor, Coats(PetCoat.White),
-                    Trade(PetMeter.Fullness, PetMeter.Bedding, 10), 0, 5),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Bedding, 20), 0, 5),
                 Premium(PetBreed.Sapphire, "sapphire", recolor, Coats(PetCoat.Blue, PetCoat.Gray),
-                    Trade(PetMeter.Energy, PetMeter.Exercise, 10), 5, -5),
+                    Trade(PetMeter.Energy, 10, PetMeter.Exercise, 12), 5, -5),
                 Premium(PetBreed.Campbells, "campbells", recolor, Coats(PetCoat.Gray, PetCoat.Fawn, PetCoat.Black),
-                    Trade(PetMeter.Exercise, PetMeter.Fullness, 15), 10, 5),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Fullness, 10), 10, 5),
             };
 
-            return new PetCatalog(species, breeds);
+            // Pack contents are fixed when a pack is published (monetization: packs never include
+            // breeds added later), so they are listed here rather than derived from the breed list.
+            // A premium breed whose art has not shipped is still in its pack; it becomes adoptable
+            // for pack owners when its art ships, as it does for single-purchase owners.
+            var speciesPacks = new[]
+            {
+                SpeciesPack(Species.Cat, PetBreed.Ragdoll, PetBreed.MaineCoon, PetBreed.Bengal, PetBreed.BritishShorthair,
+                    PetBreed.RussianBlue, PetBreed.Sphynx),
+                SpeciesPack(Species.Dog, PetBreed.Corgi, PetBreed.Poodle, PetBreed.Dachshund, PetBreed.Husky, PetBreed.Samoyed,
+                    PetBreed.Pomeranian, PetBreed.Dalmatian, PetBreed.BorderCollie),
+                SpeciesPack(Species.Fish, PetBreed.NeonTetraSchool, PetBreed.Angelfish, PetBreed.Koi, PetBreed.Clownfish, PetBreed.Discus),
+                SpeciesPack(Species.Rabbit, PetBreed.Lionhead, PetBreed.Angora, PetBreed.Rex, PetBreed.FlemishGiant, PetBreed.Harlequin),
+                SpeciesPack(Species.Hamster, PetBreed.TeddyBear, PetBreed.Panda, PetBreed.Sapphire, PetBreed.Campbells),
+            };
+
+            // "Every breed" covers the first-release species packs above and, like them, never grows.
+            var allPack = new BreedPackDefinition(PetIds.AllBreedsPackProductId, null,
+                speciesPacks.SelectMany(pack => pack.Breeds).ToArray());
+
+            return new PetCatalog(species, breeds, speciesPacks.Concat(new[] { allPack }));
         }
 
         private static MeterDefinition Meter(PetMeter meter, double decayPerHour, double initial) =>
@@ -517,9 +624,13 @@ namespace BAIby.Simulation.Pets
 
         private static PetCoat[] Coats(params PetCoat[] coats) => coats;
 
-        // The first meter drifts faster and the second slower by the same amount.
-        private static BreedTendency[] Trade(PetMeter faster, PetMeter slower, int percent) =>
-            new[] { new BreedTendency(faster, percent), new BreedTendency(slower, -percent) };
+        // The first meter drifts faster and the second slower. The percentages are chosen so the need
+        // lost per hour is unchanged: fasterPercent * faster decay == slowerPercent * slower decay.
+        private static BreedTendency[] Trade(PetMeter faster, int fasterPercent, PetMeter slower, int slowerPercent) =>
+            new[] { new BreedTendency(faster, fasterPercent), new BreedTendency(slower, -slowerPercent) };
+
+        private static BreedPackDefinition SpeciesPack(Species species, params PetBreed[] breeds) =>
+            new BreedPackDefinition(PetIds.BreedPackProductId(species), species, breeds);
 
         private static BreedDefinition Free(PetBreed breed, BreedArtTier art, PetCoat[] coats, BreedTendency[] tendencies,
             int lively, int bold) =>

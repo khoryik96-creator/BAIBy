@@ -51,6 +51,11 @@ static class PetChecks
         ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: Trade(PetMeter.Energy, PetMeter.Fullness, 25))), "outside 10 to 20%", "tendency above 20 percent");
         ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: Trade(PetMeter.Energy, PetMeter.Fullness, 5))), "outside 10 to 20%", "tendency below 10 percent");
         ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: new[] { new BreedTendency(PetMeter.Energy, 15) })), "must balance", "unbalanced tendency");
+        // Equal percentages on meters with different base decay do not cancel: Energy 6/h, Fullness 7/h.
+        ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: Trade(PetMeter.Energy, PetMeter.Fullness, 15))), "must balance by decay rate",
+            "percent-balanced trade that changes total decay");
+        ExpectProblem(ReplaceBreed(Clone(Catalog.Get(PetBreed.TeddyBear), tendencies: Trade(PetMeter.Bedding, PetMeter.Exercise, 10))),
+            "must balance by decay rate", "premium breed that is net easier");
         ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: Trade(PetMeter.Water, PetMeter.Fullness, 15))), "which Cat does not show", "tendency on another species' meter");
         ExpectProblem(ReplaceBreed(Clone(tabby, tendencies: Trade(PetMeter.Energy, PetMeter.Fullness, 10)
             .Concat(new[] { new BreedTendency(PetMeter.Comfort, 10) }).ToArray())), "more than 2 tendencies", "three tendencies");
@@ -77,6 +82,23 @@ static class PetChecks
         ExpectThrows<InvalidOperationException>(
             () => new PetSimulation(ReplaceBreed(Clone(tabby, clearGoal: true)), PetSimulation.DefaultMaxNeedDecay),
             "simulation refuses an invalid catalog");
+
+        var catPack = Catalog.AllPacks.Single(pack => pack.Species == Species.Cat);
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, catPack.Breeds.Concat(new[] { PetBreed.Tabby }).ToArray())),
+            "grants Tabby, which is not premium", "pack grants an earned breed");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, catPack.Breeds.Concat(new[] { PetBreed.Husky }).ToArray())),
+            "grants Husky, which is not a Cat", "species pack grants another species");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, catPack.Breeds.Concat(new[] { (PetBreed)150 }).ToArray())),
+            "grants 150, which has no definition", "dangling pack grant");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, new[] { PetBreed.Bengal, PetBreed.Bengal })),
+            "lists a breed twice", "pack lists a breed twice");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, new PetBreed[0])), "grants no breeds", "empty pack");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.dog", Species.Cat, catPack.Breeds.ToArray())),
+            "needs the product ID breedpack.cat", "pack ID names another species");
+        ExpectProblem(ReplacePack(new BreedPackDefinition("breedpack.cats", null, catPack.Breeds.ToArray())),
+            "needs the product ID breedpack.all", "every-species pack ID");
+        ExpectProblem(new PetCatalog(Catalog.AllSpecies, Catalog.AllBreeds, Catalog.AllPacks.Concat(new[] { catPack })),
+            "breedpack.cat is defined twice", "duplicate pack");
     }
 
     private static void SpeciesTable()
@@ -244,6 +266,8 @@ static class PetChecks
             }
         }
 
+        PackUnlocks(full);
+
         Equal(false, PetUnlocks.IsGoalMet(EarnedGoal.Bond40, new SpeciesGoalProgress(0, 39.9, false, 0)), "Bond goal waits for 40");
         Equal(true, PetUnlocks.IsGoalMet(EarnedGoal.Bond40, new SpeciesGoalProgress(0, 40, false, 0)), "Bond goal at 40");
         Equal(false, PetUnlocks.IsGoalMet(EarnedGoal.SevenOnTimeCareDays, new SpeciesGoalProgress(9, 0, false, 6)), "seven on-time days needed");
@@ -273,6 +297,75 @@ static class PetChecks
         Equal(true, PetUnlocks.IsGoalMet(EarnedGoal.RaisedToGrown, fromPet), "a grown pet counts toward the goal");
     }
 
+    private static void PackUnlocks(SpeciesGoalProgress full)
+    {
+        // Pack contents as sold in the first release. Never shrink these lists; packs never grow either.
+        var expected = new Dictionary<Species, PetBreed[]>
+        {
+            [Species.Cat] = new[] { PetBreed.Ragdoll, PetBreed.MaineCoon, PetBreed.Bengal, PetBreed.BritishShorthair, PetBreed.RussianBlue, PetBreed.Sphynx },
+            [Species.Dog] = new[] { PetBreed.Corgi, PetBreed.Poodle, PetBreed.Dachshund, PetBreed.Husky, PetBreed.Samoyed, PetBreed.Pomeranian,
+                PetBreed.Dalmatian, PetBreed.BorderCollie },
+            [Species.Fish] = new[] { PetBreed.NeonTetraSchool, PetBreed.Angelfish, PetBreed.Koi, PetBreed.Clownfish, PetBreed.Discus },
+            [Species.Rabbit] = new[] { PetBreed.Lionhead, PetBreed.Angora, PetBreed.Rex, PetBreed.FlemishGiant, PetBreed.Harlequin },
+            [Species.Hamster] = new[] { PetBreed.TeddyBear, PetBreed.Panda, PetBreed.Sapphire, PetBreed.Campbells },
+        };
+        Equal(6, Catalog.AllPacks.Count, "a pack per species and one for every species");
+        foreach (var pair in expected)
+        {
+            var pack = Catalog.AllPacks.Single(candidate => candidate.Species == pair.Key);
+            Equal($"breedpack.{PetIds.Key(pair.Key)}", pack.ProductId, $"{pair.Key} pack product ID");
+            Equal(string.Join(",", pair.Value), string.Join(",", pack.Breeds), $"{pair.Key} pack lists its first-release premium breeds");
+        }
+
+        var all = Catalog.AllPacks.Single(pack => pack.Species == null);
+        Equal("breedpack.all", all.ProductId, "every-breed pack product ID");
+        Equal(string.Join(",", expected.Values.SelectMany(breeds => breeds).OrderBy(breed => breed)),
+            string.Join(",", all.Breeds.OrderBy(breed => breed)), "every-breed pack lists every first-release premium breed");
+
+        foreach (var breed in Catalog.AllBreeds)
+        {
+            var name = breed.Breed.ToString();
+            var speciesPack = PetIds.BreedPackProductId(breed.Species);
+            if (breed.Unlock != BreedUnlock.Premium)
+            {
+                if (breed.Unlock == BreedUnlock.Earned)
+                    Equal(false, PetUnlocks.IsUnlocked(Catalog, breed.Breed, SpeciesGoalProgress.None, new[] { speciesPack, "breedpack.all" }),
+                        $"{name} is never unlocked by a pack");
+                Equal(0, Catalog.ProductsGranting(breed.Breed).Count, $"{name} is sold by nothing");
+                continue;
+            }
+
+            Equal(true, PetUnlocks.IsUnlocked(Catalog, breed.Breed, SpeciesGoalProgress.None, new[] { speciesPack }), $"{name} unlocks with its species pack");
+            Equal(true, PetUnlocks.IsUnlocked(Catalog, breed.Breed, SpeciesGoalProgress.None, new[] { "breedpack.all" }), $"{name} unlocks with every-breed pack");
+            Equal(breed.AvailableNow, PetUnlocks.CanAdopt(Catalog, breed.Breed, SpeciesGoalProgress.None, new[] { speciesPack }),
+                $"{name} is adoptable from the pack once its art has shipped");
+            var otherPacks = Catalog.AllPacks.Where(pack => pack.Species.HasValue && pack.Species.Value != breed.Species)
+                .Select(pack => pack.ProductId).ToList();
+            Equal(false, PetUnlocks.IsUnlocked(Catalog, breed.Breed, full, otherPacks), $"{name} is not in other species' packs");
+            Equal($"{breed.ProductId},{speciesPack},breedpack.all", string.Join(",", Catalog.ProductsGranting(breed.Breed)),
+                $"{name} is sold singly, in its species pack and in every-breed pack");
+        }
+
+        Equal(true, PetUnlocks.CanAdopt(Catalog, PetBreed.Bengal, SpeciesGoalProgress.None, new[] { "breedpack.cat" }), "cat pack adopts a Bengal");
+        Equal(true, PetUnlocks.CanAdopt(Catalog, PetBreed.Koi, SpeciesGoalProgress.None, new[] { "breedpack.all" }), "every-breed pack adopts a Koi");
+        Equal(false, PetUnlocks.CanAdopt(Catalog, PetBreed.Sphynx, SpeciesGoalProgress.None, new[] { "breedpack.cat" }),
+            "a pack breed waits for its art");
+        Equal("DomesticShorthair,Bengal,BritishShorthair,RussianBlue",
+            string.Join(",", PetUnlocks.AdoptableBreeds(Catalog, Species.Cat, SpeciesGoalProgress.None, new[] { "breedpack.cat" })),
+            "a new household with the cat pack adopts the starter and shipped premium cats");
+        Equal(false, Catalog.GrantsBreed("breedpack.dog", PetBreed.Bengal), "the dog pack grants no cat");
+        Equal(false, Catalog.GrantsBreed(null, PetBreed.Bengal), "no product grants nothing");
+
+        // A pack sells only what it lists: a catalog whose cat pack predates the Sphynx keeps it out.
+        var catPack = Catalog.AllPacks.Single(pack => pack.Species == Species.Cat);
+        var older = ReplacePack(new BreedPackDefinition("breedpack.cat", Species.Cat, catPack.Breeds.Where(breed => breed != PetBreed.Sphynx).ToArray()));
+        Equal(0, older.Problems().Count, "a pack may list fewer breeds than its species has");
+        Equal(false, PetUnlocks.IsUnlocked(older, PetBreed.Sphynx, SpeciesGoalProgress.None, new[] { "breedpack.cat" }),
+            "a breed added after a pack is not in it");
+        Equal(true, PetUnlocks.IsUnlocked(older, PetBreed.Sphynx, SpeciesGoalProgress.None, new[] { "breed.cat.sphynx" }),
+            "and is still sold singly");
+    }
+
     private static void PremiumNeverStronger()
     {
         foreach (var species in Catalog.AllSpecies)
@@ -286,11 +379,26 @@ static class PetChecks
                 Equal(true, premium.TendencyMagnitude <= strongestFree, $"{premium.Breed} is no stronger in total than free {species.Species}");
                 Equal(true, premium.Tendencies.All(tendency => Math.Abs(tendency.Percent) <= strongestFreeSingle),
                     $"{premium.Breed} has no tendency stronger than a free {species.Species}");
-                Equal(0, premium.Tendencies.Sum(tendency => tendency.Percent), $"{premium.Breed} tendencies balance");
+                Close(0, premium.NetDecayChangePerHour(species), $"{premium.Breed} tendencies balance by decay rate");
                 Equal(true, premium.Tendencies.All(tendency => species.HasMeter(tendency.Meter)), $"{premium.Breed} uses species meters");
             }
 
-            Equal(true, breeds.All(breed => breed.Tendencies.Sum(tendency => tendency.Percent) == 0), $"no {species.Species} breed is harder");
+            Equal(true, breeds.All(breed => Math.Abs(breed.NetDecayChangePerHour(species)) < 1e-9), $"no {species.Species} breed is harder");
+        }
+
+        // Absolute rule, measured in play: every breed of a species loses the same total need over
+        // the 8-hour cap, so no breed (premium or free) is easier or harder to keep.
+        var sim = new PetSimulation();
+        foreach (var species in Catalog.AllSpecies)
+        {
+            var baseline = species.Meters.Sum(meter => Math.Min(meter.Initial, 8 * meter.DecayPerHour));
+            foreach (var breed in Catalog.BreedsOf(species.Species))
+            {
+                var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, breed.Breed), Start);
+                var later = sim.Advance(pet, Start.AddHours(8)).State;
+                var lost = species.Meters.Sum(meter => pet.Meter(meter.Meter) - later.Meter(meter.Meter));
+                Close(baseline, lost, $"{breed.Breed} loses the same need in 8 hours as any {species.Species}");
+            }
         }
     }
 
@@ -395,11 +503,11 @@ static class PetChecks
             }
         }
 
-        // Domestic shorthair: Energy drifts 15% faster and Comfort 15% slower.
+        // Domestic shorthair: Energy drifts 10% faster and Comfort 15% slower, the same need per hour.
         var cat = sim.Adopt("Pip", PetAppearance.Default(Catalog, PetBreed.DomesticShorthair), Start);
         var twoHours = sim.Advance(cat, Start.AddHours(2)).State;
         Close(56, twoHours.Meter(PetMeter.Fullness), "cat fullness decays 7 per hour");
-        Close(80 - 2 * 6 * 1.15, twoHours.Meter(PetMeter.Energy), "breed tendency speeds energy");
+        Close(80 - 2 * 6 * 1.10, twoHours.Meter(PetMeter.Energy), "breed tendency speeds energy");
         Close(70 - 2 * 4 * 0.85, twoHours.Meter(PetMeter.Comfort), "breed tendency slows comfort");
         Close(84, twoHours.Meter(PetMeter.Cleanliness), "cat cleanliness decays slowly");
         Equal(Start.AddHours(2), twoHours.TimeCheckpoint, "advance moves the checkpoint");
@@ -410,6 +518,21 @@ static class PetChecks
         ExpectThrows<ArgumentOutOfRangeException>(() => sim.AdvancePreview(cat, TimeSpan.Zero), "preview needs time");
         ExpectThrows<ArgumentOutOfRangeException>(() => new PetSimulation(Catalog, TimeSpan.Zero), "decay cap must be positive");
         Equal(TimeSpan.FromHours(8), PetSimulation.DefaultMaxNeedDecay, "care doc's 8-hour decay cap");
+
+        var ancient = PetState.Restore(Catalog, "Pip", cat.Appearance, Start, PetState.MaxAge, Meters(Species.Cat, 50, 100), 0, 0, 0, 0, true);
+        Equal(PetState.MaxAge, sim.Advance(ancient, Start.AddHours(1)).State.Age, "age saturates at the maximum instead of overflowing");
+        Equal(PetState.MaxAge, sim.AdvancePreview(cat, TimeSpan.MaxValue).State.Age, "a huge preview saturates too");
+        ExpectThrows<ArgumentOutOfRangeException>(() => PetState.Restore(Catalog, "Pip", cat.Appearance, Start, PetState.MaxAge.Add(TimeSpan.FromTicks(1)),
+            Meters(Species.Cat, 50, 100), 0, 0, 0, 0, true), "an age beyond any clock is refused");
+
+        var emoji = "Mochi \U0001F431";
+        Equal(emoji, PetSaveCodec.Decode(PetSaveCodec.Encode(sim.Adopt(emoji, cat.Appearance, Start))).Name, "an emoji name saves");
+        foreach (var bad in new[] { "Mo\u0001chi", "Mochi\nCo", emoji.Substring(0, emoji.Length - 1), "\uDC31Mochi", "Mochi\uFFFE" })
+        {
+            ExpectThrows<ArgumentException>(() => sim.Adopt(bad, cat.Appearance, Start), $"adopt refuses unsavable name {Escape(bad)}");
+            ExpectThrows<ArgumentException>(() => PetState.Restore(Catalog, bad, cat.Appearance, Start, TimeSpan.Zero,
+                Meters(Species.Cat, 50, 100), 0, 0, 0, 0, false), $"restore refuses unsavable name {Escape(bad)}");
+        }
 
         var wellKept = PetState.Restore(Catalog, "Pip", cat.Appearance, Start, TimeSpan.Zero, Meters(Species.Cat, 100, 50), 0, 0, 0, 0, false);
         Close(56, sim.Advance(wellKept, Start.AddHours(1)).State.Health, "Health recovers while needs are met");
@@ -649,6 +772,9 @@ static class PetChecks
         ExpectInvalid(Golden.Replace("<unlocks grown=\"false\" />", string.Empty), "missing unlock flags");
         ExpectInvalid(Golden.Replace("grown=\"false\"", "grown=\"maybe\""), "unreadable unlock flag");
         ExpectInvalid(Golden.Replace("<age>3024000000000</age>", "<age>-1</age>"), "negative age");
+        ExpectInvalid(Golden.Replace("<age>3024000000000</age>", "<age>9223372036854775807</age>"), "age beyond any clock");
+        ExpectInvalid(Golden.Replace("<age>3024000000000</age>", "<age>9223372036854775808</age>"), "age beyond a long");
+        ExpectInvalid(Golden.Replace("<name>Mochi &amp; Co</name>", "<name>Mo&#x1;chi</name>"), "control character in the name");
         ExpectInvalid(Golden.Replace("<name>Mochi &amp; Co</name>", "<name> </name>"), "blank name");
         ExpectInvalid(Golden.Replace("<pet version=\"1\">", "<baby version=\"1\">").Replace("</pet>", "</baby>"), "baby record in the pet codec");
         ExpectInvalid(Golden.Replace(" version=\"1\"", string.Empty), "missing version");
@@ -692,6 +818,13 @@ static class PetChecks
 
     private static PetCatalog ReplaceBreed(BreedDefinition replacement) =>
         WithBreeds(Catalog.AllBreeds.Select(breed => breed.Breed == replacement.Breed ? replacement : breed));
+
+    private static PetCatalog ReplacePack(BreedPackDefinition replacement) =>
+        new PetCatalog(Catalog.AllSpecies, Catalog.AllBreeds,
+            Catalog.AllPacks.Select(pack => pack.Species == replacement.Species ? replacement : pack));
+
+    private static string Escape(string value) =>
+        string.Concat(value.Select(character => character < 0x20 || character > 0x7E ? $"\\u{(int)character:X4}" : character.ToString()));
 
     private static PetCatalog ReplaceSpecies(SpeciesDefinition replacement) =>
         new PetCatalog(Catalog.AllSpecies.Select(species => species.Species == replacement.Species ? replacement : species), Catalog.AllBreeds);

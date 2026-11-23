@@ -180,6 +180,24 @@ namespace BAIby.Simulation.Pets
             return 1;
         }
 
+        // Change in need lost per hour across the species' meters, against a breed with no
+        // tendencies. Meters decay at different base rates, so balanced percentages are not enough:
+        // a balanced breed has a net change of zero.
+        public double NetDecayChangePerHour(SpeciesDefinition species)
+        {
+            if (species == null)
+                throw new ArgumentNullException(nameof(species));
+
+            var net = 0.0;
+            foreach (var meter in species.Meters)
+            {
+                if (meter != null)
+                    net += meter.DecayPerHour * (DecayFactor(meter.Meter) - 1);
+            }
+
+            return net;
+        }
+
         // Total size of the breed's tendencies, used to keep premium breeds no stronger than free ones.
         public int TendencyMagnitude
         {
@@ -191,6 +209,35 @@ namespace BAIby.Simulation.Pets
 
                 return total;
             }
+        }
+    }
+
+    // A breed pack product (breedpack.<species> or breedpack.all). It sells the premium breeds that
+    // were current when the pack was published, listed explicitly. The list never grows: a breed
+    // added to the catalog later is not part of a pack players already own.
+    public sealed class BreedPackDefinition
+    {
+        public string ProductId { get; }
+        // The species the pack covers, or null for the every-species pack.
+        public Species? Species { get; }
+        public IReadOnlyList<PetBreed> Breeds { get; }
+
+        public BreedPackDefinition(string productId, Species? species, PetBreed[] breeds)
+        {
+            ProductId = productId;
+            Species = species;
+            Breeds = Array.AsReadOnly(breeds ?? Array.Empty<PetBreed>());
+        }
+
+        public bool Includes(PetBreed breed)
+        {
+            foreach (var included in Breeds)
+            {
+                if (included == breed)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

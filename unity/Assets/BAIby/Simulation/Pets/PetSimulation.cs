@@ -48,6 +48,8 @@ namespace BAIby.Simulation.Pets
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the pet.", nameof(name));
+            if (!PetState.IsSavableName(name))
+                throw new ArgumentException("The pet's name has characters that cannot be saved.", nameof(name));
 
             Catalog.ValidateChoice(appearance);
             var species = Catalog.Get(appearance.Species);
@@ -118,7 +120,8 @@ namespace BAIby.Simulation.Pets
         {
             var species = Catalog.Get(state.Species);
             var breed = Catalog.Get(state.Breed);
-            var age = state.Age + elapsed;
+            // Saturates at PetState.MaxAge instead of overflowing, so any restorable pet advances.
+            var age = elapsed >= PetState.MaxAge - state.Age ? PetState.MaxAge : state.Age + elapsed;
             var isGrown = state.IsGrown || age >= species.GrownAge;
             var becameGrown = isGrown && !state.IsGrown;
             if (elapsed == TimeSpan.Zero && !becameGrown)

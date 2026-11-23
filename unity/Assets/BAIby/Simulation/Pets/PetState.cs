@@ -10,6 +10,9 @@ namespace BAIby.Simulation.Pets
         public const double TrustingBond = 40;
         public const double BestFriendsBond = 75;
         public const double PersonalityLimit = 100;
+        // About 10,000 years, the whole DateTimeOffset range, so no clock can age a pet further.
+        // PetSimulation saturates here; a larger saved age is corrupt.
+        public static readonly TimeSpan MaxAge = TimeSpan.FromDays(3_652_500);
 
         private readonly Dictionary<PetMeter, double> meters;
 
@@ -42,9 +45,11 @@ namespace BAIby.Simulation.Pets
                 throw new ArgumentNullException(nameof(catalog));
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved pet needs a name.", nameof(name));
+            if (!IsSavableName(name))
+                throw new ArgumentException("The saved pet's name has characters a save cannot hold.", nameof(name));
             if (appearance == null)
                 throw new ArgumentNullException(nameof(appearance));
-            if (age < TimeSpan.Zero)
+            if (age < TimeSpan.Zero || age > MaxAge)
                 throw new ArgumentOutOfRangeException(nameof(age));
             if (meters == null)
                 throw new ArgumentNullException(nameof(meters));
@@ -109,6 +114,38 @@ namespace BAIby.Simulation.Pets
                 return this;
 
             return new PetState(Name, appearance, TimeCheckpoint, Age, meters, Bond, HighestBond, Liveliness, Boldness, IsGrown);
+        }
+
+        // True when every character can be written to an XML save and read back unchanged: no
+        // control characters (line breaks included, which XML would normalize), no noncharacters
+        // U+FFFE and U+FFFF, and surrogates only as complete pairs, so a name cut in the middle of
+        // an emoji is refused.
+        public static bool IsSavableName(string name)
+        {
+            if (name == null)
+                return false;
+
+            for (var index = 0; index < name.Length; index++)
+            {
+                var character = name[index];
+                if (char.IsHighSurrogate(character))
+                {
+                    if (index + 1 >= name.Length || !char.IsLowSurrogate(name[index + 1]))
+                        return false;
+
+                    index++;
+                    continue;
+                }
+
+                if (char.IsLowSurrogate(character))
+                    return false;
+                if (character < 0x20)
+                    return false;
+                if (character == '\uFFFE' || character == '\uFFFF')
+                    return false;
+            }
+
+            return true;
         }
 
         private static bool IsPercent(double value) => !double.IsNaN(value) && value >= 0 && value <= 100;
