@@ -13,3 +13,4 @@ tests/Appearance/obj/
 /unity/*.sln
 /unity/*.slnx
 /.claude/worktrees/
+__pycache__/
