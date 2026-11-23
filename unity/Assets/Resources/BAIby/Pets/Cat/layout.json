@@ -1,0 +1,719 @@
+{
+ "placeholder": true,
+ "species": "Cat",
+ "reference": {
+  "coat": [
+   240,
+   172,
+   110
+  ],
+  "markings": [
+   150,
+   104,
+   74
+  ],
+  "eyes": [
+   170,
+   172,
+   84
+  ],
+  "accent": [
+   178,
+   170,
+   122
+  ]
+ },
+ "runtimeScale": {
+  "young": 0.55,
+  "grown": 0.7
+ },
+ "poses": [
+  {
+   "name": "YoungAwake",
+   "width": 454,
+   "height": 540
+  },
+  {
+   "name": "YoungRest",
+   "width": 529,
+   "height": 387
+  },
+  {
+   "name": "GrownAwake",
+   "width": 476,
+   "height": 610
+  },
+  {
+   "name": "GrownRest",
+   "width": 579,
+   "height": 391
+  }
+ ],
+ "overlays": [
+  {
+   "path": "Markings/Tabby/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 43,
+   "y": 72,
+   "width": 392,
+   "height": 450,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tuxedo/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 60,
+   "y": 191,
+   "width": 211,
+   "height": 313,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Siamese/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 57,
+   "y": 13,
+   "width": 378,
+   "height": 509,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 47,
+   "y": 13,
+   "width": 303,
+   "height": 509,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 62,
+   "y": 14,
+   "width": 373,
+   "height": 498,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 128,
+   "y": 318,
+   "width": 154,
+   "height": 70,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tabby/YoungRest",
+   "pose": "YoungRest",
+   "x": 37,
+   "y": 78,
+   "width": 401,
+   "height": 291,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tuxedo/YoungRest",
+   "pose": "YoungRest",
+   "x": 130,
+   "y": 195,
+   "width": 216,
+   "height": 164,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Siamese/YoungRest",
+   "pose": "YoungRest",
+   "x": 36,
+   "y": 14,
+   "width": 474,
+   "height": 355,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/YoungRest",
+   "pose": "YoungRest",
+   "x": 35,
+   "y": 39,
+   "width": 368,
+   "height": 328,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 221,
+   "y": 14,
+   "width": 270,
+   "height": 355,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/YoungRest",
+   "pose": "YoungRest",
+   "x": 142,
+   "y": 296,
+   "width": 147,
+   "height": 59,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tabby/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 26,
+   "y": 100,
+   "width": 435,
+   "height": 478,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tuxedo/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 53,
+   "y": 198,
+   "width": 293,
+   "height": 393,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Siamese/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 31,
+   "y": 10,
+   "width": 430,
+   "height": 581,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 31,
+   "y": 24,
+   "width": 430,
+   "height": 542,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 23,
+   "y": 10,
+   "width": 432,
+   "height": 573,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 83,
+   "y": 305,
+   "width": 172,
+   "height": 77,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tabby/GrownRest",
+   "pose": "GrownRest",
+   "x": 29,
+   "y": 98,
+   "width": 463,
+   "height": 278,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Tuxedo/GrownRest",
+   "pose": "GrownRest",
+   "x": 108,
+   "y": 185,
+   "width": 276,
+   "height": 176,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Siamese/GrownRest",
+   "pose": "GrownRest",
+   "x": 28,
+   "y": 10,
+   "width": 535,
+   "height": 366,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/GrownRest",
+   "pose": "GrownRest",
+   "x": 28,
+   "y": 28,
+   "width": 412,
+   "height": 347,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Calico/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 195,
+   "y": 10,
+   "width": 352,
+   "height": 366,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/GrownRest",
+   "pose": "GrownRest",
+   "x": 135,
+   "y": 285,
+   "width": 119,
+   "height": 54,
+   "gTarget": "secondary"
+  }
+ ],
+ "palette": {
+  "coats": [
+   {
+    "breed": "DomesticShorthair",
+    "coat": "Ginger",
+    "main": [
+     240,
+     172,
+     110
+    ],
+    "secondary": [
+     204,
+     120,
+     66
+    ],
+    "dark": [
+     204,
+     120,
+     66
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "DomesticShorthair",
+    "coat": "Gray",
+    "main": [
+     178,
+     180,
+     190
+    ],
+    "secondary": [
+     120,
+     122,
+     134
+    ],
+    "dark": [
+     120,
+     122,
+     134
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "DomesticShorthair",
+    "coat": "Black",
+    "main": [
+     84,
+     82,
+     98
+    ],
+    "secondary": [
+     40,
+     37,
+     46
+    ],
+    "dark": [
+     40,
+     37,
+     46
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "DomesticShorthair",
+    "coat": "Cream",
+    "main": [
+     246,
+     226,
+     196
+    ],
+    "secondary": [
+     222,
+     186,
+     146
+    ],
+    "dark": [
+     222,
+     186,
+     146
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "DomesticShorthair",
+    "coat": "White",
+    "main": [
+     250,
+     247,
+     242
+    ],
+    "secondary": [
+     226,
+     220,
+     212
+    ],
+    "dark": [
+     226,
+     220,
+     212
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Tabby",
+    "coat": "Brown",
+    "main": [
+     206,
+     162,
+     118
+    ],
+    "secondary": [
+     112,
+     78,
+     54
+    ],
+    "dark": [
+     112,
+     78,
+     54
+    ],
+    "eyes": "Green",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Tabby",
+    "coat": "Ginger",
+    "main": [
+     240,
+     182,
+     126
+    ],
+    "secondary": [
+     204,
+     124,
+     74
+    ],
+    "dark": [
+     204,
+     124,
+     74
+    ],
+    "eyes": "Green",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Tabby",
+    "coat": "Silver",
+    "main": [
+     214,
+     216,
+     222
+    ],
+    "secondary": [
+     102,
+     104,
+     116
+    ],
+    "dark": [
+     102,
+     104,
+     116
+    ],
+    "eyes": "Green",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Tuxedo",
+    "coat": "Black",
+    "main": [
+     84,
+     82,
+     98
+    ],
+    "secondary": [
+     250,
+     247,
+     242
+    ],
+    "dark": [
+     250,
+     247,
+     242
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Tuxedo",
+    "coat": "Gray",
+    "main": [
+     146,
+     148,
+     160
+    ],
+    "secondary": [
+     250,
+     247,
+     242
+    ],
+    "dark": [
+     250,
+     247,
+     242
+    ],
+    "eyes": "Amber",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Siamese",
+    "coat": "Seal",
+    "main": [
+     246,
+     232,
+     210
+    ],
+    "secondary": [
+     112,
+     80,
+     62
+    ],
+    "dark": [
+     112,
+     80,
+     62
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Siamese",
+    "coat": "Blue",
+    "main": [
+     240,
+     238,
+     236
+    ],
+    "secondary": [
+     134,
+     142,
+     160
+    ],
+    "dark": [
+     134,
+     142,
+     160
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Siamese",
+    "coat": "Lilac",
+    "main": [
+     246,
+     238,
+     236
+    ],
+    "secondary": [
+     150,
+     128,
+     142
+    ],
+    "dark": [
+     150,
+     128,
+     142
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Calico",
+    "coat": "Tricolor",
+    "main": [
+     250,
+     247,
+     242
+    ],
+    "secondary": [
+     232,
+     146,
+     78
+    ],
+    "dark": [
+     72,
+     68,
+     80
+    ],
+    "eyes": "Copper",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   },
+   {
+    "breed": "Calico",
+    "coat": "Cream",
+    "main": [
+     250,
+     247,
+     242
+    ],
+    "secondary": [
+     240,
+     198,
+     146
+    ],
+    "dark": [
+     168,
+     166,
+     176
+    ],
+    "eyes": "Copper",
+    "allowedEyes": [
+     "Amber",
+     "Green",
+     "Blue",
+     "Copper",
+     "Hazel"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "name": "Amber",
+    "color": [
+     228,
+     170,
+     66
+    ]
+   },
+   {
+    "name": "Green",
+    "color": [
+     128,
+     176,
+     100
+    ]
+   },
+   {
+    "name": "Blue",
+    "color": [
+     112,
+     170,
+     230
+    ]
+   },
+   {
+    "name": "Copper",
+    "color": [
+     218,
+     130,
+     66
+    ]
+   },
+   {
+    "name": "Hazel",
+    "color": [
+     170,
+     172,
+     84
+    ]
+   }
+  ],
+  "collarAccents": [
+   {
+    "name": "Midnight",
+    "color": [
+     70,
+     86,
+     140
+    ]
+   }
+  ]
+ }
+}
