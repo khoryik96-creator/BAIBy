@@ -24,7 +24,7 @@ namespace BAIby.Presentation
 
                 ChangeDiaper = WashChoice(content, "Change diaper",
                     "Restores Cleanliness  ·  Wipe or quick change", 169, changeDiaper);
-                WashChoice(content, "Bath time", "Cleanliness +45  ·  Comfort +30  ·  Energy −8", 74, bath);
+                WashChoice(content, "Bath time", "Cleanliness +45  ·  Comfort +30  ·  Uses 8 Energy", 74, bath);
                 Feedback = Label("Hygiene Feedback", content, "", 23, Ink, TextAnchor.MiddleLeft,
                     new Vector2(0, 8), Vector2.right, new Vector2(0, 70));
                 Feedback.resizeTextForBestFit = true;
