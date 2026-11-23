@@ -22,7 +22,8 @@ namespace BAIby.Bootstrap
             var view = new GameObject("Nursery Preview").AddComponent<NurseryPreview>();
             try
             {
-                var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4), TimeSpan.FromDays(7));
+                var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4),
+                    TimeSpan.FromDays(7), TimeSpan.FromDays(14));
                 var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), () => DateTimeOffset.UtcNow);
                 view.Open(session);
             }

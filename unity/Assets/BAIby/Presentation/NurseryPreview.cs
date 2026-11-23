@@ -93,8 +93,7 @@ namespace BAIby.Presentation
 
             try
             {
-                var unlocked = session.Refresh();
-                Paint(Reaction.None, unlocked.UnlockedSitting, unlocked.UnlockedCrawling);
+                Paint(Reaction.None, session.Refresh());
             }
             catch (Exception error)
             {
@@ -123,7 +122,7 @@ namespace BAIby.Presentation
 
         private bool Care(CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
-            (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) result;
+            (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) result;
             try
             {
                 result = session.ApplyCare(action, toy, food);
@@ -137,7 +136,7 @@ namespace BAIby.Presentation
             if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
                 (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound))
                 ShowPanel(NurseryPanel.Care);
-            Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
+            Paint(result.Reaction, (result.UnlockedSitting, result.UnlockedCrawling, result.UnlockedWalking),
                 action == CareAction.Play ? toy : (Toy?)null, food);
             return true;
         }
@@ -155,8 +154,7 @@ namespace BAIby.Presentation
         {
             try
             {
-                var unlocked = session.AdvancePreview(TimeSpan.FromDays(1));
-                Paint(Reaction.None, unlocked.UnlockedSitting, unlocked.UnlockedCrawling);
+                Paint(Reaction.None, session.AdvancePreview(TimeSpan.FromDays(1)));
             }
             catch (Exception error)
             {
@@ -164,7 +162,8 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Paint(Reaction reaction, bool unlockedSitting = false, bool unlockedCrawling = false,
+        private void Paint(Reaction reaction,
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default,
             Toy? playedToy = null, Food food = Food.Milk)
         {
             var state = session.State;
@@ -181,7 +180,7 @@ namespace BAIby.Presentation
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
-                canCrawl: state?.CanCrawl ?? false, food: food);
+                canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
 
             if (!adopted)
                 return;
@@ -198,10 +197,13 @@ namespace BAIby.Presentation
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
             var reactionText = DescribeReaction(state.Name, reaction, visibleToy, food);
-            if (unlockedCrawling)
+            if (unlocked.UnlockedWalking)
+                status.text = $"{state.Name} can take a few steps now. " +
+                    (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
+            else if (unlocked.UnlockedCrawling)
                 status.text = $"{state.Name} can crawl now. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
-            else if (unlockedSitting)
+            else if (unlocked.UnlockedSitting)
                 status.text = $"{state.Name} can sit up now. " +
                     (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
             else
@@ -213,6 +215,8 @@ namespace BAIby.Presentation
 
         private static string StageName(BabyState state)
         {
+            if (state.CanWalk)
+                return "Early walker";
             if (state.CanCrawl)
                 return "Crawler";
 
@@ -236,6 +240,7 @@ namespace BAIby.Presentation
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
                 case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.WalksToToy: return $"{name} takes a few steps toward the {ToyName(toy).ToLowerInvariant()}.";
                 default: return string.Empty;
             }
         }

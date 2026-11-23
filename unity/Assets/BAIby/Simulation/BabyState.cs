@@ -9,7 +9,7 @@ namespace BAIby.Simulation
     public enum Reaction
     {
         None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy,
-        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath
+        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy
     }
 
     public sealed class BabyState
@@ -41,6 +41,7 @@ namespace BAIby.Simulation
         }
         public bool CanSitAndReach { get; }
         public bool CanCrawl { get; }
+        public bool CanWalk { get; }
         public bool NewSoundResolved { get; }
         public NurseryTheme NurseryTheme { get; }
         public bool HasPendingNewSound => CanSitAndReach && !NewSoundResolved;
@@ -48,7 +49,7 @@ namespace BAIby.Simulation
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
-            bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage)
+            bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage, bool canWalk = false)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -81,15 +82,18 @@ namespace BAIby.Simulation
             if (newSoundResolved && !canSitAndReach)
                 throw new ArgumentException("The nursery incident requires the sitting milestone.", nameof(newSoundResolved));
 
+            if (canWalk && !canCrawl)
+                throw new ArgumentException("Walking requires the crawling milestone.", nameof(canWalk));
+
             ValidateNurseryTheme(nurseryTheme);
             return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
-                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme);
+                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme, canWalk);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
-            bool newSoundResolved, NurseryTheme nurseryTheme)
+            bool newSoundResolved, NurseryTheme nurseryTheme, bool canWalk)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -105,6 +109,7 @@ namespace BAIby.Simulation
             PlushFamiliarity = plushFamiliarity;
             CanSitAndReach = canSitAndReach;
             CanCrawl = canCrawl;
+            CanWalk = canWalk;
             NewSoundResolved = newSoundResolved;
             NurseryTheme = nurseryTheme;
         }
@@ -117,7 +122,7 @@ namespace BAIby.Simulation
 
             return new BabyState(Name, TimeCheckpoint, Age, Satiety, Comfort, Energy,
                 ToyFamiliarity, PlushFamiliarity, CanSitAndReach, CanCrawl, Connection, StorySessions,
-                Cleanliness, Health, NewSoundResolved, nurseryTheme);
+                Cleanliness, Health, NewSoundResolved, nurseryTheme, CanWalk);
         }
 
         private static void ValidateNurseryTheme(NurseryTheme nurseryTheme)
