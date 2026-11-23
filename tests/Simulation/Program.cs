@@ -5,7 +5,7 @@ using BAIby.Application;
 using BAIby.Simulation;
 
 var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
-var game = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4), TimeSpan.FromDays(7));
+var game = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4), TimeSpan.FromDays(7), TimeSpan.FromDays(12));
 var newborn = game.Adopt("Mia", start);
 
 var fed = game.ApplyCare(newborn, CareAction.Feed);
@@ -58,7 +58,7 @@ var session = new BabySession(game, saves, () => now);
 Equal<BabyState>(null, session.State, "new session starts with no baby");
 session.Adopt("Mia & Co");
 session.ApplyCare(CareAction.Play);
-Equal((true, false), session.AdvancePreview(TimeSpan.FromDays(3)), "preview unlocks sitting");
+Equal((true, false, false), session.AdvancePreview(TimeSpan.FromDays(3)), "preview unlocks sitting");
 Equal(start, session.State.TimeCheckpoint, "preview leaves real clock alone");
 
 var reopened = new BabySession(game, saves, () => now);
@@ -67,7 +67,7 @@ Equal(TimeSpan.FromDays(3), reopened.State.Age, "preview aging persists");
 Equal(1, reopened.State.ToyFamiliarity, "familiarity persists");
 Equal(36.0, reopened.State.Energy, "energy persists");
 Equal(true, reopened.State.CanSitAndReach, "milestone persists");
-Equal((false, false), reopened.Refresh(), "same-time reopen does not unlock or write");
+Equal((false, false, false), reopened.Refresh(), "same-time reopen does not unlock or write");
 Equal(3, saves.Writes, "each edit writes one save and no-op refresh skips a write");
 
 now = now.AddHours(1);
@@ -97,7 +97,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"9\" />";
+saves.Primary = "<baby version=\"10\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -105,7 +105,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"9\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"10\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -123,10 +123,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"8\""), "first edit after migration writes v8");
+Equal(true, migratedSaves.Primary.Contains("version=\"9\""), "first edit after migration writes v9");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v8");
+    "rest on migrated save persists energy in v9");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -184,29 +184,29 @@ const string oldCrawlerSave = "<baby version=\"3\"><name>Sam</name><checkpoint>6
 var crawlerSaves = new MemorySaveStore { Primary = oldCrawlerSave };
 var crawlerSession = new BabySession(game, crawlerSaves, () => start);
 Equal(3, crawlerSession.State.PlushFamiliarity, "v3 migration preserves plush history");
-Equal((false, true), crawlerSession.Refresh(), "migration unlocks already earned crawling at same instant");
+Equal((false, true, false), crawlerSession.Refresh(), "migration unlocks already earned crawling at same instant");
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"8\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"9\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
-Equal((false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
+Equal((false, false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
 Equal(Reaction.CrawlsToToy, persistedCrawler.ApplyCare(CareAction.Play, Toy.Plush).Reaction,
     "v4 restarts with familiar toy crawl behavior");
 var previewCrawler = new BabySession(game, new MemorySaveStore(), () => start);
 previewCrawler.Adopt("Mia");
-Equal((true, true), previewCrawler.AdvancePreview(TimeSpan.FromDays(7)), "preview forwards both unlocks");
-Equal((false, false), previewCrawler.AdvancePreview(TimeSpan.FromDays(1)), "preview does not re-award milestones");
+Equal((true, true, false), previewCrawler.AdvancePreview(TimeSpan.FromDays(7)), "preview forwards both unlocks");
+Equal((false, false, false), previewCrawler.AdvancePreview(TimeSpan.FromDays(1)), "preview does not re-award milestones");
 
 var careClock = start;
 var crawlingCare = new BabySession(game, new MemorySaveStore(), () => careClock);
 crawlingCare.Adopt("Mia");
 crawlingCare.ApplyCare(CareAction.Play, Toy.Plush);
 careClock = start.AddDays(7);
-Equal((Reaction.CrawlsToToy, true, true), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
+Equal((Reaction.CrawlsToToy, true, true, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
     "care forwards new milestones and uses the newly unlocked ability");
-Equal((Reaction.CrawlsToToy, false, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
+Equal((Reaction.CrawlsToToy, false, false, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
     "same-time care does not re-award milestones");
 
 Equal(0.0, newborn.Connection, "newborn starts building connection");
@@ -302,7 +302,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"8\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"9\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -345,7 +345,7 @@ mealtimeClock = start.AddDays(7);
 ExpectUnavailable(() => mealtime.ApplyCare(CareAction.Feed, food: (Food)99));
 Equal(beforeMeal, mealtime.State, "unknown food cannot consume pending milestones");
 Equal(1, mealtimeSaves.Writes, "unknown food commits nothing");
-Equal((Reaction.Satisfied, true, true), mealtime.ApplyCare(CareAction.Feed, food: Food.Oats),
+Equal((Reaction.Satisfied, true, true, false), mealtime.ApplyCare(CareAction.Feed, food: Food.Oats),
     "food availability uses age at the same instant as feeding");
 Equal(2, mealtimeSaves.Writes, "milestones and valid feeding commit once together");
 
@@ -390,7 +390,7 @@ catch (IOException)
     Equal(beforeIncident, incidentSession.State, "failed incident write leaves all state unchanged");
 }
 incidentSaves.FailWrites = false;
-Equal((Reaction.NewSoundExplored, true, false), incidentSession.ApplyCare(CareAction.ExploreNewSound),
+Equal((Reaction.NewSoundExplored, true, false, false), incidentSession.ApplyCare(CareAction.ExploreNewSound),
     "successful retry commits the pending milestone and choice together");
 var incidentReload = new BabySession(game, incidentSaves, () => incidentClock);
 Equal(true, incidentReload.State.NewSoundResolved, "incident resolution survives save and reload");
@@ -449,8 +449,8 @@ themeSession.SetNurseryTheme(NurseryTheme.Peach);
 Equal(1, themeSaves.Writes, "new theme saves immediately");
 Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
 var expectedTheme = XElement.Parse(preThemeSave);
-expectedTheme.SetAttributeValue("version", 8);
-expectedTheme.Add(new XElement("nursery-theme", 1));
+expectedTheme.SetAttributeValue("version", 9);
+expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false));
 Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
     "theme change preserves all existing save fields despite elapsed time");
 var themedReload = new BabySession(game, themeSaves, () => themeClock);
@@ -520,11 +520,64 @@ catch (IOException)
     Equal(beforeBathPayload, bathSaves.Primary, "failed bath cannot change the save");
 }
 bathSaves.FailWrites = false;
-Equal((Reaction.FreshBath, true, false), bathSession.ApplyCare(CareAction.Bath),
+Equal((Reaction.FreshBath, true, false, false), bathSession.ApplyCare(CareAction.Bath),
     "retry commits the bath and elapsed milestone together");
 Equal(2, bathSaves.Writes, "successful bath commits once after adoption");
 Equal(89.0, new BabySession(game, bathSaves, () => bathClock).State.Cleanliness,
     "bath effects persist through the existing save schema");
+
+var almostWalking = game.Advance(crawler.State, start.AddDays(12).AddTicks(-1));
+Equal(false, almostWalking.UnlockedWalking, "walking waits for the age threshold");
+Equal(Reaction.CrawlsToToy, game.ApplyCare(almostWalking.State, CareAction.Play).Reaction,
+    "a crawler still crawls toward a familiar toy before walking");
+var walker = game.Advance(almostWalking.State, start.AddDays(12));
+Equal(true, walker.UnlockedWalking, "walking unlocks at the exact threshold");
+Equal(true, walker.State.CanWalk, "walking ability persists in simulation state");
+Equal(false, walker.UnlockedCrawling, "walking cannot re-award crawling");
+Equal(Reaction.WalksToToy, game.ApplyCare(walker.State, CareAction.Play).Reaction,
+    "a walker takes steps toward a familiar toy");
+Equal(Reaction.TracksToy, game.ApplyCare(walker.State, CareAction.Play, Toy.Plush).Reaction,
+    "walking does not change the response to unfamiliar toys");
+Equal(false, game.Advance(walker.State, start.AddDays(13)).UnlockedWalking,
+    "future time does not re-award walking");
+
+var walkingClock = start;
+var walkingSaves = new MemorySaveStore();
+var walkingSession = new BabySession(game, walkingSaves, () => walkingClock);
+walkingSession.Adopt("Mia");
+walkingSession.ApplyCare(CareAction.Play, Toy.Plush);
+walkingClock = start.AddDays(12);
+Equal((Reaction.WalksToToy, true, true, true), walkingSession.ApplyCare(CareAction.Play, Toy.Plush),
+    "care forwards all crossed milestones and uses the newly unlocked ability");
+Equal(3, walkingSaves.Writes, "care commits the new milestones together");
+var walkingPreview = new BabySession(game, new MemorySaveStore(), () => start);
+walkingPreview.Adopt("Mia");
+Equal((true, true, true), walkingPreview.AdvancePreview(TimeSpan.FromDays(12)),
+    "preview forwards all crossed milestones");
+Equal((false, false, false), walkingPreview.AdvancePreview(TimeSpan.FromDays(1)),
+    "preview never re-awards reported milestones");
+
+const string preWalkingSave = "<baby version=\"8\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>11232000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach><can-crawl>true</can-crawl>" +
+    "<connection>34</connection><story-sessions>8</story-sessions><cleanliness>51</cleanliness><health>74</health>" +
+    "<new-sound-resolved>true</new-sound-resolved><nursery-theme>1</nursery-theme></baby>";
+var walkingMigrationSaves = new MemorySaveStore { Primary = preWalkingSave };
+var migratedWalker = new BabySession(game, walkingMigrationSaves, () => start);
+Equal(false, migratedWalker.State.CanWalk, "v8 has no stored walking flag");
+Equal((false, false, true), migratedWalker.Refresh(), "an eligible v8 player unlocks walking without elapsed time");
+var expectedWalker = XElement.Parse(preWalkingSave);
+expectedWalker.SetAttributeValue("version", 9);
+expectedWalker.Add(new XElement("can-walk", true));
+Equal(true, XNode.DeepEquals(expectedWalker, XElement.Parse(walkingMigrationSaves.Primary)),
+    "same-time migration does not decay needs or alter any other existing fields");
+var walkingReloaded = new BabySession(game, walkingMigrationSaves, () => start);
+Equal(true, walkingReloaded.State.CanWalk, "v9 restores walking");
+Equal((false, false, false), walkingReloaded.Refresh(), "v9 never re-awards walking after reload");
+Equal(1, walkingMigrationSaves.Writes, "same-time refresh commits the new milestone only once");
+walkingReloaded.SetNurseryTheme(NurseryTheme.Sage);
+Equal(true, walkingReloaded.State.CanWalk, "cosmetics preserve walking");
 
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 

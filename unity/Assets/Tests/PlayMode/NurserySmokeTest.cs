@@ -241,6 +241,27 @@ namespace BAIby.Tests
             Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery illustration").enabled, Is.True);
             Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery illustration peach").enabled, Is.False);
             Tap(crawler.gameObject, "Close decor");
+
+            for (var day = 7; day < 13; day++)
+                Tap(crawler.gameObject, "Preview next day");
+
+            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("13 days old  ·  Crawler"));
+            Tap(crawler.gameObject, "Preview next day");
+            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("14 days old  ·  Early walker"));
+            Assert.That(Reaction(crawler.gameObject), Does.Contain("can take a few steps now"));
+            yield return new WaitForSecondsRealtime(0.55f);
+            var walking = Child<SpriteRenderer>(crawler.gameObject, "Walker artwork");
+            Assert.That(walking.enabled && walking.sprite != null, Is.True);
+            Tap(crawler.gameObject, "Play with plush");
+            Assert.That(Reaction(crawler.gameObject), Does.Contain("takes a few steps toward the plush"));
+
+            UnityEngine.Object.Destroy(crawler.gameObject);
+            yield return null;
+            var walker = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Text>(walker.gameObject, "Age").text, Does.Contain("Early walker"));
+            Tap(walker.gameObject, "Play with plush");
+            Assert.That(Reaction(walker.gameObject), Does.Contain("takes a few steps toward the plush"));
         }
 
         [UnityTearDown]

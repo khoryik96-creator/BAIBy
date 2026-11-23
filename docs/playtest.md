@@ -20,7 +20,8 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Open **A new sound** after sitting unlocks | The chime plays and the two responses preview their distinct effects. You can leave the choice pending and come back. |
 | Choose **Comfort them** or **Explore together** | The chosen effects apply once and the notice stays resolved after reopening. |
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
-| Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
+| Advance from day 13 to day 14 | The Early walker pose and first-steps announcement appear. Play with a familiar toy to see the first steps toward it. |
+| Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose for the current stage. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
 | Open **Decor** and switch from Sage to Peach | The room fades to the new illustration. Baby stats stay the same and the selected style survives reload. |
 | Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, connection, cleanliness, and health return. |

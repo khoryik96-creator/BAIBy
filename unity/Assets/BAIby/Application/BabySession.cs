@@ -52,34 +52,35 @@ namespace BAIby.Application
             Commit(simulation.Adopt(name, now()));
         }
 
-        public (bool UnlockedSitting, bool UnlockedCrawling) Refresh()
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Refresh()
         {
             if (State == null)
-                return (false, false);
+                return (false, false, false);
 
             var update = simulation.Advance(State, now());
             if (update.State != State)
                 Commit(update.State);
 
-            return (update.UnlockedSitting, update.UnlockedCrawling);
+            return (update.UnlockedSitting, update.UnlockedCrawling, update.UnlockedWalking);
         }
 
-        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) ApplyCare(
+        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) ApplyCare(
             CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             var elapsed = simulation.Advance(GetAdoptedBaby(), now());
             var caredFor = simulation.ApplyCare(elapsed.State, action, toy, food);
             Commit(caredFor.State);
-            return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling);
+            return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
         }
 
-        public (bool UnlockedSitting, bool UnlockedCrawling) AdvancePreview(TimeSpan elapsed)
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(TimeSpan elapsed)
         {
             var current = simulation.Advance(GetAdoptedBaby(), now());
             var preview = simulation.AdvancePreview(current.State, elapsed);
             Commit(preview.State);
             return (current.UnlockedSitting || preview.UnlockedSitting,
-                current.UnlockedCrawling || preview.UnlockedCrawling);
+                current.UnlockedCrawling || preview.UnlockedCrawling,
+                current.UnlockedWalking || preview.UnlockedWalking);
         }
 
         public void SetNurseryTheme(NurseryTheme theme)

@@ -7,6 +7,7 @@ namespace BAIby.Simulation
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
         private readonly TimeSpan crawlingAge;
+        private readonly TimeSpan walkingAge;
         private const double InitialEnergy = 80;
         private const double SatietyDecay = 10;
         private const double ComfortDecay = 5;
@@ -17,7 +18,7 @@ namespace BAIby.Simulation
         private const double RecoveryPerHour = 6;
         private const double HealthLossPerHour = 5;
 
-        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge)
+        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
@@ -27,9 +28,13 @@ namespace BAIby.Simulation
             if (crawlingAge <= sittingAge)
                 throw new ArgumentOutOfRangeException(nameof(crawlingAge), "Crawling follows sitting.");
 
+            if (walkingAge <= crawlingAge)
+                throw new ArgumentOutOfRangeException(nameof(walkingAge), "Walking follows crawling.");
+
             this.sittingAge = sittingAge;
             this.maxNeedDecay = maxNeedDecay;
             this.crawlingAge = crawlingAge;
+            this.walkingAge = walkingAge;
         }
 
         public BabyState Adopt(string name, DateTimeOffset now)
@@ -37,10 +42,10 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false);
         }
 
-        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) Advance(BabyState state, DateTimeOffset now)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
         {
             if (now <= state.TimeCheckpoint)
                 return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero);
@@ -48,7 +53,7 @@ namespace BAIby.Simulation
             return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
         }
 
-        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) AdvancePreview(BabyState state, TimeSpan elapsed)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
         {
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
@@ -56,16 +61,18 @@ namespace BAIby.Simulation
             return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
         }
 
-        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) AdvanceElapsed(
+        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvanceElapsed(
             BabyState state, DateTimeOffset now, TimeSpan elapsed)
         {
             var age = state.Age + elapsed;
             var canSit = state.CanSitAndReach || age >= sittingAge;
             var canCrawl = state.CanCrawl || age >= crawlingAge;
+            var canWalk = state.CanWalk || age >= walkingAge;
             var unlockedSitting = canSit && !state.CanSitAndReach;
             var unlockedCrawling = canCrawl && !state.CanCrawl;
-            if (elapsed == TimeSpan.Zero && !unlockedSitting && !unlockedCrawling)
-                return (state, false, false);
+            var unlockedWalking = canWalk && !state.CanWalk;
+            if (elapsed == TimeSpan.Zero && !unlockedSitting && !unlockedCrawling && !unlockedWalking)
+                return (state, false, false, false);
 
             var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
             var updated = new BabyState(state.Name, now, age,
@@ -74,9 +81,9 @@ namespace BAIby.Simulation
                 Math.Max(0, state.Energy - decayHours * EnergyDecay),
                 state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
                 Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours),
-                state.NewSoundResolved, state.NurseryTheme);
+                state.NewSoundResolved, state.NurseryTheme, canWalk);
 
-            return (updated, unlockedSitting, unlockedCrawling);
+            return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
         }
 
         public static bool CanFeed(BabyState state, Food food) =>
@@ -187,7 +194,7 @@ namespace BAIby.Simulation
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
                 satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme), reaction);
+                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk), reaction);
         }
 
         private static double HealthAfterDecay(BabyState state, double hours)
@@ -213,6 +220,8 @@ namespace BAIby.Simulation
         {
             if (familiarity < 2)
                 return Reaction.TracksToy;
+            if (state.CanWalk)
+                return Reaction.WalksToToy;
             if (state.CanCrawl)
                 return Reaction.CrawlsToToy;
 
