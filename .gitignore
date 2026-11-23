@@ -1,5 +1,7 @@
 tests/Simulation/bin/
 tests/Simulation/obj/
+tests/Appearance/bin/
+tests/Appearance/obj/
 /build/
 /unity/[Ll]ibrary/
 /unity/[Tt]emp/

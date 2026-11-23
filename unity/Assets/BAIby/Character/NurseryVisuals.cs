@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BAIby.Simulation;
+using Unity.Collections;
 using UnityEngine;
 
 namespace BAIby.Character
@@ -7,6 +8,7 @@ namespace BAIby.Character
     public sealed class NurseryVisuals : MonoBehaviour
     {
         private const string Art = "BAIby/";
+        private const string AppearanceArt = Art + "Baby/Appearance/";
         private const float QuiltSurface = -1.62f;
         private const float PlayDuration = 2.35f;
         private const float CrawlDuration = 3.10f;
@@ -15,6 +17,15 @@ namespace BAIby.Character
         private const float BathCueDuration = 2.75f;
         private const float BlocksCueDuration = 2.55f;
         private readonly List<Object> generatedAssets = new List<Object>();
+        // Textures and sprites built for the current look; destroyed when the look changes.
+        private readonly List<Object> appearanceAssets = new List<Object>();
+        // Decoded appearance art (RGBA, bottom-up rows) keyed by resource path, decoded once.
+        private readonly Dictionary<string, byte[]> appearanceSources = new Dictionary<string, byte[]>();
+        private AppearanceLayout appearanceLayout;
+        private BabyAppearance shownAppearance = BabyAppearance.Default;
+        private Sprite[] originalPoseSprites;
+        private byte[] appearancePixels;
+        private byte[] appearanceRegions;
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
         private SpriteRenderer peachBackdrop;
@@ -94,6 +105,61 @@ namespace BAIby.Character
         public void SetTheme(NurseryTheme theme)
         {
             targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;
+        }
+
+        // Shows the baby's chosen look on all eight pose illustrations. The default look keeps the
+        // original imported sprites; other looks are composited (base, hair, headwear) and recolored
+        // once per change. Any missing or unreadable art falls back to the original sprites.
+        public void SetAppearance(BabyAppearance appearance)
+        {
+            if (appearance == null)
+                appearance = BabyAppearance.Default;
+            if (appearance.Equals(shownAppearance))
+                return;
+
+            shownAppearance = appearance;
+            var layers = PoseLayers();
+            if (originalPoseSprites == null)
+            {
+                originalPoseSprites = new Sprite[layers.Length];
+                for (int i = 0; i < layers.Length; i++)
+                    originalPoseSprites[i] = layers[i] == null ? null : layers[i].sprite;
+            }
+
+            if (appearance.Equals(BabyAppearance.Default))
+            {
+                ShowPoseSprites(layers, originalPoseSprites);
+                ReleaseAppearanceAssets();
+                AnchorStages();
+                return;
+            }
+
+            var created = new List<Object>();
+            try
+            {
+                var layout = LoadAppearanceLayout();
+                var targets = AppearancePalette.Targets(appearance, layout.Reference);
+                var sprites = new Sprite[layers.Length];
+                for (int i = 0; i < layers.Length; i++)
+                {
+                    if (layers[i] != null)
+                        sprites[i] = BuildPoseSprite(layout, AppearanceLayout.PoseNames[i], appearance, targets, created);
+                }
+
+                ShowPoseSprites(layers, sprites);
+                ReleaseAppearanceAssets();
+                appearanceAssets.AddRange(created);
+            }
+            catch (System.Exception exception)
+            {
+                foreach (var asset in created)
+                    Destroy(asset);
+                ShowPoseSprites(layers, originalPoseSprites);
+                ReleaseAppearanceAssets();
+                Debug.LogWarning("The baby's look could not be applied, so the original artwork is shown: " + exception.Message);
+            }
+
+            AnchorStages();
         }
 
         public void PlayNewSoundCue()
@@ -250,6 +316,141 @@ namespace BAIby.Character
         {
             var sprite = LoadSprite(Art + resourcePath);
             return sprite == null ? null : AddLayer(baby, label, sprite, Color.white, order);
+        }
+
+        private SpriteRenderer[] PoseLayers()
+        {
+            // Same order as AppearanceLayout.PoseNames.
+            return new[] { newborn, newbornRest, sitter, sitterRest, crawler, crawlerRest, walker, walkerRest };
+        }
+
+        private static void ShowPoseSprites(SpriteRenderer[] layers, Sprite[] sprites)
+        {
+            for (int i = 0; i < layers.Length; i++)
+            {
+                if (layers[i] != null)
+                    layers[i].sprite = sprites[i];
+            }
+        }
+
+        private void ReleaseAppearanceAssets()
+        {
+            foreach (var asset in appearanceAssets)
+                Destroy(asset);
+            appearanceAssets.Clear();
+        }
+
+        private AppearanceLayout LoadAppearanceLayout()
+        {
+            if (appearanceLayout != null)
+                return appearanceLayout;
+
+            var asset = Resources.Load<TextAsset>(AppearanceArt + "layout");
+            if (asset == null)
+                throw new System.InvalidOperationException("Missing Resources/" + AppearanceArt + "layout.json.");
+            try
+            {
+                appearanceLayout = AppearanceLayout.FromData(JsonUtility.FromJson<AppearanceLayoutData>(asset.text));
+            }
+            finally
+            {
+                Resources.UnloadAsset(asset);
+            }
+            return appearanceLayout;
+        }
+
+        private Sprite BuildPoseSprite(AppearanceLayout layout, string pose, BabyAppearance appearance,
+            AppearanceColors targets, List<Object> created)
+        {
+            if (!layout.TryGetPoseSize(pose, out int width, out int height))
+                throw new System.InvalidOperationException("The appearance layout has no " + pose + " pose.");
+
+            int length = width * height * AppearanceRecolor.Channels;
+            if (appearancePixels == null || appearancePixels.Length < length)
+            {
+                appearancePixels = new byte[length];
+                appearanceRegions = new byte[length];
+            }
+
+            var basePath = AppearanceLayout.BasePath(pose);
+            System.Buffer.BlockCopy(LoadAppearanceSource(basePath, width, height), 0, appearancePixels, 0, length);
+            System.Buffer.BlockCopy(LoadAppearanceSource(AppearanceLayout.RegionsPath(basePath), width, height),
+                0, appearanceRegions, 0, length);
+            CompositeAppearanceOverlay(layout, AppearanceLayout.HairPath(appearance.HairStyle, pose), pose, width, height);
+            var headwearPath = AppearanceLayout.HeadwearPath(appearance.Headwear, pose);
+            if (headwearPath != null)
+                CompositeAppearanceOverlay(layout, headwearPath, pose, width, height);
+            AppearanceRecolor.Recolor(appearancePixels, appearanceRegions, width * height, layout.Reference, targets);
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            created.Add(texture);
+            texture.name = "Baby " + pose + " look";
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            // RGBA32 pixel data is tightly packed RGBA with bottom-up rows, matching the scratch buffer.
+            var data = texture.GetPixelData<byte>(0);
+            NativeArray<byte>.Copy(appearancePixels, 0, data, 0, length);
+            texture.Apply(false, true);
+
+            // Same pivot, pixels per unit and pixel size as the imported pose sprites, so framing holds.
+            var sprite = SpriteFrom(texture, 100);
+            sprite.name = texture.name;
+            created.Add(sprite);
+            return sprite;
+        }
+
+        private void CompositeAppearanceOverlay(AppearanceLayout layout, string path, string pose, int width, int height)
+        {
+            if (!layout.TryGetOverlay(path, out var overlay) || overlay.Pose != pose)
+                throw new System.InvalidOperationException("The appearance layout has no " + path + " overlay.");
+
+            var pixels = LoadAppearanceSource(path, overlay.Width, overlay.Height);
+            var regions = LoadAppearanceSource(AppearanceLayout.RegionsPath(path), overlay.Width, overlay.Height);
+            // Unity buffers are bottom-up while the layout measures y from the top; CompositeOver converts.
+            AppearanceRecolor.CompositeOver(appearancePixels, appearanceRegions, width, height,
+                pixels, regions, overlay.Width, overlay.Height, overlay.X, overlay.YFromTop, PixelRowOrder.BottomUp);
+        }
+
+        // Decodes a PNG stored as Resources/BAIby/Baby/Appearance/{path}.bytes into RGBA bytes with
+        // bottom-up rows (GetPixels32 order). Decoded art is cached; the temporary texture is freed.
+        private byte[] LoadAppearanceSource(string path, int width, int height)
+        {
+            if (appearanceSources.TryGetValue(path, out var cached))
+                return cached;
+
+            var asset = Resources.Load<TextAsset>(AppearanceArt + path);
+            if (asset == null)
+                throw new System.InvalidOperationException("Missing Resources/" + AppearanceArt + path + ".bytes.");
+
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            try
+            {
+                if (!ImageConversion.LoadImage(texture, asset.bytes, false))
+                    throw new System.InvalidOperationException(path + " is not a readable PNG.");
+                if (texture.width != width || texture.height != height)
+                    throw new System.InvalidOperationException(path + " is " + texture.width + "x" + texture.height +
+                        " but the layout expects " + width + "x" + height + ".");
+
+                var colors = texture.GetPixels32();
+                var bytes = new byte[colors.Length * AppearanceRecolor.Channels];
+                for (int i = 0; i < colors.Length; i++)
+                {
+                    var color = colors[i];
+                    int offset = i * AppearanceRecolor.Channels;
+                    bytes[offset] = color.r;
+                    bytes[offset + 1] = color.g;
+                    bytes[offset + 2] = color.b;
+                    bytes[offset + 3] = color.a;
+                }
+
+                appearanceSources.Add(path, bytes);
+                return bytes;
+            }
+            finally
+            {
+                Destroy(texture);
+                Resources.UnloadAsset(asset);
+            }
         }
 
         private void BuildFallbackToy()
@@ -529,14 +730,7 @@ namespace BAIby.Character
 
             shade.transform.localPosition = new Vector3(0, QuiltSurface - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * .75f, .46f, 1);
-            AnchorStage(newborn, .94f);
-            AnchorStage(sitter, .87f);
-            AnchorStage(newbornRest, .94f);
-            AnchorStage(sitterRest, .87f);
-            AnchorStage(crawler, .80f, 2.95f);
-            AnchorStage(crawlerRest, .83f, 2.95f);
-            AnchorStage(walker, .68f, 3.47f);
-            AnchorStage(walkerRest, .76f, 3.07f);
+            AnchorStages();
             Fit(rattle, .46f, .46f);
             Fit(plush, .59f, .59f);
             Fit(storybook, Mathf.Min(1.06f, visibleWidth * .24f), .76f);
@@ -562,6 +756,18 @@ namespace BAIby.Character
             // Both illustrations place the quilt center 24% up from the bottom.
             float y = Mathf.Clamp(QuiltSurface + artHeight * .26f, -overscan, overscan);
             layer.transform.localPosition = new Vector3(0, y, 0);
+        }
+
+        private void AnchorStages()
+        {
+            AnchorStage(newborn, .94f);
+            AnchorStage(sitter, .87f);
+            AnchorStage(newbornRest, .94f);
+            AnchorStage(sitterRest, .87f);
+            AnchorStage(crawler, .80f, 2.95f);
+            AnchorStage(crawlerRest, .83f, 2.95f);
+            AnchorStage(walker, .68f, 3.47f);
+            AnchorStage(walkerRest, .76f, 3.07f);
         }
 
         private void AnchorStage(SpriteRenderer layer, float widthFraction, float maxHeight = 3.68f)
@@ -649,6 +855,7 @@ namespace BAIby.Character
         {
             foreach (var asset in generatedAssets)
                 Destroy(asset);
+            ReleaseAppearanceAssets();
         }
     }
 }

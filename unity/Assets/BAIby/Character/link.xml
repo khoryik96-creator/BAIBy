@@ -1,0 +1,10 @@
+<linker>
+  <!-- layout.json is read with JsonUtility, which fills these types through Unity's native serializer.
+       Keep them whole so IL2CPP managed code stripping (WebGL) cannot remove their constructors or fields. -->
+  <assembly fullname="BAIby.Character">
+    <type fullname="BAIby.Character.AppearanceLayoutData" preserve="all" />
+    <type fullname="BAIby.Character.AppearanceReferenceData" preserve="all" />
+    <type fullname="BAIby.Character.AppearancePoseData" preserve="all" />
+    <type fullname="BAIby.Character.AppearanceOverlayData" preserve="all" />
+  </assembly>
+</linker>
