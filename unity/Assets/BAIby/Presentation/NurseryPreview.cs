@@ -38,6 +38,7 @@ namespace BAIby.Presentation
         private NeedMeter cleanliness;
         private float refreshIn;
         private NurseryPanel activePanel;
+        private Button openDiaperButton;
 
         private void Awake()
         {
@@ -64,7 +65,8 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
-            if (activePanel == NurseryPanel.NewSound && Input.GetKeyDown(KeyCode.Escape))
+            if ((activePanel == NurseryPanel.NewSound || activePanel == NurseryPanel.Diaper)
+                && Input.GetKeyDown(KeyCode.Escape))
                 ShowPanel(NurseryPanel.Care);
 
             refreshIn -= Time.unscaledDeltaTime;
@@ -120,22 +122,35 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Care(CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
+        private bool Care(CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
+            (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) result;
             try
             {
-                var result = session.ApplyCare(action, toy, food);
-                if (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound)
-                    ShowPanel(NurseryPanel.Care);
-
-                Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
-                    action == CareAction.Play ? toy : (Toy?)null, food);
+                result = session.ApplyCare(action, toy, food);
             }
             catch (Exception error)
             {
                 ReportFailure(error, "This action couldn't be saved. Please try again.");
+                return false;
             }
+
+            if (activePanel == NurseryPanel.Diaper ||
+                (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound))
+                ShowPanel(NurseryPanel.Care);
+            Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
+                action == CareAction.Play ? toy : (Toy?)null, food);
+            return true;
         }
+
+        private void OpenDiaperExercise()
+        {
+            diaper.ResetActivity();
+            ShowPanel(NurseryPanel.Diaper);
+        }
+
+        private bool CompleteDiaper() =>
+            activePanel == NurseryPanel.Diaper && Care(CareAction.ChangeDiaper);
 
         private void NextPreviewDay()
         {
@@ -243,7 +258,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (newSound.Root.activeSelf)
+            if (diaper.Root.activeSelf)
+                diaper.Feedback.text = message;
+            else if (newSound.Root.activeSelf)
                 newSound.Scene.text = message;
             else if (feeding.Root.activeSelf)
                 feeding.Feedback.text = message;
@@ -324,8 +341,8 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Feeding), Fern, Color.white);
             ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
             ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
-            ActionButton("Change diaper", panel, 0, 1f / 3, 99, 187,
-                () => Care(CareAction.ChangeDiaper), Fern, Color.white);
+            openDiaperButton = ActionButton("Change diaper", panel, 0, 1f / 3, 99, 187,
+                OpenDiaperExercise, Fern, Color.white);
             ActionButton("Play with rattle", panel, 1f / 3, 2f / 3, 99, 187,
                 () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
             ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
@@ -339,6 +356,8 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
             newSound = new NewSoundPanel(Tray("New Sound Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), action => Care(action));
+            diaper = new DiaperPanel(Tray("Diaper Panel", false, 378),
+                () => ShowPanel(NurseryPanel.Care), CompleteDiaper);
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
@@ -347,7 +366,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Feeding, NewSound }
+        private enum NurseryPanel { Care, Development, Feeding, NewSound, Diaper }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -365,11 +384,15 @@ namespace BAIby.Presentation
                 case NurseryPanel.NewSound:
                     newSound.Comfort.Select();
                     break;
+                case NurseryPanel.Diaper:
+                    diaper.StartControl.Select();
+                    break;
                 default:
                     switch (previous)
                     {
                         case NurseryPanel.Feeding: feedButton.Select(); break;
                         case NurseryPanel.Development: developmentButton.Select(); break;
+                        case NurseryPanel.Diaper: openDiaperButton.Select(); break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -383,6 +406,7 @@ namespace BAIby.Presentation
             controls.SetActive(adopted && activePanel == NurseryPanel.Care);
             development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
             feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
+            diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
             var hasPendingSound = adopted && session.State.HasPendingNewSound;
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);

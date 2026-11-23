@@ -7,5 +7,6 @@
   <ItemGroup>
     <Compile Include="../../unity/Assets/BAIby/Simulation/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Application/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Presentation/WipeGeometry.cs" />
   </ItemGroup>
 </Project>

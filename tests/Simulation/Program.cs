@@ -409,7 +409,20 @@ var migratedIncident = new BabySession(game, new MemorySaveStore { Primary = pre
 Equal(true, migratedIncident.State.HasPendingNewSound, "a sitter in a v6 save can address the new incident");
 Equal(74.0, migratedIncident.State.Health, "v6 incident migration preserves unrelated progress");
 
-Console.WriteLine("Simulation checks passed.");
+Equal(true, BAIby.Presentation.WipeGeometry.TouchesSpot(10, 10, 10, 10, 10, 10, 8),
+    "a tap cleans the spot directly under it");
+Equal(false, BAIby.Presentation.WipeGeometry.TouchesSpot(10, 10, 10, 10, 19, 10, 8),
+    "a tap outside a spot does not clean it");
+Equal(true, BAIby.Presentation.WipeGeometry.TouchesSpot(-100, 3, 100, 3, 0, 0, 3),
+    "a fast swipe clears a spot between pointer samples, including a tangent");
+Equal(true, BAIby.Presentation.WipeGeometry.TouchesSpot(100, 3, -100, 3, 0, 0, 3),
+    "swiping in the opposite direction has the same coverage");
+Equal(false, BAIby.Presentation.WipeGeometry.TouchesSpot(-100, 0, -10, 0, 0, 0, 3),
+    "a swipe's infinite extension cannot clear a spot past its endpoint");
+Equal(false, BAIby.Presentation.WipeGeometry.TouchesSpot(-100, 12, 100, 12, 0, 0, 3),
+    "a swipe that passes nearby does not clear a spot");
+
+Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)
 {
