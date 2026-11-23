@@ -49,6 +49,22 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.Empty);
             Tap(view.gameObject, "Play with plush");
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            Tap(view.gameObject, "Development");
+            Assert.That(Child<Text>(view.gameObject, "Development Age").text, Does.Contain("Newborn"));
+            Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("0"));
+            var connection = Child<Text>(view.gameObject, "Connection Value");
+            var previousConnection = connection.text;
+            Tap(view.gameObject, "Read a story");
+            Assert.That(Child<Text>(view.gameObject, "Development Feedback").text, Does.Contain("as you read together"));
+            Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("1"));
+            Assert.That(connection.text, Is.Not.EqualTo(previousConnection));
+            var connectionAfterStory = connection.text;
+            yield return new WaitForSecondsRealtime(0.15f);
+            var storybook = Child<SpriteRenderer>(view.gameObject, "Nursery storybook");
+            Assert.That(storybook.enabled, Is.True);
+            Assert.That(storybook.sprite, Is.Not.Null);
+            Tap(view.gameObject, "Done");
+
             var afterPlay = EnergyMeter(view.gameObject);
             Assert.That(afterPlay, Is.LessThan(initialEnergy));
             Tap(view.gameObject, "Rest");
@@ -68,6 +84,11 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Early sitter"));
             Assert.That(EnergyMeter(restored.gameObject), Is.EqualTo(beforeReload).Within(0.01f));
+            Tap(restored.gameObject, "Development");
+            Assert.That(Child<Text>(restored.gameObject, "Development Age").text, Does.Contain("Early sitter"));
+            Assert.That(Child<Text>(restored.gameObject, "Story Sessions Value").text, Is.EqualTo("1"));
+            Assert.That(Child<Text>(restored.gameObject, "Connection Value").text, Is.EqualTo(connectionAfterStory));
+            Tap(restored.gameObject, "Done");
             Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             Tap(restored.gameObject, "Play with plush");
             Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the plush"));

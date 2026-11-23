@@ -3,6 +3,7 @@
 BAIby is a virtual baby raising game. The Android and iOS restart focuses on a believable, illustrated 2D baby whose reactions, routines, and abilities change through play and as they grow.
 
 - [Restart roadmap](docs/roadmap.md)
+- [Feature parity with v5.3](docs/feature-parity.md)
 - [Mobile architecture](docs/architecture.md)
 - [Regression guardrails](docs/regression.md)
 - [Nursery playtest checklist](docs/playtest.md)

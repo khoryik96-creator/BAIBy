@@ -12,7 +12,8 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Select **Preview next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
-| Close and reopen the same build | The same baby, energy, favorite toy, and developmental stage return. |
+| Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
+| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, and connection return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.

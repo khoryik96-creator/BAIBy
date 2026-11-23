@@ -96,7 +96,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"5\" />";
+saves.Primary = "<baby version=\"6\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -104,7 +104,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"5\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"6\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -122,10 +122,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"4\""), "first edit after migration writes v4");
+Equal(true, migratedSaves.Primary.Contains("version=\"5\""), "first edit after migration writes v5");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v4");
+    "rest on migrated save persists energy in v5");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -155,7 +155,7 @@ persistedToys.ApplyCare(CareAction.Play);
 Equal<Toy?>(null, persistedToys.State.FavoriteToy, "default play still counts toward the rattle");
 Equal(4, persistedToys.State.PlushFamiliarity, "default play leaves plush familiarity unchanged");
 
-var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false, false);
+var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false, false, 0, 0);
 Equal(int.MaxValue, game.ApplyCare(maxToyPlay, CareAction.Play).State.ToyFamiliarity,
     "repeated play cannot overflow familiarity");
 
@@ -187,7 +187,7 @@ Equal((false, true), crawlerSession.Refresh(), "migration unlocks already earned
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"4\""), "crawling state writes v4");
+Equal(true, crawlerSaves.Primary.Contains("version=\"5\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -207,6 +207,45 @@ Equal((Reaction.CrawlsToToy, true, true), crawlingCare.ApplyCare(CareAction.Play
     "care forwards new milestones and uses the newly unlocked ability");
 Equal((Reaction.CrawlsToToy, false, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
     "same-time care does not re-award milestones");
+
+Equal(0.0, newborn.Connection, "newborn starts building connection");
+Equal(3.0, game.ApplyCare(newborn, CareAction.Soothe).State.Connection, "soothing builds lasting connection");
+Equal(1.0, played.State.Connection, "playing builds lasting connection");
+var story = game.ApplyCare(newborn, CareAction.ReadStory);
+Equal(Reaction.EnjoysStory, story.Reaction, "reading has its own reaction");
+Equal(1, story.State.StorySessions, "reading records a story session");
+Equal(2.0, story.State.Connection, "reading builds connection");
+Equal(74.0, story.State.Energy, "reading uses a little energy");
+Equal(newborn.Age, story.State.Age, "reading does not advance age");
+Equal(0.0, game.ApplyCare(tired, CareAction.ReadStory).State.Energy, "reading cannot reduce energy below zero");
+var longAbsence = game.Advance(story.State, start.AddDays(10));
+Equal(2.0, longAbsence.State.Connection, "connection does not decay while away");
+Equal(1, longAbsence.State.StorySessions, "story history survives elapsed time");
+var bedtime = story.State;
+for (var i = 0; i < 60; i++)
+    bedtime = game.ApplyCare(bedtime, CareAction.ReadStory).State;
+Equal(100.0, bedtime.Connection, "repeated reading caps connection");
+Equal(61, bedtime.StorySessions, "reading still records sessions when connection is capped");
+var manyStories = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, 0, 0, false, false, 0, int.MaxValue);
+Equal(int.MaxValue, game.ApplyCare(manyStories, CareAction.ReadStory).State.StorySessions,
+    "reading cannot overflow the story count");
+
+const string preJournalSave = "<baby version=\"4\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>6912000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach><can-crawl>true</can-crawl></baby>";
+var journalSaves = new MemorySaveStore { Primary = preJournalSave };
+var journal = new BabySession(game, journalSaves, () => start);
+Equal(true, journal.State.CanCrawl, "v4 journal migration preserves crawling");
+Equal(3, journal.State.PlushFamiliarity, "v4 journal migration preserves toy history");
+Equal(0.0, journal.State.Connection, "v4 starts connection at baseline");
+Equal(0, journal.State.StorySessions, "v4 has no story history");
+journal.ApplyCare(CareAction.ReadStory);
+journal.ApplyCare(CareAction.Soothe);
+var resumedJournal = new BabySession(game, journalSaves, () => start);
+Equal(5.0, resumedJournal.State.Connection, "v5 resumes lasting connection");
+Equal(1, resumedJournal.State.StorySessions, "v5 resumes story session count");
+Equal(true, resumedJournal.State.CanCrawl, "v5 retains reached milestones");
 
 Console.WriteLine("Simulation checks passed.");
 

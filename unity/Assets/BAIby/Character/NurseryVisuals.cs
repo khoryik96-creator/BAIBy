@@ -25,6 +25,7 @@ namespace BAIby.Character
         private Transform toy;
         private SpriteRenderer rattle;
         private SpriteRenderer plush;
+        private SpriteRenderer storybook;
         private Toy ambientToy;
         private Toy playedToy;
         private Transform baby;
@@ -123,6 +124,11 @@ namespace BAIby.Character
             if (plush.sprite == null)
                 Debug.LogError("BAIby requires the Plush sprite in Resources/BAIby/Baby.");
 
+            storybook = AddLayer(transform, "Nursery storybook", LoadSprite(Art + "Baby/Storybook"), Color.white, 8);
+            if (storybook.sprite == null)
+                Debug.LogError("BAIby requires the Storybook sprite in Resources/BAIby/Baby.");
+            storybook.enabled = false;
+
             ShowToy(Toy.Rattle);
             toy.gameObject.SetActive(false);
             Frame();
@@ -155,6 +161,7 @@ namespace BAIby.Character
             float feed = reaction == Reaction.Satisfied ? response : 0;
             float soothe = reaction == Reaction.Calmed ? response : 0;
             float rest = reaction == Reaction.Rested ? Window(elapsed, 0, .65f, 3.10f, 4.35f) : 0;
+            float reading = reaction == Reaction.EnjoysStory ? Window(elapsed, 0, .40f, 2.20f, 2.92f) : 0;
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
             bool crawling = playing && reaction == Reaction.CrawlsToToy;
             float play = playing && !crawling ? response : 0;
@@ -172,13 +179,26 @@ namespace BAIby.Character
             baby.localPosition = new Vector3(.08f * play + .10f * reach + crawlShift,
                 QuiltSurface - .024f * rest + .022f * feed + crawlLift, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
-                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f);
-            baby.localScale = new Vector3(1 + breath * .5f, 1 + breath + .022f * feed, 1);
+                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f - 2.6f * reading);
+            baby.localScale = new Vector3(1 + breath * .5f, 1 + breath + .022f * feed + .016f * reading, 1);
             shade.transform.localPosition = new Vector3(crawlShift, QuiltSurface - .06f, 0);
 
             var displayedToy = playing ? playedToy : ambientToy;
             ShowToy(displayedToy);
             PoseToy(displayedToy, now, play, reach, crawling, crawl);
+            PoseStorybook(elapsed, reading);
+        }
+
+        private void PoseStorybook(float elapsed, float reading)
+        {
+            SetOpacity(storybook, reading);
+            if (reading <= 0)
+                return;
+
+            float lift = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, .55f, elapsed));
+            storybook.transform.localPosition = new Vector3(visibleWidth * .385f,
+                -.11f + lift * .32f + Mathf.Sin(elapsed * 3.2f) * .017f, 0);
+            storybook.transform.localRotation = Quaternion.Euler(0, 0, 10 - lift * 15);
         }
 
         private static bool IsPlayReaction(Reaction value)
@@ -285,6 +305,7 @@ namespace BAIby.Character
             AnchorStage(crawlerRest, .83f, 2.95f);
             Fit(rattle, .46f, .46f);
             Fit(plush, .59f, .59f);
+            Fit(storybook, Mathf.Min(1.06f, visibleWidth * .24f), .76f);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
         }
 
