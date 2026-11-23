@@ -8,7 +8,9 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Adopt a baby and select **Play with rattle** | The newborn tracks the toy and starts to remember it. |
 | Play twice with the plush bunny | The bunny moves toward the baby. The nursery shows the bunny as the favorite when it takes the lead. |
 | Play, then rest | Play spends energy. Rest raises energy and cues a short nap. |
-| Advance a preview day and select **Change diaper** | Cleanliness falls as time advances, then a fresh change restores it and shows an illustrated diaper cue. |
+| Advance a preview day and select **Change diaper** | Cleanliness falls as time advances. The cleanup panel opens without changing the saved state. |
+| Tap or swipe all three marks, then finish | The change restores Cleanliness and shows the illustrated diaper cue. **Quick change** applies the same care without the activity. |
+| Cancel after cleaning one mark | Cleanliness stays where it was, and the next cleanup starts fresh. |
 | Keep basic needs met and let game time pass | Low Health can recover over time. Health falls only after a need spends time very low. |
 | Open **Feed** before crawling | Milk is available. Mashed banana and soft oats show when they unlock. |
 | Open **Feed** as a crawler | All three choices are available. Milk helps energy, banana helps comfort, and oats give the largest fullness increase. |

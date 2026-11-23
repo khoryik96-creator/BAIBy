@@ -85,7 +85,19 @@ namespace BAIby.Tests
             var beforeChange = NeedValue(view.gameObject, "Cleanliness");
             Assert.That(beforeChange, Is.LessThan(initialCleanliness));
             Assert.That(Reaction(view.gameObject), Does.Contain("could use a fresh diaper"));
+            var saveBeforeCancel = PlayerPrefs.GetString(saveKey);
             Tap(view.gameObject, "Change diaper");
+            yield return null;
+            Wipe(view.gameObject, "Diaper spot 1", "Diaper spot 1");
+            Assert.That(Child<Button>(view.gameObject, "Finish diaper").interactable, Is.False);
+            Tap(view.gameObject, "Cancel diaper");
+            Assert.That(NeedValue(view.gameObject, "Cleanliness"), Is.EqualTo(beforeChange));
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeCancel));
+
+            Tap(view.gameObject, "Change diaper");
+            var saveBeforeQuickChange = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Quick change");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".backup"), Is.EqualTo(saveBeforeQuickChange));
             Assert.That(NeedValue(view.gameObject, "Cleanliness"), Is.GreaterThan(beforeChange));
             Assert.That(Reaction(view.gameObject), Does.Contain("is clean and dry"));
             yield return new WaitForSecondsRealtime(0.35f);
@@ -113,6 +125,14 @@ namespace BAIby.Tests
             var healthBeforeReload = NeedValue(view.gameObject, "Health");
             Assert.That(healthBeforeReload, Is.LessThan(initialHealth));
             Tap(view.gameObject, "Change diaper");
+            yield return null;
+            var saveBeforeWiping = PlayerPrefs.GetString(saveKey);
+            Assert.That(Child<Button>(view.gameObject, "Finish diaper").interactable, Is.False);
+            Wipe(view.gameObject, "Diaper spot 1", "Diaper spot 2");
+            Wipe(view.gameObject, "Diaper spot 3", "Diaper spot 3");
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeWiping));
+            Tap(view.gameObject, "Finish diaper");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".backup"), Is.EqualTo(saveBeforeWiping));
             var cleanlinessBeforeReload = NeedValue(view.gameObject, "Cleanliness");
             var energyBeforeReload = NeedValue(view.gameObject, "Energy");
             UnityEngine.Object.Destroy(view.gameObject);
@@ -200,6 +220,24 @@ namespace BAIby.Tests
 
         private static float NeedValue(GameObject view, string name) =>
             Child<RectTransform>(view, name).Find("Bar/Fill").GetComponent<RectTransform>().anchorMax.x;
+
+        private static void Wipe(GameObject view, string from, string to)
+        {
+            var mat = Child<RectTransform>(view, "Diaper wipe mat");
+            var pointer = new PointerEventData(EventSystem.current)
+            {
+                button = PointerEventData.InputButton.Left,
+                pointerId = 1,
+                position = RectTransformUtility.WorldToScreenPoint(null, Child<RectTransform>(view, from).position)
+            };
+            Assert.That(ExecuteEvents.Execute(mat.gameObject, pointer, ExecuteEvents.pointerDownHandler), Is.True);
+            if (from != to)
+            {
+                pointer.position = RectTransformUtility.WorldToScreenPoint(null, Child<RectTransform>(view, to).position);
+                Assert.That(ExecuteEvents.Execute(mat.gameObject, pointer, ExecuteEvents.dragHandler), Is.True);
+            }
+            Assert.That(ExecuteEvents.Execute(mat.gameObject, pointer, ExecuteEvents.pointerUpHandler), Is.True);
+        }
 
         private static void Tap(GameObject view, string name)
         {
