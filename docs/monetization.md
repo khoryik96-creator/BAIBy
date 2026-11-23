@@ -1,6 +1,6 @@
 # Premium and monetization
 
-**Status: proposal awaiting decisions.** Nothing here is built. Prices are placeholders mapped to store tiers. The open decisions are listed at the end.
+**Status: decided proposal.** Nothing here is built. Prices are placeholders mapped to store tiers. The decisions are listed at the end.
 
 It merges an economy proposal and a policy review with the user's decisions: paid slots beyond the free 2, premium automation, cosmetics and rare skins. It follows `docs/pet-mode.md`. `docs/care-and-growth.md` did not exist yet, so its ladder, on-time windows and streaks come from its brief; recheck when it lands.
 
@@ -129,16 +129,18 @@ This extends the entitlement design in `pet-mode.md`.
 - **Hidden SDK data collection** from Unity IAP or Services defaults.
 - **Policy wording.** Google Play text came from search summaries; check it live.
 
-## Open decisions
+## Decisions
 
-1. Ship paid automation at all, given the policy review's advice to drop it, or keep it as M4 behind these guardrails?
-2. One "+2" slot pack (recommended, as in `pet-mode.md`) or several up to the 8 physical slots, and at which price tier?
-3. Helpers sold singly or only as a set, and their floors and ceilings once care-and-growth sets the on-time threshold.
-4. Baby helpers as a Sitter character, or pet-only helpers?
-5. Confirm that "rare skin" means fantasy costumes and special pet coats, with every human feature free.
-6. Store wording: "special" or "collector" instead of "rare"?
-7. Seasonal content at launch, or in M5?
-8. A Family bundle (helpers, rooms, two packs) at launch, given stores cannot discount already-owned items?
-9. Treat every player as a child (recommended), or build a neutral age screen for a mixed audience?
-10. Should a complete store query that omits an item on two launches at least 24 h apart also count as revocation?
-11. Who does the legal and store review before M1, and is Kids Category listing wanted?
+The product owner delegated these choices on 2026-11-23. Revisit them with playtest data and the legal review.
+
+1. **Paid automation:** ship it as Helpers in M4, behind every guardrail above. Helpers never build development, Bond, Connection, familiarity, streaks or Health.
+2. **Slots:** one "+2 rooms" pack at about US$2.99, matching [pet mode](pet-mode.md).
+3. **Helpers:** sold as one household set (Feeder, Play and Tidy together) to avoid many small purchases. Floors and ceilings follow the on-time threshold in [care and growth](care-and-growth.md).
+4. **Babies:** baby helpers appear as a Sitter character. Pets use the Feeder, Play and Tidy helpers.
+5. **Rare looks:** fantasy costumes for babies and special coat patterns for pets. Every real human feature (skin tone, hair, eyes) stays free. The rarest looks are earned through care and never sold.
+6. **Store wording:** "Special", never "rare" or "limited".
+7. **Seasonal content:** later, in M5.
+8. **Family bundle:** not at launch.
+9. **Audience:** treat every player as a child. There is no age screen, every purchase sits behind the parental gate, and there are no ads or third-party analytics.
+10. **Revocation:** only an explicit refund or revocation from the store locks extra rooms. A missing item in a store query does not.
+11. **Store listing:** no Kids Category listing at launch; publish as a family-friendly app that follows the child rules above. An external legal and store-policy review is required before M1 ships, and the product owner arranges it.

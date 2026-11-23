@@ -1,6 +1,6 @@
 # Pet mode and household
 
-**Status: proposal awaiting decisions.** Nothing here is built. The open decisions are listed at the end.
+**Status: decided proposal.** Nothing here is built yet. The decisions are listed at the end.
 
 It merges three proposals with a later user decision: 2 free companions, further slots paid.
 
@@ -203,12 +203,16 @@ One unit is roughly one baby pose. The total is about 33 to 42 units, against 8 
 - **Realism that reads as punishment** (hamster sleep, the cat hopping off). Playtest each.
 - **Branch conflict.** Generalize the recolor only after the appearance branch merges.
 
-## Open decisions
+## Decisions
 
-1. Keep `FreeCompanions = 2`, or raise it after playtests?
-2. Paid unlock: how many slots per pack (+2 recommended), which price tier, and one pack or several?
-3. Freeing a slot: "Say goodbye" with a keepsake (recommended), or an album companions can return from? A returnable album lets players rotate companions past the paid limit.
-4. Budget and artist for about 33 to 42 commissioned units, starting with the cat and hamster batch?
-5. Species order after the cat: hamster, dog, fish, rabbit, or another order?
-6. Two growth stages for pets with no senior stage: confirmed?
-7. Are the launch breed lists acceptable? Is any later breed a must-have despite needing new art?
+The product owner delegated these choices on 2026-11-23. Revisit them with playtest data.
+
+1. **Free companions:** keep `FreeCompanions = 2`. Revisit after the first external playtest.
+2. **Paid unlock:** one non-consumable "+2 rooms" pack for a household of 4, at the lowest common price tier (about US$2.99). A second pack up to the 8 physical slots waits for demand.
+3. **Freeing a slot:** "Say goodbye" with a keepsake. There is no returnable album, so the paid limit stays meaningful.
+4. **Art:** commission the cat batch first (about 10 units), with the hamster in the same brief. Get real quotes before committing to the remaining species. H0 needs no new art and starts now.
+5. **Species order:** cat, hamster, dog, fish, rabbit, as in the slice plan. The hamster proves the model is not cat-specific at the lowest art cost.
+6. **Growth stages:** Young and Grown for every pet, with no senior stage.
+7. **Breeds:** accept the launch lists. No later breed is a must-have.
+
+Consequences for neglect follow [care and growth](care-and-growth.md) and apply to pets as well as babies. Nothing ever dies, runs away for good, or is deleted.
