@@ -104,8 +104,8 @@ Premium breeds are one-time purchases behind the parental gate, sold singly or a
 
 - Each companion has its own checkpoint and capped decay (4 hours, as for the baby). Normal care recovers any companion in minutes.
 - The worst state is a sleepy, hungry-looking pose. A low-water tank turns hazy. Nothing dies or leaves.
-- Returns get a joyful reunion beat, never guilt text. There are no streak counters.
-- Notifications are off by default. If enabled, there is at most one a day for the household, and it is observational.
+- Returns get a joyful reunion beat, never guilt text. Consistency shows as the forgiving care rhythm from [care and growth](care-and-growth.md), which halves on a missed day instead of resetting.
+- Notifications are off by default. If enabled, there are at most two a day for the household, and they are observational.
 - A resting (locked) companion does not decay.
 
 ## Architecture

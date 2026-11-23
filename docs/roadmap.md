@@ -14,7 +14,7 @@ Keep gameplay in a plain C# simulation with injected time and seeded gameplay ra
 
 ## 3. Expand after the loop works
 
-Add routines, outfits, toys, and developmental abilities in small batches. Growth follows elapsed game time. Care affects needs, familiarity, and preferences. Cap offline need decay so players can return after a break and recover through ordinary care. Decide pacing and any v5.3 save import before the first external beta. Treat browser behavior as historical reference and call out intentional changes, including the switch from feeding-based growth to elapsed-time growth.
+Add routines, outfits, toys, and developmental abilities in small batches. Growth follows elapsed game time, and care quality shifts each milestone within 0.8x to 1.3x of its nominal age, as described in [care and growth](care-and-growth.md). Care affects needs, development, familiarity, and preferences. Cap offline need decay so players can return after a break and recover through ordinary care. Decide pacing and any v5.3 save import before the first external beta. Treat browser behavior as historical reference and call out intentional changes, including the switch from feeding-based growth to elapsed-time growth.
 
 ## 4. Prepare mobile beta
 

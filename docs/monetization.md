@@ -19,7 +19,7 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 - The base customization set (6 skin tones, 6 hair colors, 4 hair styles, 8 outfits, 4 headwear), the Sage and Peach nursery, and at least one free decor theme per future room.
 - All real-human features, now and later: skin tones, hair colors and textures, facial and body features.
 - Every look earned through care and one free seasonal item each season.
-- A free **Away mode** ("Grandma visits", a pet-sitter) that pauses needs and growth for a planned absence.
+- A free **Away mode** ("Grandma visits", a pet-sitter) that holds needs steady and keeps development at a neutral pace for a planned absence of up to 14 days.
 - Notifications, streak protection, accessibility settings, save and restore.
 
 ## Premium catalogue
@@ -101,7 +101,7 @@ With today's 4-hour decay cap, helpers add little. Absence must not be made hars
 - A full household shows a calm "Your home is full" card; goodbye is never framed as pressure.
 - **Parental gate.** An adult task such as typing a number written in words, varied each time and screen-reader accessible. No hold-to-pass.
 - **Purchase flow.** Item, real local price, then the platform sheet, away from care controls. An Owned items screen points to store refunds. Ask to Buy and Play approvals show "Waiting for a grown-up" with no nag loop.
-- **Notifications.** Local only (no push token), off by default, at most one a day per household, quiet overnight and in school hours, observational ("Mia is waking up from her nap"). No guilt, streak loss, item names or shop links.
+- **Notifications.** Local only (no push token), off by default, at most two a day per household, quiet overnight and in school hours, observational ("Mia is waking up from her nap"). No guilt, streak loss, item names or shop links.
 
 ## Entitlements, offline behaviour, refunds, Web
 
