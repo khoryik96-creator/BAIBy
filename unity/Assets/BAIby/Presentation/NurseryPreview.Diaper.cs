@@ -19,6 +19,7 @@ namespace BAIby.Presentation
             };
 
             private readonly RectTransform mat;
+            private readonly Sprite spotArtwork;
             private readonly RectTransform[] spots = new RectTransform[SpotCenters.Length];
             private readonly Button finish;
             private readonly Func<bool> change;
@@ -51,6 +52,10 @@ namespace BAIby.Presentation
                 {
                     Debug.LogError("Missing cleanup mat illustration in Resources/BAIby/Baby/CleanupMat.");
                 }
+
+                spotArtwork = Resources.Load<Sprite>("BAIby/Baby/CleanupSpot");
+                if (spotArtwork == null)
+                    Debug.LogError("Missing cleanup spot illustration in Resources/BAIby/Baby/CleanupSpot.");
 
                 image.raycastTarget = true;
                 mat.gameObject.AddComponent<DiaperWipeInput>().Bind(mat, Wipe);
@@ -85,14 +90,10 @@ namespace BAIby.Presentation
                 var center = SpotCenters[index];
                 var spot = Box($"Diaper spot {index + 1}", mat, center, center,
                     new Vector2(-35, -35), new Vector2(35, 35));
-                var main = new Color32(145, 91, 54, 255);
-                var dot = new Color32(174, 118, 75, 255);
-                Label("Washable spot", spot, "●", 63, main, TextAnchor.MiddleCenter,
-                    Vector2.zero, Vector2.one, Vector2.zero);
-                Label("Small spot", spot, "●", 27, dot, TextAnchor.MiddleCenter,
-                    new Vector2(34, 25), Vector2.one, new Vector2(7, 5));
-                Label("Small spot", spot, "●", 20, dot, TextAnchor.MiddleCenter,
-                    new Vector2(-5, -4), Vector2.one, new Vector2(-20, -25));
+                var mark = Surface(spot, spotArtwork != null ? Color.white : new Color32(145, 91, 54, 255));
+                mark.sprite = spotArtwork;
+                mark.preserveAspect = true;
+                spot.localRotation = Quaternion.Euler(0, 0, (index - 1) * 17);
                 return spot;
             }
 
