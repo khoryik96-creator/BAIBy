@@ -30,9 +30,16 @@ namespace BAIby.Simulation
         TogetherExcused = 20,
         NoRoutineTag = 21,
         RoutineScheduled = 22,
+        StyleChanged = 23,
+        AwayStarted = 24,
+        AwayEnded = 25,
+        WashOnTime = 26,
+        WashLate = 27,
+        WashExcused = 28,
+        WashOutsideWindow = 29,
     }
 
-    // Developer read-outs of the shadow ledger. Never shown to players.
+    // Developer read-outs of the care ledger. Never shown to players.
     public static class CareDiagnostics
     {
         public static string Describe(CareReason reason)
@@ -62,6 +69,13 @@ namespace BAIby.Simulation
                 case CareReason.TogetherExcused: return "together time on an excused day";
                 case CareReason.NoRoutineTag: return "care outside the routine";
                 case CareReason.RoutineScheduled: return "routine changes at the next care day";
+                case CareReason.StyleChanged: return "care style changed";
+                case CareReason.AwayStarted: return "away mode started";
+                case CareReason.AwayEnded: return "away mode ended";
+                case CareReason.WashOnTime: return "wash on time";
+                case CareReason.WashLate: return "wash late";
+                case CareReason.WashExcused: return "wash in an excused window";
+                case CareReason.WashOutsideWindow: return "wash outside the window";
                 default: throw new ArgumentOutOfRangeException(nameof(reason));
             }
         }
@@ -90,7 +104,8 @@ namespace BAIby.Simulation
             if (record.Preset != RoutinePreset.SchoolDay || record.WakeTime != RoutineCalendar.DefaultWakeTime)
                 line.Append(' ').Append(record.Preset).Append(" wake ").Append(record.WakeTime.ToString(@"hh\:mm", invariant));
 
-            line.Append(" | today ").Append(record.MomentCode).Append(record.TogetherToday ? " together" : "")
+            line.Append(" | today ").Append(record.MomentCode).Append(" wash ").Append("POLMEC"[(int)record.Wash])
+                .Append(record.TogetherToday ? " together" : "")
                 .Append(record.DayExcused ? " excused" : "")
                 .Append(" | meals ").Append(Ring(record.Meals))
                 .Append(" (").Append(record.Meals.Credit(tunables.MealRing, tunables.LateCredit).ToString("0.00", invariant)).Append(')')
@@ -99,6 +114,11 @@ namespace BAIby.Simulation
                 .Append(" | score ").Append(CareRules.Score(record, tunables).ToString("0.00", invariant))
                 .Append(" | excused ").Append(record.ExcusedCount.ToString(invariant))
                 .Append(" covered ").Append(record.CoveredCount.ToString(invariant))
+                .Append(" | ").Append(record.Mood).Append(record.MoodCause == CareMoodCause.None ? "" : " (" + record.MoodCause + ")")
+                .Append(record.Owed == CareTags.None ? "" : " owed " + record.Owed)
+                .Append(" mess ").Append(record.Mess.ToString(invariant))
+                .Append(record.Style == CareStyle.Standard ? "" : " " + record.Style)
+                .Append(record.IsAway ? " away" : "")
                 .Append(" | ").Append(Describe(record.LastReason));
             return line.ToString();
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using BAIby.Simulation;
 
@@ -14,8 +15,15 @@ namespace BAIby.Application
         // Null until the player adopts a baby or a saved baby is restored.
         public BabyState State { get; private set; }
 
-        // Developer read-out of the shadow care ledger; empty before adoption.
+        // Developer read-out of the care ledger; empty before adoption.
         public string CareSummary => State == null ? string.Empty : simulation.DescribeCare(State);
+
+        // Today's routine windows as of the last refresh; empty before adoption.
+        public IReadOnlyList<RoutineSlot> Routine =>
+            State == null ? (IReadOnlyList<RoutineSlot>)Array.Empty<RoutineSlot>() : BabySimulation.Routine(State);
+
+        // Whether feeding now would overfeed.
+        public bool IsFull => State != null && simulation.IsFull(State);
 
         public BabySession(BabySimulation simulation, IBabySaveStore saves, Func<DateTimeOffset> now)
         {
@@ -84,6 +92,31 @@ namespace BAIby.Application
             return (current.UnlockedSitting || preview.UnlockedSitting,
                 current.UnlockedCrawling || preview.UnlockedCrawling,
                 current.UnlockedWalking || preview.UnlockedWalking);
+        }
+
+        // Starts Away mode now, for up to 14 days. Any care, or EndAway, brings the baby back to normal.
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) StartAway(TimeSpan duration)
+        {
+            var current = simulation.Advance(GetAdoptedBaby(), now());
+            Commit(simulation.StartAway(current.State, duration));
+            return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) EndAway()
+        {
+            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var back = simulation.EndAway(current.State);
+            if (back != State)
+                Commit(back);
+
+            return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        public void SetCareStyle(CareStyle style)
+        {
+            var updated = simulation.ChangeCareStyle(GetAdoptedBaby(), style);
+            if (updated != State)
+                Commit(updated);
         }
 
         public void SetNurseryTheme(NurseryTheme theme)

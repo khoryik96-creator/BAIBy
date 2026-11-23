@@ -74,6 +74,19 @@ namespace BAIby.Simulation
             return Array.AsReadOnly(windows);
         }
 
+        // The daily wash: on time from the morning opening until the evening meal is due, late until the
+        // evening meal's late limit. A missed wash leaves the room messier.
+        public static (TimeSpan Open, TimeSpan Due, TimeSpan LateUntil) WashWindow(RoutinePreset preset, TimeSpan wakeTime)
+        {
+            var windows = Windows(preset, wakeTime);
+            var evening = windows[(int)CareMoment.Evening];
+            return (windows[(int)CareMoment.Morning].Open, evening.Due, evening.LateUntil);
+        }
+
+        // Quiet hours run from the bedtime window's due time until the wake time.
+        public static (TimeSpan Start, TimeSpan End) Night(RoutinePreset preset, TimeSpan wakeTime) =>
+            (Windows(preset, wakeTime)[(int)CareMoment.Bedtime].Due, wakeTime);
+
         public static void ValidateRoutine(RoutinePreset preset, TimeSpan wakeTime)
         {
             if (!Enum.IsDefined(typeof(RoutinePreset), preset))

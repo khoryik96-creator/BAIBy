@@ -22,7 +22,7 @@ namespace BAIby.Bootstrap
             var view = new GameObject("Nursery Preview").AddComponent<NurseryPreview>();
             try
             {
-                var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4),
+                var simulation = new BabySimulation(TimeSpan.FromDays(3), BabySimulation.DefaultMaxNeedDecay,
                     TimeSpan.FromDays(7), TimeSpan.FromDays(14));
                 // The clock carries the local offset (from the browser on the Web build) and follows zone
                 // changes while the app stays alive. Every household key derives from saveKey; slot 1 is

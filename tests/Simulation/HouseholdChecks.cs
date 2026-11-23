@@ -338,7 +338,9 @@ static class HouseholdChecks
         var resting = Start.AddDays(7);
         Equal(resting, reopened.Companions[0].State.TimeCheckpoint, "home advance still commits time");
         Equal(false, HouseholdRules.NeedsAttention(game.Adopt("New", Start)), "a new baby needs no attention");
-        Equal(true, HouseholdRules.NeedsAttention(reopened.Companions[0].State), "capped decay can leave a low need");
+        // Four capped awake hours take 28 Fullness.
+        var hungry = BabyState.Restore("Old", Start.AddHours(12), TimeSpan.FromDays(2), 50, 80, 80, 0, 0, false, false, 0, 0, 80, 100, false);
+        Equal(true, HouseholdRules.NeedsAttention(game.Advance(hungry, Start.AddDays(2)).State), "capped decay can leave a low need");
     }
 
     private static void CheckFailedWritesKeepState(BabySimulation game)

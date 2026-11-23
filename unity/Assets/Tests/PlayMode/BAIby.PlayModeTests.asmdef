@@ -2,6 +2,7 @@
   "name": "BAIby.PlayModeTests",
   "references": [
     "BAIby.Bootstrap",
+    "BAIby.Character",
     "BAIby.Presentation",
     "UnityEngine.UI"
   ],

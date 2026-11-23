@@ -58,6 +58,7 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
+            FitRoutineStrip();
             if (Input.GetKeyDown(KeyCode.Escape))
                 GoBack();
 
@@ -243,6 +244,7 @@ namespace BAIby.Presentation
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
                 canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
+            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0);
             // After Present, so the look is built first for the stage that is actually shown.
             ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
 
@@ -277,8 +279,11 @@ namespace BAIby.Presentation
                 status.text = $"{state.Name} can sit up now. " +
                     (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
             else
-                status.text = reaction == Reaction.None ? DescribeNeeds(state) : reactionText;
+                status.text = reaction == Reaction.None ? DescribeCondition(state) ?? DescribeNeeds(state) : reactionText;
 
+            UpdateRoutineSlots(session.Routine, state.Care.Preset);
+            routine.UpdateDetails(state, DescribeCondition(state) ??
+                $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
             development.UpdateDetails(state, age.text, status.text);
             report.UpdateDetails(BabyReport.From(state));
             feeding.UpdateDetails(state, status.text);
@@ -313,6 +318,9 @@ namespace BAIby.Presentation
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
                 case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
                 case Reaction.WalksToToy: return $"{name} takes a few steps toward the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.PushesToyAway: return $"{name} is too upset to play and pushes it away. Soothing will help.";
+                case Reaction.TooFull:
+                    return $"{name} is too full for the {FoodName(food).ToLowerInvariant()} and spits up a little. Try again later.";
                 default: return string.Empty;
             }
         }
@@ -344,6 +352,8 @@ namespace BAIby.Presentation
                 blocks.Feedback.text = message;
             else if (decor.Root.activeSelf)
                 decor.Feedback.text = message;
+            else if (routine.Root.activeSelf)
+                routine.Summary.text = message;
             else if (style.Root.activeSelf)
                 style.Feedback.text = message;
             else if (diaper.Root.activeSelf)
@@ -465,6 +475,7 @@ namespace BAIby.Presentation
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            BuildRoutine();
             BuildHome();
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
@@ -474,7 +485,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -514,6 +525,9 @@ namespace BAIby.Presentation
                 case NurseryPanel.Decor:
                     decor.ChoiceFor(session.State.NurseryTheme).Select();
                     break;
+                case NurseryPanel.Routine:
+                    (session.State.Care.Style == CareStyle.Gentle ? routine.GentleButton : routine.StandardButton).Select();
+                    break;
                 case NurseryPanel.Style:
                     style.Open(session.State.Appearance);
                     // Shows the failure note again if the saved look's art could not be built.
@@ -528,6 +542,7 @@ namespace BAIby.Presentation
                         case NurseryPanel.Hygiene: washUpButton.Select(); break;
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.Style: styleButton.Select(); break;
+                        case NurseryPanel.Routine: RoutineOpener.Select(); break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -547,12 +562,15 @@ namespace BAIby.Presentation
             diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
+            routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
+            routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             UpdateHouseholdChips(adopted && activePanel == NurseryPanel.Care);
             var hasPendingSound = adopted && session.State.HasPendingNewSound;
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);
+            UpdateRoutineEntry();
         }
 
         private RectTransform Tray(string label, bool top, float height)

@@ -3,7 +3,11 @@ using System.Collections.Generic;
 
 namespace BAIby.Simulation
 {
-    // Pure routine rules. They evaluate windows and keep the ledger; they never touch needs or growth.
+    // Pure routine rules. They evaluate windows and keep the ledger, the mess and Away mode; they never touch
+    // needs or growth. CareConsequences reads the ledger to move the companion along the needs axis.
+    //
+    // Away mode: windows that overlap a planned absence are Covered, hands-on care ends it early, and the
+    // absence ceiling counts from its planned end, so an overdue return is an ordinary absence.
     //
     // Time rules: elapsed time uses the UTC instant and the offset only places windows. An offset change
     // applies from the next care day. A change over TravelJump excuses only the care day it lands on; the
@@ -87,6 +91,9 @@ namespace BAIby.Simulation
                 draft.DayExcused = true;
 
             CloseWindows(draft, instant, false, tunables, gap);
+            // Time away never counts towards escalation.
+            if (draft.Mood != CareMood.Content && checkpoint < draft.AwayUntil.UtcTicks && draft.AwayFrom.UtcTicks < instant)
+                draft.MoodSince = AsInstant(Math.Max(draft.MoodSince.UtcTicks, Math.Min(draft.AwayUntil.UtcTicks, instant)));
             draft.Checkpoint = now;
             draft.LastReason = gap.Reason(travel, draft.LastReason);
             return draft.Build();
@@ -101,7 +108,18 @@ namespace BAIby.Simulation
 
             var draft = record.ToBuilder();
             var at = record.Checkpoint.UtcTicks;
+            // Hands-on care means the player is back: it ends Away mode first.
+            if (record.IsAway)
+                draft.AwayUntil = record.Checkpoint;
             draft.LastCareAt = record.Checkpoint;
+            if ((tags & CareTags.Meal) != 0)
+                draft.Owed &= ~CareTags.Meal;
+            if ((tags & CareTags.Bedtime) != 0)
+                draft.Owed &= ~CareTags.Bedtime;
+            if ((tags & CareTags.Hygiene) != 0)
+                draft.Mess = 0;
+            if ((tags & CareTags.Bedtime) != 0 && !draft.AwaitingAnchor)
+                MarkBedtimeRest(draft, at);
             if (draft.AwaitingAnchor)
             {
                 draft.LastReason = CareReason.AwaitingAnchor;
@@ -109,6 +127,8 @@ namespace BAIby.Simulation
             }
 
             var reason = CareReason.NoRoutineTag;
+            if ((tags & CareTags.Hygiene) != 0)
+                reason = MarkWash(draft, at);
             if ((tags & CareTags.Together) != 0)
                 reason = MarkTogether(draft, at, tunables);
             if ((tags & CareTags.Bedtime) != 0)
@@ -138,7 +158,79 @@ namespace BAIby.Simulation
             return draft.Build();
         }
 
-        // 0 to 1. Excused and Covered entries never count; empty rings count as 1.
+        // Stored now, applied at once: the style only changes how consequences bite.
+        public static CareRecord ChangeStyle(CareRecord record, CareStyle style)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (!Enum.IsDefined(typeof(CareStyle), style))
+                throw new ArgumentOutOfRangeException(nameof(style));
+            if (record.Style == style)
+                return record;
+
+            var draft = record.ToBuilder();
+            draft.Style = style;
+            draft.LastReason = CareReason.StyleChanged;
+            return draft.Build();
+        }
+
+        // Starts a planned absence at the record's checkpoint. Free, for up to 14 days.
+        public static CareRecord StartAway(CareRecord record, TimeSpan duration)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (duration <= TimeSpan.Zero || duration > CareRecord.MaxAway)
+                throw new ArgumentOutOfRangeException(nameof(duration), "Away mode lasts up to 14 days.");
+            if (record.IsAway)
+                throw new InvalidOperationException("Away mode is already on.");
+
+            var draft = record.ToBuilder();
+            draft.AwayFrom = record.Checkpoint;
+            draft.AwayUntil = AsInstant(Add(record.Checkpoint.UtcTicks, duration.Ticks));
+            draft.LastReason = CareReason.AwayStarted;
+            return draft.Build();
+        }
+
+        // Ends Away mode early. Windows from now on count again.
+        public static CareRecord EndAway(CareRecord record)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (!record.IsAway)
+                return record;
+
+            var draft = record.ToBuilder();
+            draft.AwayUntil = record.Checkpoint;
+            draft.LastReason = CareReason.AwayEnded;
+            return draft.Build();
+        }
+
+        // A meal window that is past its due time, still waiting, and counted (not excused or away).
+        public static bool HasOverdueMeal(CareRecord record)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (record.AwaitingAnchor)
+                return false;
+
+            var at = record.Checkpoint.UtcTicks;
+            foreach (var window in RoutineCalendar.Windows(record.Preset, record.WakeTime))
+            {
+                if (window.Core != CareTags.Meal || record.StatusOf(window.Moment) != MomentStatus.Pending)
+                    continue;
+
+                var open = Place(record.CareDay, record.Offset, window.Open);
+                var due = Place(record.CareDay, record.Offset, window.Due);
+                var lateUntil = Place(record.CareDay, record.Offset, window.LateUntil);
+                if (at >= due && at < lateUntil && !record.DayExcused && open >= record.ExcusedUntil.UtcTicks &&
+                    !OverlapsAway(record.AwayFrom.UtcTicks, record.AwayUntil.UtcTicks, open, at))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // 0 to 1. Excused and Covered entries never count; unfilled ring slots (and so empty rings) count as 1.
         public static double Score(CareRecord record, CareTunables tunables)
         {
             if (record == null)
@@ -185,6 +277,7 @@ namespace BAIby.Simulation
             draft.Preset = draft.NextPreset;
             draft.WakeTime = draft.NextWakeTime;
             draft.Moments = new MomentStatus[RoutineCalendar.MomentCount];
+            draft.Wash = MomentStatus.Pending;
             draft.TogetherToday = false;
             draft.DayExcused = false;
         }
@@ -201,7 +294,8 @@ namespace BAIby.Simulation
                 return;
 
             var skipped = target - draft.CareDay;
-            draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, RoutineCalendar.MomentCount + 1));
+            // Each skipped day holds its moments, together time and the wash.
+            draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, RoutineCalendar.MomentCount + 2));
             draft.CareDay = target;
             gap.Covered = true;
         }
@@ -237,6 +331,15 @@ namespace BAIby.Simulation
                 var core = window.Core;
                 draft.Moments[index] = Resolve(draft, open, closeAt, tunables, gap, () => PushMissed(draft, core, tunables));
             }
+
+            if (draft.Wash == MomentStatus.Pending)
+            {
+                var wash = RoutineCalendar.WashWindow(draft.Preset, draft.WakeTime);
+                var lateUntil = Place(draft.CareDay, draft.Offset, wash.LateUntil);
+                if (endOfDay || lateUntil <= through)
+                    draft.Wash = Resolve(draft, Place(draft.CareDay, draft.Offset, wash.Open), Math.Min(lateUntil, through),
+                        tunables, gap, () => draft.Mess = Math.Min(CareRecord.MaxMess, draft.Mess + 1));
+            }
         }
 
         private static MomentStatus Resolve(CareRecord.Builder draft, long open, long closeAt, CareTunables tunables,
@@ -246,6 +349,12 @@ namespace BAIby.Simulation
             {
                 draft.ExcusedCount = Add(draft.ExcusedCount, 1);
                 return MomentStatus.Excused;
+            }
+
+            if (OverlapsAway(draft.AwayFrom.UtcTicks, draft.AwayUntil.UtcTicks, open, closeAt))
+            {
+                draft.CoveredCount = Add(draft.CoveredCount, 1);
+                return MomentStatus.Covered;
             }
 
             if (closeAt > AbsenceEnd(draft, tunables))
@@ -266,6 +375,29 @@ namespace BAIby.Simulation
                 draft.Meals = draft.Meals.Push(CareMark.Missed, tunables.MealRing);
             else
                 draft.Bedtimes = draft.Bedtimes.Push(CareMark.Missed, tunables.BedtimeRing);
+            draft.Owed |= core;
+        }
+
+        private static CareReason MarkWash(CareRecord.Builder draft, long at)
+        {
+            if (draft.Wash != MomentStatus.Pending)
+                return CareReason.WashOutsideWindow;
+
+            var wash = RoutineCalendar.WashWindow(draft.Preset, draft.WakeTime);
+            var open = Place(draft.CareDay, draft.Offset, wash.Open);
+            var due = Place(draft.CareDay, draft.Offset, wash.Due);
+            var lateUntil = Place(draft.CareDay, draft.Offset, wash.LateUntil);
+            if (at < open || at >= lateUntil)
+                return CareReason.WashOutsideWindow;
+            if (IsExcused(draft, open))
+            {
+                draft.Wash = MomentStatus.Excused;
+                draft.ExcusedCount = Add(draft.ExcusedCount, 1);
+                return CareReason.WashExcused;
+            }
+
+            draft.Wash = at < due ? MomentStatus.OnTime : MomentStatus.Late;
+            return at < due ? CareReason.WashOnTime : CareReason.WashLate;
         }
 
         private static CareReason MarkMoment(CareRecord.Builder draft, CareTags core, long at, CareReason onTime,
@@ -309,6 +441,22 @@ namespace BAIby.Simulation
             return outside;
         }
 
+        // Rest from the bedtime window's opening until the care day ends puts the companion to bed for that
+        // night, on time before the due time and late after it, whether or not the window counts.
+        private static void MarkBedtimeRest(CareRecord.Builder draft, long at)
+        {
+            var window = Windows(draft)[(int)CareMoment.Bedtime];
+            if (at < Place(draft.CareDay, draft.Offset, window.Open))
+                return;
+
+            var onTime = at < Place(draft.CareDay, draft.Offset, window.Due);
+            if (draft.BedtimeRestDay == draft.CareDay && draft.BedtimeRest == MomentStatus.OnTime && !onTime)
+                return;
+
+            draft.BedtimeRest = onTime ? MomentStatus.OnTime : MomentStatus.Late;
+            draft.BedtimeRestDay = draft.CareDay;
+        }
+
         private static CareReason MarkTogether(CareRecord.Builder draft, long at, CareTunables tunables)
         {
             if (draft.TogetherToday)
@@ -329,8 +477,12 @@ namespace BAIby.Simulation
         private static bool IsExcused(CareRecord.Builder draft, long open) =>
             draft.DayExcused || open < draft.ExcusedUntil.UtcTicks;
 
+        // An absence counts from the last hands-on care, or from the planned end of Away mode.
         private static long AbsenceEnd(CareRecord.Builder draft, CareTunables tunables) =>
-            Add(draft.LastCareAt.UtcTicks, tunables.AbsenceCeiling.Ticks);
+            Add(Math.Max(draft.LastCareAt.UtcTicks, draft.AwayUntil.UtcTicks), tunables.AbsenceCeiling.Ticks);
+
+        private static bool OverlapsAway(long awayFrom, long awayUntil, long open, long closeAt) =>
+            awayUntil > awayFrom && open < awayUntil && closeAt > awayFrom;
 
         private static IReadOnlyList<CareWindow> Windows(CareRecord.Builder draft) =>
             RoutineCalendar.Windows(draft.Preset, draft.WakeTime);

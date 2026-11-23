@@ -31,6 +31,20 @@
     "Evening": 2,
     "Bedtime": 3
   },
+  "CareMood": {
+    "Content": 0,
+    "Fussy": 1,
+    "Upset": 2
+  },
+  "CareMoodCause": {
+    "None": 0,
+    "LowNeed": 1,
+    "MealOverdue": 2,
+    "MissedWindow": 3,
+    "Unanswered": 4,
+    "MissedMeals": 5,
+    "LowCareScore": 6
+  },
   "CareReason": {
     "None": 0,
     "Started": 1,
@@ -54,7 +68,19 @@
     "TogetherAlreadyCounted": 19,
     "TogetherExcused": 20,
     "NoRoutineTag": 21,
-    "RoutineScheduled": 22
+    "RoutineScheduled": 22,
+    "StyleChanged": 23,
+    "AwayStarted": 24,
+    "AwayEnded": 25,
+    "WashOnTime": 26,
+    "WashLate": 27,
+    "WashExcused": 28,
+    "WashOutsideWindow": 29
+  },
+  "CareStyle": {
+    "Standard": 0,
+    "Gentle": 1,
+    "Realistic": 2
   },
   "CareTags": {
     "None": 0,
@@ -63,7 +89,8 @@
     "Hygiene": 4,
     "Bedtime": 8,
     "Medicine": 16,
-    "Tidy": 32
+    "Tidy": 32,
+    "Comfort": 64
   },
   "CompanionKind": {
     "Baby": 0,
