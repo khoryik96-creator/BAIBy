@@ -893,6 +893,7 @@ Equal(BabyAppearance.Default, lookRecovered.State.Appearance, "backup restores t
 lookRecovered.SetAppearance(customLook);
 Equal(customLook, new BabySession(game, invalidLookSaves, () => start).State.Appearance, "recovery can save a look again");
 
+PetChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)
