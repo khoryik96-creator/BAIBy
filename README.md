@@ -1,6 +1,6 @@
 # BAIby
 
-BAIby is a virtual baby raising game. The Android and iOS restart focuses on a believable, illustrated 2D baby whose reactions, routines, and abilities change through play and as they grow.
+BAIby is a virtual baby raising game. The Android and iOS restart focuses on a chibi-style 2D baby whose reactions, routines, and abilities change through play and as they grow.
 
 - [Restart roadmap](docs/roadmap.md)
 - [Feature parity with v5.3](docs/feature-parity.md)
@@ -51,4 +51,4 @@ The [simulation](unity/Assets/BAIby/Simulation) and [session](unity/Assets/BAIby
 dotnet run --project tests/Simulation/SimulationChecks.csproj --configuration Release
 ```
 
-The character and milestone timing are for playtesting. The nursery uses a layered 2D illustration with awake and resting sprites for each developmental stage. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.
+The character and milestone timing are for playtesting. The nursery uses layered 2D artwork, with awake and sleeping chibi poses for each developmental stage. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.

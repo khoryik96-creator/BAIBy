@@ -97,7 +97,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"10\" />";
+saves.Primary = "<baby version=\"11\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -105,7 +105,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"10\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"11\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -123,10 +123,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"9\""), "first edit after migration writes v9");
+Equal(true, migratedSaves.Primary.Contains("version=\"10\""), "first edit after migration writes v10");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v9");
+    "rest on migrated save persists energy in v10");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -188,7 +188,7 @@ Equal((false, true, false), crawlerSession.Refresh(), "migration unlocks already
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"9\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"10\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -302,7 +302,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"9\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"10\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -449,8 +449,8 @@ themeSession.SetNurseryTheme(NurseryTheme.Peach);
 Equal(1, themeSaves.Writes, "new theme saves immediately");
 Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
 var expectedTheme = XElement.Parse(preThemeSave);
-expectedTheme.SetAttributeValue("version", 9);
-expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false));
+expectedTheme.SetAttributeValue("version", 10);
+expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false), new XElement("block-towers", 0));
 Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
     "theme change preserves all existing save fields despite elapsed time");
 var themedReload = new BabySession(game, themeSaves, () => themeClock);
@@ -568,16 +568,84 @@ var migratedWalker = new BabySession(game, walkingMigrationSaves, () => start);
 Equal(false, migratedWalker.State.CanWalk, "v8 has no stored walking flag");
 Equal((false, false, true), migratedWalker.Refresh(), "an eligible v8 player unlocks walking without elapsed time");
 var expectedWalker = XElement.Parse(preWalkingSave);
-expectedWalker.SetAttributeValue("version", 9);
-expectedWalker.Add(new XElement("can-walk", true));
+expectedWalker.SetAttributeValue("version", 10);
+expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0));
 Equal(true, XNode.DeepEquals(expectedWalker, XElement.Parse(walkingMigrationSaves.Primary)),
     "same-time migration does not decay needs or alter any other existing fields");
 var walkingReloaded = new BabySession(game, walkingMigrationSaves, () => start);
-Equal(true, walkingReloaded.State.CanWalk, "v9 restores walking");
-Equal((false, false, false), walkingReloaded.Refresh(), "v9 never re-awards walking after reload");
+Equal(true, walkingReloaded.State.CanWalk, "current version restores walking");
+Equal((false, false, false), walkingReloaded.Refresh(), "current version never re-awards walking after reload");
 Equal(1, walkingMigrationSaves.Writes, "same-time refresh commits the new milestone only once");
 walkingReloaded.SetNurseryTheme(NurseryTheme.Sage);
 Equal(true, walkingReloaded.State.CanWalk, "cosmetics preserve walking");
+
+Equal(0, newborn.BlockTowers, "newborn has no block towers");
+ExpectUnavailable(() => game.ApplyCare(crawler.State, CareAction.StackBlocks));
+var blockReady = BabyState.Restore("Mia", start, TimeSpan.FromDays(12), 71, 47, 53,
+    2, 3, true, true, 42, 8, 23, 89, true, NurseryTheme.Peach, canWalk: true);
+var stacked = game.ApplyCare(blockReady, CareAction.StackBlocks);
+Equal(Reaction.StackedBlocks, stacked.Reaction, "stacking blocks uses a distinct reaction");
+Equal(1, stacked.State.BlockTowers, "stacking records one tower");
+Equal(45.0, stacked.State.Connection, "building together improves connection");
+Equal(45.0, stacked.State.Energy, "building uses energy");
+var expectedTower = XElement.Parse(BabySaveCodec.Encode(blockReady));
+expectedTower.SetElementValue("block-towers", 1);
+expectedTower.SetElementValue("connection", 45);
+expectedTower.SetElementValue("energy", 45);
+Equal(true, XNode.DeepEquals(expectedTower, XElement.Parse(BabySaveCodec.Encode(stacked.State))),
+    "stacking preserves all unrelated fields");
+
+var limitsForBlocks = BabyState.Restore("Mia", start, TimeSpan.FromDays(12), 71, 47, 4,
+    2, 3, true, true, 99, 8, 23, 89, true, NurseryTheme.Peach, canWalk: true, blockTowers: int.MaxValue);
+var clampedBlocks = game.ApplyCare(limitsForBlocks, CareAction.StackBlocks).State;
+Equal(100.0, clampedBlocks.Connection, "stacking caps connection");
+Equal(0.0, clampedBlocks.Energy, "stacking cannot make energy negative");
+Equal(int.MaxValue, clampedBlocks.BlockTowers, "tower count cannot overflow");
+
+var blockClock = start;
+var blocksSaves = new MemorySaveStore();
+var blocksSession = new BabySession(game, blocksSaves, () => blockClock);
+blocksSession.Adopt("Mia");
+var beforeBlocks = blocksSession.State;
+var beforeBlocksPayload = blocksSaves.Primary;
+blockClock = start.AddDays(7);
+ExpectUnavailable(() => blocksSession.ApplyCare(CareAction.StackBlocks));
+Equal(1, blocksSaves.Writes, "a locked attempt writes nothing");
+Equal(beforeBlocks, blocksSession.State, "a locked attempt leaves pending milestones and elapsed time unchanged");
+Equal(beforeBlocksPayload, blocksSaves.Primary, "a locked attempt leaves the persisted state unchanged");
+blockClock = start.AddDays(12);
+blocksSaves.FailWrites = true;
+try
+{
+    blocksSession.ApplyCare(CareAction.StackBlocks);
+    throw new InvalidOperationException("Failed tower write should be surfaced.");
+}
+catch (IOException)
+{
+    Equal(beforeBlocks, blocksSession.State, "failed tower write leaves visible state unchanged");
+    Equal(beforeBlocksPayload, blocksSaves.Primary, "failed tower write leaves persisted state unchanged");
+}
+blocksSaves.FailWrites = false;
+Equal((Reaction.StackedBlocks, true, true, true), blocksSession.ApplyCare(CareAction.StackBlocks),
+    "stack at walking threshold commits the tower and elapsed milestones together");
+Equal(2, blocksSaves.Writes, "successful stack commits once");
+var resumedBlocks = new BabySession(game, blocksSaves, () => blockClock);
+Equal(1, resumedBlocks.State.BlockTowers, "current save restores towers");
+resumedBlocks.AdvancePreview(TimeSpan.FromDays(1));
+resumedBlocks.ApplyCare(CareAction.Soothe);
+resumedBlocks.SetNurseryTheme(NurseryTheme.Peach);
+Equal(1, resumedBlocks.State.BlockTowers, "preview time, care, and cosmetics all preserve towers");
+
+var preBlocks = XElement.Parse(preWalkingSave);
+preBlocks.SetAttributeValue("version", 9);
+preBlocks.Add(new XElement("can-walk", true));
+var olderBlocksSaves = new MemorySaveStore { Primary = preBlocks.ToString(SaveOptions.DisableFormatting) };
+var migratedBlocks = new BabySession(game, olderBlocksSaves, () => start);
+Equal(true, migratedBlocks.State.CanWalk, "v9 migration keeps walking unlocked");
+Equal(0, migratedBlocks.State.BlockTowers, "v9 starts with zero block towers");
+migratedBlocks.ApplyCare(CareAction.StackBlocks);
+Equal(true, olderBlocksSaves.Primary.Contains("version=\"10\""), "stacking migrates v9 to the current schema");
+Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v10 restores the first tower");
 
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 

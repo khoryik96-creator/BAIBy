@@ -13,6 +13,7 @@ namespace BAIby.Character
         private const float WalkDuration = 3.40f;
         private const float DiaperCueDuration = 2.40f;
         private const float BathCueDuration = 2.75f;
+        private const float BlocksCueDuration = 2.55f;
         private readonly List<Object> generatedAssets = new List<Object>();
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
@@ -36,6 +37,8 @@ namespace BAIby.Character
         private SpriteRenderer storybook;
         private SpriteRenderer freshDiaper;
         private SpriteRenderer bathBasket;
+        private SpriteRenderer blockTower;
+        private float towerHeight;
         private SpriteRenderer nurseryChime;
         private bool playedSoundPreview;
         private float soundPreviewStarted;
@@ -219,6 +222,7 @@ namespace BAIby.Character
             storybook = AddCue("Nursery storybook", "Storybook");
             freshDiaper = AddCue("Nursery fresh diaper", "FreshDiaper");
             bathBasket = AddCue("Nursery bath basket", "BathBasket");
+            blockTower = AddCue("Nursery block tower", "BlockTower");
             nurseryChime = AddCue("Nursery chime", "NurseryChime");
             var chimeHinge = new GameObject("Chime hinge").transform;
             chimeHinge.SetParent(transform, false);
@@ -275,6 +279,7 @@ namespace BAIby.Character
             float reading = reaction == Reaction.EnjoysStory ? Window(elapsed, 0, .40f, 2.20f, 2.92f) : 0;
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             float bath = reaction == Reaction.FreshBath ? Window(elapsed, 0, .36f, 1.90f, BathCueDuration) : 0;
+            float blocks = reaction == Reaction.StackedBlocks ? Window(elapsed, 0, .30f, 1.75f, BlocksCueDuration) : 0;
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
             bool crawling = playing && reaction == Reaction.CrawlsToToy;
             bool walking = playing && reaction == Reaction.WalksToToy;
@@ -299,9 +304,10 @@ namespace BAIby.Character
                 stageGround - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
                 Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f
-                - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step);
+                - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step
+                - 2.8f * blocks);
             baby.localScale = new Vector3(1 + breath * .5f,
-                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh, 1);
+                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks, 1);
             shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);
 
@@ -312,6 +318,7 @@ namespace BAIby.Character
             PoseStorybook(elapsed, reading);
             PoseFreshDiaper(elapsed, fresh);
             PoseBath(elapsed, bath);
+            PoseBlockTower(elapsed, blocks);
             PoseFeeding(elapsed, feed);
             PoseChime(now, elapsed, soundComfort, soundExplore);
         }
@@ -347,9 +354,22 @@ namespace BAIby.Character
             bool diaperCue = reaction == Reaction.FreshDiaper && elapsed < DiaperCueDuration;
             bool feedingCue = reaction == Reaction.Satisfied && elapsed < PlayDuration;
             bool bathCue = reaction == Reaction.FreshBath && elapsed < BathCueDuration;
-            bool visible = adopted && !diaperCue && !feedingCue && !bathCue;
+            bool blocksCue = reaction == Reaction.StackedBlocks && elapsed < BlocksCueDuration;
+            bool visible = adopted && !diaperCue && !feedingCue && !bathCue && !blocksCue;
             if (toy.gameObject.activeSelf != visible)
                 toy.gameObject.SetActive(visible);
+        }
+
+        private void PoseBlockTower(float elapsed, float blocks)
+        {
+            SetOpacity(blockTower, blocks);
+            if (blocks <= 0)
+                return;
+
+            float settling = Mathf.Exp(-elapsed * 5.4f);
+            blockTower.transform.localPosition = new Vector3(visibleWidth * .38f,
+                -1.16f + towerHeight * .5f + .15f * settling, 0);
+            blockTower.transform.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(elapsed * 14f) * 6 * settling);
         }
 
         private void PoseFeeding(float elapsed, float feed)
@@ -432,13 +452,23 @@ namespace BAIby.Character
                 -1.17f + play * .79f + Mathf.Sin(now * 8f) * play * .075f, 0);
             if (floorPlay)
             {
-                toy.localPosition = offered + new Vector3(0, Mathf.Max(0, approach - .85f) * .45f, 0);
+                float touch = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.84f, 1, approach));
+                if (reaction == Reaction.CrawlsToToy && crawler.sprite != null)
+                {
+                    // The shorter crawler artwork plants its forward hand inside the silhouette.
+                    var crawlerSize = crawler.sprite.bounds.size;
+                    var hand = crawler.transform.TransformPoint(new Vector3(crawlerSize.x * .31f, -crawlerSize.y * .38f, 0));
+                    float handX = transform.InverseTransformPoint(hand).x + .17f;
+                    offered.x = Mathf.Lerp(offered.x, Mathf.Min(offered.x, handX), touch);
+                }
+
+                toy.localPosition = offered + new Vector3(0, touch * .067f, 0);
             }
             else if (reach > 0 && sitter.sprite != null)
             {
                 // Align the lower toy edge with the raised hand painted into the sitter pose.
                 var spriteSize = sitter.sprite.bounds.size;
-                var hand = sitter.transform.TransformPoint(new Vector3(spriteSize.x * .37f, spriteSize.y * .075f, 0));
+                var hand = sitter.transform.TransformPoint(new Vector3(spriteSize.x * .40f, -spriteSize.y * .08f, 0));
                 var held = transform.InverseTransformPoint(hand) + new Vector3(.045f, isPlush ? .20f : .13f, 0);
                 held.x = Mathf.Min(held.x, visibleWidth * .45f - .14f);
                 toy.localPosition = Vector3.Lerp(offered, held, reach);
@@ -512,6 +542,7 @@ namespace BAIby.Character
             Fit(storybook, Mathf.Min(1.06f, visibleWidth * .24f), .76f);
             Fit(freshDiaper, Mathf.Min(1f, visibleWidth * .23f), .66f);
             Fit(bathBasket, Mathf.Min(1.13f, visibleWidth * .25f), .83f);
+            towerHeight = Fit(blockTower, Mathf.Min(.98f, visibleWidth * .22f), 1.22f);
             float foodWidth = Mathf.Min(1f, visibleWidth * .23f);
             foreach (var prop in feedingProps.Values)
                 Fit(prop, foodWidth, .83f);

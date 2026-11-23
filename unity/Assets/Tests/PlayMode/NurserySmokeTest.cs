@@ -74,6 +74,8 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             Tap(view.gameObject, "Development");
             Assert.That(Child<Text>(view.gameObject, "Development Age").text, Does.Contain("Newborn"));
+            Assert.That(Child<Button>(view.gameObject, "Stack blocks").interactable, Is.False);
+            Assert.That(Child<Text>(view.gameObject, "Blocks Availability").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("0"));
             var connection = Child<Text>(view.gameObject, "Connection Value");
             var previousConnection = connection.text;
@@ -255,6 +257,32 @@ namespace BAIby.Tests
             Tap(crawler.gameObject, "Play with plush");
             Assert.That(Reaction(crawler.gameObject), Does.Contain("takes a few steps toward the plush"));
 
+            Tap(crawler.gameObject, "Development");
+            Assert.That(Child<Text>(crawler.gameObject, "Towers Value").text, Is.EqualTo("0"));
+            var beforeBlocks = PlayerPrefs.GetString(saveKey);
+            Tap(crawler.gameObject, "Stack blocks");
+            Tap(crawler.gameObject, "Small block");
+            Assert.That(Child<Text>(crawler.gameObject, "Blocks Feedback").text, Does.Contain("large block next"));
+            Assert.That(Child<Button>(crawler.gameObject, "Finish blocks").interactable, Is.False);
+            Tap(crawler.gameObject, "Large block");
+            Tap(crawler.gameObject, "Cancel blocks");
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(beforeBlocks));
+            Assert.That(Child<Text>(crawler.gameObject, "Towers Value").text, Is.EqualTo("0"));
+
+            Tap(crawler.gameObject, "Stack blocks");
+            Assert.That(Child<RectTransform>(crawler.gameObject, "Large tower layer").gameObject.activeSelf, Is.False);
+            Tap(crawler.gameObject, "Large block");
+            Tap(crawler.gameObject, "Medium block");
+            Tap(crawler.gameObject, "Small block");
+            Assert.That(Child<RectTransform>(crawler.gameObject, "Small tower layer").gameObject.activeInHierarchy, Is.True);
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(beforeBlocks));
+            Tap(crawler.gameObject, "Finish blocks");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".backup"), Is.EqualTo(beforeBlocks));
+            Assert.That(Child<Text>(crawler.gameObject, "Towers Value").text, Is.EqualTo("1"));
+            Assert.That(Child<Text>(crawler.gameObject, "Development Feedback").text, Does.Contain("block tower"));
+            yield return new WaitForSecondsRealtime(0.45f);
+            Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery block tower").enabled, Is.True);
+
             UnityEngine.Object.Destroy(crawler.gameObject);
             yield return null;
             var walker = NurseryStartup.StartPreview(saveKey);
@@ -262,6 +290,8 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(walker.gameObject, "Age").text, Does.Contain("Early walker"));
             Tap(walker.gameObject, "Play with plush");
             Assert.That(Reaction(walker.gameObject), Does.Contain("takes a few steps toward the plush"));
+            Tap(walker.gameObject, "Development");
+            Assert.That(Child<Text>(walker.gameObject, "Towers Value").text, Is.EqualTo("1"));
         }
 
         [UnityTearDown]
