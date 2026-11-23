@@ -37,6 +37,7 @@ namespace BAIby.Tests
             Child<InputField>(view.gameObject, "Name").text = "Mia";
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Assert.That(Child<Button>(view.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
             Tap(view.gameObject, "Feed");
             Assert.That(Child<Button>(view.gameObject, "Mashed banana").interactable, Is.False);
             Assert.That(Child<Button>(view.gameObject, "Soft oats").interactable, Is.False);
@@ -96,6 +97,19 @@ namespace BAIby.Tests
                 Tap(view.gameObject, "Preview next day");
 
             Assert.That(Reaction(view.gameObject), Does.Contain("can sit up now"));
+            Tap(view.gameObject, "A new sound");
+            Assert.That(Child<Text>(view.gameObject, "New Sound Scene").text, Does.Contain("window"));
+            Assert.That(Child<Text>(view.gameObject, "Comfort them Effects").text, Does.Contain("Comfort +16"));
+            Assert.That(Child<Text>(view.gameObject, "Explore together Effects").text, Does.Contain("Connection +5"));
+            yield return new WaitForSecondsRealtime(0.45f);
+            var chime = Child<SpriteRenderer>(view.gameObject, "Nursery chime");
+            Assert.That(chime.enabled, Is.True);
+            Assert.That(chime.sprite, Is.Not.Null);
+            Tap(view.gameObject, "Later");
+            Assert.That(Child<Button>(view.gameObject, "A new sound").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Feed");
+            Assert.That(Child<Button>(view.gameObject, "Milk").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close feeding");
             var healthBeforeReload = NeedValue(view.gameObject, "Health");
             Assert.That(healthBeforeReload, Is.LessThan(initialHealth));
             Tap(view.gameObject, "Change diaper");
@@ -119,6 +133,10 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             Tap(restored.gameObject, "Play with plush");
             Assert.That(Reaction(restored.gameObject), Does.Contain("reaches for the plush"));
+            Tap(restored.gameObject, "A new sound");
+            Tap(restored.gameObject, "Explore together");
+            Assert.That(Reaction(restored.gameObject), Does.Contain("explore the sound together"));
+            Assert.That(Child<Button>(restored.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
 
             for (var day = 3; day < 6; day++)
                 Tap(restored.gameObject, "Preview next day");
@@ -155,6 +173,7 @@ namespace BAIby.Tests
             var crawler = NurseryStartup.StartPreview(saveKey);
             yield return null;
             Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Crawler"));
+            Assert.That(Child<Button>(crawler.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
         }
 
         [UnityTearDown]
