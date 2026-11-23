@@ -14,6 +14,9 @@ namespace BAIby.Character
         private readonly List<Object> generatedAssets = new List<Object>();
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
+        private SpriteRenderer peachBackdrop;
+        private float peachOpacity;
+        private float targetPeachOpacity;
         private SpriteRenderer rug;
         private SpriteRenderer cushion;
         private SpriteRenderer shade;
@@ -77,6 +80,11 @@ namespace BAIby.Character
             float elapsed = Time.unscaledTime - reactionStarted;
             UpdateToyVisibility(elapsed);
             ShowToy(IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction) ? playedToy : ambientToy);
+        }
+
+        public void SetTheme(NurseryTheme theme)
+        {
+            targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;
         }
 
         public void PlayNewSoundCue()
@@ -153,7 +161,13 @@ namespace BAIby.Character
             var roomArt = LoadSprite(Art + "Nursery/Backdrop");
             if (roomArt != null)
             {
-                backdrop = AddLayer(transform, "Nursery illustration", roomArt, Color.white, -10);
+                backdrop = AddLayer(transform, "Nursery illustration", roomArt, Color.white, -11);
+                var peachArt = LoadSprite(Art + "Nursery/BackdropPeach");
+                if (peachArt == null)
+                    Debug.LogError("Missing peach nursery illustration in Resources/BAIby/Nursery/BackdropPeach.");
+                else
+                    peachBackdrop = AddLayer(transform, "Nursery illustration peach", peachArt, Color.white, -10);
+                SetOpacity(peachBackdrop, 0);
             }
             else
             {
@@ -239,6 +253,7 @@ namespace BAIby.Character
         {
             if (!Mathf.Approximately(aspect, nurseryCamera.aspect))
                 Frame();
+            UpdateTheme();
 
             var now = Time.unscaledTime;
             var elapsed = now - reactionStarted;
@@ -281,6 +296,17 @@ namespace BAIby.Character
             PoseFreshDiaper(elapsed, fresh);
             PoseFeeding(elapsed, feed);
             PoseChime(now, elapsed, soundComfort, soundExplore);
+        }
+
+        private void UpdateTheme()
+        {
+            if (peachBackdrop == null || peachOpacity == targetPeachOpacity)
+                return;
+
+            const float fadeSeconds = .28f;
+            peachOpacity = Mathf.MoveTowards(peachOpacity, targetPeachOpacity, Time.unscaledDeltaTime / fadeSeconds);
+            SetOpacity(peachBackdrop, Mathf.SmoothStep(0, 1, peachOpacity));
+            backdrop.enabled = peachOpacity < 1;
         }
 
         private void PoseChime(float now, float elapsed, float comfort, float explore)
@@ -421,15 +447,9 @@ namespace BAIby.Character
             aspect = nurseryCamera.aspect;
             float worldWidth = 2 * nurseryCamera.orthographicSize * aspect;
             visibleWidth = Mathf.Min(worldWidth * .95f, 5.17f);
-            if (backdrop != null)
-            {
-                float worldHeight = 2 * nurseryCamera.orthographicSize;
-                float artHeight = Fit(backdrop, worldWidth, worldHeight, true);
-                float overscan = (artHeight - worldHeight) * .5f;
-                // The quilt center is 24% up from the bottom of this illustration.
-                float y = Mathf.Clamp(QuiltSurface + artHeight * .26f, -overscan, overscan);
-                backdrop.transform.localPosition = new Vector3(0, y, 0);
-            }
+            float worldHeight = 2 * nurseryCamera.orthographicSize;
+            FrameBackdrop(backdrop, worldWidth, worldHeight);
+            FrameBackdrop(peachBackdrop, worldWidth, worldHeight);
             if (rug != null)
             {
                 rug.transform.localPosition = new Vector3(0, -1.76f, 0);
@@ -457,6 +477,18 @@ namespace BAIby.Character
             nurseryChime.transform.localPosition = new Vector3(0, -chimeHeight * .5f, 0);
             nurseryChime.transform.parent.localPosition = new Vector3(visibleWidth * .405f, 2.06f, 0);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
+        }
+
+        private static void FrameBackdrop(SpriteRenderer layer, float worldWidth, float worldHeight)
+        {
+            if (layer == null)
+                return;
+
+            float artHeight = Fit(layer, worldWidth, worldHeight, true);
+            float overscan = Mathf.Max(0, (artHeight - worldHeight) * .5f);
+            // Both illustrations place the quilt center 24% up from the bottom.
+            float y = Mathf.Clamp(QuiltSurface + artHeight * .26f, -overscan, overscan);
+            layer.transform.localPosition = new Vector3(0, y, 0);
         }
 
         private void AnchorStage(SpriteRenderer layer, float widthFraction, float maxHeight = 3.68f)

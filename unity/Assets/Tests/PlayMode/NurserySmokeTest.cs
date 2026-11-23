@@ -37,6 +37,21 @@ namespace BAIby.Tests
             Child<InputField>(view.gameObject, "Name").text = "Mia";
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            var originalAge = Child<Text>(view.gameObject, "Age").text;
+            var originalFullness = NeedValue(view.gameObject, "Fullness");
+            Tap(view.gameObject, "Decor");
+            Assert.That(Child<Text>(view.gameObject, "Sage Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(EventSystem.current.currentSelectedGameObject, Is.EqualTo(Child<Button>(view.gameObject, "Sage").gameObject));
+            Tap(view.gameObject, "Peach");
+            Assert.That(Child<Text>(view.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Sage Selection").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Is.EqualTo(originalAge));
+            Assert.That(NeedValue(view.gameObject, "Fullness"), Is.EqualTo(originalFullness));
+            yield return new WaitForSecondsRealtime(0.4f);
+            var peach = Child<SpriteRenderer>(view.gameObject, "Nursery illustration peach");
+            Assert.That(peach.enabled && peach.sprite != null, Is.True);
+            Assert.That(peach.color.a, Is.EqualTo(1f).Within(0.01f));
+            Tap(view.gameObject, "Close decor");
             Assert.That(Child<Button>(view.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
             Tap(view.gameObject, "Feed");
             Assert.That(Child<Button>(view.gameObject, "Mashed banana").interactable, Is.False);
@@ -142,6 +157,9 @@ namespace BAIby.Tests
             yield return null;
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Early sitter"));
+            Tap(restored.gameObject, "Decor");
+            Assert.That(Child<Text>(restored.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
+            Tap(restored.gameObject, "Close decor");
             Assert.That(NeedValue(restored.gameObject, "Energy"), Is.EqualTo(energyBeforeReload).Within(0.01f));
             Assert.That(NeedValue(restored.gameObject, "Health"), Is.EqualTo(healthBeforeReload).Within(0.01f));
             Assert.That(NeedValue(restored.gameObject, "Cleanliness"), Is.EqualTo(cleanlinessBeforeReload).Within(0.01f));
@@ -194,6 +212,13 @@ namespace BAIby.Tests
             yield return null;
             Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Crawler"));
             Assert.That(Child<Button>(crawler.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
+            Tap(crawler.gameObject, "Decor");
+            Assert.That(Child<Text>(crawler.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
+            Tap(crawler.gameObject, "Sage");
+            yield return new WaitForSecondsRealtime(0.4f);
+            Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery illustration").enabled, Is.True);
+            Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery illustration peach").enabled, Is.False);
+            Tap(crawler.gameObject, "Close decor");
         }
 
         [UnityTearDown]

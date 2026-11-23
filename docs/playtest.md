@@ -21,6 +21,7 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
+| Open **Decor** and switch from Sage to Peach | The room fades to the new illustration. Baby stats stay the same and the selected style survives reload. |
 | Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
