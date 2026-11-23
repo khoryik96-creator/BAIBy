@@ -14,13 +14,15 @@ namespace BAIby.Simulation
         Bedtime = 8,
         Medicine = 16,
         Tidy = 32,
+        // Settling a distressed companion (soothing, cuddles). Calms the Upset rung.
+        Comfort = 64,
     }
 
     // A species' care data: its stable verb IDs and the tags each one carries.
     public sealed class CareProfile
     {
         private const CareTags AllTags = CareTags.Meal | CareTags.Together | CareTags.Hygiene |
-            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy;
+            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy | CareTags.Comfort;
         private readonly Dictionary<string, CareTags> verbs;
 
         public string Species { get; }

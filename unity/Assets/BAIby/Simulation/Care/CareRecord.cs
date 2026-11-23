@@ -7,6 +7,22 @@ namespace BAIby.Simulation
     // Saved as single letters; never change a letter.
     public enum CareMark { OnTime = 0, Late = 1, Missed = 2 }
     public enum MomentStatus { Pending = 0, OnTime = 1, Late = 2, Missed = 3, Excused = 4, Covered = 5 }
+    // The needs axis of the consequence ladder. Saved as numbers: append, never renumber.
+    public enum CareMood { Content = 0, Fussy = 1, Upset = 2 }
+    // Why the companion last moved on the needs axis. Saved as numbers: append, never renumber.
+    public enum CareMoodCause
+    {
+        None = 0,
+        LowNeed = 1,
+        MealOverdue = 2,
+        MissedWindow = 3,
+        Unanswered = 4,
+        MissedMeals = 5,
+        LowCareScore = 6,
+    }
+    // How strongly consequences bite. Saved as numbers: append, never renumber. Realistic is stored but
+    // behaves as Standard until its own rules exist.
+    public enum CareStyle { Standard = 0, Gentle = 1, Realistic = 2 }
 
     // The most recent counted entries of one kind, oldest first. Excused and Covered never enter a ring,
     // so an absence or a travel day cannot push old misses out.
@@ -103,7 +119,8 @@ namespace BAIby.Simulation
         public override string ToString() => ToCode();
     }
 
-    // The shadow care ledger. Immutable; CareRules returns a new record for every change.
+    // The care ledger and the companion's consequence state. Immutable; CareRules and CareConsequences
+    // return a new record for every change.
     // All instants are UTC; offsets only place windows on the local clock.
     public sealed class CareRecord : IEquatable<CareRecord>
     {
@@ -112,6 +129,9 @@ namespace BAIby.Simulation
         private static readonly TimeSpan MaxOffset = TimeSpan.FromHours(14);
         // A stored care day stays this close to its checkpoint's calendar day, whatever the offsets.
         private const long CareDayTolerance = 3;
+        public const int MaxMess = 3;
+        public static readonly TimeSpan MaxAway = TimeSpan.FromDays(14);
+        private const CareTags OwedTags = CareTags.Meal | CareTags.Bedtime;
         private readonly MomentStatus[] moments;
 
         // The instant the ledger was last evaluated; equal to the owner's time checkpoint.
@@ -141,6 +161,29 @@ namespace BAIby.Simulation
         public long ExcusedCount { get; }
         public long CoveredCount { get; }
         public CareReason LastReason { get; }
+        // Today's wash: one hygiene window a day. A missed wash adds one mess item.
+        public MomentStatus Wash { get; }
+        // Messy-room items, 0 to MaxMess. Hygiene care clears them.
+        public int Mess { get; }
+        public CareMood Mood { get; }
+        // When the current mood began; escalation is measured from here.
+        public DateTimeOffset MoodSince { get; }
+        public CareMoodCause MoodCause { get; }
+        // Routine cores (Meal, Bedtime) whose window was missed and that no care has answered yet.
+        public CareTags Owed { get; }
+        public CareStyle Style { get; }
+        // The latest planned absence. Away while AwayFrom <= instant < AwayUntil; ending early sets AwayUntil.
+        public DateTimeOffset AwayFrom { get; }
+        public DateTimeOffset AwayUntil { get; }
+        // The last time the companion was put to bed: OnTime, Late or Pending (never), and the care day whose
+        // night it was. That night's sleep restores Energy to 100 (on time) or 85 (late); other nights to 65.
+        public MomentStatus BedtimeRest { get; }
+        public long BedtimeRestDay { get; }
+        public bool IsAway => IsAwayAt(Checkpoint);
+        public bool IsMessy => Mess > 0;
+
+        public bool IsAwayAt(DateTimeOffset instant) =>
+            instant.UtcTicks >= AwayFrom.UtcTicks && instant.UtcTicks < AwayUntil.UtcTicks;
 
         public MomentStatus StatusOf(CareMoment moment)
         {
@@ -202,6 +245,17 @@ namespace BAIby.Simulation
             ExcusedCount = source.ExcusedCount;
             CoveredCount = source.CoveredCount;
             LastReason = source.LastReason;
+            Wash = source.Wash;
+            Mess = source.Mess;
+            Mood = source.Mood;
+            MoodSince = source.MoodSince.ToUniversalTime();
+            MoodCause = source.MoodCause;
+            Owed = source.Owed;
+            Style = source.Style;
+            AwayFrom = source.AwayFrom.ToUniversalTime();
+            AwayUntil = source.AwayUntil.ToUniversalTime();
+            BedtimeRest = source.BedtimeRest;
+            BedtimeRestDay = source.BedtimeRestDay;
         }
 
         public Builder ToBuilder() => new Builder
@@ -226,6 +280,17 @@ namespace BAIby.Simulation
             ExcusedCount = ExcusedCount,
             CoveredCount = CoveredCount,
             LastReason = LastReason,
+            Wash = Wash,
+            Mess = Mess,
+            Mood = Mood,
+            MoodSince = MoodSince,
+            MoodCause = MoodCause,
+            Owed = Owed,
+            Style = Style,
+            AwayFrom = AwayFrom,
+            AwayUntil = AwayUntil,
+            BedtimeRest = BedtimeRest,
+            BedtimeRestDay = BedtimeRestDay,
         };
 
         public bool Equals(CareRecord other)
@@ -248,7 +313,12 @@ namespace BAIby.Simulation
                 AwaitingAnchor == other.AwaitingAnchor && ExcusedUntil.UtcTicks == other.ExcusedUntil.UtcTicks &&
                 LastCareAt.UtcTicks == other.LastCareAt.UtcTicks && Meals.Equals(other.Meals) &&
                 TogetherDays.Equals(other.TogetherDays) && Bedtimes.Equals(other.Bedtimes) &&
-                ExcusedCount == other.ExcusedCount && CoveredCount == other.CoveredCount && LastReason == other.LastReason;
+                ExcusedCount == other.ExcusedCount && CoveredCount == other.CoveredCount && LastReason == other.LastReason &&
+                Wash == other.Wash && Mess == other.Mess && Mood == other.Mood &&
+                MoodSince.UtcTicks == other.MoodSince.UtcTicks && MoodCause == other.MoodCause && Owed == other.Owed &&
+                Style == other.Style && AwayFrom.UtcTicks == other.AwayFrom.UtcTicks &&
+                AwayUntil.UtcTicks == other.AwayUntil.UtcTicks && BedtimeRest == other.BedtimeRest &&
+                BedtimeRestDay == other.BedtimeRestDay;
         }
 
         public override bool Equals(object obj) => Equals(obj as CareRecord);
@@ -279,6 +349,17 @@ namespace BAIby.Simulation
             public long ExcusedCount { get; set; }
             public long CoveredCount { get; set; }
             public CareReason LastReason { get; set; }
+            public MomentStatus Wash { get; set; }
+            public int Mess { get; set; }
+            public CareMood Mood { get; set; }
+            public DateTimeOffset MoodSince { get; set; }
+            public CareMoodCause MoodCause { get; set; }
+            public CareTags Owed { get; set; }
+            public CareStyle Style { get; set; }
+            public DateTimeOffset AwayFrom { get; set; }
+            public DateTimeOffset AwayUntil { get; set; }
+            public MomentStatus BedtimeRest { get; set; }
+            public long BedtimeRestDay { get; set; }
 
             public CareRecord Build()
             {
@@ -309,6 +390,28 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(CoveredCount));
                 if (!Enum.IsDefined(typeof(CareReason), LastReason))
                     throw new ArgumentOutOfRangeException(nameof(LastReason));
+                if (!Enum.IsDefined(typeof(MomentStatus), Wash))
+                    throw new ArgumentOutOfRangeException(nameof(Wash));
+                if (Mess < 0 || Mess > MaxMess)
+                    throw new ArgumentOutOfRangeException(nameof(Mess));
+                if (!Enum.IsDefined(typeof(CareMood), Mood))
+                    throw new ArgumentOutOfRangeException(nameof(Mood));
+                if (!Enum.IsDefined(typeof(CareMoodCause), MoodCause))
+                    throw new ArgumentOutOfRangeException(nameof(MoodCause));
+                if (MoodSince > Checkpoint)
+                    throw new ArgumentException("A mood cannot begin after the checkpoint.", nameof(MoodSince));
+                if ((Owed & ~OwedTags) != 0)
+                    throw new ArgumentOutOfRangeException(nameof(Owed), "Only meals and bedtimes can be owed.");
+                if (!Enum.IsDefined(typeof(CareStyle), Style))
+                    throw new ArgumentOutOfRangeException(nameof(Style));
+                if (AwayUntil < AwayFrom || AwayUntil - AwayFrom > MaxAway)
+                    throw new ArgumentOutOfRangeException(nameof(AwayUntil), "Away mode lasts at most 14 days.");
+                if (AwayFrom > Checkpoint)
+                    throw new ArgumentException("Away mode cannot start after the checkpoint.", nameof(AwayFrom));
+                if (BedtimeRest != MomentStatus.Pending && BedtimeRest != MomentStatus.OnTime && BedtimeRest != MomentStatus.Late)
+                    throw new ArgumentOutOfRangeException(nameof(BedtimeRest));
+                if (BedtimeRestDay < 0 || BedtimeRestDay > LastCareDay)
+                    throw new ArgumentOutOfRangeException(nameof(BedtimeRestDay));
 
                 return new CareRecord(this);
             }

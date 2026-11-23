@@ -14,9 +14,6 @@ static class CareChecks
     private static readonly CareTunables Tunables = CareTunables.Default;
     private static readonly TimeSpan Paris = TimeSpan.FromHours(1);
 
-    // Hash of every non-care field after each step of ShadowFingerprint's scripted day, computed with the
-    // simulation as it was before the care ledger existed (commit b8718d4).
-    private const string PreCareFingerprint = "8BBFA0D91B9486A6B596BCB12CBC56A5474CD90BE5166A03CDD405CF34449E2C";
 
     public static void Run()
     {
@@ -51,7 +48,7 @@ static class CareChecks
             BabySimulation.BabyCareProfile.TagsFor(BabySimulation.CareVerbFor(action));
         Equal(CareTags.Meal, Tags(CareAction.Feed), "feeding is a meal");
         Equal(CareTags.Bedtime, Tags(CareAction.Rest), "rest is the bedtime core");
-        Equal(CareTags.Together, Tags(CareAction.Soothe), "soothing is together time");
+        Equal(CareTags.Together | CareTags.Comfort, Tags(CareAction.Soothe), "soothing is together time that comforts");
         Equal(CareTags.Together, Tags(CareAction.ReadStory), "a story is together time");
         Equal(CareTags.Hygiene, Tags(CareAction.Bath), "a bath is hygiene");
         ExpectArgument(() => BabySimulation.BabyCareProfile.TagsFor("juggle"), "unknown verbs are rejected");
@@ -59,7 +56,7 @@ static class CareChecks
         {
             new KeyValuePair<string, CareTags>("feed", CareTags.Meal), new KeyValuePair<string, CareTags>("feed", CareTags.Meal),
         }), "a profile cannot list a verb twice");
-        ExpectArgument(() => new CareProfile("cat", new[] { new KeyValuePair<string, CareTags>("feed", (CareTags)64) }),
+        ExpectArgument(() => new CareProfile("cat", new[] { new KeyValuePair<string, CareTags>("feed", (CareTags)128) }),
             "a profile cannot use unknown tags");
     }
 
@@ -148,8 +145,12 @@ static class CareChecks
         var lateBed = Care(bedtime, At(2026, 3, 2, 22, 0, Paris), CareTags.Bedtime);
         Equal(CareReason.BedtimeLate, lateBed.LastReason, "bedtime within 60 minutes of the window is late");
         Equal("L", lateBed.Bedtimes.ToCode(), "a late bedtime enters the ring");
-        Equal(CareReason.NoRoutineTag, Care(bedtime, At(2026, 3, 2, 8, 0, Paris), CareTags.Hygiene).LastReason,
-            "hygiene has no window in this slice");
+        Equal(CareReason.WashOnTime, Care(bedtime, At(2026, 3, 2, 8, 0, Paris), CareTags.Hygiene).LastReason,
+            "a morning wash is on time");
+        Equal(CareReason.WashOutsideWindow, Care(bedtime, At(2026, 3, 2, 6, 30, Paris), CareTags.Hygiene).LastReason,
+            "a wash before waking is outside the window");
+        Equal(CareReason.NoRoutineTag, Care(bedtime, At(2026, 3, 2, 8, 0, Paris), CareTags.Medicine).LastReason,
+            "medicine has no window in this slice");
 
         var home = CareRules.ChangeRoutine(Anchored(At(2026, 3, 2, 6, 0, Paris)), RoutinePreset.Home, TimeSpan.FromMinutes(510));
         Equal(RoutinePreset.SchoolDay, home.Preset, "a routine change waits for the next care day");
@@ -384,7 +385,12 @@ static class CareChecks
         var baby = BabyState.Restore("Mia", day.Checkpoint, TimeSpan.FromDays(2), 50, 60, 70, 0, 0, false, false,
             0, 0, 100, 100, false, care: day);
         var returned = game.Advance(baby, yearLater).State;
-        Equal(year, returned.Care, "the simulation advances the ledger with the clock");
+        var ledgerOnly = returned.Care.ToBuilder();
+        ledgerOnly.Mood = year.Mood;
+        ledgerOnly.MoodCause = year.MoodCause;
+        ledgerOnly.MoodSince = year.MoodSince;
+        Equal(year, ledgerOnly.Build(), "the simulation advances the ledger with the clock");
+        Equal(CareMood.Fussy, returned.Care.Mood, "a return moves the baby one rung, to Fussy");
         Equal(true, ReferenceEquals(returned.Care, game.AdvancePreview(returned, TimeSpan.FromDays(3)).State.Care),
             "preview days pass no real time and leave the ledger alone");
     }
@@ -419,7 +425,7 @@ static class CareChecks
         Equal(1.0, CareRules.Score(care, Tunables), "a migrated baby starts with a full CareScore");
         Equal(Day(2026, 3, 5), care.CareDay, "the care day follows the player's local date");
         Equal(summer, care.Offset, "the ledger takes the player's offset");
-        Equal(true, saves.Primary.Contains("version=\"12\"") && saves.Primary.Contains("<care v=\"1\""), "the migration saves v12");
+        Equal(true, saves.Primary.Contains("version=\"13\"") && saves.Primary.Contains("<care v=\"2\""), "the migration saves v13");
         Equal(care, new BabySession(game, saves, () => clock).State.Care, "the anchored ledger survives a reload");
 
         session.ApplyCare(CareAction.Feed);
@@ -492,6 +498,10 @@ static class CareChecks
             ("excused-until", "-5"), ("last-care", (checkpoint + 1).ToString()), ("meals", "OOX"),
             ("meals", new string('O', CareRing.MaxLength + 1)), ("together", "o"), ("bedtimes", "P"),
             ("excused", "-1"), ("covered", "-5"), ("reason", "999"), ("reason", "-1"),
+            ("wash", "6"), ("mess", "4"), ("mess", "-1"), ("mood", "3"), ("mood-cause", "99"),
+            ("mood-since", (checkpoint + 1).ToString()), ("owed", "4"), ("style", "3"),
+            ("away-from", (checkpoint + 1).ToString()), ("rest", "3"), ("rest", "-1"), ("rest-day", "-1"),
+            ("away-until", (checkpoint + TimeSpan.FromDays(15).Ticks).ToString()),
         })
         {
             var corrupt = new XElement(valid);
@@ -523,7 +533,7 @@ static class CareChecks
 
         // A newer build may write a newer care record inside a baby save this build reads.
         var future = new XElement(valid);
-        future.Element("care").SetAttributeValue("v", "2");
+        future.Element("care").SetAttributeValue("v", "3");
         try
         {
             BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting));
@@ -536,7 +546,7 @@ static class CareChecks
         session = new BabySession(Game(), saves, () => care.Checkpoint);
         session.ApplyCare(CareAction.Feed);
         var newer = XElement.Parse(saves.Primary);
-        newer.Element("care").SetAttributeValue("v", "2");
+        newer.Element("care").SetAttributeValue("v", "3");
         saves.Primary = newer.ToString(SaveOptions.DisableFormatting);
         var backupBefore = saves.Backup;
         try
@@ -552,35 +562,40 @@ static class CareChecks
         Equal(backupBefore, saves.Backup, "its backup is left untouched too");
     }
 
+    // Slice 2 retuned the needs, so the slice 1 bit-for-bit match with the pre-care simulation is gone. What
+    // stays: on a well-cared day, whether windows count (anchored) or wait for an anchor (migrated) changes no
+    // needs and no growth, the day ends content, and an excused travel day records no misses.
     private static void ShadowGuarantee()
     {
         var game = Game();
         var day = At(2026, 3, 2, 6, 0, Paris);
         var unanchored = BabyState.Restore("Mia", day, TimeSpan.FromDays(6.5), 55, 60, 70, 1, 0, true, false, 12, 2, 80, 90, false);
-        Equal(PreCareFingerprint, ShadowFingerprint(game, unanchored, day, out _),
-            "a migrated baby's needs and growth match the pre-care simulation bit for bit");
-
         var counted = unanchored.With(care: Anchored(day));
-        Equal(PreCareFingerprint, ShadowFingerprint(game, counted, day, out var ledger),
-            "a counted day's needs and growth match the pre-care simulation bit for bit");
+        var countedFingerprint = ShadowFingerprint(game, counted, day, out var ledger);
         Equal("OOOO", ledger.Meals.ToCode(), "the scripted day's meals are on time");
         Equal("O", ledger.Bedtimes.ToCode(), "the scripted bedtime is on time");
         Equal("OO", ledger.TogetherDays.ToCode(), "both scripted days have together time");
+        Equal(CareMood.Content, ledger.Mood, "a well-cared day ends content");
+        Equal(0, ledger.Mess, "a washed day leaves no mess");
+        Equal(countedFingerprint, ShadowFingerprint(game, unanchored, day, out _),
+            "a migrated baby's needs and growth match a counted day's");
 
         var travelling = unanchored.With(care: CareRules.Advance(Anchored(day.AddHours(-1)), day.ToOffset(TimeSpan.FromHours(-6)), Tunables));
         Equal(true, travelling.Care.DayExcused, "the third run starts on an excused travel day");
-        Equal(PreCareFingerprint, ShadowFingerprint(game, travelling, day, out _),
-            "an excused day's needs and growth match the pre-care simulation bit for bit");
+        // Night follows the local clock, so a traveller's needs differ; the excused day records no misses.
+        ShadowFingerprint(game, travelling, day, out var travelLedger);
+        Equal(false, (travelLedger.Meals.ToCode() + travelLedger.Bedtimes.ToCode()).Contains("M"),
+            "an excused travel day records no misses");
     }
 
     // Everything except the care ledger, hashed after every step of a scripted day of care.
-    // Keep identical to the script that produced PreCareFingerprint.
     private static string ShadowFingerprint(BabySimulation game, BabyState start, DateTimeOffset day, out CareRecord ledger)
     {
         var steps = new (double Hour, CareAction? Action)[]
         {
             (1.5, CareAction.Feed), (2, CareAction.ChangeDiaper), (3, CareAction.Play), (5, CareAction.Soothe),
-            (7, null), (9, CareAction.Feed), (10, CareAction.ReadStory), (11.5, CareAction.Feed),
+            (7, CareAction.Rest), (9, CareAction.Feed), (10, CareAction.ReadStory), (11, CareAction.ChangeDiaper),
+            (11.5, CareAction.Feed),
             (12.5, CareAction.Feed), (13.75, CareAction.Bath), (14, CareAction.Rest), (25, CareAction.Feed),
             (26, CareAction.Play),
         };

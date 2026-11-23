@@ -9,7 +9,8 @@ namespace BAIby.Simulation
     public enum Reaction
     {
         None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy,
-        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy, StackedBlocks
+        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy, StackedBlocks,
+        PushesToyAway, TooFull
     }
 
     public sealed class BabyState
@@ -47,7 +48,7 @@ namespace BAIby.Simulation
         public NurseryTheme NurseryTheme { get; }
         // Cosmetic only: never affects care rules, needs or growth. Never null.
         public BabyAppearance Appearance { get; }
-        // Shadow care ledger: evaluated and saved, but it changes no needs, growth or reactions yet. Never null.
+        // The care ledger and consequence state (mood, mess, Away mode, care style). Never null.
         public CareRecord Care { get; }
         public bool HasPendingNewSound => CanSitAndReach && !NewSoundResolved;
 

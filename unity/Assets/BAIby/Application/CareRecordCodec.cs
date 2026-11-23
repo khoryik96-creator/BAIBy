@@ -5,12 +5,17 @@ using BAIby.Simulation;
 
 namespace BAIby.Application
 {
-    // One <care v="1"> element shared by every companion's save. Invalid data throws InvalidDataException; a
+    // One <care v="2"> element shared by every companion's save. Invalid data throws InvalidDataException; a
     // newer version throws NotSupportedException so the session leaves that save untouched.
+    //
+    // v2 adds the consequence state: wash, mess, mood, owed cores, care style and Away mode. A v1 record (the
+    // shadow ledger, which nobody saw) migrates without surprises: its rings are cleared, and it waits for an
+    // anchor again, so the first advance excuses the whole gap and moves nobody on the ladder.
     internal static class CareRecordCodec
     {
         public const string ElementName = "care";
-        private const int Version = 1;
+        private const int Version = 2;
+        private const int VersionBeforeConsequences = 1;
 
         public static XElement Encode(CareRecord care)
         {
@@ -38,7 +43,18 @@ namespace BAIby.Application
                 new XAttribute("bedtimes", care.Bedtimes.ToCode()),
                 new XAttribute("excused", care.ExcusedCount),
                 new XAttribute("covered", care.CoveredCount),
-                new XAttribute("reason", (int)care.LastReason));
+                new XAttribute("reason", (int)care.LastReason),
+                new XAttribute("wash", (int)care.Wash),
+                new XAttribute("mess", care.Mess),
+                new XAttribute("mood", (int)care.Mood),
+                new XAttribute("mood-since", care.MoodSince.UtcTicks),
+                new XAttribute("mood-cause", (int)care.MoodCause),
+                new XAttribute("owed", (int)care.Owed),
+                new XAttribute("style", (int)care.Style),
+                new XAttribute("away-from", care.AwayFrom.UtcTicks),
+                new XAttribute("away-until", care.AwayUntil.UtcTicks),
+                new XAttribute("rest", (int)care.BedtimeRest),
+                new XAttribute("rest-day", care.BedtimeRestDay));
         }
 
         public static CareRecord Decode(XElement element)
@@ -56,7 +72,7 @@ namespace BAIby.Application
                 if (version < 1)
                     throw new InvalidDataException("The care record version is invalid.");
 
-                return new CareRecord.Builder
+                var draft = new CareRecord.Builder
                 {
                     Checkpoint = Instant(Attribute(element, "checkpoint")),
                     Offset = Minutes(Attribute(element, "offset")),
@@ -78,7 +94,29 @@ namespace BAIby.Application
                     ExcusedCount = (long)Attribute(element, "excused"),
                     CoveredCount = (long)Attribute(element, "covered"),
                     LastReason = (CareReason)(int)Attribute(element, "reason"),
-                }.Build();
+                };
+                if (version == VersionBeforeConsequences)
+                {
+                    draft.Meals = CareRing.Empty;
+                    draft.TogetherDays = CareRing.Empty;
+                    draft.Bedtimes = CareRing.Empty;
+                    draft.AwaitingAnchor = true;
+                    draft.Wash = MomentStatus.Excused;
+                    return draft.Build();
+                }
+
+                draft.Wash = (MomentStatus)(int)Attribute(element, "wash");
+                draft.Mess = (int)Attribute(element, "mess");
+                draft.Mood = (CareMood)(int)Attribute(element, "mood");
+                draft.MoodSince = Instant(Attribute(element, "mood-since"));
+                draft.MoodCause = (CareMoodCause)(int)Attribute(element, "mood-cause");
+                draft.Owed = (CareTags)(int)Attribute(element, "owed");
+                draft.Style = (CareStyle)(int)Attribute(element, "style");
+                draft.AwayFrom = Instant(Attribute(element, "away-from"));
+                draft.AwayUntil = Instant(Attribute(element, "away-until"));
+                draft.BedtimeRest = (MomentStatus)(int)Attribute(element, "rest");
+                draft.BedtimeRestDay = (long)Attribute(element, "rest-day");
+                return draft.Build();
             }
             catch (Exception exception) when (exception is FormatException || exception is ArgumentException ||
                 exception is OverflowException)

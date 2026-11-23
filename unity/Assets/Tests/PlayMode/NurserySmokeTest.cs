@@ -54,6 +54,29 @@ namespace BAIby.Tests
             Assert.That(peach.color.a, Is.EqualTo(1f).Within(0.01f));
             Tap(view.gameObject, "Close decor");
 
+            // The routine strip shows today's windows (all free on the first day) and opens the Routine panel.
+            Assert.That(Child<RectTransform>(view.gameObject, "Routine Strip").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Routine Breakfast").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Routine Wash").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Routine Strip");
+            Assert.That(Child<RectTransform>(view.gameObject, "Routine Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Routine Panel").rect.height,
+                Is.LessThanOrEqualTo(Child<RectTransform>(view.gameObject, "Care").rect.height));
+            var saveBeforeStyleChoice = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Care style Gentle");
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.Not.EqualTo(saveBeforeStyleChoice));
+            Tap(view.gameObject, "Care style Standard");
+            Tap(view.gameObject, "Away 1 day");
+            Assert.That(Child<Button>(view.gameObject, "End away").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Routine Summary").text, Does.Contain("while you're away"));
+            Assert.That(Child<Text>(view.gameObject, "Routine Chip State 4").text, Is.EqualTo("Away"), "play is away");
+            Tap(view.gameObject, "End away");
+            Assert.That(Child<Button>(view.gameObject, "Away 1 day").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close routine");
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Is.EqualTo(originalAge));
+            // Away mode advanced the real clock by a moment; the style checks below compare against this.
+            originalFullness = NeedValue(view.gameObject, "Fullness");
+
             var originalNewborn = newborn.sprite;
             var originalSitter = Child<SpriteRenderer>(view.gameObject, "Sitter artwork").sprite;
             Tap(view.gameObject, "Style");

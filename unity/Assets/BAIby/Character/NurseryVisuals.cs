@@ -16,6 +16,13 @@ namespace BAIby.Character
         private const float DiaperCueDuration = 2.40f;
         private const float BathCueDuration = 2.75f;
         private const float BlocksCueDuration = 2.55f;
+        private const float RefuseCueDuration = 1.70f;
+        // Fussy and Upset reuse the existing poses: a cooler tint, a whimpering fidget and, when upset, a droop.
+        private static readonly Color UpsetTint = new Color(.84f, .88f, .98f, 1);
+        // Mess spots sit on the floor beside the baby, clear of the toy and the trays at 390 x 844.
+        private static readonly float[] MessX = { -.42f, -.30f, .43f };
+        private static readonly float[] MessY = { -1.40f, -1.56f, -1.52f };
+        private static readonly float[] MessAngle = { -12f, 9f, 16f };
         // Looks whose pose sprites are kept, most recent first, so switching back costs nothing.
         private const int CachedLooks = 2;
         private readonly List<Object> generatedAssets = new List<Object>();
@@ -72,6 +79,10 @@ namespace BAIby.Character
         private bool adopted;
         private int targetStage;
         private float stageBlend;
+        private CareMood mood;
+        private float distress;
+        private int messItems;
+        private readonly SpriteRenderer[] messSpots = new SpriteRenderer[CareRecord.MaxMess];
 
         public static NurseryVisuals Create()
         {
@@ -99,7 +110,7 @@ namespace BAIby.Character
                 reactionStarted = Time.unscaledTime;
                 if (IsPlayReaction(reaction))
                     playedToy = selectedToy;
-                if (reaction == Reaction.Satisfied)
+                if (reaction == Reaction.Satisfied || reaction == Reaction.TooFull)
                     servedFood = food;
             }
 
@@ -115,11 +126,20 @@ namespace BAIby.Character
             hasPresented = false;
             reaction = Reaction.None;
             playedSoundPreview = false;
+            distress = -1;
         }
 
         public void SetTheme(NurseryTheme theme)
         {
             targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;
+        }
+
+        // The baby's place on the needs axis and the room's mess, shown with the existing art: a fussy
+        // fidget, an upset droop and tint, and up to three spots on the floor.
+        public void SetCondition(CareMood newMood, int mess)
+        {
+            mood = newMood;
+            messItems = Mathf.Clamp(mess, 0, messSpots.Length);
         }
 
         // Shows the baby's chosen look on all eight pose illustrations. The default look keeps the
@@ -390,6 +410,13 @@ namespace BAIby.Character
             feedingProps.Add(Food.Milk, AddCue("Nursery milk", "Milk"));
             feedingProps.Add(Food.Banana, AddCue("Nursery banana", "Banana"));
             feedingProps.Add(Food.Oats, AddCue("Nursery oats", "Oats"));
+            // The diaper exercise's spot art doubles as the messy-room cue, drawn between the shade and the baby.
+            var spotArt = LoadSprite(Art + "Baby/CleanupSpot");
+            for (var i = 0; i < messSpots.Length; i++)
+            {
+                messSpots[i] = AddLayer(transform, "Nursery mess " + (i + 1), spotArt, new Color(1, 1, 1, .9f), -4);
+                messSpots[i].enabled = false;
+            }
 
             ShowToy(Toy.Rattle);
             toy.gameObject.SetActive(false);
@@ -614,6 +641,16 @@ namespace BAIby.Character
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             float bath = reaction == Reaction.FreshBath ? Window(elapsed, 0, .36f, 1.90f, BathCueDuration) : 0;
             float blocks = reaction == Reaction.StackedBlocks ? Window(elapsed, 0, .30f, 1.75f, BlocksCueDuration) : 0;
+            bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull;
+            float refuse = refusing ? Window(elapsed, 0, .18f, 1.15f, RefuseCueDuration) : 0;
+            float refuseShake = Mathf.Sin(elapsed * 17f) * 5.5f * refuse;
+            float pushAway = reaction == Reaction.PushesToyAway ? refuse : 0;
+            float tooFull = reaction == Reaction.TooFull ? refuse : 0;
+            float targetDistress = !adopted ? 0 : mood == CareMood.Upset ? 1 : mood == CareMood.Fussy ? .5f : 0;
+            // A new baby on screen snaps to its mood; a change in mood eases in.
+            distress = distress < 0 ? targetDistress : Mathf.MoveTowards(distress, targetDistress, Time.unscaledDeltaTime * 1.2f);
+            float upset = Mathf.Max(0, distress - .5f) * 2;
+            float fidget = (Mathf.Sin(now * 6.1f) * 2.2f + Mathf.Sin(now * 14.3f) * 1.6f * upset) * distress * (1 - rest);
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
             bool crawling = playing && reaction == Reaction.CrawlsToToy;
             bool walking = playing && reaction == Reaction.WalksToToy;
@@ -634,26 +671,28 @@ namespace BAIby.Character
             float stageGround = QuiltSurface + .22f * walkerWeight;
             float travel = visibleWidth * (stageOffset + .13f * (crawl + stride * .022f) + .215f * (walk + step * .023f));
             float lift = Mathf.Abs(stride) * .055f + Mathf.Abs(step) * .075f;
-            baby.localPosition = new Vector3(.08f * play + .10f * reach + travel,
-                stageGround - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift, 0);
+            baby.localPosition = new Vector3(.08f * play + .10f * reach + travel - .05f * pushAway,
+                stageGround - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift - .03f * upset, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
                 Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f
                 - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step
-                - 2.8f * blocks);
+                - 2.8f * blocks + fidget + refuseShake + 3.5f * upset * (1 - rest));
             baby.localScale = new Vector3(1 + breath * .5f,
-                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks, 1);
+                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks
+                - .025f * upset, 1);
             shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);
 
             var displayedToy = playing ? playedToy : ambientToy;
             UpdateToyVisibility(elapsed);
             ShowToy(displayedToy);
-            PoseToy(displayedToy, now, play, reach, crawling || walking, crawl + walk);
+            PoseToy(displayedToy, now, play, reach, crawling || walking, crawl + walk, pushAway);
             PoseStorybook(elapsed, reading);
             PoseFreshDiaper(elapsed, fresh);
             PoseBath(elapsed, bath);
             PoseBlockTower(elapsed, blocks);
-            PoseFeeding(elapsed, feed);
+            PoseFeeding(elapsed, Mathf.Max(feed, tooFull * .85f));
+            PoseMess();
             PoseChime(now, elapsed, soundComfort, soundExplore);
         }
 
@@ -686,7 +725,8 @@ namespace BAIby.Character
         private void UpdateToyVisibility(float elapsed)
         {
             bool diaperCue = reaction == Reaction.FreshDiaper && elapsed < DiaperCueDuration;
-            bool feedingCue = reaction == Reaction.Satisfied && elapsed < PlayDuration;
+            bool feedingCue = (reaction == Reaction.Satisfied && elapsed < PlayDuration) ||
+                (reaction == Reaction.TooFull && elapsed < RefuseCueDuration);
             bool bathCue = reaction == Reaction.FreshBath && elapsed < BathCueDuration;
             bool blocksCue = reaction == Reaction.StackedBlocks && elapsed < BlocksCueDuration;
             bool visible = adopted && !diaperCue && !feedingCue && !bathCue && !blocksCue;
@@ -779,10 +819,12 @@ namespace BAIby.Character
                 plush.gameObject.SetActive(showPlush);
         }
 
-        private void PoseToy(Toy displayedToy, float now, float play, float reach, bool floorPlay, float approach)
+        private void PoseToy(Toy displayedToy, float now, float play, float reach, bool floorPlay, float approach,
+            float pushAway)
         {
             bool isPlush = displayedToy == Toy.Plush;
-            var offered = new Vector3(visibleWidth * (.39f - play * .07f),
+            // A pushed-away toy slides a little further from the baby.
+            var offered = new Vector3(visibleWidth * (.39f - play * .07f + pushAway * .045f),
                 -1.17f + play * .79f + Mathf.Sin(now * 8f) * play * .075f, 0);
             if (floorPlay)
             {
@@ -841,8 +883,27 @@ namespace BAIby.Character
                 EnsurePoseBuilt(stage * 2);
             if (napOpacity > 0 && nap != null)
                 EnsurePoseBuilt(stage * 2 + 1);
-            SetOpacity(awake, awakeOpacity);
-            SetOpacity(nap, napOpacity);
+            var tint = Color.Lerp(Color.white, UpsetTint, Mathf.Clamp01(distress));
+            SetTinted(awake, awakeOpacity, tint);
+            SetTinted(nap, napOpacity, tint);
+        }
+
+        private static void SetTinted(SpriteRenderer layer, float opacity, Color tint)
+        {
+            if (layer == null)
+                return;
+            layer.enabled = opacity > 0;
+            layer.color = new Color(tint.r, tint.g, tint.b, opacity);
+        }
+
+        private void PoseMess()
+        {
+            for (var i = 0; i < messSpots.Length; i++)
+            {
+                var spot = messSpots[i];
+                if (spot != null)
+                    spot.enabled = adopted && spot.sprite != null && i < messItems;
+            }
         }
 
         private static void SetOpacity(SpriteRenderer layer, float opacity)
@@ -881,6 +942,14 @@ namespace BAIby.Character
             float foodWidth = Mathf.Min(1f, visibleWidth * .23f);
             foreach (var prop in feedingProps.Values)
                 Fit(prop, foodWidth, .83f);
+            for (var i = 0; i < messSpots.Length; i++)
+            {
+                if (messSpots[i] == null || messSpots[i].sprite == null)
+                    continue;
+                Fit(messSpots[i], Mathf.Min(.40f, visibleWidth * .11f), .26f);
+                messSpots[i].transform.localPosition = new Vector3(visibleWidth * MessX[i], MessY[i], 0);
+                messSpots[i].transform.localRotation = Quaternion.Euler(0, 0, MessAngle[i]);
+            }
             float chimeHeight = Fit(nurseryChime, Mathf.Min(.65f, visibleWidth * .17f), 1.08f);
             nurseryChime.transform.localPosition = new Vector3(0, -chimeHeight * .5f, 0);
             nurseryChime.transform.parent.localPosition = new Vector3(visibleWidth * .405f, 2.06f, 0);

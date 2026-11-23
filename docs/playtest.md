@@ -33,6 +33,26 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Close and reopen the same build | The same baby, look, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
+## Daily routine and consequences
+
+Care slice 2 of [care and growth](care-and-growth.md). Needs follow the real clock: awake hours take Fullness 7, Comfort 4, Energy 6 and Cleanliness 9 an hour; quiet hours (from the bedtime due time until 07:00) take much less. An absence counts at most 8 hours of decay. The first 24 hours after adoption, and the first refresh after updating from an older build, are free: no window counts and nobody fusses about a routine they never saw.
+
+| Step | Expected result |
+| --- | --- |
+| Look under the header at 390 x 844 | A slim strip shows Breakfast, Snack (Lunch on the Home preset), Dinner, Play, Bed and Wash. Each chip reads its opening time, **Now**, **Late**, **On time**, **Done late**, **Missed**, **Free** or **Away**. The strip ends above the baby's head and never overlaps the header or the care tray. |
+| Feed inside the breakfast window | The Breakfast chip reads **On time**. |
+| Leave breakfast past 10:00 | The chip reads **Late** and the baby starts fussing: a gentle fidget, a slightly cooler tint and "is fussing. It's past mealtime." Feeding calms it and the chip reads **Done late**. |
+| Leave breakfast past 12:00 | The chip reads **Missed** and the baby fusses for the missed meal until fed. Left unanswered, the baby becomes upset. |
+| Let a need fall below 35, then below 15 | The baby fusses, then (after at least 15 minutes) becomes upset: crying copy, a stronger fidget, a droop and a cooler tint. Play, stories and blocks are pushed away and give nothing. |
+| Calm an upset baby | Feed until Fullness is 50 or more, then **Soothe** (or comfort a new sound). The baby is content again and plays. |
+| Skip the day's wash | The next morning one spot appears on the floor (up to three). Each spot trims comfort gains by 5%. **Wash up** (bath or diaper) clears them all. |
+| Feed when Fullness is 90 or more | The baby is "too full" and spits up a little: Comfort -10, Cleanliness -15, no Health change. It never counts as a meal. |
+| Put the baby to bed in the bedtime window, then reopen in the morning | Energy is back to 100 (85 after a late bedtime). With no bedtime the baby dozes to 65 and wakes fussing until it rests. |
+| Tap the strip, then **Away 1 day** (or 3 days, 1 week, 2 weeks) | The chips read **Away**, the status says needs stay steady, and **We're back** replaces the choices. While away, needs settle no lower than 60 (lower needs stay put), Health holds, nothing is missed and age keeps its normal pace. |
+| Reopen after the Away period ends | Windows count again from the planned end; a return a day late is an ordinary absence. Any care, or **We're back**, ends Away mode early. |
+| Tap the strip and choose **Gentle** | Fussing starts only below 25, overdue meals never fuss, escalation waits 4 hours, and overfeeding costs less. **Standard** is the default. |
+| Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v13 on the next write. |
+
 ## Household
 
 A household holds up to two babies for free (`HouseholdRules.FreeCompanions`). The first baby, and any baby saved before households existed, is slot 1 and keeps the original save key. Other babies are saved as `{key}.slot2` to `{key}.slot8`, and the household manifest is `{key}.household`. Each key has a `.backup`.
