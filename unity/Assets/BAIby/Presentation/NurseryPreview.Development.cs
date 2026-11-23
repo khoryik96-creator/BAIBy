@@ -16,6 +16,7 @@ namespace BAIby.Presentation
             public Text Feedback { get; }
             public Button ReadStory { get; }
             public Button StackBlocks { get; }
+            public Button OpenReport { get; }
 
             private readonly Text age;
             private readonly Text connection;
@@ -24,7 +25,8 @@ namespace BAIby.Presentation
             private readonly Text blockAvailability;
             private readonly Text stackTitle;
 
-            public DevelopmentPanel(RectTransform content, Action close, Action readStory, Action openBlocks)
+            public DevelopmentPanel(RectTransform content, Action close, Action readStory, Action openBlocks,
+                Action openReport)
             {
                 Root = content.parent.gameObject;
                 Label("Development Heading", content, "Development", 38, Ink, TextAnchor.MiddleLeft,
@@ -42,8 +44,9 @@ namespace BAIby.Presentation
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 18;
                 Feedback.resizeTextMaxSize = 25;
-                ReadStory = ActionButton("Read a story", content, 0, 0.5f, 9, 97, readStory, Fern, Color.white);
-                StackBlocks = ActionButton("Stack blocks", content, 0.5f, 1, 9, 97, openBlocks, Fern, Color.white);
+                ReadStory = ActionButton("Read a story", content, 0, 1f / 3, 9, 97, readStory, Fern, Color.white);
+                StackBlocks = ActionButton("Stack blocks", content, 1f / 3, 2f / 3, 9, 97, openBlocks, Fern, Color.white);
+                OpenReport = ActionButton("Baby report", content, 2f / 3, 1, 9, 97, openReport, Mist, Ink);
                 stackTitle = StackBlocks.GetComponentInChildren<Text>();
                 stackTitle.rectTransform.offsetMin = new Vector2(0, 26);
                 blockAvailability = Label("Blocks Availability", StackBlocks.transform, "Early walker stage",

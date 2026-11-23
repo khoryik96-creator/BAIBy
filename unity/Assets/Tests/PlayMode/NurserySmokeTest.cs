@@ -77,6 +77,16 @@ namespace BAIby.Tests
             Assert.That(Child<Button>(view.gameObject, "Stack blocks").interactable, Is.False);
             Assert.That(Child<Text>(view.gameObject, "Blocks Availability").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("0"));
+            var saveBeforeReport = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Baby report");
+            Assert.That(Child<Text>(view.gameObject, "Report Sitting").text, Is.EqualTo("Locked"));
+            Assert.That(Child<Text>(view.gameObject, "Report Crawling").text, Is.EqualTo("Locked"));
+            Assert.That(Child<Text>(view.gameObject, "Report Walking").text, Is.EqualTo("Locked"));
+            Assert.That(Child<Text>(view.gameObject, "Report Favorite Toy").text, Does.Contain("Plush"));
+            Tap(view.gameObject, "Close baby report");
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeReport));
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, "Baby report").gameObject));
             var connection = Child<Text>(view.gameObject, "Connection Value");
             var previousConnection = connection.text;
             Tap(view.gameObject, "Read a story");
@@ -292,6 +302,18 @@ namespace BAIby.Tests
             Assert.That(Reaction(walker.gameObject), Does.Contain("takes a few steps toward the plush"));
             Tap(walker.gameObject, "Development");
             Assert.That(Child<Text>(walker.gameObject, "Towers Value").text, Is.EqualTo("1"));
+            Tap(walker.gameObject, "Read a story");
+            var expectedBond = Child<Text>(walker.gameObject, "Connection Value").text;
+            Tap(walker.gameObject, "Baby report");
+            Assert.That(Child<Text>(walker.gameObject, "Report Sitting").text, Is.EqualTo("Unlocked"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Crawling").text, Is.EqualTo("Unlocked"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Walking").text, Is.EqualTo("Unlocked"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Favorite Toy").text, Does.Contain("Plush"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Stories").text, Does.Contain("Enjoys story time"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Stories").text, Does.Contain("2 stories read"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Blocks").text, Is.EqualTo("Towers built · 1"));
+            Assert.That(Child<Text>(walker.gameObject, "Report Bond Value").text, Is.EqualTo(expectedBond));
+            Tap(walker.gameObject, "Close baby report");
         }
 
         [UnityTearDown]

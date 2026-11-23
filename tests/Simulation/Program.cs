@@ -647,6 +647,61 @@ migratedBlocks.ApplyCare(CareAction.StackBlocks);
 Equal(true, olderBlocksSaves.Primary.Contains("version=\"10\""), "stacking migrates v9 to the current schema");
 Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v10 restores the first tower");
 
+var newbornReport = BabyReport.From(newborn);
+Equal("Mia", newbornReport.Name, "report shows adopted name");
+Equal(TimeSpan.Zero, newbornReport.Age, "report reflects current game age");
+Equal(false, newbornReport.CanSitAndReach || newbornReport.CanCrawl || newbornReport.CanWalk,
+    "newborn report lists no milestones as unlocked");
+Equal<Toy?>(null, newbornReport.FavoriteToy, "report has no favorite before play");
+Equal(0.0, newbornReport.Connection, "report shows actual initial connection");
+Equal(false, newbornReport.EnjoysStories, "report has no story interest without sessions");
+Equal(false, newbornReport.EnjoysBlocks, "report has no block interest without towers");
+Equal<Toy?>(null, BabyReport.From(played.State).FavoriteToy, "one toy play does not establish a favorite");
+Equal(false, BabyReport.From(story.State).EnjoysStories, "one story is not an observed interest");
+
+var sittingReport = BabyReport.From(threshold.State);
+Equal(true, sittingReport.CanSitAndReach, "sitter report shows sitting");
+Equal(false, sittingReport.CanCrawl || sittingReport.CanWalk, "sitter report leaves later milestones locked");
+var crawlingReport = BabyReport.From(crawler.State);
+Equal(true, crawlingReport.CanSitAndReach && crawlingReport.CanCrawl, "crawler report shows both earlier milestones");
+Equal(false, crawlingReport.CanWalk, "crawler report leaves walking locked");
+
+var reportSaves = new MemorySaveStore();
+var reportSession = new BabySession(game, reportSaves, () => start);
+reportSession.Adopt("Mia");
+reportSession.AdvancePreview(TimeSpan.FromDays(12));
+reportSession.ApplyCare(CareAction.ReadStory);
+reportSession.ApplyCare(CareAction.Play, Toy.Rattle);
+reportSession.ApplyCare(CareAction.Play, Toy.Rattle);
+reportSession.ApplyCare(CareAction.Play, Toy.Plush);
+reportSession.ApplyCare(CareAction.Play, Toy.Plush);
+reportSession.ApplyCare(CareAction.StackBlocks);
+
+var oneOfEach = BabyReport.From(reportSession.State);
+Equal(1, oneOfEach.StorySessions, "report shows actual story count");
+Equal(1, oneOfEach.BlockTowers, "report shows actual tower count");
+Equal(false, oneOfEach.EnjoysStories || oneOfEach.EnjoysBlocks, "one action leaves both interests tentative");
+Equal<Toy?>(null, oneOfEach.FavoriteToy, "tied repeated toy histories have no favorite");
+
+reportSession.ApplyCare(CareAction.ReadStory);
+reportSession.ApplyCare(CareAction.StackBlocks);
+reportSession.ApplyCare(CareAction.Play, Toy.Plush);
+var reportReloaded = new BabySession(game, reportSaves, () => start);
+var reportState = reportReloaded.State;
+var reportPayload = reportSaves.Primary;
+var reportWrites = reportSaves.Writes;
+var developedReport = BabyReport.From(reportState);
+Equal(true, developedReport.CanSitAndReach && developedReport.CanCrawl && developedReport.CanWalk,
+    "report shows all saved milestones");
+Equal(TimeSpan.FromDays(12), developedReport.Age, "report reads elapsed game age from saved state");
+Equal<Toy?>(Toy.Plush, developedReport.FavoriteToy, "report reflects favorite from saved history");
+Equal(true, developedReport.EnjoysStories && developedReport.EnjoysBlocks,
+    "two stories or towers establish the corresponding interest");
+Equal(15.0, developedReport.Connection, "report shows actual saved connection rather than an inferred score");
+Equal(reportState, reportReloaded.State, "creating a report leaves session state untouched");
+Equal(reportPayload, reportSaves.Primary, "creating a report leaves the save unchanged");
+Equal(reportWrites, reportSaves.Writes, "creating a report performs no save writes");
+
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)
