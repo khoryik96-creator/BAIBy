@@ -12,3 +12,4 @@ tests/Appearance/obj/
 /unity/*.csproj
 /unity/*.sln
 /unity/*.slnx
+/.claude/worktrees/
