@@ -37,6 +37,24 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 | Special coat | One named pattern on an existing breed (merle, tortoiseshell, aurora fins) | Change care, tendencies or Bond; it is not a breed | $0.99 to $1.99 |
 | Baby special costume | Fantasy costume (dino onesie, bunny suit, star pajamas) | Change a skin tone, hair or any human feature | Inside look packs |
 
+### More premium lines
+
+These widen what players can buy without touching growth speed, development or consequences. Each is a one-time, non-random purchase behind the parental gate, previewed on the player's own companion or room before buying.
+
+| Product | Does | Does not | Placeholder |
+| --- | --- | --- | --- |
+| `room.<theme>` room theme (Cloud nursery, Treehouse, Beach cottage, Starlight) | A full room illustration with matching rug and lighting, for the nursery or any pet room | Change needs, decay or any care effect | $1.99 |
+| `habitat.<species>.<theme>` habitat theme (Castle tank, Coral reef, Cozy burrow, Hamster maze) | A themed tank, burrow or cage with its own idle animation | Change Water, Calm, Bedding or any meter | $1.99 |
+| `furniture.<set>` furniture set (Scandi, Rattan, Pastel play) | Crib or bed, shelf, lamp and wall decor placed in the room | Add a care action | $1.99 |
+| `petwear.<pack>` pet accessory pack (collars, bandanas, sweaters, bows, a fish-tank castle) | Wearables and ornaments for every pet of the matching species | Change Bond, tendencies or care | $1.99 |
+| `toy.<id>` premium toy (music box, plush dino, ball launcher, crinkle tunnel) | A new toy with its own look, sound and reaction. It counts as the same toy kind as a free one, so it adds no extra familiarity, variety or development credit | Raise familiarity faster or count as extra variety | $0.99 |
+| `sound.<pack>` lullaby and music pack | Extra lullabies, music-box songs and ambient room sounds | Change Comfort or sleep rules | $0.99 |
+| `album.<pack>` photo frames and stickers | Frames, stickers and backgrounds for the growth journal and shareable keepsake cards | Add new journal moments | $0.99 |
+| `species.<pack>` extra species pack (later: Birds, Guinea pig, Turtle) | A new species with its own care loop and a free starter breed inside the pack | Lock any species from the five launch species | $3.99 |
+| `supporter.founder` Founder pack | A small set of exclusive looks, a room theme and a Founder badge on the household card, for players who want to support the game | Give gameplay advantages | $4.99 |
+
+Declined lines. These would undermine the care loop or the audience rules: paid growth or milestone skips, paid later life stages for an existing baby, paid consequence removal beyond Helpers, energy or wait timers, season passes, daily login rewards tied to spending, randomized bundles, and ads (including rewarded ads).
+
 Helpers are household-wide one-time unlocks, so larger families do not pay more. There is no Rest or Health helper; sleep and Health recovery stay free.
 
 ## Automation, care and consequences
@@ -118,7 +136,10 @@ This extends the entitlement design in `pet-mode.md`.
 | M2 Looks | Two look packs, earned looks, special coats with the cat, validator rule | Earned looks ship alongside |
 | M3 Free care tools | Away mode, tuned consequence ladder, notification rules | Playtested with no paid items |
 | M4 Helpers | Feeder, Play, Tidy, Sitter for babies | M3 shipped; legal review; parent and child playtests |
+| M2b Rooms and wear | Two room themes, one furniture set, one cat accessory pack, the Founder pack | M2 shipped |
+| M4b Toys, sound and album | Premium toys, a lullaby pack, album frames and stickers | Variety rule tested so premium toys add no development credit |
 | M5 Seasonal | First seasonal free item and pack | Returning-season copy reviewed |
+| M6 Species packs | First extra species pack after all five launch species ship | Art commissioned |
 
 ## Risks
 
@@ -147,3 +168,4 @@ The product owner delegated these choices on 2026-11-23. Revisit them with playt
 10. **Audience:** treat every player as a child. There is no age screen, every purchase sits behind the parental gate, and there are no ads or third-party analytics.
 11. **Revocation:** only an explicit refund or revocation from the store locks extra rooms. A missing item in a store query does not.
 12. **Store listing:** no Kids Category listing at launch; publish as a family-friendly app that follows the child rules above. An external legal and store-policy review is required before M1 ships, and the product owner arranges it.
+13. **More premium lines:** add room and habitat themes, furniture sets, pet accessory packs, premium toys that add no development credit, lullaby packs, album frames and stickers, later species packs, and a Founder supporter pack, with the rollout above. Paid growth, timers, season passes, randomized bundles and ads stay out.
