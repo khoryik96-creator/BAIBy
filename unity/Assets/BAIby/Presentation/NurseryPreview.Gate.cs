@@ -10,6 +10,8 @@ namespace BAIby.Presentation
         private GatePanel gate;
         private Action afterGate;
         private readonly System.Random gateRandom = new System.Random();
+        // One gate for the whole session, so each opening draws a number different from the last one shown.
+        private ParentalGate parentalGate;
 
         // Every purchase, restore and external link opens behind this gate, as Apple's Kids category asks.
         // Each opening draws a new number; cancelling returns to Home.
@@ -21,7 +23,11 @@ namespace BAIby.Presentation
             afterGate = passed;
             view = HouseholdView.Gate;
             ApplyHouseholdView();
-            gate.Open(new ParentalGate(gateRandom.Next));
+            if (parentalGate == null)
+                parentalGate = new ParentalGate(gateRandom.Next);
+            else
+                parentalGate.Next();
+            gate.Open(parentalGate);
         }
 
         private void SubmitGate()

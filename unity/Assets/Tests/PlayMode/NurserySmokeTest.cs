@@ -496,9 +496,12 @@ namespace BAIby.Tests
                 "a wrong answer keeps the gate closed");
             Assert.That(Child<Text>(view.gameObject, "Gate Feedback").text, Is.Not.Empty);
             Assert.That(Child<Text>(view.gameObject, "Gate Prompt").text, Is.Not.EqualTo(firstPrompt), "a wrong answer draws a new number");
+            var shownPrompt = Child<Text>(view.gameObject, "Gate Prompt").text;
             Tap(view.gameObject, "Gate cancel");
             Assert.That(Child<RectTransform>(view.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.True);
             Tap(view.gameObject, "More rooms");
+            Assert.That(Child<Text>(view.gameObject, "Gate Prompt").text, Is.Not.EqualTo(shownPrompt),
+                "reopening the gate never repeats the number last shown");
             PassGate(view.gameObject);
             Assert.That(Child<RectTransform>(view.gameObject, "More Rooms Panel").gameObject.activeInHierarchy, Is.True);
             Assert.That(ToggleLabel(view.gameObject), Is.EqualTo("Add 2 test rooms"));
@@ -532,6 +535,16 @@ namespace BAIby.Tests
             Assert.That(HasButton(view.gameObject, "Say goodbye to Ivy"), Is.False, "a resting companion is read-only");
             Assert.That(HasButton(view.gameObject, "+ Adopt"), Is.False);
             Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Home playtest badge").gameObject.activeInHierarchy, Is.False,
+                "no playtest grant is left once the test rooms are removed");
+
+            // Saying goodbye to an awake baby while another rests hands the room over, and the copy says so.
+            Tap(view.gameObject, "Say goodbye to Leo");
+            Tap(view.gameObject, "Continue goodbye");
+            Assert.That(Child<Text>(view.gameObject, "Goodbye Detail").text, Does.Contain("Leo's room will go to Ivy, who wakes up"));
+            Tap(view.gameObject, "Keep companion");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home card Ivy Resting").gameObject.activeInHierarchy, Is.True,
+                "keeping Leo leaves Ivy resting");
             Tap(view.gameObject, "Home card Ivy");
             Assert.That(Child<RectTransform>(view.gameObject, "Journal Panel").gameObject.activeInHierarchy, Is.True,
                 "a resting companion's journal opens instead of the room");

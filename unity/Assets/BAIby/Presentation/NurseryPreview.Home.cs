@@ -261,8 +261,12 @@ namespace BAIby.Presentation
         private void ContinueGoodbye()
         {
             var companion = FindCompanion(goodbyeSlot);
-            if (companion?.State != null)
-                goodbye.Confirm(companion.State.Name);
+            if (companion?.State == null)
+                return;
+
+            // With companions resting, the freed room goes straight to the next one in Home order.
+            var next = household.NextToWake;
+            goodbye.Confirm(companion.State.Name, next == null ? null : next.State?.Name ?? "a resting little one");
         }
 
         private void ConfirmGoodbye()
@@ -537,7 +541,7 @@ namespace BAIby.Presentation
                 var y = CardsTop + (items + 1) / 2 * (CardHeight + Gap);
                 full.gameObject.SetActive(household.IsFull);
                 fullDetail.text = household.HasResting
-                    ? "Some little ones are resting. They're safe, and nothing changes while they rest. Choose Wake to swap who has a room."
+                    ? "Some little ones are resting. They're safe, and their needs don't drop while they rest. Choose Wake to swap who has a room."
                     : "Every room has a little one to care for. Enjoy your time together.";
                 if (household.IsFull)
                 {
@@ -825,11 +829,13 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
             }
 
-            // Second step: the confirmation that frees the room.
-            public void Confirm(string name)
+            // Second step: the confirmation that frees the room, or hands it to the resting companion who wakes.
+            public void Confirm(string name, string wakes)
             {
                 heading.text = "Are you sure?";
-                detail.text = $"This can't be undone. {name}'s room will be free for a new baby.";
+                detail.text = wakes == null
+                    ? $"This can't be undone. {name}'s room will be free for a new baby."
+                    : $"This can't be undone. {name}'s room will go to {wakes}, who wakes up and moves in.";
                 proceed.gameObject.SetActive(false);
                 confirm.gameObject.SetActive(true);
                 Feedback.text = string.Empty;

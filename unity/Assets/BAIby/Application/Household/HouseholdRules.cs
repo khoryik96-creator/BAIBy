@@ -33,6 +33,18 @@ namespace BAIby.Application
             return Math.Min(capacity, PhysicalSlots);
         }
 
+        // Capacity for a household of this many companions. While ownership is unknown (a damaged entitlement
+        // cache with no store answer yet) every existing companion keeps a room: only a definitive refund makes
+        // a companion rest. It never adds a room for a new adoption.
+        public static int CapacityFor(IEntitlements entitlements, int companions)
+        {
+            var capacity = CapacityFor(entitlements);
+            if (entitlements != null && entitlements.OwnershipUnknown)
+                capacity = Math.Max(capacity, Math.Min(companions, PhysicalSlots));
+
+            return capacity;
+        }
+
         public static BabyStage StageOf(BabyState state)
         {
             if (state == null)

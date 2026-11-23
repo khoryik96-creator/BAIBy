@@ -21,7 +21,8 @@ namespace BAIby.Presentation
         private WakePanel wakePanel;
         private int wakeSlot;
 
-        private bool PlaytestOn => playtest != null && playtest.Owns(ProductIds.HomeRooms2);
+        // Any playtest grant, from the toggle or a ?ent= URL flag, shows the badge.
+        private bool PlaytestOn => playtest != null && playtest.HasGrants;
 
         private void BuildRoomPanels()
         {
@@ -352,7 +353,7 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
                 var rooms = $"Your home has {household.Capacity} rooms.";
                 if (household.HasResting)
-                    rooms += " Little ones beyond them are resting, safe and unchanged.";
+                    rooms += " Little ones beyond them are resting and safe, and their needs don't drop.";
                 if (playtestOn)
                     rooms += " Playtest unlocks are on.";
                 detail.text = rooms + " Restore Purchases brings back anything bought on this account.";
@@ -408,7 +409,7 @@ namespace BAIby.Presentation
                 var details = BabyReport.From(baby);
                 heading.text = $"{details.Name}'s journal";
                 state.text = resting
-                    ? $"{details.Name} is resting. They're safe, and nothing changes while they rest."
+                    ? $"{details.Name} is resting. They're safe, and their needs don't drop while they rest."
                     : $"{details.Name} is awake in their room.";
                 var days = (int)details.Age.TotalDays;
                 var stage = StageTitle(HouseholdRules.StageOf(baby));
@@ -496,7 +497,7 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
                 heading.text = $"Wake {name}?";
                 detail.text = $"Your home has {capacity} rooms. Who would like a rest instead? " +
-                    "Resting little ones are safe, and nothing changes while they rest.";
+                    "Resting little ones are safe, and their needs don't drop while they rest.";
 
                 for (var i = 0; i < awake.Count; i++)
                 {

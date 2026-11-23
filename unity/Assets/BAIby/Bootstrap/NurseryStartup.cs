@@ -29,8 +29,14 @@ namespace BAIby.Bootstrap
                 // saveKey itself, so an existing single-baby save opens as the first companion uncopied.
                 var clock = new LocalClock();
                 // The cached entitlement is trusted at launch, offline. This build has no store, so nothing is
-                // sold and Restore Purchases reports that everything is up to date.
-                var entitlements = new CachedEntitlements(new PlayerPrefsEntitlementCache(saveKey), clock.Now);
+                // sold and Restore Purchases reports that everything is up to date. Playtest grants count only
+                // in builds that compile the playtest toggle; a release build ignores any it finds.
+                var honorPlaytestGrants = false;
+#if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
+                honorPlaytestGrants = true;
+#endif
+                var entitlements = new CachedEntitlements(new PlayerPrefsEntitlementCache(saveKey), clock.Now,
+                    honorPlaytestGrants);
                 IPlaytestUnlocks playtest = null;
 #if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
                 var unlocks = new TestEntitlements(entitlements);

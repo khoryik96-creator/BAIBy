@@ -33,7 +33,9 @@ namespace BAIby.Application
     // read-only. It does not advance, so it does not decay, and its record is never written; its journal
     // can still be read. The player chooses who stays awake by swapping places in Home order, which the
     // manifest already saves. When capacity returns, the next advance gives each woken companion one normal
-    // capped advance. Resting is computed at runtime and never saved into records.
+    // capped advance: needs decay for at most the cap, while age counts the whole rest, as after any absence,
+    // so milestones reached meanwhile are celebrated on waking. Resting is computed at runtime and never
+    // saved into records.
     public sealed class HouseholdSession
     {
         private readonly BabySimulation simulation;
@@ -91,7 +93,7 @@ namespace BAIby.Application
             }
         }
 
-        public int Capacity => HouseholdRules.CapacityFor(entitlements);
+        public int Capacity => HouseholdRules.CapacityFor(entitlements, companions.Count);
         public IReadOnlyList<HouseholdCompanion> Companions => companions.AsReadOnly();
         public IReadOnlyList<Keepsake> Keepsakes => keepsakes.AsReadOnly();
 
@@ -113,6 +115,17 @@ namespace BAIby.Application
         {
             var index = companions.FindIndex(companion => companion.Slot == slot);
             return index >= 0 && index >= Capacity;
+        }
+
+        // The resting companion that takes the next free room: the first one beyond capacity in Home order.
+        // A goodbye to an awake companion wakes it. Null when nobody rests.
+        public HouseholdCompanion NextToWake
+        {
+            get
+            {
+                var capacity = Capacity;
+                return companions.Count > capacity ? companions[capacity] : null;
+            }
         }
 
         public bool IsFull => companions.Count >= Capacity;

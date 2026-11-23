@@ -18,6 +18,8 @@ namespace BAIby.Infrastructure
 
         public bool Owns(string productId) => entitlements.Owns(productId);
 
+        public bool HasGrants => entitlements.HasPlaytestGrants;
+
         public void Set(string productId, bool owned)
         {
             if (owned)

@@ -36,5 +36,8 @@ namespace BAIby.Application
     {
         bool Owns(string productId);
         void Set(string productId, bool owned);
+
+        // True while any playtest grant is cached, which shows the "Playtest unlocks" badge.
+        bool HasGrants { get; }
     }
 }

@@ -18,8 +18,12 @@ static class EntitlementChecks
         CheckRefundRestsExtras(game);
         CheckRestoreWakesWithOneCappedAdvance(game);
         CheckPlayerChoosesWhoRests(game);
+        CheckLongRestCatchesUpAgeOnWaking(game);
+        CheckGoodbyeWhileOthersRest(game);
         CheckCacheSurvivesRestart();
-        CheckCacheRecovery();
+        CheckCacheRecovery(game);
+        CheckUnreadableCacheRestsNobody(game);
+        CheckPlaytestGrantsOnlyInTestBuilds(game);
         CheckStoreAnswers();
         CheckParentalGate();
         CheckPlaytestFlagsAndStoreFront();
@@ -46,6 +50,11 @@ static class EntitlementChecks
         Equal(true, HouseholdRules.CapacityFor(owned) <= HouseholdRules.PhysicalSlots, "capacity never exceeds the physical slots");
         Equal(2, HouseholdRules.CapacityFor(new FakeEntitlements("breed.dog.corgi", "helper.set")),
             "other products add no rooms");
+        var unknown = new FakeEntitlements { OwnershipUnknown = true };
+        Equal(2, HouseholdRules.CapacityFor(unknown, 1), "unknown ownership never adds a room for adoption");
+        Equal(3, HouseholdRules.CapacityFor(unknown, 3), "unknown ownership keeps every companion awake");
+        Equal(HouseholdRules.PhysicalSlots, HouseholdRules.CapacityFor(unknown, 20), "unknown ownership stays within the slots");
+        Equal(2, HouseholdRules.CapacityFor(NoEntitlements.Instance, 3), "known ownership rests companions beyond capacity");
     }
 
     private static void CheckCapacityInHousehold(BabySimulation game)
@@ -199,6 +208,55 @@ static class EntitlementChecks
         Equal(false, failingHome.IsResting(1), "a failed swap keeps the awake companion awake");
     }
 
+    // Waking is one normal capped advance: needs decay for at most the cap, while age counts the whole rest,
+    // as after any absence. Milestones reached meanwhile wait as celebrations. The copy promises only that
+    // needs don't drop while a companion rests.
+    private static void CheckLongRestCatchesUpAgeOnWaking(BabySimulation game)
+    {
+        var now = Start;
+        var store = new MemoryHouseholdStore();
+        var rooms = new FakeEntitlements(ProductIds.HomeRooms2);
+        var household = new HouseholdSession(game, store, () => now, rooms);
+        foreach (var name in new[] { "Mia", "Leo", "Ivy" })
+            household.Adopt(name);
+        household.Switch(1);
+        rooms.Revoke(ProductIds.HomeRooms2);
+        var frozen = household.Companions[2].State;
+        Equal(BabyStage.Newborn, HouseholdRules.StageOf(frozen), "Ivy goes to rest as a newborn");
+
+        now = now.AddDays(60);
+        household.AdvanceAll();
+        Equal(TimeSpan.Zero, household.PreviewState(3).Age, "a resting companion's age is shown as it was");
+        Equal(false, household.HasCelebrations(3), "no milestone is announced while resting");
+
+        rooms.Grant(ProductIds.HomeRooms2);
+        household.AdvanceAll();
+        var woken = household.Companions[2].State;
+        Equal(TimeSpan.FromDays(60), woken.Age, "waking counts the whole rest as age, like any absence");
+        Equal(BabyStage.Walker, HouseholdRules.StageOf(woken), "milestones reached during the rest are kept");
+        Equal(true, household.HasCelebrations(3), "milestones reached during the rest wait as celebrations");
+        Equal(3, household.TakeCelebrations(3).Count, "each milestone is celebrated once on waking");
+        var capped = game.Advance(frozen, frozen.TimeCheckpoint.AddHours(4)).State;
+        Equal(capped.Satiety, woken.Satiety, "needs decay for no more than the cap, however long the rest");
+    }
+
+    // A goodbye to an awake companion hands the room to the first resting one, and the household says so.
+    private static void CheckGoodbyeWhileOthersRest(BabySimulation game)
+    {
+        var store = new MemoryHouseholdStore();
+        var rooms = new FakeEntitlements(ProductIds.HomeRooms2);
+        var household = new HouseholdSession(game, store, () => Start, rooms);
+        foreach (var name in new[] { "Mia", "Leo", "Ivy" })
+            household.Adopt(name);
+        Equal<HouseholdCompanion>(null, household.NextToWake, "nobody waits to wake while everyone has a room");
+        rooms.Revoke(ProductIds.HomeRooms2);
+        Equal(3, household.NextToWake.Slot, "the first resting companion is next to wake");
+        household.SayGoodbye(2);
+        Equal(false, household.IsResting(3), "the freed room goes to the resting companion");
+        Equal<HouseholdCompanion>(null, household.NextToWake, "nobody else waits to wake");
+        Equal(false, household.CanAdopt, "the home stays full");
+    }
+
     private static void CheckCacheSurvivesRestart()
     {
         var now = Start;
@@ -212,6 +270,7 @@ static class EntitlementChecks
         Equal(1, changes, "a grant is announced");
         Equal(true, entitlements.Owns(ProductIds.HomeRooms2), "a grant is owned at once");
         Equal(1, cache.Writes, "a grant is cached");
+        Equal(cache.Primary, cache.Backup, "the first grant also seeds the backup, so one damaged key loses nothing");
 
         now = now.AddDays(400);
         var restarted = new CachedEntitlements(cache, () => now);
@@ -226,7 +285,7 @@ static class EntitlementChecks
         Equal(4, household.Capacity, "a cached grant opens More rooms offline");
 
         const string golden = "<entitlements version=\"1\"><grant product=\"home.rooms2\" source=\"1\" confirmed=\"639028224000000000\" /></entitlements>";
-        var decoded = new CachedEntitlements(new MemoryEntitlementCache { Primary = golden }, () => now);
+        var decoded = new CachedEntitlements(new MemoryEntitlementCache { Primary = golden }, () => now, honorPlaytestGrants: true);
         Equal(EntitlementSource.Playtest, decoded.Grants[0].Source, "golden cache keeps a playtest grant");
         Equal(Start, decoded.Grants[0].ConfirmedAt, "golden cache keeps the confirmation time");
         Equal(true, decoded.HasPlaytestGrants, "playtest grants are visible for the badge");
@@ -234,7 +293,7 @@ static class EntitlementChecks
         Equal(1, (int)EntitlementSource.Playtest, "playtest source ID is stable");
     }
 
-    private static void CheckCacheRecovery()
+    private static void CheckCacheRecovery(BabySimulation game)
     {
         var valid = "<entitlements version=\"1\"><grant product=\"home.rooms2\" source=\"0\" confirmed=\"639028224000000000\" /></entitlements>";
         var corrupt = new MemoryEntitlementCache { Primary = "<entitlements", Backup = valid };
@@ -247,12 +306,23 @@ static class EntitlementChecks
         {
             "<entitlements", "<entitlements version=\"0\" />", "<baby version=\"1\" />",
             valid.Replace("source=\"0\"", "source=\"7\""), valid.Replace("home.rooms2", "Home Rooms"),
-            valid.Replace("</entitlements>", "<grant product=\"home.rooms2\" source=\"0\" confirmed=\"1\" /></entitlements>")
+            valid.Replace("</entitlements>", "<grant product=\"home.rooms2\" source=\"0\" confirmed=\"1\" /></entitlements>"),
+            valid.Replace("version=\"1\"", "version=\"1\" unverified=\"2\""), "<entitlements version=\"9\" />"
         })
         {
             var broken = new CachedEntitlements(new MemoryEntitlementCache { Primary = payload }, () => Start);
-            Equal(0, broken.Owned.Count, $"an unreadable cache never throws: {payload}");
+            Equal(true, broken.OwnershipUnknown, $"an unreadable cache with no backup means ownership is unknown: {payload}");
+            Equal(4, HouseholdOfFour(game, broken).Capacity, $"an unreadable cache rests nobody: {payload}");
         }
+
+        // A single purchase, then a partial write truncates the primary: the backup seeded by the first write
+        // brings the purchase back.
+        var single = new MemoryEntitlementCache();
+        new CachedEntitlements(single, () => Start).Grant(ProductIds.HomeRooms2, EntitlementSource.Store);
+        single.Primary = single.Primary.Substring(0, single.Primary.Length / 2);
+        var truncated = new CachedEntitlements(single, () => Start);
+        Equal(true, truncated.Owns(ProductIds.HomeRooms2), "a truncated primary falls back to the first write's backup");
+        Equal(false, truncated.OwnershipUnknown, "a readable backup makes ownership known");
 
         var newer = new MemoryEntitlementCache { Primary = "<entitlements version=\"9\" />", Backup = valid };
         var fromNewer = new CachedEntitlements(newer, () => Start);
@@ -272,11 +342,91 @@ static class EntitlementChecks
         Equal(true, new CachedEntitlements(failing, () => Start).Owns(ProductIds.HomeRooms2), "the retried grant is cached");
     }
 
+    // Adopts four companions with More rooms owned, then reopens the household with the given entitlements.
+    private static HouseholdSession HouseholdOfFour(BabySimulation game, IEntitlements entitlements)
+    {
+        var store = new MemoryHouseholdStore();
+        var adopting = new HouseholdSession(game, store, () => Start, new FakeEntitlements(ProductIds.HomeRooms2));
+        foreach (var name in new[] { "Mia", "Leo", "Ivy", "Ada" })
+            adopting.Adopt(name);
+        return new HouseholdSession(game, store, () => Start, entitlements);
+    }
+
+    private static void CheckUnreadableCacheRestsNobody(BabySimulation game)
+    {
+        var now = Start;
+        var cache = new MemoryEntitlementCache { Primary = "<entitlements version=\"1\"><gra" };
+        var entitlements = new CachedEntitlements(cache, () => now, honorPlaytestGrants: true);
+        Equal(true, entitlements.OwnershipUnknown, "a truncated only copy leaves ownership unknown");
+        Equal(0, cache.Writes, "opening a damaged cache writes nothing");
+        var household = HouseholdOfFour(game, entitlements);
+        Equal(false, household.HasResting, "a damaged cache is not a refund");
+        Equal(false, household.IsResting(3) || household.IsResting(4), "the extra companions stay awake");
+        Equal(false, household.CanAdopt, "a damaged cache never opens a room for adoption");
+        Equal<HouseholdCompanion>(null, household.NextToWake, "nobody waits to wake");
+
+        // A playtest grant while unknown keeps the marker, so a relaunch is still unknown, not "owns nothing".
+        entitlements.Grant("helper.set", EntitlementSource.Playtest);
+        Equal(true, cache.Primary.Contains("unverified=\"1\""), "grants written while unknown are marked unverified");
+        var relaunched = new CachedEntitlements(cache, () => now, honorPlaytestGrants: true);
+        Equal(true, relaunched.OwnershipUnknown, "the unknown state survives a relaunch");
+        Equal(true, relaunched.Owns("helper.set"), "the grant written while unknown is kept");
+
+        // An unavailable store changes nothing; an answer ends the unknown state.
+        var changes = 0;
+        relaunched.Changed += () => changes++;
+        relaunched.Apply(StoreAnswer.Unavailable);
+        Equal(true, relaunched.OwnershipUnknown, "a network error leaves ownership unknown");
+        var afterAnswer = HouseholdOfFour(game, relaunched);
+        relaunched.Apply(StoreAnswer.Confirmed(new string[0]));
+        Equal(false, relaunched.OwnershipUnknown, "a store answer makes ownership known");
+        Equal(1, changes, "the end of unknown ownership is announced");
+        Equal(true, afterAnswer.IsResting(3) && afterAnswer.IsResting(4), "only an answered store rests the extras");
+        Equal(false, cache.Primary.Contains("unverified"), "the answer clears the marker");
+
+        // A cache from a newer build with no backup is unknown too, and is never rewritten.
+        var newer = new MemoryEntitlementCache { Primary = "<entitlements version=\"9\" />" };
+        var fromNewer = new CachedEntitlements(newer, () => now);
+        Equal(true, fromNewer.OwnershipUnknown, "a newer cache without a backup leaves ownership unknown");
+        Equal(false, HouseholdOfFour(game, fromNewer).HasResting, "a rollback rests nobody");
+    }
+
+    private static void CheckPlaytestGrantsOnlyInTestBuilds(BabySimulation game)
+    {
+        var cache = new MemoryEntitlementCache();
+        var development = new CachedEntitlements(cache, () => Start, honorPlaytestGrants: true);
+        development.Grant(ProductIds.HomeRooms2, EntitlementSource.Playtest);
+        development.Grant("helper.set", EntitlementSource.Playtest);
+        Equal(true, development.HasPlaytestGrants, "a test build shows the playtest badge for any playtest grant");
+        Equal(4, HouseholdRules.CapacityFor(development), "a test build honours playtest rooms");
+
+        // The release build installed over it reads the same cache.
+        var release = new CachedEntitlements(cache, () => Start);
+        Equal(false, release.Owns(ProductIds.HomeRooms2), "a release build ignores playtest rooms");
+        Equal(0, release.Owned.Count, "a release build owns no playtest grants");
+        Equal(false, release.HasPlaytestGrants, "a release build shows no playtest badge");
+        Equal(false, release.OwnershipUnknown, "ignored playtest grants are known, not unknown");
+        Equal(2, HouseholdRules.CapacityFor(release), "a release build gives no free rooms");
+        Equal(true, HouseholdOfFour(game, release).IsResting(3), "playtest companions rest in a release build");
+        ExpectInvalidOperation(() => release.Grant(ProductIds.HomeRooms2, EntitlementSource.Playtest),
+            "a release build makes no playtest grants");
+        release.Apply(StoreAnswer.Confirmed(new string[0]));
+        Equal(2, release.Grants.Count, "a release build keeps playtest grants in the cache");
+        Equal(true, new CachedEntitlements(cache, () => Start, honorPlaytestGrants: true).Owns(ProductIds.HomeRooms2),
+            "a later test build still sees its playtest grants");
+
+        var changes = 0;
+        release.Changed += () => changes++;
+        release.Apply(StoreAnswer.Confirmed(new[] { ProductIds.HomeRooms2 }));
+        Equal(true, release.Owns(ProductIds.HomeRooms2), "a real purchase replaces an ignored playtest grant");
+        Equal(1, changes, "the purchase is announced");
+    }
+
     private static void CheckStoreAnswers()
     {
         var now = Start;
         var cache = new MemoryEntitlementCache();
-        var entitlements = new CachedEntitlements(cache, () => now);
+        var entitlements = new CachedEntitlements(cache, () => now, honorPlaytestGrants: true);
         var changes = 0;
         entitlements.Changed += () => changes++;
         entitlements.Apply(StoreAnswer.Confirmed(new[] { ProductIds.HomeRooms2 }));
@@ -310,6 +460,10 @@ static class EntitlementChecks
 
         entitlements.Grant(ProductIds.HomeRooms2, EntitlementSource.Playtest);
         Equal(true, entitlements.Revoke(ProductIds.HomeRooms2), "the playtest toggle revokes like a refund");
+        entitlements.Apply(StoreAnswer.Confirmed(new[] { ProductIds.HomeRooms2 }));
+        entitlements.Grant(ProductIds.HomeRooms2, EntitlementSource.Playtest);
+        Equal(EntitlementSource.Store, entitlements.Grants.Single(grant => grant.ProductId == ProductIds.HomeRooms2).Source,
+            "a playtest grant never replaces a store grant");
         ExpectArgument(() => entitlements.Grant("not a product", EntitlementSource.Store), "malformed products are refused");
         ExpectArgument(() => StoreAnswer.Confirmed(new[] { "Bad Id" }), "a store answer with a malformed ID is refused");
     }
@@ -408,6 +562,7 @@ sealed class FakeEntitlements : IEntitlements
 
     public event Action Changed;
     public IReadOnlyList<string> Owned => owned.AsReadOnly();
+    public bool OwnershipUnknown { get; set; }
     public bool Owns(string productId) => owned.Contains(productId);
 
     public void Grant(string productId)

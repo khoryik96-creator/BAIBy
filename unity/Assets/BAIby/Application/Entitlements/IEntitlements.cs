@@ -12,6 +12,10 @@ namespace BAIby.Application
         // Owned product IDs in a stable order.
         IReadOnlyList<string> Owned { get; }
 
+        // True when the owned products can't be known yet, such as after a damaged cache and before any store
+        // answer. Nothing may be taken away while this is true.
+        bool OwnershipUnknown { get; }
+
         // Raised after a grant or a revocation changes what is owned.
         event Action Changed;
     }
@@ -27,6 +31,7 @@ namespace BAIby.Application
 
         public bool Owns(string productId) => false;
         public IReadOnlyList<string> Owned => Array.Empty<string>();
+        public bool OwnershipUnknown => false;
 
         public event Action Changed
         {

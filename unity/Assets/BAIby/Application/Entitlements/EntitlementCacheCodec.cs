@@ -7,16 +7,20 @@ using System.Xml.Linq;
 namespace BAIby.Application
 {
     // <entitlements version="1"><grant product="home.rooms2" source="0" confirmed="ticks" /></entitlements>
+    // An optional unverified="1" marks grants written after an unreadable cache, before any store answer, so
+    // a relaunch still treats ownership as unknown instead of as "owns nothing".
     internal static class EntitlementCacheCodec
     {
         private const int Version = 1;
 
-        public static string Encode(IEnumerable<EntitlementGrant> grants)
+        public static string Encode(IEnumerable<EntitlementGrant> grants, bool unverified = false)
         {
             if (grants == null)
                 throw new ArgumentNullException(nameof(grants));
 
             var root = new XElement("entitlements", new XAttribute("version", Version));
+            if (unverified)
+                root.Add(new XAttribute("unverified", 1));
             foreach (var grant in grants)
             {
                 root.Add(new XElement("grant",
@@ -28,8 +32,11 @@ namespace BAIby.Application
             return root.ToString(SaveOptions.DisableFormatting);
         }
 
-        public static List<EntitlementGrant> Decode(string payload)
+        public static List<EntitlementGrant> Decode(string payload) => Decode(payload, out _);
+
+        public static List<EntitlementGrant> Decode(string payload, out bool unverified)
         {
+            unverified = false;
             try
             {
                 var root = XElement.Parse(payload);
@@ -41,6 +48,15 @@ namespace BAIby.Application
                     throw new InvalidDataException("The entitlement cache version is invalid.");
                 if (version > Version)
                     throw new NotSupportedException($"Entitlement cache version {version} is unsupported.");
+
+                var marker = root.Attribute("unverified");
+                if (marker != null)
+                {
+                    var value = (int)marker;
+                    if (value != 0 && value != 1)
+                        throw new InvalidDataException("The entitlement cache's unverified marker is invalid.");
+                    unverified = value == 1;
+                }
 
                 var grants = new List<EntitlementGrant>();
                 var products = new HashSet<string>(StringComparer.Ordinal);

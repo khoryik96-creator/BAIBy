@@ -33,7 +33,8 @@ namespace BAIby.Application
         string Read();
         string ReadBackup();
 
-        // previousValidPayload is null when no valid cache was stored before.
+        // previousValidPayload goes to the backup before payload replaces the primary. On the very first
+        // write it is payload itself, so the cache always keeps two valid copies.
         void Write(string payload, string previousValidPayload);
     }
 
