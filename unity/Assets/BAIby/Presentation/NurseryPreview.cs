@@ -66,7 +66,12 @@ namespace BAIby.Presentation
         {
             FitSafeArea();
             if (activePanel != NurseryPanel.Care && Input.GetKeyDown(KeyCode.Escape))
-                ShowPanel(activePanel == NurseryPanel.Diaper ? NurseryPanel.Hygiene : NurseryPanel.Care);
+                ShowPanel(activePanel switch
+                {
+                    NurseryPanel.Diaper => NurseryPanel.Hygiene,
+                    NurseryPanel.Blocks => NurseryPanel.Development,
+                    _ => NurseryPanel.Care
+                });
 
             refreshIn -= Time.unscaledDeltaTime;
             if (refreshIn <= 0)
@@ -133,7 +138,9 @@ namespace BAIby.Presentation
                 return false;
             }
 
-            if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
+            if (activePanel == NurseryPanel.Blocks)
+                ShowPanel(NurseryPanel.Development);
+            else if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
                 (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound))
                 ShowPanel(NurseryPanel.Care);
             Paint(result.Reaction, (result.UnlockedSitting, result.UnlockedCrawling, result.UnlockedWalking),
@@ -235,6 +242,7 @@ namespace BAIby.Presentation
                 case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
                 case Reaction.FreshBath: return $"{name} splashed in the bath and feels fresh and relaxed.";
                 case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
+                case Reaction.StackedBlocks: return $"{name} beams at the block tower you built together.";
                 case Reaction.NewSoundComforted: return $"{name} settles in your arms as the sound fades.";
                 case Reaction.NewSoundExplored: return $"{name} listens closely as you explore the sound together.";
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
@@ -264,7 +272,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (decor.Root.activeSelf)
+            if (blocks.Root.activeSelf)
+                blocks.Feedback.text = message;
+            else if (decor.Root.activeSelf)
                 decor.Feedback.text = message;
             else if (diaper.Root.activeSelf)
                 diaper.Feedback.text = message;
@@ -363,7 +373,9 @@ namespace BAIby.Presentation
             developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
                 () => ShowPanel(NurseryPanel.Development), Mist, Ink);
             development = new DevelopmentPanel(Tray("Development Panel", false, 360),
-                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory));
+                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks);
+            blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
+                () => ShowPanel(NurseryPanel.Development), CompleteBlocks);
             feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
             newSound = new NewSoundPanel(Tray("New Sound Panel", false, 360),
@@ -382,7 +394,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Feeding, NewSound, Hygiene, Diaper, Decor }
+        private enum NurseryPanel { Care, Development, Blocks, Feeding, NewSound, Hygiene, Diaper, Decor }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -392,7 +404,10 @@ namespace BAIby.Presentation
             switch (next)
             {
                 case NurseryPanel.Development:
-                    development.ReadStory.Select();
+                    (previous == NurseryPanel.Blocks ? development.StackBlocks : development.ReadStory).Select();
+                    break;
+                case NurseryPanel.Blocks:
+                    blocks.FirstBlock.Select();
                     break;
                 case NurseryPanel.Feeding:
                     feeding.Milk.Select();
@@ -430,6 +445,7 @@ namespace BAIby.Presentation
         {
             controls.SetActive(adopted && activePanel == NurseryPanel.Care);
             development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
+            blocks.Root.SetActive(adopted && activePanel == NurseryPanel.Blocks);
             feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
             hygiene.Root.SetActive(adopted && activePanel == NurseryPanel.Hygiene);
             diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);

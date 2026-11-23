@@ -42,7 +42,7 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
@@ -81,7 +81,7 @@ namespace BAIby.Simulation
                 Math.Max(0, state.Energy - decayHours * EnergyDecay),
                 state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
                 Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours),
-                state.NewSoundResolved, state.NurseryTheme, canWalk);
+                state.NewSoundResolved, state.NurseryTheme, canWalk, state.BlockTowers);
 
             return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
         }
@@ -98,6 +98,7 @@ namespace BAIby.Simulation
             var cleanliness = state.Cleanliness;
             var connection = state.Connection;
             var storySessions = state.StorySessions;
+            var blockTowers = state.BlockTowers;
             var newSoundResolved = state.NewSoundResolved;
             var rattleFamiliarity = state.ToyFamiliarity;
             var plushFamiliarity = state.PlushFamiliarity;
@@ -144,6 +145,15 @@ namespace BAIby.Simulation
                     comfort = Math.Min(100, comfort + 30);
                     energy = Math.Max(0, energy - 8);
                     reaction = Reaction.FreshBath;
+                    break;
+                case CareAction.StackBlocks:
+                    if (!state.CanWalk)
+                        throw new InvalidOperationException("Stacking blocks is unavailable before the walking milestone.");
+
+                    energy = Math.Max(0, energy - 8);
+                    connection += 3;
+                    blockTowers = IncrementCount(blockTowers);
+                    reaction = Reaction.StackedBlocks;
                     break;
                 case CareAction.ReadStory:
                     energy = Math.Max(0, energy - 6);
@@ -194,7 +204,7 @@ namespace BAIby.Simulation
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
                 satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk), reaction);
+                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk, blockTowers), reaction);
         }
 
         private static double HealthAfterDecay(BabyState state, double hours)

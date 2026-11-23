@@ -24,7 +24,9 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose for the current stage. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
 | Open **Decor** and switch from Sage to Peach | The room fades to the new illustration. Baby stats stay the same and the selected style survives reload. |
-| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, connection, cleanliness, and health return. |
+| At Early walker, open **Development → Stack blocks** | Choose large, medium, and small. A wrong size gives a hint. Finish the tower and see the saved count rise by one. |
+| Cancel an unfinished tower | Development counts and needs stay where they were. |
+| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.

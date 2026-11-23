@@ -5,11 +5,11 @@ namespace BAIby.Simulation
     public enum NurseryTheme { Sage = 0, Peach = 1 }
     public enum Toy { Rattle, Plush }
     public enum Food { Milk = 0, Banana = 1, Oats = 2 }
-    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper, ComfortNewSound, ExploreNewSound, Bath }
+    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper, ComfortNewSound, ExploreNewSound, Bath, StackBlocks }
     public enum Reaction
     {
         None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy,
-        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy
+        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy, StackedBlocks
     }
 
     public sealed class BabyState
@@ -24,6 +24,7 @@ namespace BAIby.Simulation
         public double Health { get; }
         public double Connection { get; }
         public int StorySessions { get; }
+        public int BlockTowers { get; }
         // The original familiarity count is now specific to the rattle.
         public int ToyFamiliarity { get; }
         public int PlushFamiliarity { get; }
@@ -49,7 +50,7 @@ namespace BAIby.Simulation
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
-            bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage, bool canWalk = false)
+            bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage, bool canWalk = false, int blockTowers = 0)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -85,15 +86,20 @@ namespace BAIby.Simulation
             if (canWalk && !canCrawl)
                 throw new ArgumentException("Walking requires the crawling milestone.", nameof(canWalk));
 
+            if (blockTowers < 0)
+                throw new ArgumentOutOfRangeException(nameof(blockTowers));
+            if (blockTowers > 0 && !canWalk)
+                throw new ArgumentException("Stacking blocks requires the walking milestone.", nameof(blockTowers));
+
             ValidateNurseryTheme(nurseryTheme);
             return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
-                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme, canWalk);
+                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme, canWalk, blockTowers);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
-            bool newSoundResolved, NurseryTheme nurseryTheme, bool canWalk)
+            bool newSoundResolved, NurseryTheme nurseryTheme, bool canWalk, int blockTowers)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -105,6 +111,7 @@ namespace BAIby.Simulation
             Health = health;
             Connection = connection;
             StorySessions = storySessions;
+            BlockTowers = blockTowers;
             ToyFamiliarity = toyFamiliarity;
             PlushFamiliarity = plushFamiliarity;
             CanSitAndReach = canSitAndReach;
@@ -122,7 +129,7 @@ namespace BAIby.Simulation
 
             return new BabyState(Name, TimeCheckpoint, Age, Satiety, Comfort, Energy,
                 ToyFamiliarity, PlushFamiliarity, CanSitAndReach, CanCrawl, Connection, StorySessions,
-                Cleanliness, Health, NewSoundResolved, nurseryTheme, CanWalk);
+                Cleanliness, Health, NewSoundResolved, nurseryTheme, CanWalk, BlockTowers);
         }
 
         private static void ValidateNurseryTheme(NurseryTheme nurseryTheme)
