@@ -32,7 +32,7 @@ Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone.
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear.
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 
@@ -49,6 +49,9 @@ The [simulation](unity/Assets/BAIby/Simulation) and [session](unity/Assets/BAIby
 
 ```sh
 dotnet run --project tests/Simulation/SimulationChecks.csproj --configuration Release
+dotnet run --project tests/Appearance/AppearanceChecks.csproj --configuration Release
 ```
+
+The baby's look comes from region maps and hair and headwear overlays generated from the pose illustrations. Regenerate them with the tool in [tools/appearance](tools/appearance), which also renders preview sheets for review.
 
 The character and milestone timing are for playtesting. The nursery uses layered 2D artwork, with awake and sleeping chibi poses for each developmental stage. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.

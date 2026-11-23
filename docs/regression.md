@@ -6,7 +6,7 @@ GitHub Actions runs the legacy checks on pushes and pull requests. They verify t
 
 ## Automated restart checks
 
-CI compiles and exercises the engine-independent simulation and session. It covers care and elapsed-time rules, milestone delivery, save reload, corrupt-payload recovery, unsupported save versions, and failed-write handling. An assembly check enforces the dependency direction for the runtime assemblies. Build and device checks still need the Unity runtime.
+CI compiles and exercises the engine-independent simulation and session. It covers care and elapsed-time rules, milestone delivery, save reload, corrupt-payload recovery, unsupported save versions, and failed-write handling. The appearance checks compile the engine-independent palette and recolor math and verify compositing, recoloring, and row order. A Node check confirms that every pose has its appearance art and region maps. An assembly check enforces the dependency direction for the runtime assemblies. Build and device checks still need the Unity runtime.
 
 ## Unity restart acceptance checks
 

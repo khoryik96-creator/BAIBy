@@ -24,10 +24,13 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose for the current stage. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
 | Open **Decor** and switch from Sage to Peach | The room fades to the new illustration. Baby stats stay the same and the selected style survives reload. |
+| Open **Style** and try each tab: Skin, Hair, Cut, Outfit, and Hat | Each choice updates the baby at once. Hats take the outfit's accent color. Stats and the current pose stay the same. |
+| Change the look, then advance through each stage and select **Rest** | The same skin, hair, outfit, and headwear appear on every awake and nap pose. No halos, seams, or floating hats. |
+| Reload after changing the look | The chosen look returns. A save from before this build keeps the original Warm, Chestnut, Curls, and Sage look. |
 | At Early walker, open **Development → Stack blocks** | Choose large, medium, and small. A wrong size gives a hint. Finish the tower and see the saved count rise by one. |
 | Cancel an unfinished tower | Development counts and needs stay where they were. |
 | Open **Development → Baby report** | Current milestones and connection reflect the save. After repeated story time or block stacking, those interests appear alongside any favorite toy. |
-| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
+| Close and reopen the same build | The same baby, look, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.
