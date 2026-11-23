@@ -10,6 +10,8 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Play, then rest | Play spends energy. Rest raises energy and cues a short nap. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |
 | Select **Preview next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
+| Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
+| Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
 | Close and reopen the same build | The same baby, energy, favorite toy, and developmental stage return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 

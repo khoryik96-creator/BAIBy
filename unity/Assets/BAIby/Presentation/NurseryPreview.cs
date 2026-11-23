@@ -48,7 +48,7 @@ namespace BAIby.Presentation
         {
             session = babySession ?? throw new ArgumentNullException(nameof(babySession));
             adopt.interactable = true;
-            Paint(Reaction.None, false);
+            Paint(Reaction.None);
             Refresh();
         }
 
@@ -87,7 +87,7 @@ namespace BAIby.Presentation
             try
             {
                 var unlocked = session.Refresh();
-                Paint(Reaction.None, unlocked);
+                Paint(Reaction.None, unlocked.UnlockedSitting, unlocked.UnlockedCrawling);
             }
             catch (Exception error)
             {
@@ -106,7 +106,7 @@ namespace BAIby.Presentation
             try
             {
                 session.Adopt(nameField.text);
-                Paint(Reaction.None, false);
+                Paint(Reaction.None);
             }
             catch (Exception error)
             {
@@ -119,7 +119,8 @@ namespace BAIby.Presentation
             try
             {
                 var result = session.ApplyCare(action, toy);
-                Paint(result.Reaction, result.UnlockedSitting, action == CareAction.Play ? toy : (Toy?)null);
+                Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
+                    action == CareAction.Play ? toy : (Toy?)null);
             }
             catch (Exception error)
             {
@@ -131,7 +132,8 @@ namespace BAIby.Presentation
         {
             try
             {
-                Paint(Reaction.None, session.AdvancePreview(TimeSpan.FromDays(1)));
+                var unlocked = session.AdvancePreview(TimeSpan.FromDays(1));
+                Paint(Reaction.None, unlocked.UnlockedSitting, unlocked.UnlockedCrawling);
             }
             catch (Exception error)
             {
@@ -139,7 +141,8 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Paint(Reaction reaction, bool unlocked, Toy? playedToy = null)
+        private void Paint(Reaction reaction, bool unlockedSitting = false, bool unlockedCrawling = false,
+            Toy? playedToy = null)
         {
             var state = session.State;
             var adopted = state != null;
@@ -151,7 +154,8 @@ namespace BAIby.Presentation
             saveError.text = string.Empty;
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
-            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy);
+            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
+                canCrawl: state?.CanCrawl ?? false);
 
             if (!adopted)
                 return;
@@ -159,20 +163,29 @@ namespace BAIby.Presentation
             title.text = state.Name;
             wake.text = "NURSERY";
             var days = (int)state.Age.TotalDays;
-            var stage = state.CanSitAndReach ? "Early sitter" : "Newborn";
+            var stage = StageName(state);
             age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
             favorite.text = state.FavoriteToy is Toy favored ? $"Favorite: {ToyName(favored)}" : string.Empty;
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
             energy.Set(state.Energy);
-            if (unlocked)
-                status.text = reaction == Reaction.None
-                    ? $"{state.Name} can sit up now. Try playing with the toy."
-                    : $"{state.Name} can sit up now. {DescribeReaction(state.Name, reaction, visibleToy)}";
-            else if (reaction != Reaction.None)
-                status.text = DescribeReaction(state.Name, reaction, visibleToy);
+            var reactionText = DescribeReaction(state.Name, reaction, visibleToy);
+            if (unlockedCrawling)
+                status.text = $"{state.Name} can crawl now. " +
+                    (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
+            else if (unlockedSitting)
+                status.text = $"{state.Name} can sit up now. " +
+                    (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
             else
-                status.text = DescribeNeeds(state);
+                status.text = reaction == Reaction.None ? DescribeNeeds(state) : reactionText;
+        }
+
+        private static string StageName(BabyState state)
+        {
+            if (state.CanCrawl)
+                return "Crawler";
+
+            return state.CanSitAndReach ? "Early sitter" : "Newborn";
         }
 
         private static string ToyName(Toy toy) => toy == Toy.Plush ? "Plush" : "Rattle";
@@ -186,6 +199,7 @@ namespace BAIby.Presentation
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
                 default: return string.Empty;
             }
         }
