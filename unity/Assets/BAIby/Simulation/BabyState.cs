@@ -5,11 +5,11 @@ namespace BAIby.Simulation
     public enum NurseryTheme { Sage = 0, Peach = 1 }
     public enum Toy { Rattle, Plush }
     public enum Food { Milk = 0, Banana = 1, Oats = 2 }
-    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper, ComfortNewSound, ExploreNewSound }
+    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper, ComfortNewSound, ExploreNewSound, Bath }
     public enum Reaction
     {
         None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy,
-        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored
+        EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath
     }
 
     public sealed class BabyState

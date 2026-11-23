@@ -473,6 +473,59 @@ catch (IOException)
     Equal(themeStateBeforeFailure, themedReload.State, "failed theme write leaves visible state unchanged");
 }
 
+var bathReady = BabyState.Restore("Mia", start, TimeSpan.FromDays(3), 71, 47, 53,
+    2, 3, true, false, 42, 8, 23, 89, true, NurseryTheme.Peach);
+var bath = game.ApplyCare(bathReady, CareAction.Bath);
+Equal(Reaction.FreshBath, bath.Reaction, "bath produces a distinct reaction");
+Equal(68.0, bath.State.Cleanliness, "bath improves cleanliness");
+Equal(77.0, bath.State.Comfort, "bath improves comfort");
+Equal(45.0, bath.State.Energy, "bath uses energy");
+var expectedBath = XElement.Parse(BabySaveCodec.Encode(bathReady));
+expectedBath.SetElementValue("cleanliness", 68);
+expectedBath.SetElementValue("comfort", 77);
+expectedBath.SetElementValue("energy", 45);
+Equal(true, XNode.DeepEquals(expectedBath, XElement.Parse(BabySaveCodec.Encode(bath.State))),
+    "bath leaves all other saved fields unchanged");
+var changedInstead = game.ApplyCare(bathReady, CareAction.ChangeDiaper).State;
+Equal(100.0, changedInstead.Cleanliness, "diaper still cleans fully");
+Equal(bathReady.Comfort, changedInstead.Comfort, "diaper does not soothe");
+var soothedInstead = game.ApplyCare(bathReady, CareAction.Soothe).State;
+Equal(67.0, soothedInstead.Comfort, "soothing retains its own comfort effect");
+Equal(bathReady.Cleanliness, soothedInstead.Cleanliness, "soothing does not clean");
+Equal(45.0, soothedInstead.Connection, "soothing retains its connection effect");
+var cappedBath = game.ApplyCare(bath.State, CareAction.Bath).State;
+Equal(100.0, cappedBath.Cleanliness, "bath caps cleanliness");
+Equal(100.0, cappedBath.Comfort, "bath caps comfort");
+Equal(0.0, game.ApplyCare(tired, CareAction.Bath).State.Energy, "bath cannot put energy below zero");
+Equal(Reaction.FreshBath, game.ApplyCare(newborn, CareAction.Bath).Reaction, "bath is available to newborns");
+
+var bathClock = start;
+var bathSaves = new MemorySaveStore();
+var bathSession = new BabySession(game, bathSaves, () => bathClock);
+ExpectUnavailable(() => bathSession.ApplyCare(CareAction.Bath));
+Equal(0, bathSaves.Writes, "bath requires an adopted baby");
+bathSession.Adopt("Mia");
+bathClock = start.AddDays(3);
+var beforeBathState = bathSession.State;
+var beforeBathPayload = bathSaves.Primary;
+bathSaves.FailWrites = true;
+try
+{
+    bathSession.ApplyCare(CareAction.Bath);
+    throw new InvalidOperationException("Failed bath write should be surfaced.");
+}
+catch (IOException)
+{
+    Equal(beforeBathState, bathSession.State, "failed bath leaves age, milestones, and needs unchanged");
+    Equal(beforeBathPayload, bathSaves.Primary, "failed bath cannot change the save");
+}
+bathSaves.FailWrites = false;
+Equal((Reaction.FreshBath, true, false), bathSession.ApplyCare(CareAction.Bath),
+    "retry commits the bath and elapsed milestone together");
+Equal(2, bathSaves.Writes, "successful bath commits once after adoption");
+Equal(89.0, new BabySession(game, bathSaves, () => bathClock).State.Cleanliness,
+    "bath effects persist through the existing save schema");
+
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)

@@ -32,7 +32,7 @@ Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try Feed, Soothe, Rest, Change diaper, and play with both toys, and use **Preview next day** to exercise the first milestone.
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone.
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 

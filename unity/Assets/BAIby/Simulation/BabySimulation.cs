@@ -132,6 +132,12 @@ namespace BAIby.Simulation
                     cleanliness = 100;
                     reaction = Reaction.FreshDiaper;
                     break;
+                case CareAction.Bath:
+                    cleanliness = Math.Min(100, cleanliness + 45);
+                    comfort = Math.Min(100, comfort + 30);
+                    energy = Math.Max(0, energy - 8);
+                    reaction = Reaction.FreshBath;
+                    break;
                 case CareAction.ReadStory:
                     energy = Math.Max(0, energy - 6);
                     connection += 2;

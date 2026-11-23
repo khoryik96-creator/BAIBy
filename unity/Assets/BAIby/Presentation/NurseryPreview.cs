@@ -38,7 +38,7 @@ namespace BAIby.Presentation
         private NeedMeter cleanliness;
         private float refreshIn;
         private NurseryPanel activePanel;
-        private Button openDiaperButton;
+        private Button washUpButton;
 
         private void Awake()
         {
@@ -65,9 +65,8 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
-            if ((activePanel == NurseryPanel.NewSound || activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Decor)
-                && Input.GetKeyDown(KeyCode.Escape))
-                ShowPanel(NurseryPanel.Care);
+            if (activePanel != NurseryPanel.Care && Input.GetKeyDown(KeyCode.Escape))
+                ShowPanel(activePanel == NurseryPanel.Diaper ? NurseryPanel.Hygiene : NurseryPanel.Care);
 
             refreshIn -= Time.unscaledDeltaTime;
             if (refreshIn <= 0)
@@ -135,7 +134,7 @@ namespace BAIby.Presentation
                 return false;
             }
 
-            if (activePanel == NurseryPanel.Diaper ||
+            if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
                 (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound))
                 ShowPanel(NurseryPanel.Care);
             Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
@@ -230,6 +229,7 @@ namespace BAIby.Presentation
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
                 case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
+                case Reaction.FreshBath: return $"{name} splashed in the bath and feels fresh and relaxed.";
                 case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
                 case Reaction.NewSoundComforted: return $"{name} settles in your arms as the sound fades.";
                 case Reaction.NewSoundExplored: return $"{name} listens closely as you explore the sound together.";
@@ -263,6 +263,8 @@ namespace BAIby.Presentation
                 decor.Feedback.text = message;
             else if (diaper.Root.activeSelf)
                 diaper.Feedback.text = message;
+            else if (hygiene.Root.activeSelf)
+                hygiene.Feedback.text = message;
             else if (newSound.Root.activeSelf)
                 newSound.Scene.text = message;
             else if (feeding.Root.activeSelf)
@@ -346,8 +348,8 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Feeding), Fern, Color.white);
             ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
             ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
-            openDiaperButton = ActionButton("Change diaper", panel, 0, 1f / 3, 99, 187,
-                OpenDiaperExercise, Fern, Color.white);
+            washUpButton = ActionButton("Wash up", panel, 0, 1f / 3, 99, 187,
+                () => ShowPanel(NurseryPanel.Hygiene), Fern, Color.white);
             ActionButton("Play with rattle", panel, 1f / 3, 2f / 3, 99, 187,
                 () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
             ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
@@ -361,8 +363,10 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
             newSound = new NewSoundPanel(Tray("New Sound Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), action => Care(action));
+            hygiene = new HygienePanel(Tray("Hygiene Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), OpenDiaperExercise, () => Care(CareAction.Bath));
             diaper = new DiaperPanel(Tray("Diaper Panel", false, 378),
-                () => ShowPanel(NurseryPanel.Care), CompleteDiaper);
+                () => ShowPanel(NurseryPanel.Hygiene), CompleteDiaper);
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             controls.SetActive(false);
@@ -373,7 +377,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Feeding, NewSound, Diaper, Decor }
+        private enum NurseryPanel { Care, Development, Feeding, NewSound, Hygiene, Diaper, Decor }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -391,6 +395,10 @@ namespace BAIby.Presentation
                 case NurseryPanel.NewSound:
                     newSound.Comfort.Select();
                     break;
+                case NurseryPanel.Hygiene:
+                    hygiene.Feedback.text = string.Empty;
+                    hygiene.ChangeDiaper.Select();
+                    break;
                 case NurseryPanel.Diaper:
                     diaper.StartControl.Select();
                     break;
@@ -402,7 +410,8 @@ namespace BAIby.Presentation
                     {
                         case NurseryPanel.Feeding: feedButton.Select(); break;
                         case NurseryPanel.Development: developmentButton.Select(); break;
-                        case NurseryPanel.Diaper: openDiaperButton.Select(); break;
+                        case NurseryPanel.Diaper:
+                        case NurseryPanel.Hygiene: washUpButton.Select(); break;
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
@@ -417,6 +426,7 @@ namespace BAIby.Presentation
             controls.SetActive(adopted && activePanel == NurseryPanel.Care);
             development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
             feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
+            hygiene.Root.SetActive(adopted && activePanel == NurseryPanel.Hygiene);
             diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
