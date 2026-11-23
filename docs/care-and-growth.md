@@ -145,7 +145,7 @@ Recommendation: build it behind a build flag, off. If shipped, only in a parent-
 
 ## Notifications
 
-Local, opt-in, off by default, offered after the first complete care day behind the parental gate. Keep the household rule of **at most one a day**: 30 minutes into the moment the player picks, only if it is not done. A pure `ReminderPlanner` plans 48 hours ahead, so a player who stops opening the app hears nothing after 2 days. Nothing during quiet hours or Away mode. Copy is observational ("Breakfast time for Mia"); a test rejects words such as crying, sick, lonely or forgot. Consequences show in the game, never in a push. The Web build shows an in-page hint.
+Local, opt-in, off by default, offered after the first complete care day behind the parental gate. Keep the household rule of **at most two a day**: 30 minutes into each of the moments the player picks, only if it is not done. A pure `ReminderPlanner` plans 48 hours ahead, so a player who stops opening the app hears nothing after 2 days. Nothing during quiet hours or Away mode. Copy is observational ("Breakfast time for Mia"); a test rejects words such as crying, sick, lonely or forgot. Consequences show in the game, never in a push. The Web build shows an in-page hint.
 
 ## Pets and household
 
