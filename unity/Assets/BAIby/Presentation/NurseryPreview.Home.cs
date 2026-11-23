@@ -12,7 +12,7 @@ namespace BAIby.Presentation
     {
         private static readonly Color Amber = new Color32(201, 132, 62, 255);
 
-        private enum HouseholdView { Adoption, Nursery, Home, Goodbye }
+        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake }
 
         private HouseholdView view = HouseholdView.Adoption;
         private HouseholdSession household;
@@ -26,9 +26,22 @@ namespace BAIby.Presentation
         private GoodbyePanel goodbye;
         private int goodbyeSlot;
 
-        public void Open(HouseholdSession householdSession)
+        public void Open(HouseholdSession householdSession) => Open(householdSession, null, null, null);
+
+        // ownedProducts reports what is owned and announces refunds and restores; store is the shop seam
+        // (no store in this build); playtestUnlocks is the developer toggle, null outside Web, Editor and
+        // Development builds.
+        public void Open(HouseholdSession householdSession, IEntitlements ownedProducts, IStoreFront store,
+            IPlaytestUnlocks playtestUnlocks)
         {
             household = householdSession ?? throw new ArgumentNullException(nameof(householdSession));
+            if (entitlements != null)
+                entitlements.Changed -= OnEntitlementsChanged;
+            entitlements = ownedProducts;
+            storeFront = store ?? new OfflineStoreFront();
+            playtest = playtestUnlocks;
+            if (entitlements != null)
+                entitlements.Changed += OnEntitlementsChanged;
             adopt.interactable = true;
             var active = household.Active;
             (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) launch = default;
@@ -84,8 +97,10 @@ namespace BAIby.Presentation
 
         private void BuildHome()
         {
-            home = new HomePanel(Tray("Home Panel", true, 700), ShowActiveCompanion, OpenCompanion, StartAdoption, AskGoodbye);
+            home = new HomePanel(Tray("Home Panel", true, 700), ShowActiveCompanion, OpenCompanion, StartAdoption, AskGoodbye,
+                OpenJournal, AskWake, () => RequestGate(ShowMoreRooms), () => RequestGate(ShowSettings));
             goodbye = new GoodbyePanel(Tray("Goodbye Panel", false, 340), ShowHome, ContinueGoodbye, ConfirmGoodbye);
+            BuildRoomPanels();
         }
 
         // Shows the chosen view's trays and hides the others. The nursery's own panels follow activePanel.
@@ -98,6 +113,7 @@ namespace BAIby.Presentation
                 household.Companions.Count > 0);
             home.Root.SetActive(view == HouseholdView.Home);
             goodbye.Root.SetActive(view == HouseholdView.Goodbye);
+            ApplyRoomPanels();
             UpdatePanelVisibility(nurseryShown);
         }
 
@@ -119,7 +135,7 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Home;
             ApplyHouseholdView();
-            var first = home.Show(household);
+            var first = home.Show(household, PlaytestOn);
             if (first != null)
                 first.Select();
         }
@@ -314,7 +330,7 @@ namespace BAIby.Presentation
             for (var step = 1; step < companions.Count; step++)
             {
                 var candidate = companions[(start + step) % companions.Count];
-                if (candidate.IsReadable)
+                if (candidate.IsReadable && !household.IsResting(candidate.Slot))
                     return candidate;
             }
 
@@ -329,7 +345,8 @@ namespace BAIby.Presentation
 
             foreach (var companion in household.Companions)
             {
-                if (companion != active && companion.IsReadable && HouseholdRules.NeedsAttention(companion.State))
+                if (companion != active && companion.IsReadable && !household.IsResting(companion.Slot) &&
+                    HouseholdRules.NeedsAttention(companion.State))
                     return true;
             }
 
@@ -389,27 +406,47 @@ namespace BAIby.Presentation
             private readonly RectTransform cards;
             private readonly Button close;
             private readonly RectTransform full;
+            private readonly Text fullDetail;
             private readonly Text keepsakes;
+            private readonly Text playtestBadge;
             private readonly Action<int> open;
             private readonly Action adopt;
             private readonly Action<int> farewell;
+            private readonly Action<int> journal;
+            private readonly Action<int> wake;
             private readonly List<CardDetails> companionCards = new List<CardDetails>();
 
             public GameObject Root { get; }
             public Text Feedback { get; }
 
-            public HomePanel(RectTransform content, Action closeHome, Action<int> open, Action adopt, Action<int> farewell)
+            public HomePanel(RectTransform content, Action closeHome, Action<int> open, Action adopt, Action<int> farewell,
+                Action<int> journal, Action<int> wake, Action moreRooms, Action settings)
             {
                 this.open = open;
                 this.adopt = adopt;
                 this.farewell = farewell;
+                this.journal = journal;
+                this.wake = wake;
                 tray = (RectTransform)content.parent;
                 Root = tray.gameObject;
 
                 var heading = Box("Home Heading Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(heading, 0, 0.72f, 18, 98);
+                PlaceFromTop(heading, 0, 0.44f, 18, 90);
                 Label("Home Heading", heading, "Home", 40, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                playtestBadge = Label("Home playtest badge", content, "Playtest unlocks", 17, Fern, TextAnchor.MiddleLeft,
+                    Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                PlaceFromTop(playtestBadge.rectTransform, 0, 0.44f, 86, 108);
+                playtestBadge.gameObject.SetActive(false);
+
+                // Household settings sit behind the parental gate; they hold Restore Purchases.
+                var grownUps = ActionButton("Household settings", content, 0.45f, 0.72f, 0, 0, settings, Paper, Secondary);
+                var grownUpsLabel = grownUps.GetComponentInChildren<Text>();
+                grownUpsLabel.text = "Grown-ups";
+                grownUpsLabel.fontSize = 20;
+                grownUpsLabel.fontStyle = FontStyle.Normal;
+                PlaceFromTop((RectTransform)grownUps.transform, 0.45f, 0.72f, 30, 84, 3, 3);
+                SoftShapes.Round(grownUps.image, 1f);
                 close = ActionButton("Close home", content, 0.73f, 1, 0, 0, closeHome, Mist, Ink);
                 close.GetComponentInChildren<Text>().text = "Back";
                 PlaceFromTop((RectTransform)close.transform, 0.73f, 1, 20, 96, 3, 3);
@@ -421,12 +458,19 @@ namespace BAIby.Presentation
                 full = Box("Home full", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 SoftShapes.Round(Surface(full, Mist), 0.7f);
                 Label("Home full Title", full, "Your home is full", 27, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(22, 62), Vector2.one, new Vector2(-22, -10), FontStyle.Bold);
-                var calm = Label("Home full Detail", full, "Every room has a little one to care for. Enjoy your time together.",
-                    20, Secondary, TextAnchor.MiddleLeft, new Vector2(22, 10), Vector2.right, new Vector2(-22, 62));
-                calm.resizeTextForBestFit = true;
-                calm.resizeTextMinSize = 15;
-                calm.resizeTextMaxSize = 20;
+                    new Vector2(22, 62), new Vector2(0.64f, 1), new Vector2(0, -10), FontStyle.Bold);
+                fullDetail = Label("Home full Detail", full, "", 20, Secondary, TextAnchor.MiddleLeft,
+                    new Vector2(22, 10), Vector2.right, new Vector2(-22, 62));
+                fullDetail.resizeTextForBestFit = true;
+                fullDetail.resizeTextMinSize = 15;
+                fullDetail.resizeTextMaxSize = 20;
+                // A small, quiet link behind the parental gate. Nothing like it appears in a care flow.
+                var more = ActionButton("More rooms", full, 0.66f, 1, 66, 112, moreRooms, Paper, Fern);
+                var moreLabel = more.GetComponentInChildren<Text>();
+                moreLabel.fontSize = 19;
+                moreLabel.fontStyle = FontStyle.Normal;
+                ((RectTransform)more.transform).offsetMax = new Vector2(-16, 112);
+                SoftShapes.Round(more.image, 1f);
 
                 var kept = Box("Home Keepsakes Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 keepsakes = Label("Home keepsakes", kept, "", 20, Secondary, TextAnchor.MiddleLeft,
@@ -453,15 +497,16 @@ namespace BAIby.Presentation
                     var state = household.PreviewState(card.Slot);
                     if (state != null)
                         Describe(card, state);
-                    card.Badge.SetActive(household.HasCelebrations(card.Slot));
+                    card.Badge.SetActive(!card.Resting && household.HasCelebrations(card.Slot));
                 }
             }
 
             // Rebuilds the cards from the household and returns the first card for focus.
-            public Button Show(HouseholdSession household)
+            public Button Show(HouseholdSession household, bool playtestOn)
             {
                 ClearCards();
                 Feedback.text = string.Empty;
+                playtestBadge.gameObject.SetActive(playtestOn);
                 var active = household.Active;
                 close.gameObject.SetActive(active != null);
 
@@ -471,9 +516,10 @@ namespace BAIby.Presentation
                 {
                     var cell = Cell(i);
                     var companion = companions[i];
+                    var resting = household.IsResting(companion.Slot);
                     var card = companion.IsReadable
                         ? CompanionCard(companion.Slot, household.PreviewState(companion.Slot), cell, companion == active,
-                            household.HasCelebrations(companion.Slot), household.CanSayGoodbye)
+                            !resting && household.HasCelebrations(companion.Slot), household.CanSayGoodbye, resting)
                         : UnreadableCard(companion.Slot, cell);
                     if (first == null)
                         first = card;
@@ -490,6 +536,9 @@ namespace BAIby.Presentation
 
                 var y = CardsTop + (items + 1) / 2 * (CardHeight + Gap);
                 full.gameObject.SetActive(household.IsFull);
+                fullDetail.text = household.HasResting
+                    ? "Some little ones are resting. They're safe, and nothing changes while they rest. Choose Wake to swap who has a room."
+                    : "Every room has a little one to care for. Enjoy your time together.";
                 if (household.IsFull)
                 {
                     PlaceFromTop(full, 0, 1, y, y + 124, 3, 3);
@@ -535,17 +584,20 @@ namespace BAIby.Presentation
                 }
             }
 
+            // A resting companion's card opens its journal instead of its room, looks quieter, and offers Wake
+            // instead of Say goodbye.
             private Button CompanionCard(int slot, BabyState state, RectTransform cell, bool isActive, bool isNew,
-                bool canSayGoodbye)
+                bool canSayGoodbye, bool resting)
             {
-                var card = ActionButton("Home card " + state.Name, cell, 0, 1, 0, 0, () => open(slot), Mist, Ink);
+                Action tap = resting ? (Action)(() => journal(slot)) : () => open(slot);
+                var card = ActionButton("Home card " + state.Name, cell, 0, 1, 0, 0, tap, resting ? Paper : Mist, Ink);
                 Fill((RectTransform)card.transform);
                 SoftShapes.Round(card.image, 0.7f);
                 SoftShapes.Lift(card.gameObject);
 
                 var frame = Box(card.name + " Portrait", card.transform, Vector2.zero, Vector2.one,
                     new Vector2(16, 178), new Vector2(-16, -14));
-                var portrait = Surface(frame, Color.white);
+                var portrait = Surface(frame, resting ? new Color(1, 1, 1, 0.55f) : Color.white);
                 portrait.preserveAspect = true;
 
                 var name = card.GetComponentInChildren<Text>();
@@ -584,11 +636,29 @@ namespace BAIby.Presentation
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 badge.gameObject.SetActive(isNew);
 
-                var details = new CardDetails(slot, portrait, stageLabel, moodDot, moodLabel, badge.gameObject);
+                if (resting)
+                {
+                    var restBadge = Box(card.name + " Resting", card.transform, Vector2.up, Vector2.up,
+                        new Vector2(12, -50), new Vector2(122, -14));
+                    SoftShapes.Round(Surface(restBadge, Mist), 1f);
+                    Label("Resting Label", restBadge, "Resting", 19, Secondary, TextAnchor.MiddleCenter,
+                        Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                }
+
+                var details = new CardDetails(slot, portrait, stageLabel, moodDot, moodLabel, badge.gameObject, resting);
                 Describe(details, state);
                 companionCards.Add(details);
 
-                if (canSayGoodbye)
+                if (resting)
+                {
+                    var wakeButton = ActionButton("Wake " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
+                        () => wake(slot), Mist, Fern);
+                    var wakeLabel = wakeButton.GetComponentInChildren<Text>();
+                    wakeLabel.text = "Wake";
+                    wakeLabel.fontSize = 19;
+                    SoftShapes.Round(wakeButton.image, 1f);
+                }
+                else if (canSayGoodbye)
                 {
                     var bye = ActionButton("Say goodbye to " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
                         () => farewell(slot), Paper, Secondary);
@@ -609,6 +679,13 @@ namespace BAIby.Presentation
                 card.Picture.sprite = Portrait(stage);
                 card.Picture.enabled = card.Picture.sprite != null;
                 card.Stage.text = StageTitle(stage);
+                if (card.Resting)
+                {
+                    card.Mood.text = "Resting quietly";
+                    card.MoodDot.color = Mist;
+                    return;
+                }
+
                 card.Mood.text = MoodLine(state, out var needsCare);
                 card.MoodDot.color = needsCare ? Amber : Fern;
             }
@@ -667,8 +744,10 @@ namespace BAIby.Presentation
 
             private sealed class CardDetails
             {
-                public CardDetails(int slot, Image picture, Text stage, Image moodDot, Text mood, GameObject badge)
+                public CardDetails(int slot, Image picture, Text stage, Image moodDot, Text mood, GameObject badge,
+                    bool resting)
                 {
+                    Resting = resting;
                     Slot = slot;
                     Picture = picture;
                     Stage = stage;
@@ -678,6 +757,7 @@ namespace BAIby.Presentation
                 }
 
                 public int Slot { get; }
+                public bool Resting { get; }
                 public Image Picture { get; }
                 public Text Stage { get; }
                 public Image MoodDot { get; }

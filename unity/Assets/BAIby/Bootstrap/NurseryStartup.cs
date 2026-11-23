@@ -28,8 +28,18 @@ namespace BAIby.Bootstrap
                 // changes while the app stays alive. Every household key derives from saveKey; slot 1 is
                 // saveKey itself, so an existing single-baby save opens as the first companion uncopied.
                 var clock = new LocalClock();
-                var household = new HouseholdSession(simulation, new PlayerPrefsHouseholdStore(saveKey), clock.Now);
-                view.Open(household);
+                // The cached entitlement is trusted at launch, offline. This build has no store, so nothing is
+                // sold and Restore Purchases reports that everything is up to date.
+                var entitlements = new CachedEntitlements(new PlayerPrefsEntitlementCache(saveKey), clock.Now);
+                IPlaytestUnlocks playtest = null;
+#if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
+                var unlocks = new TestEntitlements(entitlements);
+                unlocks.ApplyUrlFlags(UnityEngine.Application.absoluteURL);
+                playtest = unlocks;
+#endif
+                var household = new HouseholdSession(simulation, new PlayerPrefsHouseholdStore(saveKey), clock.Now,
+                    entitlements);
+                view.Open(household, entitlements, new OfflineStoreFront(), playtest);
             }
             catch (Exception error)
             {

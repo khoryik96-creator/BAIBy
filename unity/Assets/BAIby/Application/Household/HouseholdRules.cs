@@ -16,8 +16,22 @@ namespace BAIby.Application
         // number needs no save migration.
         public const int PhysicalSlots = 8;
 
+        // Rooms added by the "More rooms" pack (ProductIds.HomeRooms2).
+        public const int RoomsPerPack = 2;
+
         // A need below this shows as a dot on the Home chip. Matches the simulation's low-need threshold.
         public const double LowNeedThreshold = 30;
+
+        // How many companions can be awake: the free rooms plus any owned pack, never beyond the
+        // physical slots. Companions beyond this rest; the count is computed at runtime and never saved.
+        public static int CapacityFor(IEntitlements entitlements)
+        {
+            var capacity = FreeCompanions;
+            if (entitlements != null && entitlements.Owns(ProductIds.HomeRooms2))
+                capacity += RoomsPerPack;
+
+            return Math.Min(capacity, PhysicalSlots);
+        }
 
         public static BabyStage StageOf(BabyState state)
         {

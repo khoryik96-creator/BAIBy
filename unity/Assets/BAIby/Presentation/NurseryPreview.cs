@@ -71,7 +71,14 @@ namespace BAIby.Presentation
             switch (view)
             {
                 case HouseholdView.Goodbye:
+                case HouseholdView.MoreRooms:
+                case HouseholdView.Settings:
+                case HouseholdView.Journal:
+                case HouseholdView.Wake:
                     ShowHome();
+                    break;
+                case HouseholdView.Gate:
+                    CancelGate();
                     break;
                 case HouseholdView.Home:
                     ShowActiveCompanion();
@@ -336,7 +343,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (goodbye.Root.activeSelf)
+            if (HouseholdFeedback() is Text householdFeedback)
+                householdFeedback.text = message;
+            else if (goodbye.Root.activeSelf)
                 goodbye.Feedback.text = message;
             else if (home.Root.activeSelf)
                 home.Feedback.text = message;

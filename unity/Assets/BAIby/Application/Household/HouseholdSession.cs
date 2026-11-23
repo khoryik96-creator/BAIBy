@@ -26,13 +26,20 @@ namespace BAIby.Application
     }
 
     // The single writer of household slots and the manifest. It caches one BabySession per companion.
-    // Every companion advances on launch, resume and the session tick, never on a switch, so need decay
-    // does not depend on which companion is on screen.
+    // Every awake companion advances on launch, resume and the session tick, never on a switch, so need
+    // decay does not depend on which companion is on screen.
+    //
+    // Companions beyond Capacity, in Home order, are resting: after a refund, say. A resting companion is
+    // read-only. It does not advance, so it does not decay, and its record is never written; its journal
+    // can still be read. The player chooses who stays awake by swapping places in Home order, which the
+    // manifest already saves. When capacity returns, the next advance gives each woken companion one normal
+    // capped advance. Resting is computed at runtime and never saved into records.
     public sealed class HouseholdSession
     {
         private readonly BabySimulation simulation;
         private readonly IHouseholdStore store;
         private readonly Func<DateTimeOffset> now;
+        private readonly IEntitlements entitlements;
         private readonly List<HouseholdCompanion> companions = new List<HouseholdCompanion>();
         private readonly List<PendingCelebration> celebrations = new List<PendingCelebration>();
         private readonly List<Keepsake> keepsakes = new List<Keepsake>();
@@ -48,10 +55,18 @@ namespace BAIby.Application
         private bool manifestFromNewerBuild;
 
         public HouseholdSession(BabySimulation simulation, IHouseholdStore store, Func<DateTimeOffset> now)
+            : this(simulation, store, now, null)
+        {
+        }
+
+        // entitlements decides capacity. Null means the free game.
+        public HouseholdSession(BabySimulation simulation, IHouseholdStore store, Func<DateTimeOffset> now,
+            IEntitlements entitlements)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
             this.store = store ?? throw new ArgumentNullException(nameof(store));
             this.now = now ?? throw new ArgumentNullException(nameof(now));
+            this.entitlements = entitlements ?? NoEntitlements.Instance;
 
             var sessions = ProbeSlots();
             var manifest = ReadManifest(out var trusted);
@@ -76,10 +91,30 @@ namespace BAIby.Application
             }
         }
 
-        public int Capacity => HouseholdRules.FreeCompanions;
+        public int Capacity => HouseholdRules.CapacityFor(entitlements);
         public IReadOnlyList<HouseholdCompanion> Companions => companions.AsReadOnly();
         public IReadOnlyList<Keepsake> Keepsakes => keepsakes.AsReadOnly();
-        public HouseholdCompanion Active => Find(activeSlot);
+
+        // The companion whose room opens. A resting companion is never active: the saved active slot is
+        // kept, and the first awake companion stands in until it wakes.
+        public HouseholdCompanion Active
+        {
+            get
+            {
+                var saved = Find(activeSlot);
+                return saved != null && saved.IsReadable && !IsResting(saved.Slot) ? saved : Find(FirstReadableSlot());
+            }
+        }
+
+        public bool HasResting => companions.Count > Capacity;
+
+        // True for a companion beyond capacity in Home order.
+        public bool IsResting(int slot)
+        {
+            var index = companions.FindIndex(companion => companion.Slot == slot);
+            return index >= 0 && index >= Capacity;
+        }
+
         public bool IsFull => companions.Count >= Capacity;
         public bool CanAdopt => !IsFull && FindFreeSlot() != 0;
         // A goodbye needs its keepsake written, which a manifest from a newer build does not allow.
@@ -114,6 +149,8 @@ namespace BAIby.Application
             var companion = Find(slot) ?? throw new ArgumentException($"Slot {slot} has no companion.", nameof(slot));
             if (!companion.IsReadable)
                 throw new InvalidOperationException("This save couldn't be opened.");
+            if (IsResting(slot))
+                throw new InvalidOperationException("This companion is resting.");
             if (activeSlot == slot)
                 return;
 
@@ -130,11 +167,59 @@ namespace BAIby.Application
             }
         }
 
-        // The companion's state advanced to now without any write, for Home's minute tick.
+        // The companion's state advanced to now without any write, for Home's minute tick. A resting
+        // companion is shown as it was when it began to rest.
         public BabyState PreviewState(int slot)
         {
             var state = Find(slot)?.State;
-            return state == null ? null : simulation.Advance(state, now()).State;
+            if (state == null || IsResting(slot))
+                return state;
+
+            return simulation.Advance(state, now()).State;
+        }
+
+        // Keeps wakeSlot in a room and lets restSlot rest instead, by swapping their places in Home order.
+        // The companion that goes to rest first advances to now, so its awake time counts; the woken one gets
+        // one normal capped advance. The swap is saved in the manifest; neither record stores the lock.
+        public void SwapResting(int wakeSlot, int restSlot)
+        {
+            var waking = Find(wakeSlot) ?? throw new ArgumentException($"Slot {wakeSlot} has no companion.", nameof(wakeSlot));
+            var resting = Find(restSlot) ?? throw new ArgumentException($"Slot {restSlot} has no companion.", nameof(restSlot));
+            if (!IsResting(wakeSlot))
+                throw new InvalidOperationException("Only a resting companion can be woken.");
+            if (IsResting(restSlot))
+                throw new InvalidOperationException("That companion is already resting.");
+            if (!waking.IsReadable)
+                throw new InvalidOperationException("This save couldn't be opened.");
+            if (manifestFromNewerBuild)
+                throw new InvalidOperationException("This home was saved by a newer version of BAIby. Update the game to choose who rests.");
+
+            // Commit the awake time first. If this write fails nothing has moved.
+            if (resting.IsReadable)
+                AddCelebrations(restSlot, resting.Session.Refresh());
+
+            var wakeIndex = companions.IndexOf(waking);
+            var restIndex = companions.IndexOf(resting);
+            var previousActive = activeSlot;
+            companions[wakeIndex] = resting;
+            companions[restIndex] = waking;
+            if (activeSlot == restSlot)
+                activeSlot = wakeSlot;
+            try
+            {
+                WriteManifest();
+            }
+            catch
+            {
+                companions[wakeIndex] = waking;
+                companions[restIndex] = resting;
+                activeSlot = previousActive;
+                throw;
+            }
+
+            // The woken companion's one capped advance. If it fails it is retried with the next advance.
+            if (AddCelebrations(wakeSlot, waking.Session.Refresh()))
+                WriteManifest();
         }
 
         public bool HasCelebrations(int slot) => celebrations.Exists(celebration => celebration.Slot == slot);
@@ -185,6 +270,8 @@ namespace BAIby.Application
                 throw new ArgumentException($"Slot {slot} has no companion.", nameof(slot));
             if (!companion.IsReadable)
                 throw new InvalidOperationException("A save that couldn't be opened is kept, not removed.");
+            if (IsResting(slot) && !leaving.Contains(slot))
+                throw new InvalidOperationException("A resting companion is kept as it is. Wake them to say goodbye.");
             if (manifestFromNewerBuild)
                 throw new InvalidOperationException("This home was saved by a newer version of BAIby. Update the game to say goodbye.");
 
@@ -221,20 +308,23 @@ namespace BAIby.Application
 
         // Advances every readable companion to now. Milestones of companions that are not on screen
         // are kept as pending celebrations; the active companion's unlocks are returned when it is shown.
+        // Resting companions are skipped: they neither decay nor write. A companion that has just woken gets
+        // its one normal capped advance here.
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvanceAll(bool activeOnScreen = true)
         {
             var shown = (false, false, false);
             var added = false;
             Exception failure = null;
+            var shownSlot = Active?.Slot ?? 0;
             foreach (var companion in companions)
             {
-                if (!companion.IsReadable)
+                if (!companion.IsReadable || IsResting(companion.Slot))
                     continue;
 
                 try
                 {
                     var unlocked = companion.Session.Refresh();
-                    if (activeOnScreen && companion.Slot == activeSlot)
+                    if (activeOnScreen && companion.Slot == shownSlot)
                         shown = unlocked;
                     else
                         added |= AddCelebrations(companion.Slot, unlocked);
@@ -250,8 +340,8 @@ namespace BAIby.Application
             // A failed advance returns nothing to the caller, so the on-screen companion's unlocks wait as
             // a pending celebration instead. Its record already holds the milestone, which is never
             // reported again.
-            if (failure != null && activeOnScreen)
-                added |= AddCelebrations(activeSlot, shown);
+            if (failure != null && activeOnScreen && shownSlot != 0)
+                added |= AddCelebrations(shownSlot, shown);
 
             if (added)
             {
@@ -265,8 +355,8 @@ namespace BAIby.Application
                     if (failure == null)
                     {
                         failure = error;
-                        if (activeOnScreen)
-                            AddCelebrations(activeSlot, shown);
+                        if (activeOnScreen && shownSlot != 0)
+                            AddCelebrations(shownSlot, shown);
                     }
                 }
             }
@@ -461,12 +551,14 @@ namespace BAIby.Application
             return 0;
         }
 
+        // The first companion that can open, skipping resting ones.
         private int FirstReadableSlot()
         {
-            foreach (var companion in companions)
+            var capacity = Capacity;
+            for (var i = 0; i < companions.Count && i < capacity; i++)
             {
-                if (companion.IsReadable)
-                    return companion.Slot;
+                if (companions[i].IsReadable)
+                    return companions[i].Slot;
             }
 
             return 0;

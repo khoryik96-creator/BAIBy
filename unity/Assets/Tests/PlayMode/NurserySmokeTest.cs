@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using BAIby.Application;
 using BAIby.Bootstrap;
 using NUnit.Framework;
 using UnityEngine;
@@ -463,6 +464,114 @@ namespace BAIby.Tests
             Assert.That(Child<Button>(restored.gameObject, "Switch companion").gameObject.activeInHierarchy, Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator ExtraRoomsRestAndRestoreThroughThePlaytestToggle()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var view = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Adopt(view.gameObject, "Mia");
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "+ Adopt");
+            Adopt(view.gameObject, "Leo");
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Home playtest badge").gameObject.activeInHierarchy, Is.False);
+
+            // The More rooms link sits behind the parental gate, which accepts only the right number.
+            Tap(view.gameObject, "More rooms");
+            Assert.That(Child<RectTransform>(view.gameObject, "Parental Gate Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.False);
+            var firstPrompt = Child<Text>(view.gameObject, "Gate Prompt").text;
+            Assert.That(ParentalGate.AnswerFor(firstPrompt), Is.Not.Null);
+            Child<InputField>(view.gameObject, "Gate Answer").text = "0";
+            Tap(view.gameObject, "Gate continue");
+            Assert.That(Child<RectTransform>(view.gameObject, "Parental Gate Panel").gameObject.activeInHierarchy, Is.True,
+                "a wrong answer keeps the gate closed");
+            Assert.That(Child<Text>(view.gameObject, "Gate Feedback").text, Is.Not.Empty);
+            Assert.That(Child<Text>(view.gameObject, "Gate Prompt").text, Is.Not.EqualTo(firstPrompt), "a wrong answer draws a new number");
+            Tap(view.gameObject, "Gate cancel");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "More rooms");
+            PassGate(view.gameObject);
+            Assert.That(Child<RectTransform>(view.gameObject, "More Rooms Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(ToggleLabel(view.gameObject), Is.EqualTo("Add 2 test rooms"));
+            Tap(view.gameObject, "Playtest rooms toggle");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".entitlements"), Is.True, "the playtest grant is cached");
+            Assert.That(ToggleLabel(view.gameObject), Is.EqualTo("Remove test rooms"));
+            Tap(view.gameObject, "Close more rooms");
+            Assert.That(Child<Text>(view.gameObject, "Home playtest badge").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.False);
+
+            Tap(view.gameObject, "+ Adopt");
+            Adopt(view.gameObject, "Ivy");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot3"), Is.True, "a third baby takes slot 3");
+
+            // Restore Purchases lives in the household settings, behind the gate.
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            Assert.That(Child<RectTransform>(view.gameObject, "Household Settings Panel").gameObject.activeInHierarchy, Is.False);
+            PassGate(view.gameObject);
+            Tap(view.gameObject, "Restore purchases");
+            Assert.That(Child<Text>(view.gameObject, "Settings Feedback").text, Is.EqualTo("Your purchases are up to date."));
+
+            // Revoking the test rooms works like a refund: Ivy rests, read-only, and her save is untouched.
+            Tap(view.gameObject, "Settings more rooms");
+            var ivySave = PlayerPrefs.GetString(saveKey + ".slot3");
+            Tap(view.gameObject, "Playtest rooms toggle");
+            Assert.That(Child<Text>(view.gameObject, "More Rooms Feedback").text, Does.Contain("resting"));
+            Tap(view.gameObject, "Close more rooms");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home card Ivy Resting").gameObject.activeInHierarchy, Is.True);
+            Assert.That(HasObject(view.gameObject, "Home card Leo Resting"), Is.False);
+            Assert.That(HasButton(view.gameObject, "Say goodbye to Ivy"), Is.False, "a resting companion is read-only");
+            Assert.That(HasButton(view.gameObject, "+ Adopt"), Is.False);
+            Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Home card Ivy");
+            Assert.That(Child<RectTransform>(view.gameObject, "Journal Panel").gameObject.activeInHierarchy, Is.True,
+                "a resting companion's journal opens instead of the room");
+            Assert.That(Child<Text>(view.gameObject, "Journal Heading").text, Is.EqualTo("Ivy's journal"));
+            Assert.That(Child<Text>(view.gameObject, "Journal Status").text, Does.Contain("resting"));
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Close home");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"), "a resting companion is never active");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot3"), Is.EqualTo(ivySave), "a resting companion makes no writes");
+            UnityEngine.Object.Destroy(view.gameObject);
+            yield return null;
+
+            var restored = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"), "Ivy still rests after a restart");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot3"), Is.EqualTo(ivySave), "a restart makes no resting writes");
+            Tap(restored.gameObject, "Home");
+            Assert.That(Child<RectTransform>(restored.gameObject, "Home card Ivy Resting").gameObject.activeInHierarchy, Is.True);
+
+            // The player chooses who stays awake.
+            Tap(restored.gameObject, "Wake Ivy");
+            Assert.That(Child<RectTransform>(restored.gameObject, "Wake Panel").gameObject.activeInHierarchy, Is.True);
+            Tap(restored.gameObject, "Rest Leo instead");
+            Assert.That(Child<RectTransform>(restored.gameObject, "Home card Leo Resting").gameObject.activeInHierarchy, Is.True);
+            Assert.That(HasObject(restored.gameObject, "Home card Ivy Resting"), Is.False);
+
+            // Restoring the rooms wakes everyone.
+            Tap(restored.gameObject, "More rooms");
+            PassGate(restored.gameObject);
+            Tap(restored.gameObject, "Playtest rooms toggle");
+            Tap(restored.gameObject, "Close more rooms");
+            Assert.That(HasObject(restored.gameObject, "Home card Leo Resting"), Is.False);
+            Assert.That(HasObject(restored.gameObject, "Home card Ivy Resting"), Is.False);
+            Tap(restored.gameObject, "Home card Leo");
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Leo"));
+            Tap(restored.gameObject, "Home");
+            Tap(restored.gameObject, "Home card Ivy");
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Ivy"));
+        }
+
         [UnityTearDown]
         public IEnumerator CleanUp()
         {
@@ -492,7 +601,33 @@ namespace BAIby.Tests
 
             yield return key + ".household";
             yield return key + ".household.backup";
+            yield return key + ".entitlements";
+            yield return key + ".entitlements.backup";
         }
+
+        private static void Adopt(GameObject view, string name)
+        {
+            Child<InputField>(view, "Name").text = name;
+            Tap(view, "Start raising");
+            Assert.That(Child<Text>(view, "Baby Name").text, Is.EqualTo(name));
+        }
+
+        // Answers the parental gate the way a grown-up would: the number in words, typed as digits.
+        private static void PassGate(GameObject view)
+        {
+            Assert.That(Child<RectTransform>(view, "Parental Gate Panel").gameObject.activeInHierarchy, Is.True);
+            var answer = ParentalGate.AnswerFor(Child<Text>(view, "Gate Prompt").text);
+            Assert.That(answer, Is.Not.Null);
+            Child<InputField>(view, "Gate Answer").text = answer;
+            Tap(view, "Gate continue");
+            Assert.That(Child<RectTransform>(view, "Parental Gate Panel").gameObject.activeInHierarchy, Is.False);
+        }
+
+        private static string ToggleLabel(GameObject view) =>
+            Child<Button>(view, "Playtest rooms toggle").GetComponentInChildren<Text>(true).text;
+
+        private static bool HasObject(GameObject view, string name) =>
+            view.GetComponentsInChildren<RectTransform>(true).Any(rect => rect.name == name);
 
         private static bool HasButton(GameObject view, string name) =>
             view.GetComponentsInChildren<Button>(true).Any(button => button.name == name);
