@@ -82,6 +82,13 @@ namespace BAIby.Application
                 current.UnlockedCrawling || preview.UnlockedCrawling);
         }
 
+        public void SetNurseryTheme(NurseryTheme theme)
+        {
+            var updated = GetAdoptedBaby().WithNurseryTheme(theme);
+            if (updated != State)
+                Commit(updated);
+        }
+
         private BabyState GetAdoptedBaby() =>
             State ?? throw new InvalidOperationException("Adopt a baby first.");
 

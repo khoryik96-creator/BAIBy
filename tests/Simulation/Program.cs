@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Xml.Linq;
 using BAIby.Application;
 using BAIby.Simulation;
 
@@ -96,7 +97,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"8\" />";
+saves.Primary = "<baby version=\"9\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -104,7 +105,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"8\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"9\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -122,10 +123,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"7\""), "first edit after migration writes v7");
+Equal(true, migratedSaves.Primary.Contains("version=\"8\""), "first edit after migration writes v8");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v7");
+    "rest on migrated save persists energy in v8");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -187,7 +188,7 @@ Equal((false, true), crawlerSession.Refresh(), "migration unlocks already earned
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"7\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"8\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -301,7 +302,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"7\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"8\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -392,7 +393,7 @@ incidentSaves.FailWrites = false;
 Equal((Reaction.NewSoundExplored, true, false), incidentSession.ApplyCare(CareAction.ExploreNewSound),
     "successful retry commits the pending milestone and choice together");
 var incidentReload = new BabySession(game, incidentSaves, () => incidentClock);
-Equal(true, incidentReload.State.NewSoundResolved, "incident resolution survives v7 save and reload");
+Equal(true, incidentReload.State.NewSoundResolved, "incident resolution survives save and reload");
 var resolvedPayload = incidentSaves.Primary;
 incidentClock = start.AddDays(4);
 ExpectUnavailable(() => incidentReload.ApplyCare(CareAction.ComfortNewSound));
@@ -421,6 +422,56 @@ Equal(false, BAIby.Presentation.WipeGeometry.TouchesSpot(-100, 0, -10, 0, 0, 0, 
     "a swipe's infinite extension cannot clear a spot past its endpoint");
 Equal(false, BAIby.Presentation.WipeGeometry.TouchesSpot(-100, 12, 100, 12, 0, 0, 3),
     "a swipe that passes nearby does not clear a spot");
+
+Equal(NurseryTheme.Sage, newborn.NurseryTheme, "new adoption starts in the sage nursery");
+const string preThemeSave = "<baby version=\"7\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>6912000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach><can-crawl>true</can-crawl>" +
+    "<connection>34</connection><story-sessions>8</story-sessions><cleanliness>51</cleanliness><health>74</health>" +
+    "<new-sound-resolved>true</new-sound-resolved></baby>";
+var themeSaves = new MemorySaveStore { Primary = preThemeSave };
+var themeClock = start.AddHours(1);
+var themeSession = new BabySession(game, themeSaves, () => themeClock);
+Equal(NurseryTheme.Sage, themeSession.State.NurseryTheme, "v7 saves start in the sage nursery");
+themeSession.SetNurseryTheme(NurseryTheme.Sage);
+Equal(0, themeSaves.Writes, "selecting the same theme skips writes");
+try
+{
+    themeSession.SetNurseryTheme((NurseryTheme)99);
+    throw new InvalidOperationException("Unknown nursery themes should be rejected.");
+}
+catch (ArgumentOutOfRangeException)
+{
+    Equal(0, themeSaves.Writes, "unknown theme cannot alter the save");
+}
+themeSession.SetNurseryTheme(NurseryTheme.Peach);
+Equal(1, themeSaves.Writes, "new theme saves immediately");
+Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
+var expectedTheme = XElement.Parse(preThemeSave);
+expectedTheme.SetAttributeValue("version", 8);
+expectedTheme.Add(new XElement("nursery-theme", 1));
+Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
+    "theme change preserves all existing save fields despite elapsed time");
+var themedReload = new BabySession(game, themeSaves, () => themeClock);
+Equal(NurseryTheme.Peach, themedReload.State.NurseryTheme, "theme survives save reload");
+themedReload.Refresh();
+Equal(NurseryTheme.Peach, themedReload.State.NurseryTheme, "elapsed time preserves theme");
+themedReload.AdvancePreview(TimeSpan.FromDays(1));
+Equal(NurseryTheme.Peach, themedReload.State.NurseryTheme, "preview time preserves theme");
+themedReload.ApplyCare(CareAction.Feed);
+Equal(NurseryTheme.Peach, themedReload.State.NurseryTheme, "care preserves theme");
+var themeStateBeforeFailure = themedReload.State;
+themeSaves.FailWrites = true;
+try
+{
+    themedReload.SetNurseryTheme(NurseryTheme.Sage);
+    throw new InvalidOperationException("Failed theme write should be surfaced.");
+}
+catch (IOException)
+{
+    Equal(themeStateBeforeFailure, themedReload.State, "failed theme write leaves visible state unchanged");
+}
 
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
