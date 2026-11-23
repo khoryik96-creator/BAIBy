@@ -41,7 +41,7 @@ namespace BAIby.Tests
             Assert.That(Reaction(view.gameObject), Does.Contain("satisfied"));
             Tap(view.gameObject, "Soothe");
             Assert.That(Reaction(view.gameObject), Does.Contain("relaxes"));
-            var initialEnergy = EnergyMeter(view.gameObject);
+            var initialEnergy = NeedValue(view.gameObject, "Energy");
             Tap(view.gameObject, "Play with rattle");
             Assert.That(Reaction(view.gameObject), Does.Contain("follows the rattle"));
             Tap(view.gameObject, "Play with plush");
@@ -65,17 +65,35 @@ namespace BAIby.Tests
             Assert.That(storybook.sprite, Is.Not.Null);
             Tap(view.gameObject, "Done");
 
-            var afterPlay = EnergyMeter(view.gameObject);
+            var afterPlay = NeedValue(view.gameObject, "Energy");
             Assert.That(afterPlay, Is.LessThan(initialEnergy));
             Tap(view.gameObject, "Rest");
             Assert.That(Reaction(view.gameObject), Does.Contain("woke up rested"));
-            Assert.That(EnergyMeter(view.gameObject), Is.GreaterThan(afterPlay));
+            Assert.That(NeedValue(view.gameObject, "Energy"), Is.GreaterThan(afterPlay));
 
-            for (var day = 0; day < 3; day++)
+            var initialHealth = NeedValue(view.gameObject, "Health");
+            var initialCleanliness = NeedValue(view.gameObject, "Cleanliness");
+            Tap(view.gameObject, "Preview next day");
+            var beforeChange = NeedValue(view.gameObject, "Cleanliness");
+            Assert.That(beforeChange, Is.LessThan(initialCleanliness));
+            Assert.That(Reaction(view.gameObject), Does.Contain("could use a fresh diaper"));
+            Tap(view.gameObject, "Change diaper");
+            Assert.That(NeedValue(view.gameObject, "Cleanliness"), Is.GreaterThan(beforeChange));
+            Assert.That(Reaction(view.gameObject), Does.Contain("is clean and dry"));
+            yield return new WaitForSecondsRealtime(0.35f);
+            var diaper = Child<SpriteRenderer>(view.gameObject, "Nursery fresh diaper");
+            Assert.That(diaper.enabled, Is.True);
+            Assert.That(diaper.sprite, Is.Not.Null);
+
+            for (var day = 1; day < 3; day++)
                 Tap(view.gameObject, "Preview next day");
 
             Assert.That(Reaction(view.gameObject), Does.Contain("can sit up now"));
-            var beforeReload = EnergyMeter(view.gameObject);
+            var healthBeforeReload = NeedValue(view.gameObject, "Health");
+            Assert.That(healthBeforeReload, Is.LessThan(initialHealth));
+            Tap(view.gameObject, "Change diaper");
+            var cleanlinessBeforeReload = NeedValue(view.gameObject, "Cleanliness");
+            var energyBeforeReload = NeedValue(view.gameObject, "Energy");
             UnityEngine.Object.Destroy(view.gameObject);
             yield return null;
 
@@ -83,7 +101,9 @@ namespace BAIby.Tests
             yield return null;
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Early sitter"));
-            Assert.That(EnergyMeter(restored.gameObject), Is.EqualTo(beforeReload).Within(0.01f));
+            Assert.That(NeedValue(restored.gameObject, "Energy"), Is.EqualTo(energyBeforeReload).Within(0.01f));
+            Assert.That(NeedValue(restored.gameObject, "Health"), Is.EqualTo(healthBeforeReload).Within(0.01f));
+            Assert.That(NeedValue(restored.gameObject, "Cleanliness"), Is.EqualTo(cleanlinessBeforeReload).Within(0.01f));
             Tap(restored.gameObject, "Development");
             Assert.That(Child<Text>(restored.gameObject, "Development Age").text, Does.Contain("Early sitter"));
             Assert.That(Child<Text>(restored.gameObject, "Story Sessions Value").text, Is.EqualTo("1"));
@@ -136,8 +156,8 @@ namespace BAIby.Tests
 
         private static string Reaction(GameObject view) => Child<Text>(view, "Reaction").text;
 
-        private static float EnergyMeter(GameObject view) =>
-            Child<RectTransform>(view, "Energy").Find("Bar/Fill").GetComponent<RectTransform>().anchorMax.x;
+        private static float NeedValue(GameObject view, string name) =>
+            Child<RectTransform>(view, name).Find("Bar/Fill").GetComponent<RectTransform>().anchorMax.x;
 
         private static void Tap(GameObject view, string name)
         {

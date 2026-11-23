@@ -34,6 +34,8 @@ namespace BAIby.Presentation
         private NeedMeter satiety;
         private NeedMeter comfort;
         private NeedMeter energy;
+        private NeedMeter health;
+        private NeedMeter cleanliness;
         private float refreshIn;
 
         private void Awake()
@@ -152,6 +154,8 @@ namespace BAIby.Presentation
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
             energy.Root.gameObject.SetActive(adopted);
+            health.Root.gameObject.SetActive(adopted);
+            cleanliness.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
@@ -170,6 +174,8 @@ namespace BAIby.Presentation
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
             energy.Set(state.Energy);
+            health.Set(state.Health);
+            cleanliness.Set(state.Cleanliness);
             var reactionText = DescribeReaction(state.Name, reaction, visibleToy);
             if (unlockedCrawling)
                 status.text = $"{state.Name} can crawl now. " +
@@ -200,6 +206,7 @@ namespace BAIby.Presentation
                 case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
+                case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
                 case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
@@ -211,6 +218,10 @@ namespace BAIby.Presentation
         private static string DescribeNeeds(BabyState state)
         {
             const double low = 45;
+            if (state.Health < low)
+                return $"{state.Name} seems under the weather and could use some care.";
+            if (state.Cleanliness < low)
+                return $"{state.Name} could use a fresh diaper.";
             if (state.Energy < low && state.Energy <= state.Satiety && state.Energy <= state.Comfort)
                 return $"{state.Name} rubs their eyes. It might be time for a nap.";
             if (state.Satiety < low && state.Satiety <= state.Comfort)
@@ -251,21 +262,23 @@ namespace BAIby.Presentation
             safeArea = Box("Safe Area", canvas.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             FitSafeArea();
 
-            var top = Tray("Header", true, 190);
+            var top = Tray("Header", true, 239);
             wake = Label("Header Label", top, "BAIby", 19, Fern, TextAnchor.MiddleLeft,
-                new Vector2(0, 146), new Vector2(1, 1), new Vector2(0, -15));
+                new Vector2(0, 195), new Vector2(1, 1), new Vector2(0, -15));
             title = Label("Baby Name", top, "Your nursery", 48, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 86), new Vector2(1, 1), new Vector2(0, -38), FontStyle.Bold);
+                new Vector2(0, 135), new Vector2(1, 1), new Vector2(0, -38), FontStyle.Bold);
             title.resizeTextForBestFit = true;
             title.resizeTextMinSize = 27;
             title.resizeTextMaxSize = 48;
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
-                new Vector2(0, 59), new Vector2(1, 1), new Vector2(0, -101));
+                new Vector2(0, 108), new Vector2(1, 1), new Vector2(0, -101));
             favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
-                new Vector2(0, 59), Vector2.one, new Vector2(0, -101));
-            satiety = Meter("Fullness", top, 0, 1f / 3);
-            comfort = Meter("Comfort", top, 1f / 3, 2f / 3);
-            energy = Meter("Energy", top, 2f / 3, 1);
+                new Vector2(0, 108), Vector2.one, new Vector2(0, -101));
+            satiety = Meter("Fullness", top, 0, 1f / 3, 61);
+            comfort = Meter("Comfort", top, 1f / 3, 2f / 3, 61);
+            energy = Meter("Energy", top, 2f / 3, 1, 61);
+            cleanliness = Meter("Cleanliness", top, 0, 0.5f, 12);
+            health = Meter("Health", top, 0.5f, 1, 12);
 
             var starter = Tray("Welcome", false, 250);
             welcome = starter.parent.gameObject;
@@ -296,8 +309,12 @@ namespace BAIby.Presentation
             ActionButton("Feed", panel, 0, 1f / 3, 195, 283, () => Care(CareAction.Feed), Fern, Color.white);
             ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
             ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
-            ActionButton("Play with rattle", panel, 0, 0.5f, 99, 187, () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
-            ActionButton("Play with plush", panel, 0.5f, 1, 99, 187, () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
+            ActionButton("Change diaper", panel, 0, 1f / 3, 99, 187,
+                () => Care(CareAction.ChangeDiaper), Fern, Color.white);
+            ActionButton("Play with rattle", panel, 1f / 3, 2f / 3, 99, 187,
+                () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
+            ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
+                () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
             ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
             developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
                 () => SetDevelopmentOpen(true), Mist, Ink);
@@ -307,6 +324,8 @@ namespace BAIby.Presentation
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
             energy.Root.gameObject.SetActive(false);
+            health.Root.gameObject.SetActive(false);
+            cleanliness.Root.gameObject.SetActive(false);
         }
 
         private RectTransform Tray(string label, bool top, float height)
@@ -331,10 +350,10 @@ namespace BAIby.Presentation
             previousScreen = screen;
         }
 
-        private static NeedMeter Meter(string label, Transform parent, float left, float right)
+        private static NeedMeter Meter(string label, Transform parent, float left, float right, float bottom)
         {
             var root = Box(label, parent, new Vector2(left, 0), new Vector2(right, 0),
-                new Vector2(0, 12), new Vector2(-12, 56));
+                new Vector2(0, bottom), new Vector2(-12, bottom + 44));
             Label("Label", root, label, 20, Ink, TextAnchor.UpperLeft,
                 new Vector2(0, 12), Vector2.one, Vector2.zero);
             var bar = Box("Bar", root, Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 8));

@@ -3,8 +3,8 @@ using System;
 namespace BAIby.Simulation
 {
     public enum Toy { Rattle, Plush }
-    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory }
-    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy, EnjoysStory }
+    public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper }
+    public enum Reaction { None, Satisfied, Calmed, TracksToy, ReachesForToy, Rested, CrawlsToToy, EnjoysStory, FreshDiaper }
 
     public sealed class BabyState
     {
@@ -14,6 +14,8 @@ namespace BAIby.Simulation
         public double Satiety { get; }
         public double Comfort { get; }
         public double Energy { get; }
+        public double Cleanliness { get; }
+        public double Health { get; }
         public double Connection { get; }
         public int StorySessions { get; }
         // The original familiarity count is now specific to the rattle.
@@ -36,7 +38,7 @@ namespace BAIby.Simulation
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
-            bool canSitAndReach, bool canCrawl, double connection, int storySessions)
+            bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -58,16 +60,21 @@ namespace BAIby.Simulation
             if (storySessions < 0)
                 throw new ArgumentOutOfRangeException(nameof(storySessions));
 
+            if (double.IsNaN(cleanliness) || cleanliness < 0 || cleanliness > 100)
+                throw new ArgumentOutOfRangeException(nameof(cleanliness));
+            if (double.IsNaN(health) || health < 0 || health > 100)
+                throw new ArgumentOutOfRangeException(nameof(health));
+
             if (canCrawl && !canSitAndReach)
                 throw new ArgumentException("Crawling requires the sitting milestone.", nameof(canCrawl));
 
             return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
-                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions);
+                toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
-            bool canSitAndReach, bool canCrawl, double connection, int storySessions)
+            bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -75,6 +82,8 @@ namespace BAIby.Simulation
             Satiety = satiety;
             Comfort = comfort;
             Energy = energy;
+            Cleanliness = cleanliness;
+            Health = health;
             Connection = connection;
             StorySessions = storySessions;
             ToyFamiliarity = toyFamiliarity;
