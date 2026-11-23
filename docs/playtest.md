@@ -10,6 +10,8 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Play, then rest | Play spends energy. Rest raises energy and cues a short nap. |
 | Advance a preview day and select **Change diaper** | Cleanliness falls as time advances, then a fresh change restores it and shows an illustrated diaper cue. |
 | Keep basic needs met and let game time pass | Low Health can recover over time. Health falls only after a need spends time very low. |
+| Open **Feed** before crawling | Milk is available. Mashed banana and soft oats show when they unlock. |
+| Open **Feed** as a crawler | All three choices are available. Milk helps energy, banana helps comfort, and oats give the largest fullness increase. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |
 | Select **Preview next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |

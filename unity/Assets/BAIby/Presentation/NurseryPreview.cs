@@ -37,6 +37,7 @@ namespace BAIby.Presentation
         private NeedMeter health;
         private NeedMeter cleanliness;
         private float refreshIn;
+        private NurseryPanel activePanel;
 
         private void Awake()
         {
@@ -116,13 +117,13 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Care(CareAction action, Toy toy = Toy.Rattle)
+        private void Care(CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             try
             {
-                var result = session.ApplyCare(action, toy);
+                var result = session.ApplyCare(action, toy, food);
                 Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
-                    action == CareAction.Play ? toy : (Toy?)null);
+                    action == CareAction.Play ? toy : (Toy?)null, food);
             }
             catch (Exception error)
             {
@@ -144,13 +145,12 @@ namespace BAIby.Presentation
         }
 
         private void Paint(Reaction reaction, bool unlockedSitting = false, bool unlockedCrawling = false,
-            Toy? playedToy = null)
+            Toy? playedToy = null, Food food = Food.Milk)
         {
             var state = session.State;
             var adopted = state != null;
             welcome.SetActive(!adopted);
-            controls.SetActive(adopted && !developmentOpen);
-            development.Root.SetActive(adopted && developmentOpen);
+            UpdatePanelVisibility(adopted);
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
             energy.Root.gameObject.SetActive(adopted);
@@ -160,7 +160,7 @@ namespace BAIby.Presentation
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
-                canCrawl: state?.CanCrawl ?? false);
+                canCrawl: state?.CanCrawl ?? false, food: food);
 
             if (!adopted)
                 return;
@@ -176,7 +176,7 @@ namespace BAIby.Presentation
             energy.Set(state.Energy);
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
-            var reactionText = DescribeReaction(state.Name, reaction, visibleToy);
+            var reactionText = DescribeReaction(state.Name, reaction, visibleToy, food);
             if (unlockedCrawling)
                 status.text = $"{state.Name} can crawl now. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
@@ -187,6 +187,7 @@ namespace BAIby.Presentation
                 status.text = reaction == Reaction.None ? DescribeNeeds(state) : reactionText;
 
             development.UpdateDetails(state, age.text, status.text);
+            feeding.UpdateDetails(state, status.text);
         }
 
         private static string StageName(BabyState state)
@@ -199,11 +200,11 @@ namespace BAIby.Presentation
 
         private static string ToyName(Toy toy) => toy == Toy.Plush ? "Plush" : "Rattle";
 
-        private static string DescribeReaction(string name, Reaction reaction, Toy toy)
+        private static string DescribeReaction(string name, Reaction reaction, Toy toy, Food food)
         {
             switch (reaction)
             {
-                case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
+                case Reaction.Satisfied: return $"{name} looks satisfied after their {FoodName(food).ToLowerInvariant()}.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
                 case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
@@ -234,7 +235,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (development.Root.activeSelf)
+            if (feeding.Root.activeSelf)
+                feeding.Feedback.text = message;
+            else if (development.Root.activeSelf)
                 development.Feedback.text = message;
             else if (controls.activeSelf)
                 status.text = message;
@@ -306,7 +309,8 @@ namespace BAIby.Presentation
             status.resizeTextForBestFit = true;
             status.resizeTextMinSize = 19;
             status.resizeTextMaxSize = 25;
-            ActionButton("Feed", panel, 0, 1f / 3, 195, 283, () => Care(CareAction.Feed), Fern, Color.white);
+            feedButton = ActionButton("Feed", panel, 0, 1f / 3, 195, 283,
+                () => ShowPanel(NurseryPanel.Feeding), Fern, Color.white);
             ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
             ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
             ActionButton("Change diaper", panel, 0, 1f / 3, 99, 187,
@@ -317,15 +321,46 @@ namespace BAIby.Presentation
                 () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
             ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
             developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
-                () => SetDevelopmentOpen(true), Mist, Ink);
+                () => ShowPanel(NurseryPanel.Development), Mist, Ink);
             development = new DevelopmentPanel(Tray("Development Panel", false, 360),
-                () => SetDevelopmentOpen(false), () => Care(CareAction.ReadStory));
+                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory));
+            feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
             energy.Root.gameObject.SetActive(false);
             health.Root.gameObject.SetActive(false);
             cleanliness.Root.gameObject.SetActive(false);
+        }
+
+        private enum NurseryPanel { Care, Development, Feeding }
+
+        private void ShowPanel(NurseryPanel next)
+        {
+            var previous = activePanel;
+            activePanel = next;
+            UpdatePanelVisibility(true);
+            switch (next)
+            {
+                case NurseryPanel.Development:
+                    development.ReadStory.Select();
+                    break;
+                case NurseryPanel.Feeding:
+                    feeding.Milk.Select();
+                    break;
+                default:
+                    var source = previous == NurseryPanel.Feeding ? feedButton : developmentButton;
+                    source.Select();
+                    break;
+            }
+        }
+
+        private void UpdatePanelVisibility(bool adopted)
+        {
+            controls.SetActive(adopted && activePanel == NurseryPanel.Care);
+            development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
+            feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
         }
 
         private RectTransform Tray(string label, bool top, float height)

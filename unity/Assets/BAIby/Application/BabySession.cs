@@ -64,10 +64,11 @@ namespace BAIby.Application
             return (update.UnlockedSitting, update.UnlockedCrawling);
         }
 
-        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) ApplyCare(CareAction action, Toy toy = Toy.Rattle)
+        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling) ApplyCare(
+            CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             var elapsed = simulation.Advance(GetAdoptedBaby(), now());
-            var caredFor = simulation.ApplyCare(elapsed.State, action, toy);
+            var caredFor = simulation.ApplyCare(elapsed.State, action, toy, food);
             Commit(caredFor.State);
             return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling);
         }

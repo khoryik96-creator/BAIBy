@@ -308,7 +308,61 @@ Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 rest
 Equal(Reaction.FreshDiaper, resumedHealth.ApplyCare(CareAction.ChangeDiaper).Reaction,
     "resumed game can change the diaper");
 
+Equal(85.0, fed.State.Energy, "default milk feed improves energy");
+Equal(fed.State.Energy, game.ApplyCare(newborn, CareAction.Feed, food: Food.Milk).State.Energy,
+    "default feed remains equivalent to explicit milk");
+Equal(100.0, game.ApplyCare(rested.State, CareAction.Feed).State.Energy, "milk caps energy at 100");
+Equal(true, BabySimulation.CanFeed(newborn, Food.Milk), "newborn can drink milk");
+Equal(false, BabySimulation.CanFeed(newborn, Food.Banana), "banana is unavailable to newborns");
+Equal(false, BabySimulation.CanFeed(threshold.State, Food.Oats), "oats are unavailable to sitters");
+Equal(true, BabySimulation.CanFeed(crawler.State, Food.Banana), "crawlers can eat banana");
+Equal(true, BabySimulation.CanFeed(crawler.State, Food.Oats), "crawlers can eat oats");
+Equal(false, BabySimulation.CanFeed(crawler.State, (Food)99), "unknown food is unavailable");
+
+var hungryCrawler = overnight.State;
+var banana = game.ApplyCare(hungryCrawler, CareAction.Feed, food: Food.Banana);
+Equal(hungryCrawler.Satiety + 20, banana.State.Satiety, "banana improves satiety");
+Equal(hungryCrawler.Comfort + 8, banana.State.Comfort, "banana improves comfort");
+Equal(hungryCrawler.Energy, banana.State.Energy, "banana leaves energy unchanged");
+Equal(Reaction.Satisfied, banana.Reaction, "banana uses the feeding reaction");
+var oats = game.ApplyCare(hungryCrawler, CareAction.Feed, food: Food.Oats);
+Equal(hungryCrawler.Satiety + 34, oats.State.Satiety, "oats give the largest satiety boost");
+Equal(hungryCrawler.Comfort, oats.State.Comfort, "oats leave comfort unchanged");
+
+var mealtimeClock = start;
+var mealtimeSaves = new MemorySaveStore();
+var mealtime = new BabySession(game, mealtimeSaves, () => mealtimeClock);
+mealtime.Adopt("Mia");
+var beforeMeal = mealtime.State;
+var beforeMealSave = mealtimeSaves.Primary;
+mealtimeClock = start.AddDays(3);
+ExpectUnavailable(mealtime, Food.Banana);
+Equal(beforeMealSave, mealtimeSaves.Primary, "locked food cannot change the save");
+Equal(beforeMeal, mealtime.State, "locked food cannot advance elapsed state");
+Equal(1, mealtimeSaves.Writes, "locked food commits nothing");
+mealtimeClock = start.AddDays(7);
+ExpectUnavailable(mealtime, (Food)99);
+Equal(beforeMeal, mealtime.State, "unknown food cannot consume pending milestones");
+Equal(1, mealtimeSaves.Writes, "unknown food commits nothing");
+Equal((Reaction.Satisfied, true, true), mealtime.ApplyCare(CareAction.Feed, food: Food.Oats),
+    "food availability uses age at the same instant as feeding");
+Equal(2, mealtimeSaves.Writes, "milestones and valid feeding commit once together");
+
 Console.WriteLine("Simulation checks passed.");
+
+static void ExpectUnavailable(BabySession session, Food food)
+{
+    try
+    {
+        session.ApplyCare(CareAction.Feed, food: food);
+    }
+    catch (InvalidOperationException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException("An unavailable food should be rejected.");
+}
 
 static void Equal<T>(T expected, T actual, string description)
 {

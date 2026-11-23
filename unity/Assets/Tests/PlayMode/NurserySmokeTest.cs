@@ -38,7 +38,14 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
             Tap(view.gameObject, "Feed");
-            Assert.That(Reaction(view.gameObject), Does.Contain("satisfied"));
+            Assert.That(Child<Button>(view.gameObject, "Mashed banana").interactable, Is.False);
+            Assert.That(Child<Button>(view.gameObject, "Soft oats").interactable, Is.False);
+            Assert.That(Child<Text>(view.gameObject, "Mashed banana Availability").text, Does.Contain("crawler stage"));
+            Tap(view.gameObject, "Milk");
+            Assert.That(Child<Text>(view.gameObject, "Feeding Feedback").text, Does.Contain("satisfied after their milk"));
+            yield return new WaitForSecondsRealtime(0.15f);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Nursery milk").enabled, Is.True);
+            Tap(view.gameObject, "Close feeding");
             Tap(view.gameObject, "Soothe");
             Assert.That(Reaction(view.gameObject), Does.Contain("relaxes"));
             var initialEnergy = NeedValue(view.gameObject, "Energy");
@@ -124,6 +131,22 @@ namespace BAIby.Tests
             var crawling = Child<SpriteRenderer>(restored.gameObject, "Crawler artwork");
             Assert.That(crawling.gameObject.activeInHierarchy && crawling.enabled, Is.True);
             Assert.That(crawling.sprite, Is.Not.Null);
+            Tap(restored.gameObject, "Feed");
+            var beforeBananaComfort = NeedValue(restored.gameObject, "Comfort");
+            Tap(restored.gameObject, "Mashed banana");
+            Assert.That(Child<Text>(restored.gameObject, "Feeding Feedback").text, Does.Contain("mashed banana"));
+            Assert.That(NeedValue(restored.gameObject, "Comfort"), Is.GreaterThan(beforeBananaComfort));
+            yield return new WaitForSecondsRealtime(0.15f);
+            Assert.That(Child<SpriteRenderer>(restored.gameObject, "Nursery banana").enabled, Is.True);
+
+            var beforeOatsFullness = NeedValue(restored.gameObject, "Fullness");
+            Tap(restored.gameObject, "Soft oats");
+            Assert.That(Child<Text>(restored.gameObject, "Feeding Feedback").text, Does.Contain("soft oats"));
+            Assert.That(NeedValue(restored.gameObject, "Fullness"), Is.GreaterThan(beforeOatsFullness));
+            yield return new WaitForSecondsRealtime(0.15f);
+            Assert.That(Child<SpriteRenderer>(restored.gameObject, "Nursery oats").enabled, Is.True);
+            Tap(restored.gameObject, "Close feeding");
+
             Tap(restored.gameObject, "Play with plush");
             Assert.That(Reaction(restored.gameObject), Does.Contain("crawls toward the plush"));
 
