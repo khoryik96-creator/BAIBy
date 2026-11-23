@@ -16,14 +16,20 @@ namespace BAIby.Character
         private const float DiaperCueDuration = 2.40f;
         private const float BathCueDuration = 2.75f;
         private const float BlocksCueDuration = 2.55f;
+        // Looks whose pose sprites are kept, most recent first, so switching back costs nothing.
+        private const int CachedLooks = 2;
         private readonly List<Object> generatedAssets = new List<Object>();
-        // Textures and sprites built for the current look; destroyed when the look changes.
-        private readonly List<Object> appearanceAssets = new List<Object>();
+        private readonly List<BuiltLook> builtLooks = new List<BuiltLook>();
         // Decoded appearance art (RGBA, bottom-up rows) keyed by resource path, decoded once.
         private readonly Dictionary<string, byte[]> appearanceSources = new Dictionary<string, byte[]>();
         private AppearanceLayout appearanceLayout;
         private BabyAppearance shownAppearance = BabyAppearance.Default;
+        // The look whose art could not be built; it is not rebuilt again unless a retry is asked for.
+        private BabyAppearance failedAppearance;
+        // Null while the original art (the default look) is shown.
+        private BuiltLook currentLook;
         private Sprite[] originalPoseSprites;
+        private Texture2D appearanceDecoder;
         private byte[] appearancePixels;
         private byte[] appearanceRegions;
         private Camera nurseryCamera;
@@ -108,16 +114,19 @@ namespace BAIby.Character
         }
 
         // Shows the baby's chosen look on all eight pose illustrations. The default look keeps the
-        // original imported sprites; other looks are composited (base, hair, headwear) and recolored
-        // once per change. Any missing or unreadable art falls back to the original sprites.
-        public void SetAppearance(BabyAppearance appearance)
+        // original imported sprites; for other looks each pose is composited (base, hair, headwear) and
+        // recolored when it is first needed: the visible stage's awake and nap poses now, the rest when
+        // they fade in. The last few looks stay cached. Returns false when the look's art could not be
+        // built; the original art is shown then, and that look is only tried again with retryFailed.
+        public bool SetAppearance(BabyAppearance appearance, bool retryFailed = false)
         {
             if (appearance == null)
                 appearance = BabyAppearance.Default;
+            if (!retryFailed && appearance.Equals(failedAppearance))
+                return false;
             if (appearance.Equals(shownAppearance))
-                return;
+                return true;
 
-            shownAppearance = appearance;
             var layers = PoseLayers();
             if (originalPoseSprites == null)
             {
@@ -126,40 +135,116 @@ namespace BAIby.Character
                     originalPoseSprites[i] = layers[i] == null ? null : layers[i].sprite;
             }
 
+            failedAppearance = null;
+            shownAppearance = appearance;
             if (appearance.Equals(BabyAppearance.Default))
             {
+                currentLook = null;
                 ShowPoseSprites(layers, originalPoseSprites);
-                ReleaseAppearanceAssets();
                 AnchorStages();
-                return;
+                return true;
             }
 
-            var created = new List<Object>();
+            currentLook = CachedLook(appearance);
+            // Poses not built yet show the original art (same size) until they are needed.
+            for (int i = 0; i < layers.Length; i++)
+            {
+                if (layers[i] != null)
+                    layers[i].sprite = currentLook.Sprites[i] != null ? currentLook.Sprites[i] : originalPoseSprites[i];
+            }
+
+            var needed = new List<int>();
+            for (int stage = 0; stage < 4; stage++)
+            {
+                if (stage == targetStage || StageOpacity(stage) > 0)
+                {
+                    needed.Add(stage * 2);
+                    needed.Add(stage * 2 + 1);
+                }
+            }
+
+            return BuildPoses(needed);
+        }
+
+        private BuiltLook CachedLook(BabyAppearance appearance)
+        {
+            for (int i = 0; i < builtLooks.Count; i++)
+            {
+                var look = builtLooks[i];
+                if (!look.Appearance.Equals(appearance))
+                    continue;
+                builtLooks.RemoveAt(i);
+                builtLooks.Insert(0, look);
+                return look;
+            }
+
+            var created = new BuiltLook(appearance, PoseLayers().Length);
+            builtLooks.Insert(0, created);
+            // The look on screen is never evicted here: it is either Default or now second in the list.
+            while (builtLooks.Count > CachedLooks)
+                DiscardLook(builtLooks[builtLooks.Count - 1]);
+            return created;
+        }
+
+        private void DiscardLook(BuiltLook look)
+        {
+            builtLooks.Remove(look);
+            foreach (var asset in look.Assets)
+                Destroy(asset);
+            look.Assets.Clear();
+        }
+
+        // Builds the current look's missing sprites for the given pose indices and puts them on screen.
+        // On any failure the whole look is dropped and the original art is shown on every pose.
+        private bool BuildPoses(List<int> poses)
+        {
+            var look = currentLook;
+            if (look == null)
+                return true;
+
+            var layers = PoseLayers();
             try
             {
-                var layout = LoadAppearanceLayout();
-                var targets = AppearancePalette.Targets(appearance, layout.Reference);
-                var sprites = new Sprite[layers.Length];
-                for (int i = 0; i < layers.Length; i++)
+                AppearanceLayout layout = null;
+                AppearanceColors targets = null;
+                foreach (int pose in poses)
                 {
-                    if (layers[i] != null)
-                        sprites[i] = BuildPoseSprite(layout, AppearanceLayout.PoseNames[i], appearance, targets, created);
+                    if (layers[pose] == null || look.Sprites[pose] != null)
+                        continue;
+                    if (layout == null)
+                    {
+                        layout = LoadAppearanceLayout();
+                        targets = AppearancePalette.Targets(look.Appearance, layout.Reference);
+                    }
+
+                    var sprite = BuildPoseSprite(layout, AppearanceLayout.PoseNames[pose], look.Appearance, targets, look.Assets);
+                    look.Sprites[pose] = sprite;
+                    layers[pose].sprite = sprite;
                 }
 
-                ShowPoseSprites(layers, sprites);
-                ReleaseAppearanceAssets();
-                appearanceAssets.AddRange(created);
+                return true;
             }
             catch (System.Exception exception)
             {
-                foreach (var asset in created)
-                    Destroy(asset);
+                failedAppearance = look.Appearance;
+                shownAppearance = BabyAppearance.Default;
+                currentLook = null;
                 ShowPoseSprites(layers, originalPoseSprites);
-                ReleaseAppearanceAssets();
+                DiscardLook(look);
                 Debug.LogWarning("The baby's look could not be applied, so the original artwork is shown: " + exception.Message);
+                return false;
             }
+            finally
+            {
+                ReleaseAppearanceDecoder();
+                AnchorStages();
+            }
+        }
 
-            AnchorStages();
+        private void EnsurePoseBuilt(int pose)
+        {
+            if (currentLook != null && currentLook.Sprites[pose] == null)
+                BuildPoses(new List<int> { pose });
         }
 
         public void PlayNewSoundCue()
@@ -333,11 +418,12 @@ namespace BAIby.Character
             }
         }
 
-        private void ReleaseAppearanceAssets()
+        private void ReleaseAppearanceDecoder()
         {
-            foreach (var asset in appearanceAssets)
-                Destroy(asset);
-            appearanceAssets.Clear();
+            // Runtime textures are not assets, so they can be freed immediately rather than at frame end.
+            if (appearanceDecoder != null)
+                DestroyImmediate(appearanceDecoder);
+            appearanceDecoder = null;
         }
 
         private AppearanceLayout LoadAppearanceLayout()
@@ -381,6 +467,8 @@ namespace BAIby.Character
             if (headwearPath != null)
                 CompositeAppearanceOverlay(layout, headwearPath, pose, width, height);
             AppearanceRecolor.Recolor(appearancePixels, appearanceRegions, width * height, layout.Reference, targets);
+            // The imported sprites get this edge fill from "Alpha Is Transparency"; match them.
+            AppearanceRecolor.BleedTransparentEdges(appearancePixels, width, height);
 
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
             created.Add(texture);
@@ -412,7 +500,8 @@ namespace BAIby.Character
         }
 
         // Decodes a PNG stored as Resources/BAIby/Baby/Appearance/{path}.bytes into RGBA bytes with
-        // bottom-up rows (GetPixels32 order). Decoded art is cached; the temporary texture is freed.
+        // bottom-up rows (Unity texture order). Decoded art is cached. One decode texture is reused for
+        // every image and freed by BuildPoses once the batch is done.
         private byte[] LoadAppearanceSource(string path, int width, int height)
         {
             if (appearanceSources.TryGetValue(path, out var cached))
@@ -422,35 +511,70 @@ namespace BAIby.Character
             if (asset == null)
                 throw new System.InvalidOperationException("Missing Resources/" + AppearanceArt + path + ".bytes.");
 
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             try
             {
+                if (appearanceDecoder == null)
+                {
+                    appearanceDecoder = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    appearanceDecoder.name = "Baby look decoder";
+                }
+
+                var texture = appearanceDecoder;
                 if (!ImageConversion.LoadImage(texture, asset.bytes, false))
                     throw new System.InvalidOperationException(path + " is not a readable PNG.");
                 if (texture.width != width || texture.height != height)
                     throw new System.InvalidOperationException(path + " is " + texture.width + "x" + texture.height +
                         " but the layout expects " + width + "x" + height + ".");
 
-                var colors = texture.GetPixels32();
-                var bytes = new byte[colors.Length * AppearanceRecolor.Channels];
-                for (int i = 0; i < colors.Length; i++)
-                {
-                    var color = colors[i];
-                    int offset = i * AppearanceRecolor.Channels;
-                    bytes[offset] = color.r;
-                    bytes[offset + 1] = color.g;
-                    bytes[offset + 2] = color.b;
-                    bytes[offset + 3] = color.a;
-                }
-
+                var bytes = ReadRgba(texture, width * height);
                 appearanceSources.Add(path, bytes);
                 return bytes;
             }
             finally
             {
-                Destroy(texture);
                 Resources.UnloadAsset(asset);
             }
+        }
+
+        // Copies the decoded pixels straight from the texture data where the layout is known, avoiding
+        // a Color32[] per image; other formats go through GetPixels32.
+        private static byte[] ReadRgba(Texture2D texture, int pixelCount)
+        {
+            int length = pixelCount * AppearanceRecolor.Channels;
+            var bytes = new byte[length];
+            var format = texture.format;
+            if (format == TextureFormat.RGBA32 || format == TextureFormat.ARGB32)
+            {
+                var data = texture.GetPixelData<byte>(0);
+                if (data.Length >= length)
+                {
+                    NativeArray<byte>.Copy(data, 0, bytes, 0, length);
+                    if (format == TextureFormat.ARGB32)
+                    {
+                        for (int offset = 0; offset < length; offset += AppearanceRecolor.Channels)
+                        {
+                            byte alpha = bytes[offset];
+                            bytes[offset] = bytes[offset + 1];
+                            bytes[offset + 1] = bytes[offset + 2];
+                            bytes[offset + 2] = bytes[offset + 3];
+                            bytes[offset + 3] = alpha;
+                        }
+                    }
+                    return bytes;
+                }
+            }
+
+            var colors = texture.GetPixels32();
+            for (int i = 0; i < colors.Length && i < pixelCount; i++)
+            {
+                var color = colors[i];
+                int offset = i * AppearanceRecolor.Channels;
+                bytes[offset] = color.r;
+                bytes[offset + 1] = color.g;
+                bytes[offset + 2] = color.b;
+                bytes[offset + 3] = color.a;
+            }
+            return bytes;
         }
 
         private void BuildFallbackToy()
@@ -687,10 +811,10 @@ namespace BAIby.Character
 
         private void SetStageOpacity(float resting)
         {
-            SetPose(newborn, newbornRest, StageOpacity(0), resting);
-            SetPose(sitter, sitterRest, StageOpacity(1), resting);
-            SetPose(crawler, crawlerRest, StageOpacity(2), resting);
-            SetPose(walker, walkerRest, StageOpacity(3), resting);
+            SetPose(0, newborn, newbornRest, StageOpacity(0), resting);
+            SetPose(1, sitter, sitterRest, StageOpacity(1), resting);
+            SetPose(2, crawler, crawlerRest, StageOpacity(2), resting);
+            SetPose(3, walker, walkerRest, StageOpacity(3), resting);
         }
 
         private float StageOpacity(int stage)
@@ -698,10 +822,18 @@ namespace BAIby.Character
             return Mathf.SmoothStep(1, 0, Mathf.Abs(stageBlend - stage));
         }
 
-        private static void SetPose(SpriteRenderer awake, SpriteRenderer nap, float opacity, float resting)
+        // Pose indices follow PoseLayers: stage * 2 is awake, stage * 2 + 1 is the nap.
+        private void SetPose(int stage, SpriteRenderer awake, SpriteRenderer nap, float opacity, float resting)
         {
-            SetOpacity(awake, opacity * (nap == null ? 1 : 1 - resting));
-            SetOpacity(nap, opacity * resting);
+            float awakeOpacity = opacity * (nap == null ? 1 : 1 - resting);
+            float napOpacity = opacity * resting;
+            // A pose of the current look that is about to appear is built first (stage changes only).
+            if (awakeOpacity > 0)
+                EnsurePoseBuilt(stage * 2);
+            if (napOpacity > 0 && nap != null)
+                EnsurePoseBuilt(stage * 2 + 1);
+            SetOpacity(awake, awakeOpacity);
+            SetOpacity(nap, napOpacity);
         }
 
         private static void SetOpacity(SpriteRenderer layer, float opacity)
@@ -855,7 +987,24 @@ namespace BAIby.Character
         {
             foreach (var asset in generatedAssets)
                 Destroy(asset);
-            ReleaseAppearanceAssets();
+            while (builtLooks.Count > 0)
+                DiscardLook(builtLooks[0]);
+            ReleaseAppearanceDecoder();
+        }
+
+        private sealed class BuiltLook
+        {
+            public BuiltLook(BabyAppearance appearance, int poseCount)
+            {
+                Appearance = appearance;
+                Sprites = new Sprite[poseCount];
+            }
+
+            public BabyAppearance Appearance { get; }
+            // Built pose sprites in PoseLayers order; null until a pose is needed.
+            public Sprite[] Sprites { get; }
+            // Textures and sprites owned by this look, destroyed when it leaves the cache.
+            public List<Object> Assets { get; } = new List<Object>();
         }
     }
 }

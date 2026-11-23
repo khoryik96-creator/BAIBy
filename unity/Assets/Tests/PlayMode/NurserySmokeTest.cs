@@ -80,6 +80,10 @@ namespace BAIby.Tests
             Assert.That(Child<Image>(view.gameObject, "Hat None Selection").gameObject.activeInHierarchy, Is.False);
             Assert.That(Child<Text>(view.gameObject, "Age").text, Is.EqualTo(originalAge));
             Assert.That(NeedValue(view.gameObject, "Fullness"), Is.EqualTo(originalFullness));
+            Assert.That(Child<Text>(view.gameObject, "Style Feedback").text, Is.Empty);
+            // The style tray stays no taller than the care tray, so it never covers more of the baby.
+            Assert.That(Child<RectTransform>(view.gameObject, "Style Panel").rect.height,
+                Is.LessThanOrEqualTo(Child<RectTransform>(view.gameObject, "Care").rect.height));
             Tap(view.gameObject, "Close style");
             Assert.That(EventSystem.current.currentSelectedGameObject,
                 Is.EqualTo(Child<Button>(view.gameObject, "Style").gameObject));
@@ -235,7 +239,10 @@ namespace BAIby.Tests
             var restoredSitter = Child<SpriteRenderer>(restored.gameObject, "Sitter artwork");
             Assert.That(restoredSitter.sprite != null && restoredSitter.sprite != originalSitter, Is.True);
             Assert.That(restoredSitter.sprite.rect.size, Is.EqualTo(originalSitter.rect.size));
-            Assert.That(Child<SpriteRenderer>(restored.gameObject, "Newborn artwork").sprite != originalNewborn, Is.True);
+            // Hidden poses (the newborn, for a sitter) are built when they are first shown; until then
+            // they keep art of the same size.
+            Assert.That(Child<SpriteRenderer>(restored.gameObject, "Newborn artwork").sprite.rect.size,
+                Is.EqualTo(originalNewborn.rect.size));
             Tap(restored.gameObject, "Close style");
             Assert.That(NeedValue(restored.gameObject, "Energy"), Is.EqualTo(energyBeforeReload).Within(0.01f));
             Assert.That(NeedValue(restored.gameObject, "Health"), Is.EqualTo(healthBeforeReload).Within(0.01f));

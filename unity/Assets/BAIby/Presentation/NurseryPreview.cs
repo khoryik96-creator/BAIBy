@@ -184,11 +184,12 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
             ApplyNurseryTheme(state?.NurseryTheme ?? NurseryTheme.Sage);
-            ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
                 canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
+            // After Present, so the look is built first for the stage that is actually shown.
+            ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
 
             if (!adopted)
                 return;
@@ -393,7 +394,7 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Hygiene), CompleteDiaper);
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
-            style = new StylePanel(Tray("Style Panel", false, 430), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
@@ -444,6 +445,8 @@ namespace BAIby.Presentation
                     break;
                 case NurseryPanel.Style:
                     style.Open(session.State.Appearance);
+                    // Shows the failure note again if the saved look's art could not be built.
+                    ApplyBabyAppearance(session.State.Appearance);
                     break;
                 default:
                     switch (previous)

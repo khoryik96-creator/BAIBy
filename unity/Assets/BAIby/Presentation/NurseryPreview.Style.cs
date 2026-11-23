@@ -41,13 +41,16 @@ namespace BAIby.Presentation
                 return;
             }
 
-            ApplyBabyAppearance(session.State.Appearance);
+            // A choice made in the panel retries a look whose art failed before.
+            ApplyBabyAppearance(session.State.Appearance, true);
         }
 
-        private void ApplyBabyAppearance(BabyAppearance appearance)
+        private void ApplyBabyAppearance(BabyAppearance appearance, bool retryFailed = false)
         {
-            nursery.SetAppearance(appearance);
+            bool shown = nursery.SetAppearance(appearance, retryFailed);
             style.UpdateSelection(appearance);
+            if (!shown)
+                style.Feedback.text = "This look couldn't be shown right now.";
         }
 
         private static Color ToColor(AppearanceColor color) =>
@@ -55,8 +58,9 @@ namespace BAIby.Presentation
 
         private sealed class StylePanel
         {
-            private const float GridBottom = 54;
-            private const float GridTop = 250;
+            // The tray is no taller than the Care tray (378), so the baby stays clear above it.
+            private const float GridBottom = 42;
+            private const float GridTop = 214;
 
             private readonly StyleCategory[] categories;
             private BabyAppearance current = BabyAppearance.Default;
@@ -69,8 +73,8 @@ namespace BAIby.Presentation
             {
                 Root = content.parent.gameObject;
                 Label("Style Heading", content, "Baby style", 38, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 342), new Vector2(0.72f, 0), new Vector2(0, 422), FontStyle.Bold);
-                var done = ActionButton("Done", content, 0.73f, 1, 340, 422, close, Mist, Ink);
+                    new Vector2(0, 290), new Vector2(0.72f, 0), new Vector2(0, 366), FontStyle.Bold);
+                var done = ActionButton("Done", content, 0.73f, 1, 290, 366, close, Mist, Ink);
                 done.name = "Close style";
                 SoftShapes.Round(done.image, 1f);
                 SoftShapes.Lift(done.gameObject);
@@ -106,7 +110,7 @@ namespace BAIby.Presentation
                 };
 
                 Feedback = Label("Style Feedback", content, "", 23, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 4), Vector2.right, new Vector2(0, GridBottom - 4));
+                    new Vector2(0, 2), Vector2.right, new Vector2(0, GridBottom - 2));
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 18;
                 Feedback.resizeTextMaxSize = 23;
@@ -139,7 +143,7 @@ namespace BAIby.Presentation
                 Action<Func<BabyAppearance, BabyAppearance>> choose, SwatchSpec[] specs)
             {
                 const float width = 0.2f;
-                var tab = ActionButton(title, content, index * width, (index + 1) * width, 262, 330,
+                var tab = ActionButton(title, content, index * width, (index + 1) * width, 222, 282,
                     () => ShowCategory(index), Mist, Ink);
                 tab.name = "Style tab " + title;
                 tab.GetComponentInChildren<Text>().fontSize = 23;
@@ -268,10 +272,10 @@ namespace BAIby.Presentation
                 if (spec.Chip is Color color)
                 {
                     label.resizeTextMaxSize = 21;
-                    label.rectTransform.offsetMin = new Vector2(6, 6);
-                    label.rectTransform.offsetMax = new Vector2(-6, -54);
+                    label.rectTransform.offsetMin = new Vector2(6, 4);
+                    label.rectTransform.offsetMax = new Vector2(-6, -46);
                     var chip = Box(Button.name + " Color", Button.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                        new Vector2(-20, -50), new Vector2(20, -10));
+                        new Vector2(-18, -44), new Vector2(18, -8));
                     SoftShapes.Disc(Surface(chip, color));
                     if (spec.Trim is Color trim)
                     {

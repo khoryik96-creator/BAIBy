@@ -149,6 +149,53 @@ namespace BAIby.Character
             }
         }
 
+        // Gives each fully transparent pixel that touches visible pixels the alpha-weighted average color
+        // of its visible 8-neighbors, like Unity's import-time "Alpha Is Transparency" edge fill, so
+        // bilinear filtering does not pull the silhouette's edge toward black. Alpha stays 0 and visible
+        // pixels are untouched (only alpha > 0 pixels are read and only alpha = 0 pixels are written, so
+        // the in-place pass is order independent). Row order does not matter.
+        public static void BleedTransparentEdges(byte[] pixels, int width, int height)
+        {
+            RequireBuffer(pixels, width, height, nameof(pixels));
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int offset = (y * width + x) * Channels;
+                    if (pixels[offset + 3] != 0)
+                        continue;
+
+                    int red = 0, green = 0, blue = 0, coverage = 0;
+                    for (int dy = -1; dy <= 1; dy++)
+                    {
+                        int row = y + dy;
+                        if (row < 0 || row >= height)
+                            continue;
+                        for (int dx = -1; dx <= 1; dx++)
+                        {
+                            int column = x + dx;
+                            if (column < 0 || column >= width)
+                                continue;
+                            int neighbor = (row * width + column) * Channels;
+                            int alpha = pixels[neighbor + 3];
+                            if (alpha == 0)
+                                continue;
+                            red += pixels[neighbor] * alpha;
+                            green += pixels[neighbor + 1] * alpha;
+                            blue += pixels[neighbor + 2] * alpha;
+                            coverage += alpha;
+                        }
+                    }
+
+                    if (coverage == 0)
+                        continue;
+                    pixels[offset] = (byte)((red + coverage / 2) / coverage);
+                    pixels[offset + 1] = (byte)((green + coverage / 2) / coverage);
+                    pixels[offset + 2] = (byte)((blue + coverage / 2) / coverage);
+                }
+            }
+        }
+
         // Round half to even, then clamp to 0-255. NaN becomes 0.
         public static byte RoundToByte(double value)
         {

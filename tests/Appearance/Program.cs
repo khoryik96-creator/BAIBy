@@ -22,6 +22,7 @@ namespace BAIby.Tests.Appearance
             AlphaOverMatchesStraightAlphaFormula();
             OverlayOffsetsConvertBetweenRowOrders();
             OverlaysClipAtCanvasEdges();
+            TransparentEdgesTakeNeighborColors();
             LayoutValidatesAndNamesResources();
             CommittedLayoutParsesWhenPresent();
 
@@ -296,6 +297,37 @@ namespace BAIby.Tests.Appearance
             Check(scratch[(1 * 2 + 1) * 4 + 3] == 255 && Sum(scratch) == 258, "oversized scratch buffers use only the stated canvas");
             Throws<ArgumentException>(() => AppearanceRecolor.CompositeOver(new byte[4], new byte[4], 2, 2,
                 new byte[4], new byte[4], 1, 1, 0, 0, PixelRowOrder.TopDown), "short canvas buffers are rejected");
+        }
+
+        private static void TransparentEdgesTakeNeighborColors()
+        {
+            // 4x3 canvas: an opaque red pixel at (1,1), a half-transparent blue pixel at (2,1), the rest clear.
+            var pixels = new byte[4 * 3 * 4];
+            void Set(int x, int y, byte r, byte g, byte b, byte a)
+            {
+                int o = (y * 4 + x) * 4;
+                pixels[o] = r;
+                pixels[o + 1] = g;
+                pixels[o + 2] = b;
+                pixels[o + 3] = a;
+            }
+            Set(1, 1, 200, 0, 0, 255);
+            Set(2, 1, 0, 0, 90, 85);
+            var visible = new[] { pixels[(1 * 4 + 1) * 4], pixels[(1 * 4 + 2) * 4 + 2] };
+            AppearanceRecolor.BleedTransparentEdges(pixels, 4, 3);
+
+            int At(int x, int y, int channel) => pixels[(y * 4 + x) * 4 + channel];
+            Check(At(1, 1, 0) == visible[0] && At(1, 1, 3) == 255 && At(2, 1, 2) == visible[1] && At(2, 1, 3) == 85,
+                "edge filling leaves visible pixels unchanged");
+            Check(At(0, 0, 0) == 200 && At(0, 0, 2) == 0 && At(0, 0, 3) == 0, "a clear pixel beside one visible pixel takes its color");
+            // (2,0) touches red (alpha 255) and blue (alpha 85): (200*255)/340 = 150, (90*85)/340 = 22.5 -> 23.
+            Check(At(2, 0, 0) == 150 && At(2, 0, 2) == 23 && At(2, 0, 3) == 0, "neighbor colors are weighted by alpha");
+            Check(At(3, 2, 0) == 0 && At(3, 2, 2) == 90 && At(3, 2, 3) == 0, "only visible neighbors contribute");
+            var empty = new byte[2 * 2 * 4];
+            AppearanceRecolor.BleedTransparentEdges(empty, 2, 2);
+            Check(Sum(empty) == 0, "fully clear images stay black and clear");
+            Throws<ArgumentException>(() => AppearanceRecolor.BleedTransparentEdges(new byte[4], 2, 2),
+                "short edge-fill buffers are rejected");
         }
 
         private static void LayoutValidatesAndNamesResources()
