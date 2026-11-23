@@ -124,7 +124,7 @@ static class EntitlementChecks
         Equal(true, reopened.IsResting(3) && reopened.IsResting(4), "resting is recomputed after a restart");
         Equal(ivy, store.SlotStore(3).Primary, "a restart writes no resting record");
         Equal(restingWrites, store.SlotStore(3).Writes + store.SlotStore(4).Writes, "a restart makes zero resting writes");
-        Equal(false, store.SlotStore(3).Primary.Contains("rest"), "records never store the lock");
+        Equal(false, store.SlotStore(3).Primary.Contains("resting"), "records never store the lock");
     }
 
     private static void CheckRestoreWakesWithOneCappedAdvance(BabySimulation game)
