@@ -10,6 +10,7 @@ namespace BAIby.Character
         private const float QuiltSurface = -1.62f;
         private const float PlayDuration = 2.35f;
         private const float CrawlDuration = 3.10f;
+        private const float DiaperCueDuration = 2.40f;
         private readonly List<Object> generatedAssets = new List<Object>();
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
@@ -26,6 +27,7 @@ namespace BAIby.Character
         private SpriteRenderer rattle;
         private SpriteRenderer plush;
         private SpriteRenderer storybook;
+        private SpriteRenderer freshDiaper;
         private Toy ambientToy;
         private Toy playedToy;
         private Transform baby;
@@ -34,6 +36,7 @@ namespace BAIby.Character
         private float reactionStarted;
         private Reaction reaction;
         private bool hasPresented;
+        private bool adopted;
         private int targetStage;
         private float stageBlend;
 
@@ -47,7 +50,7 @@ namespace BAIby.Character
         public void Present(bool adopted, bool canSitAndReach, Reaction newReaction,
             Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null, bool canCrawl = false)
         {
-            toy.gameObject.SetActive(adopted);
+            this.adopted = adopted;
             targetStage = canCrawl ? 2 : canSitAndReach ? 1 : 0;
             if (!hasPresented)
             {
@@ -64,8 +67,9 @@ namespace BAIby.Character
                     playedToy = selectedToy;
             }
 
-            ShowToy(IsPlayReaction(reaction) && Time.unscaledTime - reactionStarted < ReactionDuration(reaction)
-                ? playedToy : ambientToy);
+            float elapsed = Time.unscaledTime - reactionStarted;
+            UpdateToyVisibility(elapsed);
+            ShowToy(IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction) ? playedToy : ambientToy);
         }
 
         private void Build()
@@ -128,6 +132,10 @@ namespace BAIby.Character
             if (storybook.sprite == null)
                 Debug.LogError("BAIby requires the Storybook sprite in Resources/BAIby/Baby.");
             storybook.enabled = false;
+            freshDiaper = AddLayer(transform, "Nursery fresh diaper", LoadSprite(Art + "Baby/FreshDiaper"), Color.white, 8);
+            if (freshDiaper.sprite == null)
+                Debug.LogError("BAIby requires the FreshDiaper sprite in Resources/BAIby/Baby.");
+            freshDiaper.enabled = false;
 
             ShowToy(Toy.Rattle);
             toy.gameObject.SetActive(false);
@@ -162,6 +170,7 @@ namespace BAIby.Character
             float soothe = reaction == Reaction.Calmed ? response : 0;
             float rest = reaction == Reaction.Rested ? Window(elapsed, 0, .65f, 3.10f, 4.35f) : 0;
             float reading = reaction == Reaction.EnjoysStory ? Window(elapsed, 0, .40f, 2.20f, 2.92f) : 0;
+            float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
             bool crawling = playing && reaction == Reaction.CrawlsToToy;
             float play = playing && !crawling ? response : 0;
@@ -180,13 +189,35 @@ namespace BAIby.Character
                 QuiltSurface - .024f * rest + .022f * feed + crawlLift, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
                 Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f - 2.6f * reading);
-            baby.localScale = new Vector3(1 + breath * .5f, 1 + breath + .022f * feed + .016f * reading, 1);
+            baby.localScale = new Vector3(1 + breath * .5f,
+                1 + breath + .022f * feed + .016f * reading + .010f * fresh, 1);
             shade.transform.localPosition = new Vector3(crawlShift, QuiltSurface - .06f, 0);
 
             var displayedToy = playing ? playedToy : ambientToy;
+            UpdateToyVisibility(elapsed);
             ShowToy(displayedToy);
             PoseToy(displayedToy, now, play, reach, crawling, crawl);
             PoseStorybook(elapsed, reading);
+            PoseFreshDiaper(elapsed, fresh);
+        }
+
+        private void UpdateToyVisibility(float elapsed)
+        {
+            bool diaperCue = reaction == Reaction.FreshDiaper && elapsed < DiaperCueDuration;
+            bool visible = adopted && !diaperCue;
+            if (toy.gameObject.activeSelf != visible)
+                toy.gameObject.SetActive(visible);
+        }
+
+        private void PoseFreshDiaper(float elapsed, float fresh)
+        {
+            SetOpacity(freshDiaper, fresh);
+            if (fresh <= 0)
+                return;
+
+            float lift = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, .44f, elapsed));
+            freshDiaper.transform.localPosition = new Vector3(visibleWidth * .37f, -.57f + lift * .34f, 0);
+            freshDiaper.transform.localRotation = Quaternion.Euler(0, 0, 8 - lift * 12);
         }
 
         private void PoseStorybook(float elapsed, float reading)
@@ -306,6 +337,7 @@ namespace BAIby.Character
             Fit(rattle, .46f, .46f);
             Fit(plush, .59f, .59f);
             Fit(storybook, Mathf.Min(1.06f, visibleWidth * .24f), .76f);
+            Fit(freshDiaper, Mathf.Min(1f, visibleWidth * .23f), .66f);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
         }
 

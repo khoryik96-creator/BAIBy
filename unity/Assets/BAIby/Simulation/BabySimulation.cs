@@ -8,6 +8,14 @@ namespace BAIby.Simulation
         private readonly TimeSpan maxNeedDecay;
         private readonly TimeSpan crawlingAge;
         private const double InitialEnergy = 80;
+        private const double SatietyDecay = 10;
+        private const double ComfortDecay = 5;
+        private const double EnergyDecay = 8;
+        private const double CleanlinessDecay = 14;
+        private const double RecoveryThreshold = 60;
+        private const double LowNeedThreshold = 30;
+        private const double RecoveryPerHour = 6;
+        private const double HealthLossPerHour = 5;
 
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge)
         {
@@ -29,7 +37,7 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) Advance(BabyState state, DateTimeOffset now)
@@ -61,10 +69,11 @@ namespace BAIby.Simulation
 
             var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
             var updated = new BabyState(state.Name, now, age,
-                Math.Max(0, state.Satiety - decayHours * 10),
-                Math.Max(0, state.Comfort - decayHours * 5),
-                Math.Max(0, state.Energy - decayHours * 8),
-                state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions);
+                Math.Max(0, state.Satiety - decayHours * SatietyDecay),
+                Math.Max(0, state.Comfort - decayHours * ComfortDecay),
+                Math.Max(0, state.Energy - decayHours * EnergyDecay),
+                state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
+                Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours));
 
             return (updated, unlockedSitting, unlockedCrawling);
         }
@@ -74,6 +83,7 @@ namespace BAIby.Simulation
             var satiety = state.Satiety;
             var comfort = state.Comfort;
             var energy = state.Energy;
+            var cleanliness = state.Cleanliness;
             var connection = state.Connection;
             var storySessions = state.StorySessions;
             var rattleFamiliarity = state.ToyFamiliarity;
@@ -94,6 +104,10 @@ namespace BAIby.Simulation
                 case CareAction.Rest:
                     energy = Math.Min(100, energy + 35);
                     reaction = Reaction.Rested;
+                    break;
+                case CareAction.ChangeDiaper:
+                    cleanliness = 100;
+                    reaction = Reaction.FreshDiaper;
                     break;
                 case CareAction.ReadStory:
                     energy = Math.Max(0, energy - 6);
@@ -125,7 +139,26 @@ namespace BAIby.Simulation
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
                 satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions), reaction);
+                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health), reaction);
+        }
+
+        private static double HealthAfterDecay(BabyState state, double hours)
+        {
+            // In an unattended interval, needs only fall. Recovery can precede a
+            // neutral period and then deterioration. Use the actual time on each side.
+            var recovering = Math.Min(hours, HoursUntilFirstLowNeed(state, RecoveryThreshold));
+            var deteriorating = Math.Max(0, hours - HoursUntilFirstLowNeed(state, LowNeedThreshold));
+            var recovered = Math.Min(100, state.Health + recovering * RecoveryPerHour);
+            return Math.Max(0, recovered - deteriorating * HealthLossPerHour);
+        }
+
+        private static double HoursUntilFirstLowNeed(BabyState state, double threshold)
+        {
+            var satiety = (state.Satiety - threshold) / SatietyDecay;
+            var comfort = (state.Comfort - threshold) / ComfortDecay;
+            var energy = (state.Energy - threshold) / EnergyDecay;
+            var cleanliness = (state.Cleanliness - threshold) / CleanlinessDecay;
+            return Math.Max(0, Math.Min(Math.Min(satiety, comfort), Math.Min(energy, cleanliness)));
         }
 
         private static Reaction ToyReaction(BabyState state, int familiarity)

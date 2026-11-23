@@ -8,12 +8,14 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Adopt a baby and select **Play with rattle** | The newborn tracks the toy and starts to remember it. |
 | Play twice with the plush bunny | The bunny moves toward the baby. The nursery shows the bunny as the favorite when it takes the lead. |
 | Play, then rest | Play spends energy. Rest raises energy and cues a short nap. |
+| Advance a preview day and select **Change diaper** | Cleanliness falls as time advances, then a fresh change restores it and shows an illustrated diaper cue. |
+| Keep basic needs met and let game time pass | Low Health can recover over time. Health falls only after a need spends time very low. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |
 | Select **Preview next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
-| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, and connection return. |
+| Close and reopen the same build | The same baby, energy, favorite toy, developmental stage, story sessions, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
 
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.
