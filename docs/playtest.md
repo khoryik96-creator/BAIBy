@@ -60,6 +60,8 @@ Care slice 2 of [care and growth](care-and-growth.md). Needs follow the real clo
 
 A household holds up to two babies for free (`HouseholdRules.FreeCompanions`). The first baby, and any baby saved before households existed, is slot 1 and keeps the original save key. Other babies are saved as `{key}.slot2` to `{key}.slot8`, and the household manifest is `{key}.household`. Each key has a `.backup`.
 
+Owned products are cached offline at `{key}.entitlements` (with a `.backup`, written from the first grant on). The **More rooms** product (`home.rooms2`) adds two rooms, for four. The cache is trusted at launch; only a definitive refund or revocation removes a product, and a network error never does. A cache that can't be read and has no readable backup counts as unknown, not as owning nothing: every existing baby stays awake until a store answers. This build has no store. Web, Editor and Development builds offer a playtest toggle for the extra rooms instead, and a Web preview URL can grant products with `?ent=home.rooms2`. Release builds ignore playtest grants left in the cache by a test build. Which companions rest is computed at runtime and never written into a save.
+
 | Step | Expected result |
 | --- | --- |
 | Open a build that already has a baby | The nursery opens straight to that baby with no new onboarding. Stats, look and decor are unchanged, and a **Home** chip appears in the top bar. |
@@ -67,7 +69,16 @@ A household holds up to two babies for free (`HouseholdRules.FreeCompanions`). T
 | Select **+ Adopt**, enter a name and select **Start raising** | The same naming flow adopts a second newborn. **Back to home** returns to Home without adopting. The first baby's save is untouched. |
 | Look at the nursery after the second adoption | The room shows the new baby's own look, decor and stats. A **Switch to …** chip next to **Home** names the other baby. |
 | Select **Switch to …** | The nursery switches to the other baby's state, look and decor in one tap. Switching does not advance time or change needs. |
-| Open **Home** with two babies | Both cards fit side by side at phone width, the active baby has an outline, and a calm "Your home is full" card replaces **+ Adopt**. There is no shop link. |
+| Open **Home** with two babies | Both cards fit side by side at phone width, the active baby has an outline, and a calm "Your home is full" card replaces **+ Adopt**, with a small **More rooms** link. No purchase prompt appears in any care flow. |
+| Select **More rooms** or **Grown-ups** on Home | A "For grown-ups" gate asks you to type a number written in words using digits. A wrong answer draws a new number with no hint; **Back** returns to Home. Each opening draws a number different from the last one shown. |
+| Pass the gate from **More rooms** on a device build | A calm "coming soon to the app stores" panel opens. Nothing can be bought. |
+| Pass the gate from **More rooms** in a Web, Editor or Development build | The Playtest unlocks panel opens. **Add 2 test rooms** raises the home to four rooms, Home shows a "Playtest unlocks" badge, and **+ Adopt** returns. The grant survives a reload. Any playtest grant, including one from a `?ent=` URL flag such as `?ent=helper.set`, shows the badge. |
+| Adopt a third baby, then select **Remove test rooms** | This works like a refund. Babies beyond the first two in Home order show **Resting** on a quieter card. Their saves are not written and their needs do not change. Tapping a resting card opens a read-only journal. A resting baby cannot be opened, switched to or said goodbye to, and the nursery opens an awake baby instead. |
+| On a resting card select **Wake**, then pick who rests instead | The two babies swap places in Home order. The one going to rest keeps its time up to now; the woken one catches up with one normal, capped advance. The choice survives a reload. |
+| With a baby resting, select **Say goodbye** on an awake baby and **Continue** | The confirmation says the room goes to the first resting baby, who wakes up. Confirming wakes that baby; Home stays full and **+ Adopt** does not return. **Keep** changes nothing. |
+| Add the test rooms again | Everyone wakes. Each woken baby gets one normal, capped advance, the same as after any absence: needs drop by no more than the usual cap, while age counts the whole rest, so a long rest can bring milestones that are celebrated on waking. Home order is kept. |
+| Damage `{key}.entitlements` (and its backup) while four babies live at home, then reload | Nobody rests and nothing is lost. The home holds the babies it has and offers no new room. |
+| Pass the gate from **Grown-ups** and select **Restore purchases** | "Your purchases are up to date." Nothing owned changes. |
 | Leave a baby off screen until a milestone age, then open their room | The milestone is announced once, the first time the room opens. Their Home card shows **New!** until then. |
 | Let a baby who is off screen get very hungry or tired | A dot appears on the **Home** chip. |
 | Close and reopen | The last active baby opens, and both babies keep their own progress. |

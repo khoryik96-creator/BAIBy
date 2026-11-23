@@ -107,6 +107,10 @@
     "RaisedToGrown": 2,
     "SevenOnTimeCareDays": 3
   },
+  "EntitlementSource": {
+    "Store": 0,
+    "Playtest": 1
+  },
   "Food": {
     "Milk": 0,
     "Banana": 1,

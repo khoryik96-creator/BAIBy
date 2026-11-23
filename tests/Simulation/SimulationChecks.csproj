@@ -11,6 +11,7 @@
     <Compile Include="../../unity/Assets/BAIby/Application/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Infrastructure/LocalClock.cs" />
     <Compile Include="../../unity/Assets/BAIby/Application/Household/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Application/Entitlements/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Presentation/WipeGeometry.cs" />
   </ItemGroup>
 </Project>
