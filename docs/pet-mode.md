@@ -67,11 +67,21 @@ Breeds unlock three ways. Each species has a free starter breed at adoption. Oth
 
 | Species | Free starter | Earned | Premium |
 | --- | --- | --- | --- |
-| Cat | Domestic shorthair | Tabby, Tuxedo, Siamese, Calico | Ragdoll |
-| Dog | Mixed breed | Golden, Beagle, Shiba | Corgi, Poodle, Dachshund |
-| Hamster | Syrian golden | Winter white, Roborovski | Teddy bear |
-| Fish | Goldfish | Guppy, Betta | Neon tetra school |
-| Rabbit | Dutch | Netherland dwarf, Holland lop | Lionhead |
+| Cat | Domestic shorthair | Tabby, Tuxedo, Siamese, Calico | Ragdoll, Maine Coon, Bengal, British Shorthair, Russian Blue, Sphynx |
+| Dog | Mixed breed | Golden, Beagle, Shiba | Corgi, Poodle, Dachshund, Husky, Samoyed, Pomeranian, Dalmatian, Border Collie |
+| Hamster | Syrian golden | Winter white, Roborovski | Teddy bear, Panda, Sapphire, Campbell's |
+| Fish | Goldfish | Guppy, Betta | Neon tetra school, Angelfish, Koi, Clownfish, Discus |
+| Rabbit | Dutch | Netherland dwarf, Holland lop | Lionhead, Angora, Rex, Flemish giant, Harlequin |
+
+Premium breeds come in two art tiers, which sets their release order:
+
+| Art tier | Breeds | Art cost |
+| --- | --- | --- |
+| Recolor and markings on the species base | British Shorthair, Russian Blue, Bengal, Dalmatian, Husky, Panda, Sapphire, Campbell's, Koi, Clownfish, Harlequin, Rex | Low. These ship with their species slice. |
+| Feature overlay (long coat, ears, tail) | Ragdoll, Maine Coon, Pomeranian, Samoyed, Border Collie, Poodle, Teddy bear, Angora, Angelfish, Discus | Medium. These ship in the first update after the species. |
+| New silhouette | Sphynx, Corgi, Dachshund, Lionhead, Flemish giant, Neon tetra school | High. Each is commissioned art and ships when ready. |
+
+Breeds whose recognizable look depends on a health problem, such as flat faces or folded ears, are left out. Premium breeds also accept special coats, so a premium breed and a special coat can be combined.
 
 Earned breeds follow a short goal ladder per species. Goals reward hands-on care and never require spending.
 

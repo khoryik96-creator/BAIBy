@@ -28,7 +28,8 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 | --- | --- | --- | --- |
 | `home.rooms2` "More rooms" | +2 household slots (4 total) | Speed growth or unlock species or breeds | $2.99 |
 | `breed.<species>.<breed>` premium breed (for example `breed.dog.corgi`) | Unlocks one premium breed for adoption, household-wide, as listed in [pet mode](pet-mode.md) | Change care rules, tendencies or Bond, or skip any earned-breed goal | $1.99 |
-| `breedpack.<species>` | Every current premium breed of one species | Include breeds added later | $3.99 |
+| `breedpack.<species>` | Every current premium breed of one species | Include breeds added later | $4.99 |
+| `breedpack.all` "Every breed" | Every current premium breed of every shipped species | Include breeds added later | $14.99 |
 | `helper.feeder` | When Satiety (Fullness, Hay) reaches its floor, serves one stocked portion up to a ceiling below full. The player stocks up to 6 portions. | Act without stock, or give on-time, preference, milestone or streak credit | $2.99 |
 | `helper.play` | When Comfort (Calm for fish) reaches its floor, a small top-up, at most 3 times per 24 h | Change familiarity, Connection, Bond, favorites, development counts or tricks | $2.99 |
 | `helper.tidy` | When Cleanliness (Litter, Bedding, Water) reaches its floor, restores it to 70, at most 3 times per 24 h | Reach 100 (a full change, bath or water change stays hands-on), hygiene development | $2.99 |
@@ -169,3 +170,4 @@ The product owner delegated these choices on 2026-11-23. Revisit them with playt
 11. **Revocation:** only an explicit refund or revocation from the store locks extra rooms. A missing item in a store query does not.
 12. **Store listing:** no Kids Category listing at launch; publish as a family-friendly app that follows the child rules above. An external legal and store-policy review is required before M1 ships, and the product owner arranges it.
 13. **More premium lines:** add room and habitat themes, furniture sets, pet accessory packs, premium toys that add no development credit, lullaby packs, album frames and stickers, later species packs, and a Founder supporter pack, with the rollout above. Paid growth, timers, season passes, randomized bundles and ads stay out.
+14. **Premium breeds:** 4 to 8 premium breeds per species as listed in [pet mode](pet-mode.md), at $1.99 each, $4.99 per species pack, or $14.99 for every current breed. Low-cost recolor breeds ship with each species; overlay and new-silhouette breeds follow as their art is ready.
