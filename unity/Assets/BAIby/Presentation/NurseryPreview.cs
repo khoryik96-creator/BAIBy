@@ -16,6 +16,7 @@ namespace BAIby.Presentation
         private static readonly Color Fern = new Color32(58, 89, 70, 255);
         private static readonly Color Mist = new Color32(224, 232, 217, 255);
 
+        // The active companion's session; the household owns and caches every companion's session.
         private BabySession session;
         private NurseryVisuals nursery;
         private RectTransform safeArea;
@@ -48,14 +49,6 @@ namespace BAIby.Presentation
             BuildInterface();
         }
 
-        public void Open(BabySession babySession)
-        {
-            session = babySession ?? throw new ArgumentNullException(nameof(babySession));
-            adopt.interactable = true;
-            Paint(Reaction.None);
-            Refresh();
-        }
-
         public void ReportStartupFailure(Exception error)
         {
             ReportFailure(error, "The saved nursery couldn't be opened.");
@@ -65,40 +58,68 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
-            if (activePanel != NurseryPanel.Care && Input.GetKeyDown(KeyCode.Escape))
-                ShowPanel(activePanel switch
-                {
-                    NurseryPanel.Diaper => NurseryPanel.Hygiene,
-                    NurseryPanel.Blocks or NurseryPanel.Report => NurseryPanel.Development,
-                    _ => NurseryPanel.Care
-                });
+            if (Input.GetKeyDown(KeyCode.Escape))
+                GoBack();
 
             refreshIn -= Time.unscaledDeltaTime;
             if (refreshIn <= 0)
                 Refresh();
         }
 
+        private void GoBack()
+        {
+            switch (view)
+            {
+                case HouseholdView.Goodbye:
+                    ShowHome();
+                    break;
+                case HouseholdView.Home:
+                    ShowActiveCompanion();
+                    break;
+                case HouseholdView.Adoption:
+                    if (backToHome.gameObject.activeSelf)
+                        ShowHome();
+                    break;
+                default:
+                    if (activePanel != NurseryPanel.Care)
+                        ShowPanel(activePanel switch
+                        {
+                            NurseryPanel.Diaper => NurseryPanel.Hygiene,
+                            NurseryPanel.Blocks or NurseryPanel.Report => NurseryPanel.Development,
+                            _ => NurseryPanel.Care
+                        });
+                    break;
+            }
+        }
+
         private void OnApplicationPause(bool paused)
         {
-            if (!paused && session != null)
+            if (!paused && household != null)
                 Refresh();
         }
 
         private void OnApplicationFocus(bool focused)
         {
-            if (focused && session != null)
+            if (focused && household != null)
                 Refresh();
         }
 
+        // Advances every companion on resume and on the minute tick. Milestones of companions that are
+        // not on screen wait as pending celebrations.
         private void Refresh()
         {
             refreshIn = 60;
-            if (session?.State == null)
+            if (household == null)
                 return;
 
+            var onScreen = view == HouseholdView.Nursery && session?.State != null;
             try
             {
-                Paint(Reaction.None, session.Refresh());
+                var unlocked = household.AdvanceAll(onScreen);
+                if (onScreen)
+                    Paint(Reaction.None, unlocked);
+                else if (view == HouseholdView.Home)
+                    home.Show(household);
             }
             catch (Exception error)
             {
@@ -114,13 +135,20 @@ namespace BAIby.Presentation
                 return;
             }
 
+            if (household == null)
+                return;
+
+            var before = household.Companions.Count;
             try
             {
-                session.Adopt(nameField.text);
-                Paint(Reaction.None);
+                ShowCompanion(household.Adopt(nameField.text), default);
             }
             catch (Exception error)
             {
+                // The record is written before the manifest, so an adopted baby is opened even when
+                // the manifest write fails; the next launch lists it again.
+                if (household.Companions.Count > before && view == HouseholdView.Adoption)
+                    ShowCompanion(household.Active, default);
                 ReportFailure(error, "The nursery couldn't be saved. Please try again.");
             }
         }
@@ -173,10 +201,9 @@ namespace BAIby.Presentation
             (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default,
             Toy? playedToy = null, Food food = Food.Milk)
         {
-            var state = session.State;
+            var state = view == HouseholdView.Nursery ? session?.State : null;
             var adopted = state != null;
-            welcome.SetActive(!adopted);
-            UpdatePanelVisibility(adopted);
+            ApplyHouseholdView();
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
             energy.Root.gameObject.SetActive(adopted);
@@ -191,7 +218,13 @@ namespace BAIby.Presentation
                 canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
 
             if (!adopted)
+            {
+                title.text = household != null && household.Companions.Count > 0 ? "A new arrival" : "Your nursery";
+                wake.text = "BAIby";
+                age.text = string.Empty;
+                favorite.text = string.Empty;
                 return;
+            }
 
             title.text = state.Name;
             wake.text = "NURSERY";
@@ -274,7 +307,11 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (blocks.Root.activeSelf)
+            if (goodbye.Root.activeSelf)
+                goodbye.Feedback.text = message;
+            else if (home.Root.activeSelf)
+                home.Feedback.text = message;
+            else if (blocks.Root.activeSelf)
                 blocks.Feedback.text = message;
             else if (decor.Root.activeSelf)
                 decor.Feedback.text = message;
@@ -317,16 +354,18 @@ namespace BAIby.Presentation
             FitSafeArea();
 
             var top = Tray("Header", true, 239);
+            header = top.parent.gameObject;
             wake = Label("Header Label", top, "BAIby", 19, Fern, TextAnchor.MiddleLeft,
                 new Vector2(0, 195), new Vector2(1, 1), new Vector2(0, -15));
             title = Label("Baby Name", top, "Your nursery", 48, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 135), new Vector2(0.56f, 1), new Vector2(0, -38), FontStyle.Bold);
+                new Vector2(0, 135), new Vector2(0.56f, 1), new Vector2(0, -52), FontStyle.Bold);
             title.resizeTextForBestFit = true;
             title.resizeTextMinSize = 27;
             title.resizeTextMaxSize = 48;
             decorButton = ActionButton("Decor", top, 0.79f, 1, 143, 231, () => ShowPanel(NurseryPanel.Decor), Mist, Ink);
             decorButton.gameObject.SetActive(false);
             BuildStyleButton(top);
+            BuildHouseholdChips(top);
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
                 new Vector2(0, 108), new Vector2(1, 1), new Vector2(0, -101));
             favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
@@ -340,7 +379,10 @@ namespace BAIby.Presentation
             var starter = Tray("Welcome", false, 250);
             welcome = starter.parent.gameObject;
             Label("Prompt", starter, "What’s your baby’s name?", 29, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 165), new Vector2(1, 1), new Vector2(0, -24), FontStyle.Bold);
+                new Vector2(0, 165), new Vector2(0.72f, 1), new Vector2(0, -24), FontStyle.Bold);
+            backToHome = ActionButton("Back to home", starter, 0.73f, 1, 170, 230, ShowHome, Mist, Ink);
+            backToHome.GetComponentInChildren<Text>().fontSize = 21;
+            backToHome.gameObject.SetActive(false);
             var field = Box("Name", starter, Vector2.zero, Vector2.right, new Vector2(0, 104), new Vector2(0, 165));
             nameField = field.gameObject.AddComponent<InputField>();
             nameField.targetGraphic = Surface(field, Mist);
@@ -394,6 +436,7 @@ namespace BAIby.Presentation
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             style = new StylePanel(Tray("Style Panel", false, 430), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            BuildHome();
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
@@ -475,6 +518,7 @@ namespace BAIby.Presentation
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
+            UpdateHouseholdChips(adopted && activePanel == NurseryPanel.Care);
             var hasPendingSound = adopted && session.State.HasPendingNewSound;
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);

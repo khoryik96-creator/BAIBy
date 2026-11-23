@@ -1,6 +1,6 @@
 # Pet mode and household
 
-**Status: decided proposal.** Nothing here is built yet. The decisions are listed at the end.
+**Status: decided proposal.** Phase H0 is built for babies only: Home, slot 1 migration, a second baby, switching, goodbye and per-companion time (see [the playtest](playtest.md#household)). Pets, entitlements and the store are not built yet. The decisions are listed at the end.
 
 It merges three proposals with a later user decision: 2 free companions, further slots paid.
 
@@ -140,7 +140,7 @@ There is one record per companion plus a manifest, not one envelope. A corrupt r
 | `{saveKey}.entitlements` | Cached entitlement and the time it was last confirmed |
 
 - **Migration.** The legacy key *is* slot 1, so no record is copied or rewritten and the baby codec is not bumped. The first launch after the update writes only a new manifest. Saves from v1 to v11 keep decoding as they do now, and a rollback still finds the baby.
-- **Recovery.** Slots are the source of truth. PlayerPrefs cannot list keys, so startup probes slots 1 to 8 and rebuilds a missing or corrupt manifest from them. Adopting writes the record, then the manifest. Goodbye deletes the record, then writes the manifest.
+- **Recovery.** Slots are the source of truth. PlayerPrefs cannot list keys, so startup probes slots 1 to 8 and rebuilds a missing or corrupt manifest from them. Adopting writes the record, then the manifest. Goodbye first writes the keepsake with the companion marked as leaving, then deletes the record, then writes the manifest. A launch after an interruption finishes the goodbye with exactly one keepsake, but only from the primary manifest, never from its backup.
 - **An unreadable slot is never treated as free.** Home shows "Couldn't open this save", the bytes are kept, and the slot counts toward capacity.
 - **Decoding.** Undefined IDs fall back to the backup. A breed option later removed from the catalog still decodes and renders with the breed default.
 

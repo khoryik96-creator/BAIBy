@@ -1,0 +1,660 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using BAIby.Application;
+using BAIby.Simulation;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace BAIby.Presentation
+{
+    public sealed partial class NurseryPreview
+    {
+        private static readonly Color Amber = new Color32(201, 132, 62, 255);
+
+        private enum HouseholdView { Adoption, Nursery, Home, Goodbye }
+
+        private HouseholdView view = HouseholdView.Adoption;
+        private HouseholdSession household;
+        private GameObject header;
+        private Button homeChip;
+        private Image homeDot;
+        private Button switchChip;
+        private Text switchLabel;
+        private Button backToHome;
+        private HomePanel home;
+        private GoodbyePanel goodbye;
+        private int goodbyeSlot;
+
+        public void Open(HouseholdSession householdSession)
+        {
+            household = householdSession ?? throw new ArgumentNullException(nameof(householdSession));
+            adopt.interactable = true;
+            var active = household.Active;
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) launch = default;
+            Exception failure = null;
+            try
+            {
+                // Every companion advances on launch, so time away counts the same for each of them.
+                launch = household.AdvanceAll(active != null);
+            }
+            catch (Exception error)
+            {
+                failure = error;
+            }
+
+            refreshIn = 60;
+            if (active != null)
+                ShowCompanion(active, launch);
+            else if (household.Companions.Count > 0)
+                ShowHome();
+            else
+                StartAdoption();
+
+            if (failure != null)
+                ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
+        }
+
+        private void BuildHouseholdChips(RectTransform top)
+        {
+            homeChip = ActionButton("Home", top, 0, 0.17f, 190, 232, ShowHome, Mist, Ink);
+            homeChip.GetComponentInChildren<Text>().fontSize = 21;
+            SoftShapes.Round(homeChip.image, 1f);
+            SoftShapes.Lift(homeChip.gameObject);
+            var dot = Box("Home Attention", homeChip.transform, Vector2.one, Vector2.one,
+                new Vector2(-17, -17), new Vector2(-3, -3));
+            homeDot = Surface(dot, Amber);
+            SoftShapes.Disc(homeDot);
+            dot.gameObject.SetActive(false);
+            homeChip.gameObject.SetActive(false);
+
+            switchChip = ActionButton("Switch companion", top, 0.18f, 0.56f, 190, 232, SwitchToNext, Mist, Ink);
+            switchLabel = switchChip.GetComponentInChildren<Text>();
+            switchLabel.rectTransform.offsetMin = new Vector2(10, 0);
+            switchLabel.rectTransform.offsetMax = new Vector2(-10, 0);
+            switchLabel.resizeTextForBestFit = true;
+            switchLabel.resizeTextMinSize = 15;
+            switchLabel.resizeTextMaxSize = 21;
+            SoftShapes.Round(switchChip.image, 1f);
+            SoftShapes.Lift(switchChip.gameObject);
+            switchChip.gameObject.SetActive(false);
+        }
+
+        private void BuildHome()
+        {
+            home = new HomePanel(Tray("Home Panel", true, 700), ShowActiveCompanion, OpenCompanion, StartAdoption, AskGoodbye);
+            goodbye = new GoodbyePanel(Tray("Goodbye Panel", false, 340), ShowHome, ContinueGoodbye, ConfirmGoodbye);
+        }
+
+        // Shows the chosen view's trays and hides the others. The nursery's own panels follow activePanel.
+        private void ApplyHouseholdView()
+        {
+            var nurseryShown = view == HouseholdView.Nursery && session?.State != null;
+            header.SetActive(view == HouseholdView.Nursery || view == HouseholdView.Adoption);
+            welcome.SetActive(view == HouseholdView.Adoption);
+            backToHome.gameObject.SetActive(view == HouseholdView.Adoption && household != null &&
+                household.Companions.Count > 0);
+            home.Root.SetActive(view == HouseholdView.Home);
+            goodbye.Root.SetActive(view == HouseholdView.Goodbye);
+            UpdatePanelVisibility(nurseryShown);
+        }
+
+        private void UpdateHouseholdChips(bool visible)
+        {
+            homeChip.gameObject.SetActive(visible);
+            wake.gameObject.SetActive(!visible);
+            var next = visible ? NextCompanion() : null;
+            switchChip.gameObject.SetActive(next != null);
+            if (next != null)
+                switchLabel.text = "Switch to " + next.State.Name;
+            homeDot.gameObject.SetActive(visible && AnotherNeedsAttention());
+        }
+
+        private void ShowHome()
+        {
+            if (household == null)
+                return;
+
+            view = HouseholdView.Home;
+            ApplyHouseholdView();
+            var first = home.Show(household);
+            if (first != null)
+                first.Select();
+        }
+
+        private void ShowActiveCompanion()
+        {
+            var active = household?.Active;
+            if (active != null)
+                ShowCompanion(active, default);
+        }
+
+        private void OpenCompanion(int slot)
+        {
+            try
+            {
+                household.Switch(slot);
+            }
+            catch (Exception error)
+            {
+                ReportFailure(error, "That room couldn't be opened. Please try again.");
+                return;
+            }
+
+            ShowCompanion(household.Active, default);
+        }
+
+        private void SwitchToNext()
+        {
+            var next = NextCompanion();
+            if (next != null)
+                OpenCompanion(next.Slot);
+        }
+
+        // Re-binds the nursery to a companion's session: its state, look and room theme. Switching never
+        // advances time; milestones reached off screen are shown here, once.
+        private void ShowCompanion(HouseholdCompanion companion,
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked)
+        {
+            session = companion.Session;
+            view = HouseholdView.Nursery;
+            activePanel = NurseryPanel.Care;
+            nursery.ResetPresentation();
+            Exception failure = null;
+            try
+            {
+                foreach (var milestone in household.TakeCelebrations(companion.Slot))
+                {
+                    unlocked.UnlockedSitting |= milestone == CompanionMilestone.Sitting;
+                    unlocked.UnlockedCrawling |= milestone == CompanionMilestone.Crawling;
+                    unlocked.UnlockedWalking |= milestone == CompanionMilestone.Walking;
+                }
+            }
+            catch (Exception error)
+            {
+                // The celebration stays pending and is shown next time.
+                failure = error;
+            }
+
+            Paint(Reaction.None, unlocked);
+            if (failure != null)
+                ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
+        }
+
+        private void StartAdoption()
+        {
+            if (household == null || !household.CanAdopt)
+                return;
+
+            view = HouseholdView.Adoption;
+            nameField.text = string.Empty;
+            nursery.ResetPresentation();
+            Paint(Reaction.None);
+        }
+
+        private void AskGoodbye(int slot)
+        {
+            var companion = FindCompanion(slot);
+            if (companion?.State == null)
+                return;
+
+            goodbyeSlot = slot;
+            view = HouseholdView.Goodbye;
+            ApplyHouseholdView();
+            goodbye.Ask(companion.State.Name);
+            goodbye.Keep.Select();
+        }
+
+        private void ContinueGoodbye()
+        {
+            var companion = FindCompanion(goodbyeSlot);
+            if (companion?.State != null)
+                goodbye.Confirm(companion.State.Name);
+        }
+
+        private void ConfirmGoodbye()
+        {
+            try
+            {
+                household.SayGoodbye(goodbyeSlot);
+            }
+            catch (Exception error)
+            {
+                ReportFailure(error, "The goodbye couldn't be saved. Please try again.");
+                return;
+            }
+
+            goodbyeSlot = 0;
+            if (household.Companions.Count == 0)
+                StartAdoption();
+            else
+                ShowHome();
+        }
+
+        private HouseholdCompanion FindCompanion(int slot)
+        {
+            if (household == null)
+                return null;
+
+            foreach (var companion in household.Companions)
+            {
+                if (companion.Slot == slot)
+                    return companion;
+            }
+
+            return null;
+        }
+
+        // The companion after the active one in Home order, so a switch is always one tap.
+        private HouseholdCompanion NextCompanion()
+        {
+            var active = household?.Active;
+            if (active == null)
+                return null;
+
+            var companions = household.Companions;
+            var start = 0;
+            for (var i = 0; i < companions.Count; i++)
+            {
+                if (companions[i] == active)
+                    start = i;
+            }
+
+            for (var step = 1; step < companions.Count; step++)
+            {
+                var candidate = companions[(start + step) % companions.Count];
+                if (candidate.IsReadable)
+                    return candidate;
+            }
+
+            return null;
+        }
+
+        private bool AnotherNeedsAttention()
+        {
+            var active = household?.Active;
+            if (active == null)
+                return false;
+
+            foreach (var companion in household.Companions)
+            {
+                if (companion != active && companion.IsReadable && HouseholdRules.NeedsAttention(companion.State))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string StageTitle(BabyStage stage)
+        {
+            switch (stage)
+            {
+                case BabyStage.Walker: return "Early walker";
+                case BabyStage.Crawler: return "Crawler";
+                case BabyStage.Sitter: return "Early sitter";
+                default: return "Newborn";
+            }
+        }
+
+        // A short, warm line for a Home card. needsCare tints its dot.
+        private static string MoodLine(BabyState state, out bool needsCare)
+        {
+            const double low = 45;
+            needsCare = true;
+            if (state.Health < low)
+                return "Feeling under the weather";
+            if (state.Cleanliness < low)
+                return "Ready for a fresh diaper";
+            if (state.Energy < low)
+                return "Getting sleepy";
+            if (state.Satiety < low)
+                return "A little hungry";
+            if (state.Comfort < low)
+                return "Would love a cuddle";
+
+            needsCare = false;
+            return "Happy and content";
+        }
+
+        private static Sprite Portrait(BabyStage stage) => Resources.Load<Sprite>("BAIby/Baby/" + stage);
+
+        // Positions a rect by distances from its parent's top edge.
+        private static void PlaceFromTop(RectTransform rect, float left, float right, float top, float bottom,
+            float insetLeft = 0, float insetRight = 0)
+        {
+            rect.anchorMin = new Vector2(left, 1);
+            rect.anchorMax = new Vector2(right, 1);
+            rect.offsetMin = new Vector2(insetLeft, -bottom);
+            rect.offsetMax = new Vector2(-insetRight, -top);
+        }
+
+        private sealed class HomePanel
+        {
+            private const float CardsTop = 112;
+            private const float CardHeight = 360;
+            private const float Gap = 16;
+
+            private readonly RectTransform tray;
+            private readonly RectTransform cards;
+            private readonly Button close;
+            private readonly RectTransform full;
+            private readonly Text keepsakes;
+            private readonly Action<int> open;
+            private readonly Action adopt;
+            private readonly Action<int> farewell;
+
+            public GameObject Root { get; }
+            public Text Feedback { get; }
+
+            public HomePanel(RectTransform content, Action closeHome, Action<int> open, Action adopt, Action<int> farewell)
+            {
+                this.open = open;
+                this.adopt = adopt;
+                this.farewell = farewell;
+                tray = (RectTransform)content.parent;
+                Root = tray.gameObject;
+
+                var heading = Box("Home Heading Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                PlaceFromTop(heading, 0, 0.72f, 18, 98);
+                Label("Home Heading", heading, "Home", 40, Ink, TextAnchor.MiddleLeft,
+                    Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                close = ActionButton("Close home", content, 0.73f, 1, 0, 0, closeHome, Mist, Ink);
+                close.GetComponentInChildren<Text>().text = "Back";
+                PlaceFromTop((RectTransform)close.transform, 0.73f, 1, 20, 96, 3, 3);
+                SoftShapes.Round(close.image, 1f);
+                SoftShapes.Lift(close.gameObject);
+
+                cards = Box("Home Cards", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+                full = Box("Home full", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SoftShapes.Round(Surface(full, Mist), 0.7f);
+                Label("Home full Title", full, "Your home is full", 27, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(22, 62), Vector2.one, new Vector2(-22, -10), FontStyle.Bold);
+                var calm = Label("Home full Detail", full, "Every room has a little one to care for. Enjoy your time together.",
+                    20, Secondary, TextAnchor.MiddleLeft, new Vector2(22, 10), Vector2.right, new Vector2(-22, 62));
+                calm.resizeTextForBestFit = true;
+                calm.resizeTextMinSize = 15;
+                calm.resizeTextMaxSize = 20;
+
+                var kept = Box("Home Keepsakes Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                keepsakes = Label("Home keepsakes", kept, "", 20, Secondary, TextAnchor.MiddleLeft,
+                    Vector2.zero, Vector2.one, Vector2.zero);
+                keepsakes.resizeTextForBestFit = true;
+                keepsakes.resizeTextMinSize = 14;
+                keepsakes.resizeTextMaxSize = 20;
+
+                var feedback = Box("Home Feedback Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                Feedback = Label("Home Feedback", feedback, "", 21, Ink, TextAnchor.MiddleLeft,
+                    Vector2.zero, Vector2.one, Vector2.zero);
+                Feedback.resizeTextForBestFit = true;
+                Feedback.resizeTextMinSize = 15;
+                Feedback.resizeTextMaxSize = 21;
+                Root.SetActive(false);
+            }
+
+            // Rebuilds the cards from the household and returns the first card for focus.
+            public Button Show(HouseholdSession household)
+            {
+                ClearCards();
+                Feedback.text = string.Empty;
+                var active = household.Active;
+                close.gameObject.SetActive(active != null);
+
+                Button first = null;
+                var companions = household.Companions;
+                for (var i = 0; i < companions.Count; i++)
+                {
+                    var cell = Cell(i);
+                    var companion = companions[i];
+                    var card = companion.IsReadable
+                        ? CompanionCard(companion, cell, companion == active, household.HasCelebrations(companion.Slot))
+                        : UnreadableCard(companion.Slot, cell);
+                    if (first == null)
+                        first = card;
+                }
+
+                var items = companions.Count;
+                if (household.CanAdopt)
+                {
+                    var card = AdoptCard(Cell(items));
+                    if (first == null)
+                        first = card;
+                    items++;
+                }
+
+                var y = CardsTop + (items + 1) / 2 * (CardHeight + Gap);
+                full.gameObject.SetActive(household.IsFull);
+                if (household.IsFull)
+                {
+                    PlaceFromTop(full, 0, 1, y, y + 124, 3, 3);
+                    y += 124 + Gap;
+                }
+
+                keepsakes.text = DescribeKeepsakes(household.Keepsakes);
+                var keptArea = (RectTransform)keepsakes.transform.parent;
+                keptArea.gameObject.SetActive(keepsakes.text.Length > 0);
+                if (keepsakes.text.Length > 0)
+                {
+                    PlaceFromTop(keptArea, 0, 1, y, y + 40, 6, 6);
+                    y += 44;
+                }
+
+                PlaceFromTop((RectTransform)Feedback.transform.parent, 0, 1, y, y + 40, 6, 6);
+                y += 48;
+                tray.offsetMin = new Vector2(tray.offsetMin.x, -y - 17);
+                tray.offsetMax = new Vector2(tray.offsetMax.x, -17);
+                return first;
+            }
+
+            private RectTransform Cell(int index)
+            {
+                var column = index % 2;
+                var top = CardsTop + index / 2 * (CardHeight + Gap);
+                var cell = Box("Home cell " + index, cards, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                PlaceFromTop(cell, column * 0.5f, (column + 1) * 0.5f, top, top + CardHeight,
+                    column == 0 ? 3 : Gap / 2, column == 0 ? Gap / 2 : 3);
+                return cell;
+            }
+
+            private void ClearCards()
+            {
+                // Detach before destroying so the rebuilt cards are the only ones in the hierarchy this frame.
+                for (var i = cards.childCount - 1; i >= 0; i--)
+                {
+                    var child = cards.GetChild(i);
+                    child.gameObject.SetActive(false);
+                    child.SetParent(null, false);
+                    UnityEngine.Object.Destroy(child.gameObject);
+                }
+            }
+
+            private Button CompanionCard(HouseholdCompanion companion, RectTransform cell, bool isActive, bool isNew)
+            {
+                var state = companion.State;
+                var slot = companion.Slot;
+                var card = ActionButton("Home card " + state.Name, cell, 0, 1, 0, 0, () => open(slot), Mist, Ink);
+                Fill((RectTransform)card.transform);
+                SoftShapes.Round(card.image, 0.7f);
+                SoftShapes.Lift(card.gameObject);
+
+                var stage = HouseholdRules.StageOf(state);
+                var frame = Box(card.name + " Portrait", card.transform, Vector2.zero, Vector2.one,
+                    new Vector2(16, 178), new Vector2(-16, -14));
+                var portrait = Surface(frame, Color.white);
+                portrait.sprite = Portrait(stage);
+                portrait.preserveAspect = true;
+                portrait.enabled = portrait.sprite != null;
+
+                var name = card.GetComponentInChildren<Text>();
+                name.text = state.Name;
+                name.rectTransform.anchorMax = Vector2.right;
+                name.rectTransform.offsetMin = new Vector2(10, 132);
+                name.rectTransform.offsetMax = new Vector2(-10, 174);
+                name.fontSize = 28;
+                name.resizeTextForBestFit = true;
+                name.resizeTextMinSize = 18;
+                name.resizeTextMaxSize = 28;
+                Label(card.name + " Stage", card.transform, StageTitle(stage), 21, Secondary, TextAnchor.MiddleCenter,
+                    new Vector2(10, 100), Vector2.right, new Vector2(-10, 130));
+
+                var mood = MoodLine(state, out var needsCare);
+                var dot = Box(card.name + " Mood Dot", card.transform, Vector2.zero, Vector2.zero,
+                    new Vector2(18, 76), new Vector2(32, 90));
+                SoftShapes.Disc(Surface(dot, needsCare ? Amber : Fern));
+                var moodLabel = Label(card.name + " Mood", card.transform, mood, 20, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(40, 66), Vector2.right, new Vector2(-10, 100));
+                moodLabel.resizeTextForBestFit = true;
+                moodLabel.resizeTextMinSize = 14;
+                moodLabel.resizeTextMaxSize = 20;
+
+                if (isActive)
+                {
+                    var selection = Box(card.name + " Selection", card.transform, Vector2.zero, Vector2.one,
+                        Vector2.zero, Vector2.zero);
+                    SoftShapes.Outline(Surface(selection, Fern));
+                }
+
+                if (isNew)
+                {
+                    var badge = Box(card.name + " New", card.transform, Vector2.up, Vector2.up,
+                        new Vector2(12, -50), new Vector2(92, -14));
+                    SoftShapes.Round(Surface(badge, Fern), 1f);
+                    Label("New Label", badge, "New!", 19, Color.white, TextAnchor.MiddleCenter,
+                        Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                }
+
+                var bye = ActionButton("Say goodbye to " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
+                    () => farewell(slot), Paper, Secondary);
+                var byeLabel = bye.GetComponentInChildren<Text>();
+                byeLabel.text = "Say goodbye";
+                byeLabel.fontSize = 19;
+                byeLabel.fontStyle = FontStyle.Normal;
+                SoftShapes.Round(bye.image, 1f);
+                return card;
+            }
+
+            private static Button UnreadableCard(int slot, RectTransform cell)
+            {
+                var card = Box("Home card slot " + slot, cell, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SoftShapes.Round(Surface(card, Mist), 0.7f);
+                var title = Label("Unreadable Title", card, "Couldn't open this save", 25, Ink, TextAnchor.MiddleCenter,
+                    new Vector2(16, 190), Vector2.right, new Vector2(-16, 270), FontStyle.Bold);
+                title.resizeTextForBestFit = true;
+                title.resizeTextMinSize = 17;
+                title.resizeTextMaxSize = 25;
+                Label("Unreadable Detail", card, "It's kept safe and still uses a room.", 20, Secondary,
+                    TextAnchor.MiddleCenter, new Vector2(16, 110), Vector2.right, new Vector2(-16, 186));
+                return null;
+            }
+
+            private Button AdoptCard(RectTransform cell)
+            {
+                var card = ActionButton("+ Adopt", cell, 0, 1, 0, 0, adopt, Paper, Fern);
+                Fill((RectTransform)card.transform);
+                SoftShapes.Round(card.image, 0.7f);
+                var outline = Box("+ Adopt Outline", card.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SoftShapes.Dashed(Surface(outline, Fern));
+                var title = card.GetComponentInChildren<Text>();
+                title.fontSize = 34;
+                title.rectTransform.offsetMin = new Vector2(10, 170);
+                title.rectTransform.offsetMax = new Vector2(-10, -120);
+                Label("+ Adopt Detail", card.transform, "Welcome a new baby", 21, Secondary, TextAnchor.MiddleCenter,
+                    new Vector2(10, 124), Vector2.right, new Vector2(-10, 166));
+                return card;
+            }
+
+            private static void Fill(RectTransform rect)
+            {
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+            }
+
+            private static string DescribeKeepsakes(IReadOnlyList<Keepsake> kept)
+            {
+                if (kept.Count == 0)
+                    return string.Empty;
+
+                var names = new List<string>();
+                foreach (var keepsake in kept)
+                    names.Add($"{keepsake.Name} ({Day(keepsake.AdoptedAt)} – {Day(keepsake.FarewellAt)})");
+                return "Keepsakes · " + string.Join(" · ", names);
+            }
+
+            private static string Day(DateTimeOffset instant) =>
+                instant.ToLocalTime().ToString("MMM d", CultureInfo.InvariantCulture);
+        }
+
+        private sealed class GoodbyePanel
+        {
+            private readonly Text heading;
+            private readonly Text detail;
+            private readonly Text keepLabel;
+            private readonly Button proceed;
+            private readonly Button confirm;
+
+            public GameObject Root { get; }
+            public Button Keep { get; }
+            public Text Feedback { get; }
+
+            public GoodbyePanel(RectTransform content, Action keep, Action proceed, Action confirm)
+            {
+                Root = content.parent.gameObject;
+                heading = Label("Goodbye Heading", content, "", 34, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 262), Vector2.right, new Vector2(0, 330), FontStyle.Bold);
+                heading.resizeTextForBestFit = true;
+                heading.resizeTextMinSize = 22;
+                heading.resizeTextMaxSize = 34;
+                detail = Label("Goodbye Detail", content, "", 23, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 150), Vector2.right, new Vector2(0, 260));
+                detail.resizeTextForBestFit = true;
+                detail.resizeTextMinSize = 17;
+                detail.resizeTextMaxSize = 23;
+                Keep = ActionButton("Keep companion", content, 0, 0.5f, 54, 142, keep, Mist, Ink);
+                keepLabel = Keep.GetComponentInChildren<Text>();
+                keepLabel.resizeTextForBestFit = true;
+                keepLabel.resizeTextMinSize = 16;
+                keepLabel.resizeTextMaxSize = 25;
+                this.proceed = ActionButton("Continue goodbye", content, 0.5f, 1, 54, 142, proceed, Fern, Color.white);
+                this.proceed.GetComponentInChildren<Text>().text = "Continue";
+                this.confirm = ActionButton("Confirm goodbye", content, 0.5f, 1, 54, 142, confirm, Fern, Color.white);
+                this.confirm.GetComponentInChildren<Text>().text = "Say goodbye";
+                foreach (var button in new[] { Keep, this.proceed, this.confirm })
+                {
+                    SoftShapes.Round(button.image, 1f);
+                    SoftShapes.Lift(button.gameObject);
+                }
+
+                Feedback = Label("Goodbye Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 6), Vector2.right, new Vector2(0, 50));
+                Feedback.resizeTextForBestFit = true;
+                Feedback.resizeTextMinSize = 15;
+                Feedback.resizeTextMaxSize = 21;
+                Root.SetActive(false);
+            }
+
+            // First step: explain what stays behind.
+            public void Ask(string name)
+            {
+                heading.text = $"Say goodbye to {name}?";
+                detail.text = $"{name} will leave your home. A keepsake with their name, dates and look stays on Home.";
+                keepLabel.text = $"Keep {name}";
+                proceed.gameObject.SetActive(true);
+                confirm.gameObject.SetActive(false);
+                Feedback.text = string.Empty;
+            }
+
+            // Second step: the confirmation that frees the room.
+            public void Confirm(string name)
+            {
+                heading.text = "Are you sure?";
+                detail.text = $"This can't be undone. {name}'s room will be free for a new baby.";
+                proceed.gameObject.SetActive(false);
+                confirm.gameObject.SetActive(true);
+                Feedback.text = string.Empty;
+                confirm.Select();
+            }
+        }
+    }
+}

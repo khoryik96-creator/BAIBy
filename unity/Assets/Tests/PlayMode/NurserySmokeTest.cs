@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using BAIby.Bootstrap;
 using NUnit.Framework;
@@ -359,6 +360,102 @@ namespace BAIby.Tests
             Tap(walker.gameObject, "Close baby report");
         }
 
+        [UnityTest]
+        public IEnumerator HouseholdAdoptsSwitchesAndRestoresBothBabies()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var view = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Button>(view.gameObject, "Back to home").gameObject.activeInHierarchy, Is.False);
+            Child<InputField>(view.gameObject, "Name").text = "Mia";
+            Tap(view.gameObject, "Start raising");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Assert.That(PlayerPrefs.HasKey(saveKey), Is.True, "the first baby is slot 1, the original save key");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".household"), Is.True);
+            Assert.That(Child<Button>(view.gameObject, "Home").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Button>(view.gameObject, "Switch companion").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "Decor");
+            Tap(view.gameObject, "Peach");
+            Tap(view.gameObject, "Close decor");
+            Assert.That(Child<Button>(view.gameObject, "Home").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Play with plush");
+            Tap(view.gameObject, "Play with plush");
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            var miaSave = PlayerPrefs.GetString(saveKey);
+
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Header").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Image>(view.gameObject, "Home card Mia Portrait").sprite, Is.Not.Null);
+            Assert.That(Child<Text>(view.gameObject, "Home card Mia Stage").text, Is.EqualTo("Newborn"));
+            Assert.That(Child<Image>(view.gameObject, "Home card Mia Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "+ Adopt");
+            Assert.That(Child<Button>(view.gameObject, "Back to home").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<InputField>(view.gameObject, "Name").text, Is.Empty);
+            Child<InputField>(view.gameObject, "Name").text = "Leo";
+            Tap(view.gameObject, "Start raising");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Leo"));
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot2"), Is.True);
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(miaSave), "adopting a second baby leaves slot 1 alone");
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.Empty);
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Does.Contain("Newborn"));
+            Tap(view.gameObject, "Decor");
+            Assert.That(Child<Text>(view.gameObject, "Sage Selection").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close decor");
+            Assert.That(SwitchLabel(view.gameObject), Is.EqualTo("Switch to Mia"));
+
+            Tap(view.gameObject, "Switch companion");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            Tap(view.gameObject, "Decor");
+            Assert.That(Child<Text>(view.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close decor");
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.True);
+            Assert.That(HasButton(view.gameObject, "+ Adopt"), Is.False, "capacity 2 hides adoption");
+            Tap(view.gameObject, "Home card Leo");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Leo"));
+            UnityEngine.Object.Destroy(view.gameObject);
+            yield return null;
+
+            var restored = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Leo"), "the active companion persists");
+            Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.Empty);
+            Assert.That(SwitchLabel(restored.gameObject), Is.EqualTo("Switch to Mia"));
+            Tap(restored.gameObject, "Switch companion");
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            Tap(restored.gameObject, "Decor");
+            Assert.That(Child<Text>(restored.gameObject, "Peach Selection").gameObject.activeInHierarchy, Is.True);
+            Tap(restored.gameObject, "Close decor");
+
+            Tap(restored.gameObject, "Home");
+            Tap(restored.gameObject, "Say goodbye to Leo");
+            Assert.That(Child<RectTransform>(restored.gameObject, "Goodbye Panel").gameObject.activeInHierarchy, Is.True);
+            Tap(restored.gameObject, "Keep companion");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot2"), Is.True, "keeping a companion changes nothing");
+            Tap(restored.gameObject, "Say goodbye to Leo");
+            Tap(restored.gameObject, "Continue goodbye");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot2"), Is.True, "goodbye needs a second confirmation");
+            Tap(restored.gameObject, "Confirm goodbye");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot2"), Is.False);
+            Assert.That(Child<RectTransform>(restored.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(HasButton(restored.gameObject, "Home card Leo"), Is.False);
+            Assert.That(HasButton(restored.gameObject, "+ Adopt"), Is.True, "goodbye frees a room");
+            Assert.That(Child<Text>(restored.gameObject, "Home keepsakes").text, Does.Contain("Leo"));
+            Tap(restored.gameObject, "Home card Mia");
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Assert.That(Child<Button>(restored.gameObject, "Switch companion").gameObject.activeInHierarchy, Is.False);
+        }
+
         [UnityTearDown]
         public IEnumerator CleanUp()
         {
@@ -370,11 +467,31 @@ namespace BAIby.Tests
 
             if (saveKey != null)
             {
-                PlayerPrefs.DeleteKey(saveKey);
-                PlayerPrefs.DeleteKey(saveKey + ".backup");
+                foreach (var key in HouseholdKeys(saveKey))
+                    PlayerPrefs.DeleteKey(key);
                 PlayerPrefs.Save();
             }
         }
+
+        // Every key a household derives from its save key: slot 1 is the key itself.
+        private static IEnumerable<string> HouseholdKeys(string key)
+        {
+            for (var slot = 1; slot <= 8; slot++)
+            {
+                var slotKey = slot == 1 ? key : key + ".slot" + slot;
+                yield return slotKey;
+                yield return slotKey + ".backup";
+            }
+
+            yield return key + ".household";
+            yield return key + ".household.backup";
+        }
+
+        private static bool HasButton(GameObject view, string name) =>
+            view.GetComponentsInChildren<Button>(true).Any(button => button.name == name);
+
+        private static string SwitchLabel(GameObject view) =>
+            Child<Button>(view, "Switch companion").GetComponentInChildren<Text>(true).text;
 
         private static T Child<T>(GameObject view, string name) where T : Component =>
             view.GetComponentsInChildren<T>(true).Single(component => component.name == name);

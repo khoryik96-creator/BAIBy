@@ -24,8 +24,11 @@ namespace BAIby.Bootstrap
             {
                 var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4),
                     TimeSpan.FromDays(7), TimeSpan.FromDays(14));
-                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), () => DateTimeOffset.UtcNow);
-                view.Open(session);
+                // Every household key derives from saveKey; slot 1 is saveKey itself, so an existing
+                // single-baby save opens as the first companion without being copied.
+                var household = new HouseholdSession(simulation, new PlayerPrefsHouseholdStore(saveKey),
+                    () => DateTimeOffset.UtcNow);
+                view.Open(household);
             }
             catch (Exception error)
             {

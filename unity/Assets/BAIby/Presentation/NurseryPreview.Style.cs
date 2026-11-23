@@ -320,6 +320,7 @@ namespace BAIby.Presentation
             private static Sprite disc;
             private static Sprite discEdge;
             private static Sprite discTrim;
+            private static Sprite dashed;
 
             public static void Round(Image image, float pixelsPerUnit)
             {
@@ -338,6 +339,17 @@ namespace BAIby.Presentation
                 image.sprite = cardOutline;
                 image.type = Image.Type.Sliced;
                 image.fillCenter = true;
+            }
+
+            // A rounded outline whose straight edges tile as dashes, for cards that add something.
+            public static void Dashed(Image image)
+            {
+                if (dashed == null)
+                    dashed = Create("Dashed card", CardSize, CardRadius, 3, CardRadius + 2, true);
+                image.sprite = dashed;
+                image.type = Image.Type.Tiled;
+                image.fillCenter = false;
+                image.pixelsPerUnitMultiplier = 1;
             }
 
             public static void Disc(Image image) => Circle(image, ref disc, "Style disc", 0);
@@ -362,7 +374,8 @@ namespace BAIby.Presentation
                 image.preserveAspect = true;
             }
 
-            private static Sprite Create(string name, int size, float radius, float thickness, float border)
+            private static Sprite Create(string name, int size, float radius, float thickness, float border,
+                bool dashedEdges = false)
             {
                 var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
                 {
@@ -382,6 +395,8 @@ namespace BAIby.Presentation
                         var alpha = Coverage(RoundedDistance(px, py, half, radius));
                         if (thickness > 0)
                             alpha -= Coverage(RoundedDistance(px, py, half - thickness, Mathf.Max(0, radius - thickness)));
+                        if (dashedEdges)
+                            alpha *= DashMask(x, y, size, border);
                         pixels[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(Mathf.Clamp01(alpha) * 255));
                     }
                 }
@@ -404,6 +419,20 @@ namespace BAIby.Presentation
             }
 
             private static float Coverage(float distance) => Mathf.Clamp01(0.5f - distance);
+
+            // The straight middle of each edge is the tiled part of the sprite; drawing half of it keeps
+            // one dash per tile. Corners stay solid.
+            private static float DashMask(int x, int y, int size, float border)
+            {
+                var start = Mathf.RoundToInt(border);
+                var end = size - start;
+                var period = end - start;
+                var along = x >= start && x < end ? x - start : y >= start && y < end ? y - start : -1;
+                if (along < 0 || period <= 0)
+                    return 1;
+
+                return along >= period / 4 && along < period * 3 / 4 ? 1 : 0;
+            }
         }
     }
 }
