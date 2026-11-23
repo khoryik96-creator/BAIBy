@@ -15,7 +15,7 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 ## What is free
 
 - Every care action, stage, milestone and journal, and recovery from every consequence step.
-- Two companions of any mix, every shipped species and breed, adoption, and "Say goodbye" with a keepsake.
+- Two companions of any mix, every shipped species with its starter breed and every earned breed, adoption, and "Say goodbye" with a keepsake.
 - The base customization set (6 skin tones, 6 hair colors, 4 hair styles, 8 outfits, 4 headwear), the Sage and Peach nursery, and at least one free decor theme per future room.
 - All real-human features, now and later: skin tones, hair colors and textures, facial and body features.
 - Every look earned through care and one free seasonal item each season.
@@ -27,6 +27,8 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 | Product | Does | Does not | Placeholder |
 | --- | --- | --- | --- |
 | `home.rooms2` "More rooms" | +2 household slots (4 total) | Speed growth or unlock species or breeds | $2.99 |
+| `breed.<species>.<breed>` premium breed (for example `breed.dog.corgi`) | Unlocks one premium breed for adoption, household-wide, as listed in [pet mode](pet-mode.md) | Change care rules, tendencies or Bond, or skip any earned-breed goal | $1.99 |
+| `breedpack.<species>` | Every current premium breed of one species | Include breeds added later | $3.99 |
 | `helper.feeder` | When Satiety (Fullness, Hay) reaches its floor, serves one stocked portion up to a ceiling below full. The player stocks up to 6 portions. | Act without stock, or give on-time, preference, milestone or streak credit | $2.99 |
 | `helper.play` | When Comfort (Calm for fish) reaches its floor, a small top-up, at most 3 times per 24 h | Change familiarity, Connection, Bond, favorites, development counts or tricks | $2.99 |
 | `helper.tidy` | When Cleanliness (Litter, Bedding, Water) reaches its floor, restores it to 70, at most 3 times per 24 h | Reach 100 (a full change, bath or water change stays hands-on), hygiene development | $2.99 |
@@ -137,10 +139,11 @@ The product owner delegated these choices on 2026-11-23. Revisit them with playt
 2. **Slots:** one "+2 rooms" pack at about US$2.99, matching [pet mode](pet-mode.md).
 3. **Helpers:** sold as one household set (Feeder, Play and Tidy together) to avoid many small purchases. Floors and ceilings follow the on-time threshold in [care and growth](care-and-growth.md).
 4. **Babies:** baby helpers appear as a Sitter character. Pets use the Feeder, Play and Tidy helpers.
-5. **Rare looks:** fantasy costumes for babies and special coat patterns for pets. Every real human feature (skin tone, hair, eyes) stays free. The rarest looks are earned through care and never sold.
-6. **Store wording:** "Special", never "rare" or "limited".
-7. **Seasonal content:** later, in M5.
-8. **Family bundle:** not at launch.
-9. **Audience:** treat every player as a child. There is no age screen, every purchase sits behind the parental gate, and there are no ads or third-party analytics.
-10. **Revocation:** only an explicit refund or revocation from the store locks extra rooms. A missing item in a store query does not.
-11. **Store listing:** no Kids Category listing at launch; publish as a family-friendly app that follows the child rules above. An external legal and store-policy review is required before M1 ships, and the product owner arranges it.
+5. **Breeds:** each species has a free starter breed, earned breeds unlocked through visible care goals, and premium breeds sold directly (for example the Corgi). Premium breeds are never stronger.
+6. **Rare looks:** fantasy costumes for babies and special coat patterns for pets. Every real human feature (skin tone, hair, eyes) stays free. The rarest looks are earned through care and never sold.
+7. **Store wording:** "Special", never "rare" or "limited".
+8. **Seasonal content:** later, in M5.
+9. **Family bundle:** not at launch.
+10. **Audience:** treat every player as a child. There is no age screen, every purchase sits behind the parental gate, and there are no ads or third-party analytics.
+11. **Revocation:** only an explicit refund or revocation from the store locks extra rooms. A missing item in a store query does not.
+12. **Store listing:** no Kids Category listing at launch; publish as a family-friendly app that follows the child rules above. An external legal and store-policy review is required before M1 ships, and the product owner arranges it.

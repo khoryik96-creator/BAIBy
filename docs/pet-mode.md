@@ -63,13 +63,26 @@ A breed sets:
 
 No breed is harder or worse. Health-linked traits such as flat faces are not exaggerated, and mixed breeds are first-class choices.
 
-| Species | Launch (recolor or markings) | Later (overlay or new body) |
-| --- | --- | --- |
-| Cat | Domestic shorthair, Tabby, Tuxedo, Siamese | Calico, Ragdoll |
-| Dog | Mixed breed, Shiba (prick ears), Golden (floppy ears) | Beagle, Poodle, Corgi, Dachshund |
-| Hamster | Syrian golden, Winter white, Roborovski | Teddy bear |
-| Fish | Goldfish, Guppy, Betta | Neon tetra school |
-| Rabbit | Dutch, Netherland dwarf, Holland lop | Lionhead |
+Breeds unlock three ways. Each species has a free starter breed at adoption. Other breeds are **earned** by meeting a visible goal, or bought directly as **premium** breeds. Nothing is random, and every requirement and price is shown before the player commits. Unlocks are household-wide and permanent. A premium breed looks special but is never stronger; it follows the same care rules, tendencies range and Bond curve as any other breed.
+
+| Species | Free starter | Earned | Premium |
+| --- | --- | --- | --- |
+| Cat | Domestic shorthair | Tabby, Tuxedo, Siamese, Calico | Ragdoll |
+| Dog | Mixed breed | Golden, Beagle, Shiba | Corgi, Poodle, Dachshund |
+| Hamster | Syrian golden | Winter white, Roborovski | Teddy bear |
+| Fish | Goldfish | Guppy, Betta | Neon tetra school |
+| Rabbit | Dutch | Netherland dwarf, Holland lop | Lionhead |
+
+Earned breeds follow a short goal ladder per species. Goals reward hands-on care and never require spending.
+
+| Goal | Unlocks |
+| --- | --- |
+| Adopt a pet of the species and complete a first full care day | The first earned breed |
+| Reach Bond 40 with any pet of the species | The second earned breed |
+| Raise a pet of the species to Grown | The third earned breed |
+| 7 on-time care days for the species, using the forgiving streak from [care and growth](care-and-growth.md) | The fourth earned breed |
+
+Premium breeds are one-time purchases behind the parental gate, sold singly or as a species breed pack. A player can preview a premium breed in the adoption picker before buying. Breeds that need a new silhouette, such as the Corgi, Dachshund and Lionhead, ship when their art is ready and never block a slice.
 
 ## Bond and personality
 
@@ -213,6 +226,6 @@ The product owner delegated these choices on 2026-11-23. Revisit them with playt
 4. **Art:** commission the cat batch first (about 10 units), with the hamster in the same brief. Get real quotes before committing to the remaining species. H0 needs no new art and starts now.
 5. **Species order:** cat, hamster, dog, fish, rabbit, as in the slice plan. The hamster proves the model is not cat-specific at the lowest art cost.
 6. **Growth stages:** Young and Grown for every pet, with no senior stage.
-7. **Breeds:** accept the launch lists. No later breed is a must-have.
+7. **Breeds:** free starter, earned and premium breeds as in the Breeds section. The Corgi is a premium breed.
 
 Consequences for neglect follow [care and growth](care-and-growth.md) and apply to pets as well as babies. Nothing ever dies, runs away for good, or is deleted.
