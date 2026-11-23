@@ -97,10 +97,27 @@ namespace BAIby.Tests
             var initialHealth = NeedValue(view.gameObject, "Health");
             var initialCleanliness = NeedValue(view.gameObject, "Cleanliness");
             Tap(view.gameObject, "Preview next day");
-            var beforeChange = NeedValue(view.gameObject, "Cleanliness");
-            Assert.That(beforeChange, Is.LessThan(initialCleanliness));
+            var beforeBath = NeedValue(view.gameObject, "Cleanliness");
+            Assert.That(beforeBath, Is.LessThan(initialCleanliness));
             Assert.That(Reaction(view.gameObject), Does.Contain("could use a fresh diaper"));
+            var comfortBeforeBath = NeedValue(view.gameObject, "Comfort");
+            var energyBeforeBath = NeedValue(view.gameObject, "Energy");
+            Tap(view.gameObject, "Wash up");
+            Assert.That(Child<Text>(view.gameObject, "Bath time Effects").text, Does.Contain("Comfort +30"));
+            Tap(view.gameObject, "Bath time");
+            var beforeChange = NeedValue(view.gameObject, "Cleanliness");
+            Assert.That(beforeChange, Is.EqualTo(Mathf.Min(1f, beforeBath + 0.45f)).Within(0.01f));
+            Assert.That(NeedValue(view.gameObject, "Comfort"),
+                Is.EqualTo(Mathf.Min(1f, comfortBeforeBath + 0.30f)).Within(0.01f));
+            Assert.That(NeedValue(view.gameObject, "Energy"),
+                Is.EqualTo(Mathf.Max(0f, energyBeforeBath - 0.08f)).Within(0.01f));
+            Assert.That(Reaction(view.gameObject), Does.Contain("splashed in the bath"));
+            yield return new WaitForSecondsRealtime(0.5f);
+            var bath = Child<SpriteRenderer>(view.gameObject, "Nursery bath basket");
+            Assert.That(bath.enabled && bath.sprite != null, Is.True);
+
             var saveBeforeCancel = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Wash up");
             Tap(view.gameObject, "Change diaper");
             yield return null;
             Wipe(view.gameObject, "Diaper spot 1", "Diaper spot 1");
@@ -108,7 +125,11 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Cancel diaper");
             Assert.That(NeedValue(view.gameObject, "Cleanliness"), Is.EqualTo(beforeChange));
             Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeCancel));
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, "Change diaper").gameObject));
+            Tap(view.gameObject, "Close hygiene");
 
+            Tap(view.gameObject, "Wash up");
             Tap(view.gameObject, "Change diaper");
             var saveBeforeQuickChange = PlayerPrefs.GetString(saveKey);
             Tap(view.gameObject, "Quick change");
@@ -139,6 +160,7 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Close feeding");
             var healthBeforeReload = NeedValue(view.gameObject, "Health");
             Assert.That(healthBeforeReload, Is.LessThan(initialHealth));
+            Tap(view.gameObject, "Wash up");
             Tap(view.gameObject, "Change diaper");
             yield return null;
             var saveBeforeWiping = PlayerPrefs.GetString(saveKey);
