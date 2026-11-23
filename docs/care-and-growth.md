@@ -1,6 +1,6 @@
 # Care and growth
 
-**Status: decided proposal.** Nothing here is built. Numbers are starting tunables for playtests, and the open decisions are listed at the end.
+**Status: decided proposal.** Only slice 1, the shadow ledger, is built. Numbers are starting tunables for playtests, and the open decisions are listed at the end.
 
 It merges three proposals (care-to-growth, return loops, systems and tuning) with the user's request: care on time, every action affects growth, and real consequences for late, missed or poor care. It follows [pet mode](pet-mode.md) and [monetization](monetization.md) and names where it changes them.
 
@@ -40,6 +40,7 @@ The player sets a wake time (05:00 to 10:00, default 07:00), applied from the ne
 | Bedtime | 19:30 to 21:30 | +60 min | Rest | Bath, Story, Rest: Bond +3 |
 | Night | until wake | none | none | Quiet hours |
 
+- The **Home** preset, for a player who is around all day, has Morning 07:00 to 09:30 (late until 11:00), a lunch Afternoon 12:00 to 14:00 (15:00), Evening 17:30 to 19:30 (20:30) and Bedtime 19:00 to 20:30 (+60 min). In both presets the wake time moves only the Morning window.
 - Feeding at Fullness 90 or more never counts as a meal. **Excused** (first 24 h, travel day, migration) and **Covered** (helper, Away mode) are left out of CareScore.
 - A late bedtime restores Energy to 85 instead of 100. No bedtime means the baby dozes on the mat (Energy 65) and wakes Fussy. Playing at night costs Energy 15 and Comfort 10.
 
@@ -181,7 +182,7 @@ Injected-clock checks cover window boundaries, DST and travel, clock rewinds, a 
 
 ## Slices
 
-1. **Shadow ledger (one PR):** the `BabyState` copy-with helper, `RoutineCalendar`, the ledger and `CareRecord`, save v12 with migration, and calendar, clock and save tests. Windows are evaluated and saved but change nothing, visible only in a debug read-out.
+1. **Shadow ledger (one PR, built):** the `BabyState` copy-with helper, `RoutineCalendar`, the ledger and `CareRecord`, save v12 with migration, and calendar, clock and save tests. Windows are evaluated and saved but change nothing, visible only in a debug read-out (`BabySession.CareSummary`). A meal counts for the earliest window where it is on time, else the earliest where it is late. Together time is one entry per care day. Excused and Covered entries never enter a ring. A window that closes more than 36 hours after the last hands-on care is Covered, so split advances equal one advance. A travel jump excuses every care day it spans. `tests/Simulation/CareChecks.cs` proves needs and growth match the pre-care simulation bit for bit.
 2. Routine strip, need retune, Fussy and Upset, mess, overfeeding, Away mode and helper.
 3. Under the weather, sick, doctor, medicine, recovering.
 4. Tracks, readiness timing, setback, projection and Report.

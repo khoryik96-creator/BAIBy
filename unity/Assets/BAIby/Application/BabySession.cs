@@ -14,6 +14,9 @@ namespace BAIby.Application
         // Null until the player adopts a baby or a saved baby is restored.
         public BabyState State { get; private set; }
 
+        // Developer read-out of the shadow care ledger; empty before adoption.
+        public string CareSummary => State == null ? string.Empty : simulation.DescribeCare(State);
+
         public BabySession(BabySimulation simulation, IBabySaveStore saves, Func<DateTimeOffset> now)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));

@@ -8,7 +8,8 @@ namespace BAIby.Application
 {
     internal static class BabySaveCodec
     {
-        private const int Version = 11;
+        private const int Version = 12;
+        private const int VersionBeforeCare = 11;
         private const int VersionBeforeAppearance = 10;
         private const int VersionBeforeBlockTowers = 9;
         private const int VersionBeforeWalking = 8;
@@ -47,7 +48,8 @@ namespace BAIby.Application
                     new XAttribute("hair-color", (int)state.Appearance.HairColor),
                     new XAttribute("hair-style", (int)state.Appearance.HairStyle),
                     new XAttribute("outfit", (int)state.Appearance.Outfit),
-                    new XAttribute("headwear", (int)state.Appearance.Headwear)))
+                    new XAttribute("headwear", (int)state.Appearance.Headwear)),
+                CareRecordCodec.Encode(state.Care))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -80,7 +82,9 @@ namespace BAIby.Application
                     version > VersionBeforeNurseryTheme ? (NurseryTheme)(int)Field(root, "nursery-theme") : NurseryTheme.Sage,
                     version > VersionBeforeWalking && (bool)Field(root, "can-walk"),
                     version > VersionBeforeBlockTowers ? (int)Field(root, "block-towers") : 0,
-                    version > VersionBeforeAppearance ? DecodeAppearance(Field(root, "appearance")) : BabyAppearance.Default);
+                    version > VersionBeforeAppearance ? DecodeAppearance(Field(root, "appearance")) : BabyAppearance.Default,
+                    // Older babies get an unanchored ledger: their first advance excuses the whole gap.
+                    version > VersionBeforeCare ? CareRecordCodec.Decode(Field(root, CareRecordCodec.ElementName)) : null);
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)
