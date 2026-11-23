@@ -95,36 +95,64 @@ namespace BAIby.Presentation
         private void OnApplicationPause(bool paused)
         {
             if (!paused && household != null)
-                Refresh();
+                Refresh(resumed: true);
         }
 
         private void OnApplicationFocus(bool focused)
         {
             if (focused && household != null)
-                Refresh();
+                Refresh(resumed: true);
         }
 
         // Advances every companion on resume and on the minute tick. Milestones of companions that are
-        // not on screen wait as pending celebrations.
-        private void Refresh()
+        // not on screen wait as pending celebrations. On Home the minute tick is a preview that makes no
+        // writes; resuming or leaving Home commits it.
+        private void Refresh(bool resumed = false)
         {
             refreshIn = 60;
             if (household == null)
                 return;
 
+            if (view == HouseholdView.Home && !resumed)
+            {
+                home.Refresh(household);
+                return;
+            }
+
             var onScreen = view == HouseholdView.Nursery && session?.State != null;
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default;
+            Exception failure = null;
             try
             {
-                var unlocked = household.AdvanceAll(onScreen);
-                if (onScreen)
-                    Paint(Reaction.None, unlocked);
-                else if (view == HouseholdView.Home)
-                    home.Show(household);
+                unlocked = household.AdvanceAll(onScreen);
             }
             catch (Exception error)
             {
-                ReportFailure(error, "Your progress couldn't be saved. Please try again.");
+                // The on-screen companion's unlocks were kept as a pending celebration; play them now.
+                failure = error;
+                var active = household.Active;
+                if (onScreen && active != null)
+                    TakeCelebrations(active.Slot, ref unlocked);
             }
+
+            if (onScreen)
+                Paint(Reaction.None, unlocked);
+            else if (view == HouseholdView.Home)
+                home.Refresh(household);
+
+            if (failure != null)
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", unlocked);
+        }
+
+        // An announced milestone stays on screen. The failed write is logged, retried on the next tick
+        // and reported then.
+        private void ReportUnlessAnnounced(Exception error, string message,
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) announced)
+        {
+            if (announced.UnlockedSitting || announced.UnlockedCrawling || announced.UnlockedWalking)
+                Debug.LogException(error);
+            else
+                ReportFailure(error, message);
         }
 
         private void Adopt()

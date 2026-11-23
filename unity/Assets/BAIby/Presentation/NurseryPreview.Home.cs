@@ -45,14 +45,16 @@ namespace BAIby.Presentation
 
             refreshIn = 60;
             if (active != null)
-                ShowCompanion(active, launch);
+                launch = ShowCompanion(active, launch);
             else if (household.Companions.Count > 0)
                 ShowHome();
             else
                 StartAdoption();
 
+            // A failed launch advance keeps the active companion's unlocks pending, so ShowCompanion
+            // still plays them.
             if (failure != null)
-                ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", launch);
         }
 
         private void BuildHouseholdChips(RectTransform top)
@@ -125,12 +127,18 @@ namespace BAIby.Presentation
         private void ShowActiveCompanion()
         {
             var active = household?.Active;
-            if (active != null)
-                ShowCompanion(active, default);
+            if (active == null)
+                return;
+
+            var failure = CommitHomeTime();
+            var shown = ShowCompanion(active, default);
+            if (failure != null)
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", shown);
         }
 
         private void OpenCompanion(int slot)
         {
+            var failure = CommitHomeTime();
             try
             {
                 household.Switch(slot);
@@ -141,7 +149,28 @@ namespace BAIby.Presentation
                 return;
             }
 
-            ShowCompanion(household.Active, default);
+            var shown = ShowCompanion(household.Active, default);
+            if (failure != null)
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", shown);
+        }
+
+        // Home only previews time, so leaving it commits every companion's advance, as a resume does.
+        // Every companion advances alike, so decay still never depends on switching. Unlocks wait as
+        // pending celebrations and the room that opens plays its own.
+        private Exception CommitHomeTime()
+        {
+            if (view != HouseholdView.Home)
+                return null;
+
+            try
+            {
+                household.AdvanceAll(activeOnScreen: false);
+                return null;
+            }
+            catch (Exception error)
+            {
+                return error;
+            }
         }
 
         private void SwitchToNext()
@@ -152,33 +181,41 @@ namespace BAIby.Presentation
         }
 
         // Re-binds the nursery to a companion's session: its state, look and room theme. Switching never
-        // advances time; milestones reached off screen are shown here, once.
-        private void ShowCompanion(HouseholdCompanion companion,
-            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked)
+        // advances time; milestones reached off screen are shown here, once. Returns what was announced.
+        private (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) ShowCompanion(
+            HouseholdCompanion companion, (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked)
         {
             session = companion.Session;
             view = HouseholdView.Nursery;
             activePanel = NurseryPanel.Care;
             nursery.ResetPresentation();
-            Exception failure = null;
+            var failure = TakeCelebrations(companion.Slot, ref unlocked);
+            Paint(Reaction.None, unlocked);
+            if (failure != null)
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", unlocked);
+            return unlocked;
+        }
+
+        // Adds the companion's pending celebrations to unlocked, once. When the write fails they stay
+        // pending and are shown next time.
+        private Exception TakeCelebrations(int slot,
+            ref (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked)
+        {
             try
             {
-                foreach (var milestone in household.TakeCelebrations(companion.Slot))
+                foreach (var milestone in household.TakeCelebrations(slot))
                 {
                     unlocked.UnlockedSitting |= milestone == CompanionMilestone.Sitting;
                     unlocked.UnlockedCrawling |= milestone == CompanionMilestone.Crawling;
                     unlocked.UnlockedWalking |= milestone == CompanionMilestone.Walking;
                 }
+
+                return null;
             }
             catch (Exception error)
             {
-                // The celebration stays pending and is shown next time.
-                failure = error;
+                return error;
             }
-
-            Paint(Reaction.None, unlocked);
-            if (failure != null)
-                ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
         }
 
         private void StartAdoption()
@@ -220,12 +257,26 @@ namespace BAIby.Presentation
             }
             catch (Exception error)
             {
-                ReportFailure(error, "The goodbye couldn't be saved. Please try again.");
+                if (FindCompanion(goodbyeSlot) != null)
+                {
+                    ReportFailure(error, "The goodbye couldn't be saved. Please try again.");
+                    return;
+                }
+
+                // The record is already gone and only Home's list couldn't be saved; it is saved with
+                // the next change. Leave the goodbye instead of offering a retry that can't apply.
+                LeaveGoodbye();
+                ReportFailure(error, "The goodbye is done, but Home couldn't be saved yet.");
                 return;
             }
 
+            LeaveGoodbye();
+        }
+
+        private void LeaveGoodbye()
+        {
             goodbyeSlot = 0;
-            if (household.Companions.Count == 0)
+            if (household.Companions.Count == 0 && household.CanAdopt)
                 StartAdoption();
             else
                 ShowHome();
@@ -342,6 +393,7 @@ namespace BAIby.Presentation
             private readonly Action<int> open;
             private readonly Action adopt;
             private readonly Action<int> farewell;
+            private readonly List<CardDetails> companionCards = new List<CardDetails>();
 
             public GameObject Root { get; }
             public Text Feedback { get; }
@@ -392,6 +444,19 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
+            // Updates the companion cards in place for the minute tick, so focus, a press in progress and
+            // any feedback survive it. The states are previews; nothing is written.
+            public void Refresh(HouseholdSession household)
+            {
+                foreach (var card in companionCards)
+                {
+                    var state = household.PreviewState(card.Slot);
+                    if (state != null)
+                        Describe(card, state);
+                    card.Badge.SetActive(household.HasCelebrations(card.Slot));
+                }
+            }
+
             // Rebuilds the cards from the household and returns the first card for focus.
             public Button Show(HouseholdSession household)
             {
@@ -407,7 +472,8 @@ namespace BAIby.Presentation
                     var cell = Cell(i);
                     var companion = companions[i];
                     var card = companion.IsReadable
-                        ? CompanionCard(companion, cell, companion == active, household.HasCelebrations(companion.Slot))
+                        ? CompanionCard(companion.Slot, household.PreviewState(companion.Slot), cell, companion == active,
+                            household.HasCelebrations(companion.Slot), household.CanSayGoodbye)
                         : UnreadableCard(companion.Slot, cell);
                     if (first == null)
                         first = card;
@@ -458,6 +524,7 @@ namespace BAIby.Presentation
 
             private void ClearCards()
             {
+                companionCards.Clear();
                 // Detach before destroying so the rebuilt cards are the only ones in the hierarchy this frame.
                 for (var i = cards.childCount - 1; i >= 0; i--)
                 {
@@ -468,22 +535,18 @@ namespace BAIby.Presentation
                 }
             }
 
-            private Button CompanionCard(HouseholdCompanion companion, RectTransform cell, bool isActive, bool isNew)
+            private Button CompanionCard(int slot, BabyState state, RectTransform cell, bool isActive, bool isNew,
+                bool canSayGoodbye)
             {
-                var state = companion.State;
-                var slot = companion.Slot;
                 var card = ActionButton("Home card " + state.Name, cell, 0, 1, 0, 0, () => open(slot), Mist, Ink);
                 Fill((RectTransform)card.transform);
                 SoftShapes.Round(card.image, 0.7f);
                 SoftShapes.Lift(card.gameObject);
 
-                var stage = HouseholdRules.StageOf(state);
                 var frame = Box(card.name + " Portrait", card.transform, Vector2.zero, Vector2.one,
                     new Vector2(16, 178), new Vector2(-16, -14));
                 var portrait = Surface(frame, Color.white);
-                portrait.sprite = Portrait(stage);
                 portrait.preserveAspect = true;
-                portrait.enabled = portrait.sprite != null;
 
                 var name = card.GetComponentInChildren<Text>();
                 name.text = state.Name;
@@ -494,14 +557,14 @@ namespace BAIby.Presentation
                 name.resizeTextForBestFit = true;
                 name.resizeTextMinSize = 18;
                 name.resizeTextMaxSize = 28;
-                Label(card.name + " Stage", card.transform, StageTitle(stage), 21, Secondary, TextAnchor.MiddleCenter,
+                var stageLabel = Label(card.name + " Stage", card.transform, "", 21, Secondary, TextAnchor.MiddleCenter,
                     new Vector2(10, 100), Vector2.right, new Vector2(-10, 130));
 
-                var mood = MoodLine(state, out var needsCare);
                 var dot = Box(card.name + " Mood Dot", card.transform, Vector2.zero, Vector2.zero,
                     new Vector2(18, 76), new Vector2(32, 90));
-                SoftShapes.Disc(Surface(dot, needsCare ? Amber : Fern));
-                var moodLabel = Label(card.name + " Mood", card.transform, mood, 20, Ink, TextAnchor.MiddleLeft,
+                var moodDot = Surface(dot, Fern);
+                SoftShapes.Disc(moodDot);
+                var moodLabel = Label(card.name + " Mood", card.transform, "", 20, Ink, TextAnchor.MiddleLeft,
                     new Vector2(40, 66), Vector2.right, new Vector2(-10, 100));
                 moodLabel.resizeTextForBestFit = true;
                 moodLabel.resizeTextMinSize = 14;
@@ -514,23 +577,40 @@ namespace BAIby.Presentation
                     SoftShapes.Outline(Surface(selection, Fern));
                 }
 
-                if (isNew)
+                var badge = Box(card.name + " New", card.transform, Vector2.up, Vector2.up,
+                    new Vector2(12, -50), new Vector2(92, -14));
+                SoftShapes.Round(Surface(badge, Fern), 1f);
+                Label("New Label", badge, "New!", 19, Color.white, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                badge.gameObject.SetActive(isNew);
+
+                var details = new CardDetails(slot, portrait, stageLabel, moodDot, moodLabel, badge.gameObject);
+                Describe(details, state);
+                companionCards.Add(details);
+
+                if (canSayGoodbye)
                 {
-                    var badge = Box(card.name + " New", card.transform, Vector2.up, Vector2.up,
-                        new Vector2(12, -50), new Vector2(92, -14));
-                    SoftShapes.Round(Surface(badge, Fern), 1f);
-                    Label("New Label", badge, "New!", 19, Color.white, TextAnchor.MiddleCenter,
-                        Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                    var bye = ActionButton("Say goodbye to " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
+                        () => farewell(slot), Paper, Secondary);
+                    var byeLabel = bye.GetComponentInChildren<Text>();
+                    byeLabel.text = "Say goodbye";
+                    byeLabel.fontSize = 19;
+                    byeLabel.fontStyle = FontStyle.Normal;
+                    SoftShapes.Round(bye.image, 1f);
                 }
 
-                var bye = ActionButton("Say goodbye to " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
-                    () => farewell(slot), Paper, Secondary);
-                var byeLabel = bye.GetComponentInChildren<Text>();
-                byeLabel.text = "Say goodbye";
-                byeLabel.fontSize = 19;
-                byeLabel.fontStyle = FontStyle.Normal;
-                SoftShapes.Round(bye.image, 1f);
                 return card;
+            }
+
+            // The parts of a companion card that change with time.
+            private static void Describe(CardDetails card, BabyState state)
+            {
+                var stage = HouseholdRules.StageOf(state);
+                card.Picture.sprite = Portrait(stage);
+                card.Picture.enabled = card.Picture.sprite != null;
+                card.Stage.text = StageTitle(stage);
+                card.Mood.text = MoodLine(state, out var needsCare);
+                card.MoodDot.color = needsCare ? Amber : Fern;
             }
 
             private static Button UnreadableCard(int slot, RectTransform cell)
@@ -584,6 +664,26 @@ namespace BAIby.Presentation
 
             private static string Day(DateTimeOffset instant) =>
                 instant.ToLocalTime().ToString("MMM d", CultureInfo.InvariantCulture);
+
+            private sealed class CardDetails
+            {
+                public CardDetails(int slot, Image picture, Text stage, Image moodDot, Text mood, GameObject badge)
+                {
+                    Slot = slot;
+                    Picture = picture;
+                    Stage = stage;
+                    MoodDot = moodDot;
+                    Mood = mood;
+                    Badge = badge;
+                }
+
+                public int Slot { get; }
+                public Image Picture { get; }
+                public Text Stage { get; }
+                public Image MoodDot { get; }
+                public Text Mood { get; }
+                public GameObject Badge { get; }
+            }
         }
 
         private sealed class GoodbyePanel

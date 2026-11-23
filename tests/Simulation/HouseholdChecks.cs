@@ -22,6 +22,8 @@ static class HouseholdChecks
         CheckUnreadableSlots(game);
         CheckInterruptedWrites(game);
         CheckTimeAndCelebrations(game);
+        CheckFailedWritesKeepState(game);
+        CheckNewerManifestIsKept(game);
         Console.WriteLine("Household checks passed.");
     }
 
@@ -206,6 +208,7 @@ static class HouseholdChecks
         future.ManifestPrimary = "<household version=\"9\" />";
         future.ManifestBackup = null;
         Equal(2, new HouseholdSession(game, future, () => Start).Companions.Count, "an unsupported manifest is rebuilt from slots");
+        Equal("<household version=\"9\" />", future.ManifestPrimary, "an unsupported manifest keeps its bytes");
     }
 
     private static void CheckUnreadableSlots(BabySimulation game)
@@ -338,6 +341,121 @@ static class HouseholdChecks
         Equal(true, HouseholdRules.NeedsAttention(reopened.Companions[0].State), "capped decay can leave a low need");
     }
 
+    private static void CheckFailedWritesKeepState(BabySimulation game)
+    {
+        // A failed advance of another companion keeps the on-screen unlock as a pending celebration.
+        var now = Start;
+        var store = new MemoryHouseholdStore();
+        var household = new HouseholdSession(game, store, () => now);
+        household.Adopt("Mia");
+        household.Adopt("Leo");
+        store.SlotStore(1).FailWrites = true;
+        now = Start.AddDays(3);
+        ExpectIo(() => household.AdvanceAll(), "another companion's failed write is surfaced");
+        Equal(true, household.Active.State.CanSitAndReach, "the on-screen companion's unlock is committed");
+        Equal(true, household.HasCelebrations(2), "the on-screen unlock waits when the advance fails");
+        Equal(true, new HouseholdSession(game, store, () => now).HasCelebrations(2), "the kept unlock is saved");
+        Equal("Sitting", string.Join(",", household.TakeCelebrations(2)), "the kept unlock is played once");
+        store.SlotStore(1).FailWrites = false;
+
+        // A failed celebration write keeps the on-screen unlock in memory too.
+        var celebrating = TwoBabies(game, out var twoBabies);
+        var later = Start;
+        var reopened = new HouseholdSession(game, celebrating, () => later);
+        later = Start.AddDays(3);
+        celebrating.FailManifestWrites = true;
+        ExpectIo(() => reopened.AdvanceAll(), "a failed celebration write is surfaced");
+        Equal(true, reopened.HasCelebrations(2), "the on-screen unlock waits when the manifest write fails");
+        Equal(true, reopened.HasCelebrations(1), "the off-screen unlock stays pending in memory");
+        celebrating.FailManifestWrites = false;
+        Equal("Sitting", string.Join(",", reopened.TakeCelebrations(2)), "the unlock is played after the failure");
+
+        // A failed switch leaves the active companion unchanged.
+        var switching = TwoBabies(game, out var switcher);
+        switching.FailManifestWrites = true;
+        ExpectIo(() => switcher.Switch(1), "a failed switch is surfaced");
+        Equal(2, switcher.Active.Slot, "a failed switch keeps the active companion");
+        switching.FailManifestWrites = false;
+
+        // A failed index write at launch never blocks a readable companion.
+        var launching = TwoBabies(game, out _);
+        launching.ManifestPrimary = null;
+        launching.ManifestBackup = null;
+        launching.FailManifestWrites = true;
+        var opened = new HouseholdSession(game, launching, () => Start);
+        Equal(2, opened.Companions.Count, "a failed launch write still opens the household");
+        launching.FailManifestWrites = false;
+        opened.Switch(2);
+        Equal(true, launching.ManifestPrimary != null, "the next write saves the rebuilt manifest");
+
+        // A failed final goodbye write leaves the companion gone and can be retried.
+        var leaving = TwoBabies(game, out var parting);
+        leaving.ManifestWriteLimit = leaving.ManifestWrites + 1;
+        ExpectIo(() => parting.SayGoodbye(2), "a failed final goodbye write is surfaced");
+        Equal(1, parting.Companions.Count, "the companion is gone after its record is deleted");
+        ExpectIo(() => parting.Adopt("Ivy"), "the adoption manifest write fails too");
+        Equal("1,3", string.Join(",", parting.Companions.Select(companion => companion.Slot)),
+            "the slot is not reused while the manifest still marks it leaving");
+        leaving.ManifestWriteLimit = int.MaxValue;
+        parting.SayGoodbye(2);
+        Equal(false, leaving.ManifestPrimary.Contains("leaving"), "a retried goodbye writes the final manifest");
+        Equal(1, parting.Keepsakes.Count, "a retried goodbye keeps one keepsake");
+        ExpectArgument(() => parting.SayGoodbye(2), "a finished goodbye is not repeated");
+
+        // A goodbye finished at launch keeps its slot until a manifest without it is written.
+        var interrupted = TwoBabies(game, out var interrupting);
+        interrupted.FailDeletes = true;
+        ExpectIo(() => interrupting.SayGoodbye(2), "a goodbye can stop before the delete");
+        interrupted.FailDeletes = false;
+        interrupted.FailManifestWrites = true;
+        var resumed = new HouseholdSession(game, interrupted, () => Start);
+        Equal(1, resumed.Companions.Count, "the interrupted goodbye finishes");
+        ExpectIo(() => resumed.Adopt("Ivy"), "the adoption manifest write fails");
+        Equal(3, resumed.Companions[1].Slot, "a slot still marked leaving is not reused");
+        interrupted.FailManifestWrites = false;
+
+        // The Home preview makes no writes.
+        var previewing = TwoBabies(game, out var preview);
+        var records = previewing.RecordWrites;
+        var manifests = previewing.ManifestWrites;
+        var ahead = new HouseholdSession(game, previewing, () => Start.AddDays(3));
+        var previewed = ahead.PreviewState(1);
+        Equal(true, previewed.CanSitAndReach, "a preview shows time passing");
+        Equal(Start, ahead.Companions[0].State.TimeCheckpoint, "a preview keeps the committed state");
+        Equal(records, previewing.RecordWrites, "a preview writes no records");
+        Equal(manifests, previewing.ManifestWrites, "a preview writes no manifest");
+        Equal<BabyState>(null, ahead.PreviewState(5), "an empty slot has no preview");
+    }
+
+    private static void CheckNewerManifestIsKept(BabySimulation game)
+    {
+        const string newer = "<household version=\"2\" active=\"1\" />";
+        var store = TwoBabies(game, out var household);
+        household.SayGoodbye(2);
+        household.Adopt("Leo");
+        var backup = store.ManifestPrimary;
+        store.ManifestBackup = backup;
+        store.ManifestPrimary = newer;
+        var writes = store.ManifestWrites;
+        var rolledBack = new HouseholdSession(game, store, () => Start);
+        Equal(2, rolledBack.Companions.Count, "a newer manifest still opens every companion");
+        Equal("Leo", rolledBack.Keepsakes.Single().Name, "a newer manifest falls back to the readable backup");
+        Equal(false, rolledBack.CanSayGoodbye, "a goodbye is refused while the manifest is newer");
+        ExpectInvalidOperation(() => rolledBack.SayGoodbye(2), "a newer manifest keeps every companion");
+        rolledBack.Switch(1);
+        Equal(1, rolledBack.Active.Slot, "switching still works in memory");
+        Equal(writes, store.ManifestWrites, "a newer manifest is never overwritten");
+        Equal(newer, store.ManifestPrimary, "the newer manifest keeps its bytes");
+        Equal(backup, store.ManifestBackup, "the backup keeps its bytes");
+
+        store.ManifestPrimary = "<household";
+        store.ManifestBackup = newer;
+        var newerBackup = new HouseholdSession(game, store, () => Start);
+        newerBackup.Switch(2);
+        newerBackup.Switch(1);
+        Equal(newer, store.ManifestBackup, "a newer backup keeps its bytes");
+    }
+
     private static MemoryHouseholdStore TwoBabies(BabySimulation game, out HouseholdSession household)
     {
         var store = new MemoryHouseholdStore();
@@ -432,6 +550,8 @@ sealed class MemoryHouseholdStore : IHouseholdStore
     public string ManifestBackup { get; set; }
     public int ManifestWrites { get; private set; }
     public bool FailManifestWrites { get; set; }
+    // Manifest writes fail once this many have succeeded.
+    public int ManifestWriteLimit { get; set; } = int.MaxValue;
     public bool FailDeletes { get; set; }
     public MemorySlot Slot1 => SlotStore(1);
     public int RecordWrites => slots.Values.Sum(slot => slot.Writes);
@@ -462,7 +582,7 @@ sealed class MemoryHouseholdStore : IHouseholdStore
 
     public void WriteManifest(string payload, string previousValidPayload)
     {
-        if (FailManifestWrites)
+        if (FailManifestWrites || ManifestWrites >= ManifestWriteLimit)
             throw new IOException("Simulated manifest write failure.");
 
         if (previousValidPayload != null)

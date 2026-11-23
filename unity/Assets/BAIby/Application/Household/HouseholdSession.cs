@@ -43,6 +43,9 @@ namespace BAIby.Application
         private int activeSlot;
         private string storedManifest;
         private string lastValidManifest;
+        // A manifest written by a newer build is kept byte for byte, like a newer slot record: this
+        // build never writes the manifest, so a return to the newer build finds its home intact.
+        private bool manifestFromNewerBuild;
 
         public HouseholdSession(BabySimulation simulation, IHouseholdStore store, Func<DateTimeOffset> now)
         {
@@ -59,7 +62,18 @@ namespace BAIby.Application
 
             // A first launch with nothing saved writes nothing until the first adoption.
             if (storedManifest != null || companions.Count > 0 || keepsakes.Count > 0)
-                WriteManifest();
+            {
+                try
+                {
+                    WriteManifest();
+                }
+                catch (Exception)
+                {
+                    // Slots are the source of truth and the manifest is rebuildable, so a failed index
+                    // write never keeps a readable companion from opening. storedManifest is unchanged,
+                    // so the next write retries.
+                }
+            }
         }
 
         public int Capacity => HouseholdRules.FreeCompanions;
@@ -68,6 +82,8 @@ namespace BAIby.Application
         public HouseholdCompanion Active => Find(activeSlot);
         public bool IsFull => companions.Count >= Capacity;
         public bool CanAdopt => !IsFull && FindFreeSlot() != 0;
+        // A goodbye needs its keepsake written, which a manifest from a newer build does not allow.
+        public bool CanSayGoodbye => !manifestFromNewerBuild;
 
         public HouseholdCompanion Adopt(string name)
         {
@@ -101,8 +117,24 @@ namespace BAIby.Application
             if (activeSlot == slot)
                 return;
 
+            var previous = activeSlot;
             activeSlot = slot;
-            WriteManifest();
+            try
+            {
+                WriteManifest();
+            }
+            catch
+            {
+                activeSlot = previous;
+                throw;
+            }
+        }
+
+        // The companion's state advanced to now without any write, for Home's minute tick.
+        public BabyState PreviewState(int slot)
+        {
+            var state = Find(slot)?.State;
+            return state == null ? null : simulation.Advance(state, now()).State;
         }
 
         public bool HasCelebrations(int slot) => celebrations.Exists(celebration => celebration.Slot == slot);
@@ -141,9 +173,20 @@ namespace BAIby.Application
         // A launch after an interruption finishes the goodbye with exactly one keepsake.
         public void SayGoodbye(int slot)
         {
-            var companion = Find(slot) ?? throw new ArgumentException($"Slot {slot} has no companion.", nameof(slot));
+            var companion = Find(slot);
+            if (companion == null && leaving.Contains(slot))
+            {
+                // The record is already gone and only the final manifest write failed: retry it.
+                WriteManifest();
+                return;
+            }
+
+            if (companion == null)
+                throw new ArgumentException($"Slot {slot} has no companion.", nameof(slot));
             if (!companion.IsReadable)
                 throw new InvalidOperationException("A save that couldn't be opened is kept, not removed.");
+            if (manifestFromNewerBuild)
+                throw new InvalidOperationException("This home was saved by a newer version of BAIby. Update the game to say goodbye.");
 
             if (!leaving.Contains(slot))
             {
@@ -172,9 +215,8 @@ namespace BAIby.Application
                 activeSlot = FirstReadableSlot();
 
             // Until this write succeeds the stored manifest still marks the slot as leaving, so the slot
-            // is not offered for adoption in this session.
+            // is not offered for adoption in this session. A successful write releases it.
             WriteManifest();
-            leaving.Remove(slot);
         }
 
         // Advances every readable companion to now. Milestones of companions that are not on screen
@@ -205,8 +247,30 @@ namespace BAIby.Application
                 }
             }
 
+            // A failed advance returns nothing to the caller, so the on-screen companion's unlocks wait as
+            // a pending celebration instead. Its record already holds the milestone, which is never
+            // reported again.
+            if (failure != null && activeOnScreen)
+                added |= AddCelebrations(activeSlot, shown);
+
             if (added)
-                WriteManifest();
+            {
+                try
+                {
+                    WriteManifest();
+                }
+                catch (Exception error)
+                {
+                    // The celebrations stay in memory and are written with the next manifest.
+                    if (failure == null)
+                    {
+                        failure = error;
+                        if (activeOnScreen)
+                            AddCelebrations(activeSlot, shown);
+                    }
+                }
+            }
+
             if (failure != null)
                 ExceptionDispatchInfo.Capture(failure).Throw();
 
@@ -266,7 +330,11 @@ namespace BAIby.Application
         {
             trusted = false;
             storedManifest = store.ReadManifest();
-            var manifest = TryDecode(storedManifest);
+            var backup = store.ReadManifestBackup();
+            var manifest = TryDecode(storedManifest, out var primaryNewer);
+            var fallback = TryDecode(backup, out var backupNewer);
+            // Writing would replace the newer primary, and the write after that its backup.
+            manifestFromNewerBuild = primaryNewer || backupNewer;
             if (manifest != null)
             {
                 trusted = true;
@@ -274,15 +342,14 @@ namespace BAIby.Application
                 return manifest;
             }
 
-            var backup = store.ReadManifestBackup();
-            manifest = TryDecode(backup);
-            if (manifest != null)
+            if (fallback != null)
                 lastValidManifest = backup;
-            return manifest;
+            return fallback;
         }
 
-        private static HouseholdManifest TryDecode(string payload)
+        private static HouseholdManifest TryDecode(string payload, out bool newer)
         {
+            newer = false;
             if (payload == null)
                 return null;
 
@@ -296,6 +363,7 @@ namespace BAIby.Application
             }
             catch (NotSupportedException)
             {
+                newer = true;
                 return null;
             }
         }
@@ -325,6 +393,9 @@ namespace BAIby.Application
                         store.DeleteSlot(entry.Slot);
                         sessions.Remove(entry.Slot);
                     }
+
+                    // Until a manifest without it is written, the slot is not offered for adoption.
+                    leaving.Add(entry.Slot);
                     continue;
                 }
 
@@ -414,17 +485,23 @@ namespace BAIby.Application
 
         private void WriteManifest()
         {
+            if (manifestFromNewerBuild)
+                return;
+
             var entries = new List<HouseholdEntry>();
             foreach (var companion in companions)
                 entries.Add(new HouseholdEntry(companion.Slot, companion.AdoptedAt, leaving.Contains(companion.Slot)));
 
             var payload = HouseholdManifestCodec.Encode(new HouseholdManifest(entries, activeSlot, celebrations, keepsakes));
-            if (payload == storedManifest)
-                return;
+            if (payload != storedManifest)
+            {
+                store.WriteManifest(payload, lastValidManifest);
+                storedManifest = payload;
+                lastValidManifest = payload;
+            }
 
-            store.WriteManifest(payload, lastValidManifest);
-            storedManifest = payload;
-            lastValidManifest = payload;
+            // The stored manifest no longer names finished goodbyes, so their slots are free again.
+            leaving.RemoveWhere(slot => Find(slot) == null);
         }
     }
 }

@@ -148,7 +148,8 @@ There is one record per companion plus a manifest, not one envelope. A corrupt r
 
 - `BabySession` keeps its public API. `HouseholdSession` is the single writer of slots and the manifest, and caches one session per companion. `NurseryStartup.StartPreview(saveKey)` keeps its signature, and all keys derive from `saveKey`, so the smoke test stays isolated.
 - Every unlocked companion advances on launch and resume, not on switch, so decay never depends on switching habits. Off-screen unlocks are saved as pending celebrations, shown as "New!" and played once in the room.
-- The 60-second tick refreshes Home with a preview that makes no writes. Only the active companion's textures stay in memory.
+- The 60-second tick refreshes Home with a preview that makes no writes, updating the cards in place. Leaving Home commits the advance for every companion, like a resume. Only the active companion's textures stay in memory.
+- A manifest written by a newer build is kept byte for byte and never rewritten, like a newer slot record. Goodbye is unavailable until the game is updated, because its keepsake could not be saved.
 - `IBabySaveStore` becomes `ISaveSlot` with `Delete()`, in a mechanical commit after the appearance branch merges.
 
 ### Entitlement and the store
