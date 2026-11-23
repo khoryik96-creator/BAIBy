@@ -28,6 +28,8 @@ namespace BAIby.Character
         private SpriteRenderer plush;
         private SpriteRenderer storybook;
         private SpriteRenderer freshDiaper;
+        private readonly Dictionary<Food, SpriteRenderer> feedingProps = new Dictionary<Food, SpriteRenderer>();
+        private Food servedFood;
         private Toy ambientToy;
         private Toy playedToy;
         private Transform baby;
@@ -48,7 +50,7 @@ namespace BAIby.Character
         }
 
         public void Present(bool adopted, bool canSitAndReach, Reaction newReaction,
-            Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null, bool canCrawl = false)
+            Toy selectedToy = Toy.Rattle, Toy? ambientSelection = null, bool canCrawl = false, Food food = Food.Milk)
         {
             this.adopted = adopted;
             targetStage = canCrawl ? 2 : canSitAndReach ? 1 : 0;
@@ -65,6 +67,8 @@ namespace BAIby.Character
                 reactionStarted = Time.unscaledTime;
                 if (IsPlayReaction(reaction))
                     playedToy = selectedToy;
+                if (reaction == Reaction.Satisfied)
+                    servedFood = food;
             }
 
             float elapsed = Time.unscaledTime - reactionStarted;
@@ -128,18 +132,25 @@ namespace BAIby.Character
             if (plush.sprite == null)
                 Debug.LogError("BAIby requires the Plush sprite in Resources/BAIby/Baby.");
 
-            storybook = AddLayer(transform, "Nursery storybook", LoadSprite(Art + "Baby/Storybook"), Color.white, 8);
-            if (storybook.sprite == null)
-                Debug.LogError("BAIby requires the Storybook sprite in Resources/BAIby/Baby.");
-            storybook.enabled = false;
-            freshDiaper = AddLayer(transform, "Nursery fresh diaper", LoadSprite(Art + "Baby/FreshDiaper"), Color.white, 8);
-            if (freshDiaper.sprite == null)
-                Debug.LogError("BAIby requires the FreshDiaper sprite in Resources/BAIby/Baby.");
-            freshDiaper.enabled = false;
+            storybook = AddCue("Nursery storybook", "Storybook");
+            freshDiaper = AddCue("Nursery fresh diaper", "FreshDiaper");
+            feedingProps.Add(Food.Milk, AddCue("Nursery milk", "Milk"));
+            feedingProps.Add(Food.Banana, AddCue("Nursery banana", "Banana"));
+            feedingProps.Add(Food.Oats, AddCue("Nursery oats", "Oats"));
 
             ShowToy(Toy.Rattle);
             toy.gameObject.SetActive(false);
             Frame();
+        }
+
+        private SpriteRenderer AddCue(string label, string fileName)
+        {
+            var location = Art + "Baby/" + fileName;
+            var cue = AddLayer(transform, label, LoadSprite(location), Color.white, 8);
+            if (cue.sprite == null)
+                Debug.LogError("Missing nursery illustration in Resources/" + location + ".");
+            cue.enabled = false;
+            return cue;
         }
 
         private SpriteRenderer AddOptionalStage(string label, string resourcePath, int order)
@@ -199,14 +210,30 @@ namespace BAIby.Character
             PoseToy(displayedToy, now, play, reach, crawling, crawl);
             PoseStorybook(elapsed, reading);
             PoseFreshDiaper(elapsed, fresh);
+            PoseFeeding(elapsed, feed);
         }
 
         private void UpdateToyVisibility(float elapsed)
         {
             bool diaperCue = reaction == Reaction.FreshDiaper && elapsed < DiaperCueDuration;
-            bool visible = adopted && !diaperCue;
+            bool feedingCue = reaction == Reaction.Satisfied && elapsed < PlayDuration;
+            bool visible = adopted && !diaperCue && !feedingCue;
             if (toy.gameObject.activeSelf != visible)
                 toy.gameObject.SetActive(visible);
+        }
+
+        private void PoseFeeding(float elapsed, float feed)
+        {
+            foreach (var entry in feedingProps)
+                SetOpacity(entry.Value, entry.Key == servedFood ? feed : 0);
+
+            if (feed <= 0 || !feedingProps.TryGetValue(servedFood, out var prop))
+                return;
+
+            float lift = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(0, .43f, elapsed));
+            prop.transform.localPosition = new Vector3(visibleWidth * .37f, -.57f + lift * .40f, 0);
+            var tilt = servedFood == Food.Oats ? -2 : -8;
+            prop.transform.localRotation = Quaternion.Euler(0, 0, lift * tilt);
         }
 
         private void PoseFreshDiaper(float elapsed, float fresh)
@@ -338,6 +365,9 @@ namespace BAIby.Character
             Fit(plush, .59f, .59f);
             Fit(storybook, Mathf.Min(1.06f, visibleWidth * .24f), .76f);
             Fit(freshDiaper, Mathf.Min(1f, visibleWidth * .23f), .66f);
+            float foodWidth = Mathf.Min(1f, visibleWidth * .23f);
+            foreach (var prop in feedingProps.Values)
+                Fit(prop, foodWidth, .83f);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
         }
 

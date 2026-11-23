@@ -9,19 +9,6 @@ namespace BAIby.Presentation
     {
         private DevelopmentPanel development;
         private Button developmentButton;
-        private bool developmentOpen;
-
-        private void SetDevelopmentOpen(bool isOpen)
-        {
-            developmentOpen = isOpen;
-            controls.SetActive(!isOpen);
-            development.Root.SetActive(isOpen);
-
-            if (isOpen)
-                development.ReadStory.Select();
-            else
-                developmentButton.Select();
-        }
 
         private sealed class DevelopmentPanel
         {

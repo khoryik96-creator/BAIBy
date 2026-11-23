@@ -78,7 +78,11 @@ namespace BAIby.Simulation
             return (updated, unlockedSitting, unlockedCrawling);
         }
 
-        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action, Toy toy = Toy.Rattle)
+        public static bool CanFeed(BabyState state, Food food) =>
+            food == Food.Milk || (state.CanCrawl && (food == Food.Banana || food == Food.Oats));
+
+        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action,
+            Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             var satiety = state.Satiety;
             var comfort = state.Comfort;
@@ -93,7 +97,24 @@ namespace BAIby.Simulation
             switch (action)
             {
                 case CareAction.Feed:
-                    satiety = Math.Min(100, satiety + 25);
+                    if (!CanFeed(state, food))
+                        throw new InvalidOperationException("This food is unavailable for the baby.");
+
+                    switch (food)
+                    {
+                        case Food.Milk:
+                            satiety = Math.Min(100, satiety + 25);
+                            energy = Math.Min(100, energy + 5);
+                            break;
+                        case Food.Banana:
+                            satiety = Math.Min(100, satiety + 20);
+                            comfort = Math.Min(100, comfort + 8);
+                            break;
+                        case Food.Oats:
+                            satiety = Math.Min(100, satiety + 34);
+                            break;
+                    }
+
                     reaction = Reaction.Satisfied;
                     break;
                 case CareAction.Soothe:
