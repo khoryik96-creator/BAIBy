@@ -69,7 +69,7 @@ namespace BAIby.Presentation
                 ShowPanel(activePanel switch
                 {
                     NurseryPanel.Diaper => NurseryPanel.Hygiene,
-                    NurseryPanel.Blocks => NurseryPanel.Development,
+                    NurseryPanel.Blocks or NurseryPanel.Report => NurseryPanel.Development,
                     _ => NurseryPanel.Care
                 });
 
@@ -217,6 +217,7 @@ namespace BAIby.Presentation
                 status.text = reaction == Reaction.None ? DescribeNeeds(state) : reactionText;
 
             development.UpdateDetails(state, age.text, status.text);
+            report.UpdateDetails(BabyReport.From(state));
             feeding.UpdateDetails(state, status.text);
         }
 
@@ -373,7 +374,9 @@ namespace BAIby.Presentation
             developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
                 () => ShowPanel(NurseryPanel.Development), Mist, Ink);
             development = new DevelopmentPanel(Tray("Development Panel", false, 360),
-                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks);
+                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
+                () => ShowPanel(NurseryPanel.Report));
+            report = new ReportPanel(Tray("Report Panel", false, 470), () => ShowPanel(NurseryPanel.Development));
             blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
                 () => ShowPanel(NurseryPanel.Development), CompleteBlocks);
             feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),
@@ -394,7 +397,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Feeding, NewSound, Hygiene, Diaper, Decor }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -404,7 +407,16 @@ namespace BAIby.Presentation
             switch (next)
             {
                 case NurseryPanel.Development:
-                    (previous == NurseryPanel.Blocks ? development.StackBlocks : development.ReadStory).Select();
+                    var developmentFocus = previous switch
+                    {
+                        NurseryPanel.Blocks => development.StackBlocks,
+                        NurseryPanel.Report => development.OpenReport,
+                        _ => development.ReadStory
+                    };
+                    developmentFocus.Select();
+                    break;
+                case NurseryPanel.Report:
+                    report.Done.Select();
                     break;
                 case NurseryPanel.Blocks:
                     blocks.FirstBlock.Select();
@@ -446,6 +458,7 @@ namespace BAIby.Presentation
             controls.SetActive(adopted && activePanel == NurseryPanel.Care);
             development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
             blocks.Root.SetActive(adopted && activePanel == NurseryPanel.Blocks);
+            report.Root.SetActive(adopted && activePanel == NurseryPanel.Report);
             feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
             hygiene.Root.SetActive(adopted && activePanel == NurseryPanel.Hygiene);
             diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
