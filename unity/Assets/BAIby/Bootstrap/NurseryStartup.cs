@@ -24,7 +24,10 @@ namespace BAIby.Bootstrap
             {
                 var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4),
                     TimeSpan.FromDays(7), TimeSpan.FromDays(14));
-                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), () => DateTimeOffset.UtcNow);
+                // The clock carries the local offset (from the browser on the Web build) and follows zone
+                // changes while the app stays alive.
+                var clock = new LocalClock();
+                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), clock.Now);
                 view.Open(session);
             }
             catch (Exception error)

@@ -14,6 +14,51 @@
     "Earned": 1,
     "Premium": 2
   },
+  "CareMark": {
+    "OnTime": 0,
+    "Late": 1,
+    "Missed": 2
+  },
+  "CareMoment": {
+    "Morning": 0,
+    "Afternoon": 1,
+    "Evening": 2,
+    "Bedtime": 3
+  },
+  "CareReason": {
+    "None": 0,
+    "Started": 1,
+    "AwaitingAnchor": 2,
+    "GapExcused": 3,
+    "NewCareDay": 4,
+    "OffsetShiftScheduled": 5,
+    "TravelDayExcused": 6,
+    "AbsenceCovered": 7,
+    "WindowMissed": 8,
+    "MealOnTime": 9,
+    "MealLate": 10,
+    "MealTooFull": 11,
+    "MealOutsideWindow": 12,
+    "MealExcused": 13,
+    "BedtimeOnTime": 14,
+    "BedtimeLate": 15,
+    "BedtimeOutsideWindow": 16,
+    "BedtimeExcused": 17,
+    "TogetherCounted": 18,
+    "TogetherAlreadyCounted": 19,
+    "TogetherExcused": 20,
+    "NoRoutineTag": 21,
+    "RoutineScheduled": 22
+  },
+  "CareTags": {
+    "None": 0,
+    "Meal": 1,
+    "Together": 2,
+    "Hygiene": 4,
+    "Bedtime": 8,
+    "Medicine": 16,
+    "Tidy": 32
+  },
   "CompanionKind": {
     "Baby": 0,
     "Pet": 1
@@ -49,6 +94,14 @@
     "BearBeanie": 2,
     "BucketHat": 3,
     "DaisyClip": 4
+  },
+  "MomentStatus": {
+    "Pending": 0,
+    "OnTime": 1,
+    "Late": 2,
+    "Missed": 3,
+    "Excused": 4,
+    "Covered": 5
   },
   "NurseryTheme": {
     "Sage": 0,
@@ -192,6 +245,10 @@
     "Groom": 17,
     "FloorTime": 18,
     "Litter": 19
+  },
+  "RoutinePreset": {
+    "SchoolDay": 0,
+    "Home": 1
   },
   "SkinTone": {
     "Warm": 0,

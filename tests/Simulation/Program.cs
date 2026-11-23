@@ -97,7 +97,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"12\" />";
+saves.Primary = "<baby version=\"13\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -105,7 +105,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"12\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"13\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -123,10 +123,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"11\""), "first edit after migration writes v11");
+Equal(true, migratedSaves.Primary.Contains("version=\"12\""), "first edit after migration writes v12");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v11");
+    "rest on migrated save persists energy in v12");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -188,7 +188,7 @@ Equal((false, true, false), crawlerSession.Refresh(), "migration unlocks already
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"11\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"12\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -302,7 +302,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"11\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"12\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -449,9 +449,9 @@ themeSession.SetNurseryTheme(NurseryTheme.Peach);
 Equal(1, themeSaves.Writes, "new theme saves immediately");
 Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
 var expectedTheme = XElement.Parse(preThemeSave);
-expectedTheme.SetAttributeValue("version", 11);
+expectedTheme.SetAttributeValue("version", 12);
 expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false), new XElement("block-towers", 0),
-    DefaultAppearanceElement());
+    DefaultAppearanceElement(), UnanchoredCareElement());
 Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
     "theme change preserves all existing save fields despite elapsed time");
 var themedReload = new BabySession(game, themeSaves, () => themeClock);
@@ -485,6 +485,8 @@ var expectedBath = XElement.Parse(BabySaveCodec.Encode(bathReady));
 expectedBath.SetElementValue("cleanliness", 68);
 expectedBath.SetElementValue("comfort", 77);
 expectedBath.SetElementValue("energy", 45);
+// The shadow care ledger records the bath; CareChecks covers it.
+expectedBath.Element("care").ReplaceWith(CareRecordCodec.Encode(bath.State.Care));
 Equal(true, XNode.DeepEquals(expectedBath, XElement.Parse(BabySaveCodec.Encode(bath.State))),
     "bath leaves all other saved fields unchanged");
 var changedInstead = game.ApplyCare(bathReady, CareAction.ChangeDiaper).State;
@@ -569,8 +571,9 @@ var migratedWalker = new BabySession(game, walkingMigrationSaves, () => start);
 Equal(false, migratedWalker.State.CanWalk, "v8 has no stored walking flag");
 Equal((false, false, true), migratedWalker.Refresh(), "an eligible v8 player unlocks walking without elapsed time");
 var expectedWalker = XElement.Parse(preWalkingSave);
-expectedWalker.SetAttributeValue("version", 11);
-expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0), DefaultAppearanceElement());
+expectedWalker.SetAttributeValue("version", 12);
+expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0), DefaultAppearanceElement(),
+    UnanchoredCareElement());
 Equal(true, XNode.DeepEquals(expectedWalker, XElement.Parse(walkingMigrationSaves.Primary)),
     "same-time migration does not decay needs or alter any other existing fields");
 var walkingReloaded = new BabySession(game, walkingMigrationSaves, () => start);
@@ -593,6 +596,7 @@ var expectedTower = XElement.Parse(BabySaveCodec.Encode(blockReady));
 expectedTower.SetElementValue("block-towers", 1);
 expectedTower.SetElementValue("connection", 45);
 expectedTower.SetElementValue("energy", 45);
+expectedTower.Element("care").ReplaceWith(CareRecordCodec.Encode(stacked.State.Care));
 Equal(true, XNode.DeepEquals(expectedTower, XElement.Parse(BabySaveCodec.Encode(stacked.State))),
     "stacking preserves all unrelated fields");
 
@@ -645,7 +649,7 @@ var migratedBlocks = new BabySession(game, olderBlocksSaves, () => start);
 Equal(true, migratedBlocks.State.CanWalk, "v9 migration keeps walking unlocked");
 Equal(0, migratedBlocks.State.BlockTowers, "v9 starts with zero block towers");
 migratedBlocks.ApplyCare(CareAction.StackBlocks);
-Equal(true, olderBlocksSaves.Primary.Contains("version=\"11\""), "stacking migrates v9 to the current schema");
+Equal(true, olderBlocksSaves.Primary.Contains("version=\"12\""), "stacking migrates v9 to the current schema");
 Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v11 restores the first tower");
 
 var newbornReport = BabyReport.From(newborn);
@@ -733,7 +737,7 @@ catch (InvalidOperationException exception) when (exception.Message == "Adopt a 
 lookSession.Adopt("Mia");
 Equal(BabyAppearance.Default, lookSession.State.Appearance, "session adoption starts with the default look");
 Equal(true, XNode.DeepEquals(DefaultAppearanceElement(), XElement.Parse(lookSaves.Primary).Element("appearance")),
-    "adoption saves the default look in v11");
+    "adoption saves the default look in v12");
 var adoptedLookPayload = lookSaves.Primary;
 lookSession.SetAppearance(BabyAppearance.Default);
 Equal(1, lookSaves.Writes, "selecting the current look skips writes");
@@ -848,12 +852,12 @@ migratedLook.SetAppearance(BabyAppearance.Default);
 Equal(0, preAppearanceSaves.Writes, "keeping the default look on a v10 save writes nothing");
 migratedLook.SetAppearance(customLook);
 var expectedMigratedLook = XElement.Parse(preAppearanceSave);
-expectedMigratedLook.SetAttributeValue("version", 11);
+expectedMigratedLook.SetAttributeValue("version", 12);
 expectedMigratedLook.Add(new XElement("appearance",
     new XAttribute("skin", 5), new XAttribute("hair-color", 5), new XAttribute("hair-style", 1),
-    new XAttribute("outfit", 7), new XAttribute("headwear", 2)));
+    new XAttribute("outfit", 7), new XAttribute("headwear", 2)), UnanchoredCareElement());
 Equal(true, XNode.DeepEquals(expectedMigratedLook, XElement.Parse(preAppearanceSaves.Primary)),
-    "styling a v10 baby writes v11 and preserves every existing field");
+    "styling a v10 baby writes v12 and preserves every existing field");
 Equal(preAppearanceSave, preAppearanceSaves.Backup, "v10 backup remains recoverable");
 Equal(customLook, new BabySession(game, preAppearanceSaves, () => start).State.Appearance, "migrated v11 restores the look");
 
@@ -894,6 +898,7 @@ lookRecovered.SetAppearance(customLook);
 Equal(customLook, new BabySession(game, invalidLookSaves, () => start).State.Appearance, "recovery can save a look again");
 
 PetChecks.Run();
+CareChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 static void ExpectUnavailable(Action attempt)
@@ -927,6 +932,10 @@ static void ExpectInvalidSave(string payload, string description)
 static XElement DefaultAppearanceElement() =>
     new XElement("appearance", new XAttribute("skin", 0), new XAttribute("hair-color", 0),
         new XAttribute("hair-style", 0), new XAttribute("outfit", 0), new XAttribute("headwear", 0));
+
+// A pre-care save that is edited without elapsed time keeps an unanchored ledger at its checkpoint.
+static XElement UnanchoredCareElement() =>
+    CareRecordCodec.Encode(CareRules.Unanchored(new DateTimeOffset(639028224000000000, TimeSpan.Zero)));
 
 static void Equal<T>(T expected, T actual, string description)
 {

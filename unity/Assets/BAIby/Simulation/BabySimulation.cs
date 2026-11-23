@@ -1,9 +1,26 @@
 using System;
+using System.Collections.Generic;
 
 namespace BAIby.Simulation
 {
     public sealed class BabySimulation
     {
+        // The baby's care verbs and the routine tags they carry. Stable IDs; append, never rename.
+        public static readonly CareProfile BabyCareProfile = new CareProfile("baby", new Dictionary<string, CareTags>
+        {
+            ["feed"] = CareTags.Meal,
+            ["soothe"] = CareTags.Together,
+            ["play"] = CareTags.Together,
+            ["rest"] = CareTags.Bedtime,
+            ["read-story"] = CareTags.Together,
+            ["change-diaper"] = CareTags.Hygiene,
+            ["comfort-new-sound"] = CareTags.Together,
+            ["explore-new-sound"] = CareTags.Together,
+            ["bath"] = CareTags.Hygiene,
+            ["stack-blocks"] = CareTags.Together,
+        });
+
+        private readonly CareTunables careTunables;
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
         private readonly TimeSpan crawlingAge;
@@ -18,7 +35,8 @@ namespace BAIby.Simulation
         private const double RecoveryPerHour = 6;
         private const double HealthLossPerHour = 5;
 
-        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge)
+        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge,
+            CareTunables careTunables = null)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
@@ -35,7 +53,10 @@ namespace BAIby.Simulation
             this.maxNeedDecay = maxNeedDecay;
             this.crawlingAge = crawlingAge;
             this.walkingAge = walkingAge;
+            this.careTunables = careTunables ?? CareTunables.Default;
+            this.careTunables.Validate();
         }
+
 
         public BabyState Adopt(string name, DateTimeOffset now)
         {
@@ -43,15 +64,15 @@ namespace BAIby.Simulation
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
             return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
-                BabyAppearance.Default);
+                BabyAppearance.Default, CareRules.Start(now, careTunables));
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
         {
             if (now <= state.TimeCheckpoint)
-                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero);
+                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero, state.Care);
 
-            return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
+            return AdvanceElapsed(state, now, now - state.TimeCheckpoint, CareRules.Advance(state.Care, now, careTunables));
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
@@ -59,11 +80,21 @@ namespace BAIby.Simulation
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
 
-            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
+            // Preview days pass no real time, so no routine window passes: the ledger is untouched (Covered).
+            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed, state.Care);
+        }
+
+        // Read-only ledger summary for the Development panel.
+        public string DescribeCare(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return CareDiagnostics.Summary(state.Care, careTunables);
         }
 
         private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvanceElapsed(
-            BabyState state, DateTimeOffset now, TimeSpan elapsed)
+            BabyState state, DateTimeOffset now, TimeSpan elapsed, CareRecord care)
         {
             var age = state.Age + elapsed;
             var canSit = state.CanSitAndReach || age >= sittingAge;
@@ -76,13 +107,14 @@ namespace BAIby.Simulation
                 return (state, false, false, false);
 
             var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
-            var updated = new BabyState(state.Name, now, age,
-                Math.Max(0, state.Satiety - decayHours * SatietyDecay),
-                Math.Max(0, state.Comfort - decayHours * ComfortDecay),
-                Math.Max(0, state.Energy - decayHours * EnergyDecay),
-                state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
-                Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours),
-                state.NewSoundResolved, state.NurseryTheme, canWalk, state.BlockTowers, state.Appearance);
+            var updated = state.With(timeCheckpoint: now, age: age,
+                satiety: Math.Max(0, state.Satiety - decayHours * SatietyDecay),
+                comfort: Math.Max(0, state.Comfort - decayHours * ComfortDecay),
+                energy: Math.Max(0, state.Energy - decayHours * EnergyDecay),
+                canSitAndReach: canSit, canCrawl: canCrawl, canWalk: canWalk,
+                cleanliness: Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay),
+                health: HealthAfterDecay(state, decayHours),
+                care: care);
 
             return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
         }
@@ -203,10 +235,12 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(action));
             }
 
-            return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
-                satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved, state.NurseryTheme, state.CanWalk, blockTowers,
-                state.Appearance), reaction);
+            // Shadow only: the ledger records the routine, and nothing above reads it.
+            var care = CareRules.ApplyCare(state.Care, BabyCareProfile.TagsFor(CareVerbFor(action)), state.Satiety, careTunables);
+            return (state.With(satiety: satiety, comfort: comfort, energy: energy,
+                toyFamiliarity: rattleFamiliarity, plushFamiliarity: plushFamiliarity,
+                connection: Math.Min(100, connection), storySessions: storySessions, cleanliness: cleanliness,
+                newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care), reaction);
         }
 
         private static double HealthAfterDecay(BabyState state, double hours)
@@ -238,6 +272,24 @@ namespace BAIby.Simulation
                 return Reaction.CrawlsToToy;
 
             return state.CanSitAndReach ? Reaction.ReachesForToy : Reaction.TracksToy;
+        }
+
+        public static string CareVerbFor(CareAction action)
+        {
+            switch (action)
+            {
+                case CareAction.Feed: return "feed";
+                case CareAction.Soothe: return "soothe";
+                case CareAction.Play: return "play";
+                case CareAction.Rest: return "rest";
+                case CareAction.ReadStory: return "read-story";
+                case CareAction.ChangeDiaper: return "change-diaper";
+                case CareAction.ComfortNewSound: return "comfort-new-sound";
+                case CareAction.ExploreNewSound: return "explore-new-sound";
+                case CareAction.Bath: return "bath";
+                case CareAction.StackBlocks: return "stack-blocks";
+                default: throw new ArgumentOutOfRangeException(nameof(action));
+            }
         }
 
         private static int IncrementCount(int count) => count == int.MaxValue ? count : count + 1;

@@ -7,7 +7,9 @@
   <ItemGroup>
     <Compile Include="../../unity/Assets/BAIby/Simulation/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Simulation/Pets/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Simulation/Care/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Application/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Infrastructure/LocalClock.cs" />
     <Compile Include="../../unity/Assets/BAIby/Presentation/WipeGeometry.cs" />
   </ItemGroup>
 </Project>
