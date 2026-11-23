@@ -289,18 +289,21 @@ namespace BAIby.Character
             SetStageOpacity(Mathf.SmoothStep(0, 1, rest));
 
             float breath = Mathf.Sin(now * 2.25f) * Mathf.Lerp(.008f, .004f, Mathf.Max(rest, bath));
-            float stageOffset = -.04f * StageOpacity(2) - .085f * StageOpacity(3);
+            float walkerWeight = StageOpacity(3);
+            float stageOffset = -.04f * StageOpacity(2) - .085f * walkerWeight;
+            // Leave the walker's feet above the expanded nursery card.
+            float stageGround = QuiltSurface + .22f * walkerWeight;
             float travel = visibleWidth * (stageOffset + .13f * (crawl + stride * .022f) + .215f * (walk + step * .023f));
             float lift = Mathf.Abs(stride) * .055f + Mathf.Abs(step) * .075f;
             baby.localPosition = new Vector3(.08f * play + .10f * reach + travel,
-                QuiltSurface - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift, 0);
+                stageGround - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
                 Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f
                 - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step);
             baby.localScale = new Vector3(1 + breath * .5f,
                 1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh, 1);
-            shade.transform.localPosition = new Vector3(travel, QuiltSurface - .06f, 0);
-            shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, StageOpacity(3) * (1 - rest)), .46f, 1);
+            shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
+            shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);
 
             var displayedToy = playing ? playedToy : ambientToy;
             UpdateToyVisibility(elapsed);
