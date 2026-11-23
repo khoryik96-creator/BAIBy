@@ -24,9 +24,10 @@ namespace BAIby.Bootstrap
             {
                 var simulation = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4),
                     TimeSpan.FromDays(7), TimeSpan.FromDays(14));
-                // The clock carries the local offset: elapsed time uses the UTC instant and the offset only
-                // places care windows. TODO: WebGL may report UTC here; add a jslib-backed local clock.
-                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), () => DateTimeOffset.Now);
+                // The clock carries the local offset (from the browser on the Web build) and follows zone
+                // changes while the app stays alive.
+                var clock = new LocalClock();
+                var session = new BabySession(simulation, new PlayerPrefsBabySaveStore(saveKey), clock.Now);
                 view.Open(session);
             }
             catch (Exception error)

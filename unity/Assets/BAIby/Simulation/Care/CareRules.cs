@@ -6,8 +6,9 @@ namespace BAIby.Simulation
     // Pure routine rules. They evaluate windows and keep the ledger; they never touch needs or growth.
     //
     // Time rules: elapsed time uses the UTC instant and the offset only places windows. An offset change
-    // applies from the next care day; a change over TravelJump excuses the care days it spans. The care day
-    // never decreases, a backwards clock changes nothing, and a forward jump is absence.
+    // applies from the next care day. A change over TravelJump excuses only the care day it lands on; the
+    // days it spans count like any absence. The care day never decreases, a backwards clock changes nothing,
+    // and a forward jump is absence.
     public static class CareRules
     {
         private static readonly long MaxTicks = DateTimeOffset.MaxValue.UtcTicks;
@@ -64,10 +65,7 @@ namespace BAIby.Simulation
             {
                 draft.NextOffset = now.Offset;
                 travel = (now.Offset - draft.Offset).Duration() > tunables.TravelJump;
-                if (travel)
-                    draft.DayExcused = true;
-                else
-                    gap.Shifted = true;
+                gap.Shifted = !travel;
             }
 
             while (true)
@@ -78,10 +76,15 @@ namespace BAIby.Simulation
 
                 CloseDay(draft, Math.Max(dayEnd, checkpoint), tunables, gap);
                 draft.CareDay++;
-                BeginDay(draft, travel);
+                BeginDay(draft);
                 gap.NewDay = true;
                 SkipCoveredDays(draft, instant, tunables, gap);
             }
+
+            // Only the care day the jump lands on is excused, so changing the zone before a refresh cannot
+            // excuse the days an absence already spans.
+            if (travel)
+                draft.DayExcused = true;
 
             CloseWindows(draft, instant, false, tunables, gap);
             draft.Checkpoint = now;
@@ -166,7 +169,7 @@ namespace BAIby.Simulation
             draft.Offset = now.Offset;
             draft.NextOffset = now.Offset;
             draft.CareDay = Math.Max(draft.CareDay, RoutineCalendar.CareDayOf(instant, now.Offset, tunables.DayStart));
-            BeginDay(draft, false);
+            BeginDay(draft);
             draft.ExcusedUntil = AsInstant(Math.Max(draft.ExcusedUntil.UtcTicks, instant));
             draft.LastCareAt = now;
             draft.AwaitingAnchor = false;
@@ -176,14 +179,14 @@ namespace BAIby.Simulation
             return draft.Build();
         }
 
-        private static void BeginDay(CareRecord.Builder draft, bool travel)
+        private static void BeginDay(CareRecord.Builder draft)
         {
             draft.Offset = draft.NextOffset;
             draft.Preset = draft.NextPreset;
             draft.WakeTime = draft.NextWakeTime;
             draft.Moments = new MomentStatus[RoutineCalendar.MomentCount];
             draft.TogetherToday = false;
-            draft.DayExcused = travel;
+            draft.DayExcused = false;
         }
 
         // A day that starts after the absence ceiling is Covered whole, so long gaps cost no loop.

@@ -5,7 +5,8 @@ using BAIby.Simulation;
 
 namespace BAIby.Application
 {
-    // One <care v="1"> element shared by every companion's save. Invalid data throws InvalidDataException.
+    // One <care v="1"> element shared by every companion's save. Invalid data throws InvalidDataException; a
+    // newer version throws NotSupportedException so the session leaves that save untouched.
     internal static class CareRecordCodec
     {
         public const string ElementName = "care";
@@ -49,8 +50,11 @@ namespace BAIby.Application
             {
                 if (element.Name != ElementName)
                     throw new InvalidDataException("The care record header is invalid.");
-                if ((int)Attribute(element, "v") != Version)
-                    throw new InvalidDataException("The care record version is unsupported.");
+                var version = (int)Attribute(element, "v");
+                if (version > Version)
+                    throw new NotSupportedException($"Care record version {version} is unsupported.");
+                if (version < 1)
+                    throw new InvalidDataException("The care record version is invalid.");
 
                 return new CareRecord.Builder
                 {

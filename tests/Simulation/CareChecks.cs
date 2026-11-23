@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
 using BAIby.Application;
+using BAIby.Infrastructure;
 using BAIby.Simulation;
 
 // Care slice 1, the shadow ledger: calendar, clock and save checks. See docs/care-and-growth.md.
@@ -25,6 +26,7 @@ static class CareChecks
         FirstDayIsExcused();
         DaylightSavingShifts();
         Travel();
+        ClockFollowsZoneChanges();
         BackwardsClock();
         LongAbsence();
         MigrationWithoutSurprise();
@@ -250,15 +252,81 @@ static class CareChecks
         Equal(false, west.DayExcused, "the day after travel counts");
         Equal("", west.Meals.ToCode(), "flying west adds no misses");
 
-        // Flying east can skip a whole local day; the ordinal jumps forward and nothing is missed.
+        // Flying east can skip a whole local day. The ordinal jumps forward and only the arrival day is
+        // excused; the day spent in flight counts like any absence of the same length.
         var east = Anchored(At(2026, 6, 10, 18, 0, newYork));
         east = CareRules.Advance(east, At(2026, 6, 12, 8, 0, tokyo), Tunables);
         Equal(Day(2026, 6, 12), east.CareDay, "arriving on a later date jumps to it");
         Equal(true, east.DayExcused, "the arrival day is excused");
+        Equal(CareReason.TravelDayExcused, east.LastReason, "the diagnostic names the travel day");
+        Equal("MMM/MM/", east.Meals.ToCode() + "/" + east.Bedtimes.ToCode() + "/" + east.TogetherDays.ToCode(),
+            "the day spent in flight counts like any absence");
         east = Care(east, At(2026, 6, 13, 8, 0, tokyo), CareTags.Meal);
         Equal(CareReason.MealOnTime, east.LastReason, "the routine resumes on Tokyo time");
-        Equal("O", east.Meals.ToCode(), "flying east adds no misses");
-        Equal("", east.Bedtimes.ToCode(), "the skipped bedtimes are excused");
+        Equal(false, east.DayExcused, "the day after arrival counts");
+
+        // A zone change seen only on return excuses the day it lands on, never the absence before it.
+        var moscow = TimeSpan.FromHours(3);
+        var fed = Care(Anchored(At(2026, 3, 2, 6, 0, Paris)), At(2026, 3, 2, 8, 0, Paris), CareTags.Meal);
+        var home = CareRules.Advance(fed, At(2026, 3, 3, 19, 0, Paris), Tunables);
+        Equal("OMMMM/M/", Rings(home), "staying home misses the absence");
+        var moved = CareRules.Advance(fed, At(2026, 3, 3, 19, 0, Paris).ToOffset(moscow), Tunables);
+        Equal("OMM/M/", Rings(moved), "changing the zone before reopening keeps the earlier misses");
+        Equal(true, moved.DayExcused, "the day the change lands on is excused");
+
+        // Split advances across a travel jump equal one advance when the jump lands on a later care day.
+        var single = CareRules.Advance(fed, At(2026, 3, 3, 21, 0, moscow), Tunables);
+        var split = CareRules.Advance(CareRules.Advance(fed, At(2026, 3, 2, 12, 0, Paris), Tunables),
+            At(2026, 3, 3, 21, 0, moscow), Tunables);
+        Equal(single, split, "a refresh before the jump changes nothing");
+    }
+
+    private static string Rings(CareRecord care) =>
+        care.Meals.ToCode() + "/" + care.Bedtimes.ToCode() + "/" + care.TogetherDays.ToCode();
+
+    private static void ClockFollowsZoneChanges()
+    {
+        // The process caches the local zone, so a flight with the app in the background must still show up.
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            var previous = Environment.GetEnvironmentVariable("TZ");
+            try
+            {
+                var clock = new LocalClock(TimeSpan.Zero);
+                Environment.SetEnvironmentVariable("TZ", "Asia/Tokyo");
+                Equal(TimeSpan.FromHours(9), clock.Now().Offset, "the clock reads the local zone");
+                Environment.SetEnvironmentVariable("TZ", "Asia/Kolkata");
+                var later = clock.Now();
+                Equal(TimeSpan.FromHours(5.5), later.Offset, "a zone change between two reads changes the offset");
+                Equal(true, Math.Abs((later.UtcDateTime - DateTime.UtcNow).TotalMinutes) < 1, "the instant stays the UTC instant");
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TZ", previous);
+                TimeZoneInfo.ClearCachedData();
+            }
+        }
+
+        // Dropping the cached zone is throttled by running time, but a wall-clock jump (a resume after
+        // sleep) drops it at once.
+        var utc = new DateTime(2026, 6, 10, 12, 0, 0, DateTimeKind.Utc);
+        var running = TimeSpan.Zero;
+        var throttled = new LocalClock(TimeSpan.FromSeconds(10), () => utc, () => running);
+        throttled.Now();
+        Equal(1, throttled.Refreshes, "the first read drops the cached zone");
+        utc = utc.AddSeconds(5);
+        running += TimeSpan.FromSeconds(5);
+        throttled.Now();
+        Equal(1, throttled.Refreshes, "frequent reads reuse the zone");
+        utc = utc.AddSeconds(5);
+        running += TimeSpan.FromSeconds(5);
+        throttled.Now();
+        Equal(2, throttled.Refreshes, "the zone is read again after the interval");
+        utc = utc.AddHours(9);
+        running += TimeSpan.FromSeconds(1);
+        Equal(utc, throttled.Now().UtcDateTime, "the clock returns the UTC instant");
+        Equal(3, throttled.Refreshes, "a resume after a long sleep reads the zone again");
+        ExpectArgument(() => new LocalClock(TimeSpan.FromSeconds(-1)), "a negative refresh interval");
     }
 
     private static void BackwardsClock()
@@ -417,7 +485,7 @@ static class CareChecks
         var checkpoint = (long)valid.Element("care").Attribute("checkpoint");
         foreach (var (attribute, value) in new[]
         {
-            ("v", "2"), ("v", "one"), ("checkpoint", (checkpoint + 1).ToString()), ("checkpoint", "abc"),
+            ("v", "0"), ("v", "one"), ("checkpoint", (checkpoint + 1).ToString()), ("checkpoint", "abc"),
             ("checkpoint", "99999999999999999999"), ("offset", "841"), ("next-offset", "-900"), ("day", "-1"),
             ("day", (dayValue + 10).ToString()), ("preset", "2"), ("next-preset", "-1"), ("wake", "299"),
             ("next-wake", "601"), ("moments", "PPP"), ("moments", "PPPX"), ("together-today", "maybe"),
@@ -452,6 +520,36 @@ static class CareChecks
         saves.Primary = corruptCare.ToString(SaveOptions.DisableFormatting);
         var recovered = new BabySession(Game(), saves, () => care.Checkpoint);
         Equal("Mia", recovered.State.Name, "invalid care data falls back to the backup save");
+
+        // A newer build may write a newer care record inside a baby save this build reads.
+        var future = new XElement(valid);
+        future.Element("care").SetAttributeValue("v", "2");
+        try
+        {
+            BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting));
+            throw new InvalidOperationException("A newer care record should be unsupported, not corrupt.");
+        }
+        catch (NotSupportedException)
+        {
+        }
+
+        session = new BabySession(Game(), saves, () => care.Checkpoint);
+        session.ApplyCare(CareAction.Feed);
+        var newer = XElement.Parse(saves.Primary);
+        newer.Element("care").SetAttributeValue("v", "2");
+        saves.Primary = newer.ToString(SaveOptions.DisableFormatting);
+        var backupBefore = saves.Backup;
+        try
+        {
+            new BabySession(Game(), saves, () => care.Checkpoint.AddHours(1));
+            throw new InvalidOperationException("A save with a newer care record should not open.");
+        }
+        catch (NotSupportedException)
+        {
+        }
+
+        Equal(newer.ToString(SaveOptions.DisableFormatting), saves.Primary, "a save with a newer care record is left untouched");
+        Equal(backupBefore, saves.Backup, "its backup is left untouched too");
     }
 
     private static void ShadowGuarantee()
