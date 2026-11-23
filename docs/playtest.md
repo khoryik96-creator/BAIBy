@@ -14,6 +14,8 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Open **Feed** as a crawler | All three choices are available. Milk helps energy, banana helps comfort, and oats give the largest fullness increase. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |
 | Select **Preview next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
+| Open **A new sound** after sitting unlocks | The chime plays and the two responses preview their distinct effects. You can leave the choice pending and come back. |
+| Choose **Comfort them** or **Explore together** | The chosen effects apply once and the notice stays resolved after reopening. |
 | Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose. |
 | Open **Development** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |

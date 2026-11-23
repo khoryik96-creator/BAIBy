@@ -37,7 +37,7 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling) Advance(BabyState state, DateTimeOffset now)
@@ -73,7 +73,7 @@ namespace BAIby.Simulation
                 Math.Max(0, state.Comfort - decayHours * ComfortDecay),
                 Math.Max(0, state.Energy - decayHours * EnergyDecay),
                 state.ToyFamiliarity, state.PlushFamiliarity, canSit, canCrawl, state.Connection, state.StorySessions,
-                Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours));
+                Math.Max(0, state.Cleanliness - decayHours * CleanlinessDecay), HealthAfterDecay(state, decayHours), state.NewSoundResolved);
 
             return (updated, unlockedSitting, unlockedCrawling);
         }
@@ -90,6 +90,7 @@ namespace BAIby.Simulation
             var cleanliness = state.Cleanliness;
             var connection = state.Connection;
             var storySessions = state.StorySessions;
+            var newSoundResolved = state.NewSoundResolved;
             var rattleFamiliarity = state.ToyFamiliarity;
             var plushFamiliarity = state.PlushFamiliarity;
             Reaction reaction;
@@ -136,6 +137,25 @@ namespace BAIby.Simulation
                     storySessions = IncrementCount(storySessions);
                     reaction = Reaction.EnjoysStory;
                     break;
+                case CareAction.ComfortNewSound:
+                case CareAction.ExploreNewSound:
+                    if (!state.HasPendingNewSound)
+                        throw new InvalidOperationException("The new sound event is unavailable.");
+
+                    newSoundResolved = true;
+                    if (action == CareAction.ComfortNewSound)
+                    {
+                        comfort = Math.Min(100, comfort + 16);
+                        connection += 2;
+                        reaction = Reaction.NewSoundComforted;
+                    }
+                    else
+                    {
+                        energy = Math.Max(0, energy - 6);
+                        connection += 5;
+                        reaction = Reaction.NewSoundExplored;
+                    }
+                    break;
                 case CareAction.Play:
                     connection += 1;
                     energy = Math.Max(0, energy - 12);
@@ -160,7 +180,7 @@ namespace BAIby.Simulation
 
             return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
                 satiety, comfort, energy, rattleFamiliarity, plushFamiliarity, state.CanSitAndReach,
-                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health), reaction);
+                state.CanCrawl, Math.Min(100, connection), storySessions, cleanliness, state.Health, newSoundResolved), reaction);
         }
 
         private static double HealthAfterDecay(BabyState state, double hours)

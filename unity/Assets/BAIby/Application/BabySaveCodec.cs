@@ -8,7 +8,8 @@ namespace BAIby.Application
 {
     internal static class BabySaveCodec
     {
-        private const int Version = 6;
+        private const int Version = 7;
+        private const int VersionBeforeNewSound = 6;
         private const int VersionBeforeHealth = 5;
         private const int VersionBeforeJournal = 4;
         private const int VersionBeforeCrawling = 3;
@@ -32,7 +33,8 @@ namespace BAIby.Application
                 new XElement("connection", state.Connection),
                 new XElement("story-sessions", state.StorySessions),
                 new XElement("cleanliness", state.Cleanliness),
-                new XElement("health", state.Health))
+                new XElement("health", state.Health),
+                new XElement("new-sound-resolved", state.NewSoundResolved))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -60,7 +62,8 @@ namespace BAIby.Application
                     version > VersionBeforeJournal ? (double)Field(root, "connection") : 0,
                     version > VersionBeforeJournal ? (int)Field(root, "story-sessions") : 0,
                     version > VersionBeforeHealth ? (double)Field(root, "cleanliness") : 100,
-                    version > VersionBeforeHealth ? (double)Field(root, "health") : 100);
+                    version > VersionBeforeHealth ? (double)Field(root, "health") : 100,
+                    version > VersionBeforeNewSound && (bool)Field(root, "new-sound-resolved"));
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)

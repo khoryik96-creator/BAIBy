@@ -28,6 +28,9 @@ namespace BAIby.Character
         private SpriteRenderer plush;
         private SpriteRenderer storybook;
         private SpriteRenderer freshDiaper;
+        private SpriteRenderer nurseryChime;
+        private bool playedSoundPreview;
+        private float soundPreviewStarted;
         private readonly Dictionary<Food, SpriteRenderer> feedingProps = new Dictionary<Food, SpriteRenderer>();
         private Food servedFood;
         private Toy ambientToy;
@@ -74,6 +77,65 @@ namespace BAIby.Character
             float elapsed = Time.unscaledTime - reactionStarted;
             UpdateToyVisibility(elapsed);
             ShowToy(IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction) ? playedToy : ambientToy);
+        }
+
+        public void PlayNewSoundCue()
+        {
+            if (playedSoundPreview)
+                return;
+
+            playedSoundPreview = true;
+            soundPreviewStarted = Time.unscaledTime;
+            try
+            {
+                var clip = CreateChimeClip();
+                if (clip == null)
+                    return;
+
+                generatedAssets.Add(clip);
+                if (FindFirstObjectByType<AudioListener>() == null)
+                    nurseryCamera.gameObject.AddComponent<AudioListener>();
+                var source = gameObject.AddComponent<AudioSource>();
+                source.playOnAwake = false;
+                source.spatialBlend = 0;
+                source.PlayOneShot(clip, .30f);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning("The nursery chime could not play: " + exception.Message);
+            }
+        }
+
+        private static AudioClip CreateChimeClip()
+        {
+            const int sampleRate = 22050;
+            const float seconds = .95f;
+            var samples = new float[Mathf.RoundToInt(sampleRate * seconds)];
+            for (int sample = 0; sample < samples.Length; sample++)
+            {
+                float t = sample / (float)sampleRate;
+                float tail = Mathf.Clamp01((seconds - t) * 10);
+                samples[sample] = tail * (ChimeNote(t, 523.25f) + .72f * ChimeNote(t - .23f, 659.25f));
+            }
+
+            var clip = AudioClip.Create("Nursery chime audio", samples.Length, 1, sampleRate, false);
+            if (clip != null && clip.SetData(samples, 0))
+                return clip;
+
+            if (clip != null)
+                Destroy(clip);
+            return null;
+        }
+
+        private static float ChimeNote(float seconds, float frequency)
+        {
+            if (seconds < 0)
+                return 0;
+
+            float phase = seconds * 2 * Mathf.PI * frequency;
+            float swell = Mathf.Clamp01(seconds / .019f);
+            float decay = Mathf.Exp(-seconds * 6.2f);
+            return swell * decay * (.24f * Mathf.Sin(phase) + .043f * Mathf.Sin(phase * 2.02f));
         }
 
         private void Build()
@@ -134,6 +196,10 @@ namespace BAIby.Character
 
             storybook = AddCue("Nursery storybook", "Storybook");
             freshDiaper = AddCue("Nursery fresh diaper", "FreshDiaper");
+            nurseryChime = AddCue("Nursery chime", "NurseryChime");
+            var chimeHinge = new GameObject("Chime hinge").transform;
+            chimeHinge.SetParent(transform, false);
+            nurseryChime.transform.SetParent(chimeHinge, false);
             feedingProps.Add(Food.Milk, AddCue("Nursery milk", "Milk"));
             feedingProps.Add(Food.Banana, AddCue("Nursery banana", "Banana"));
             feedingProps.Add(Food.Oats, AddCue("Nursery oats", "Oats"));
@@ -180,6 +246,8 @@ namespace BAIby.Character
             float feed = reaction == Reaction.Satisfied ? response : 0;
             float soothe = reaction == Reaction.Calmed ? response : 0;
             float rest = reaction == Reaction.Rested ? Window(elapsed, 0, .65f, 3.10f, 4.35f) : 0;
+            float soundComfort = reaction == Reaction.NewSoundComforted ? Window(elapsed, 0, .40f, 1.47f, 2.52f) : 0;
+            float soundExplore = reaction == Reaction.NewSoundExplored ? Window(elapsed, 0, .36f, 2.13f, 2.87f) : 0;
             float reading = reaction == Reaction.EnjoysStory ? Window(elapsed, 0, .40f, 2.20f, 2.92f) : 0;
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
@@ -197,11 +265,12 @@ namespace BAIby.Character
             float crawlShift = visibleWidth * (crawlerOffset + .13f * (crawl + stride * .022f));
             float crawlLift = Mathf.Abs(stride) * .055f;
             baby.localPosition = new Vector3(.08f * play + .10f * reach + crawlShift,
-                QuiltSurface - .024f * rest + .022f * feed + crawlLift, 0);
+                QuiltSurface - .024f * (rest + soundComfort) + .022f * feed + crawlLift, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
-                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f - 2.6f * reading);
+                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f
+                - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore);
             baby.localScale = new Vector3(1 + breath * .5f,
-                1 + breath + .022f * feed + .016f * reading + .010f * fresh, 1);
+                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh, 1);
             shade.transform.localPosition = new Vector3(crawlShift, QuiltSurface - .06f, 0);
 
             var displayedToy = playing ? playedToy : ambientToy;
@@ -211,6 +280,22 @@ namespace BAIby.Character
             PoseStorybook(elapsed, reading);
             PoseFreshDiaper(elapsed, fresh);
             PoseFeeding(elapsed, feed);
+            PoseChime(now, elapsed, soundComfort, soundExplore);
+        }
+
+        private void PoseChime(float now, float elapsed, float comfort, float explore)
+        {
+            float previewAge = now - soundPreviewStarted;
+            float preview = playedSoundPreview ? Window(previewAge, 0, .26f, .80f, 1.46f) : 0;
+            float opacity = Mathf.Max(preview, Mathf.Max(comfort, explore));
+            SetOpacity(nurseryChime, opacity);
+            if (opacity <= 0)
+                return;
+
+            // The hinge is attached to the room, so the ornament swings away from the baby.
+            float previewSwing = Mathf.Sin(previewAge * 9f) * preview * 6;
+            float responseSwing = Mathf.Sin(elapsed * 8f) * (explore * 5 + comfort * Mathf.Exp(-elapsed * 2.2f) * 3);
+            nurseryChime.transform.parent.localRotation = Quaternion.Euler(0, 0, previewSwing + responseSwing);
         }
 
         private void UpdateToyVisibility(float elapsed)
@@ -368,6 +453,9 @@ namespace BAIby.Character
             float foodWidth = Mathf.Min(1f, visibleWidth * .23f);
             foreach (var prop in feedingProps.Values)
                 Fit(prop, foodWidth, .83f);
+            float chimeHeight = Fit(nurseryChime, Mathf.Min(.65f, visibleWidth * .17f), 1.08f);
+            nurseryChime.transform.localPosition = new Vector3(0, -chimeHeight * .5f, 0);
+            nurseryChime.transform.parent.localPosition = new Vector3(visibleWidth * .405f, 2.06f, 0);
             baby.localPosition = new Vector3(0, QuiltSurface, 0);
         }
 

@@ -96,7 +96,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"7\" />";
+saves.Primary = "<baby version=\"8\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -104,7 +104,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"7\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"8\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -122,10 +122,10 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"6\""), "first edit after migration writes v6");
+Equal(true, migratedSaves.Primary.Contains("version=\"7\""), "first edit after migration writes v7");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
-    "rest on migrated save persists energy in v6");
+    "rest on migrated save persists energy in v7");
 
 const string energySave = "<baby version=\"2\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
     "<age>2592000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
@@ -155,7 +155,7 @@ persistedToys.ApplyCare(CareAction.Play);
 Equal<Toy?>(null, persistedToys.State.FavoriteToy, "default play still counts toward the rattle");
 Equal(4, persistedToys.State.PlushFamiliarity, "default play leaves plush familiarity unchanged");
 
-var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false, false, 0, 0, 100, 100);
+var maxToyPlay = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, int.MaxValue, 0, false, false, 0, 0, 100, 100, false);
 Equal(int.MaxValue, game.ApplyCare(maxToyPlay, CareAction.Play).State.ToyFamiliarity,
     "repeated play cannot overflow familiarity");
 
@@ -187,7 +187,7 @@ Equal((false, true), crawlerSession.Refresh(), "migration unlocks already earned
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"6\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"7\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -226,7 +226,7 @@ for (var i = 0; i < 60; i++)
     bedtime = game.ApplyCare(bedtime, CareAction.ReadStory).State;
 Equal(100.0, bedtime.Connection, "repeated reading caps connection");
 Equal(61, bedtime.StorySessions, "reading still records sessions when connection is capped");
-var manyStories = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, 0, 0, false, false, 0, int.MaxValue, 100, 100);
+var manyStories = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, 0, 0, false, false, 0, int.MaxValue, 100, 100, false);
 Equal(int.MaxValue, game.ApplyCare(manyStories, CareAction.ReadStory).State.StorySessions,
     "reading cannot overflow the story count");
 
@@ -256,7 +256,7 @@ Equal(Reaction.FreshDiaper, fresh.Reaction, "diaper change has its own reaction"
 Equal(100.0, fresh.State.Cleanliness, "diaper change restores cleanliness with a cap");
 Equal(resume.State.Health, fresh.State.Health, "diaper change does not instantly change health");
 
-var lowNeeds = BabyState.Restore("Mia", start, TimeSpan.Zero, 65, 100, 100, 0, 0, false, false, 0, 0, 100, 60);
+var lowNeeds = BabyState.Restore("Mia", start, TimeSpan.Zero, 65, 100, 100, 0, 0, false, false, 0, 0, 100, 60, false);
 var singleTick = game.Advance(lowNeeds, start.AddHours(4)).State;
 var firstTick = game.Advance(lowNeeds, start.AddHours(1.25)).State;
 var splitTicks = game.Advance(firstTick, start.AddHours(4)).State;
@@ -266,14 +266,14 @@ Equal(singleTick.Cleanliness, splitTicks.Cleanliness, "splitting capped elapsed 
 var cappedOffline = game.Advance(lowNeeds, start.AddDays(30)).State;
 Equal(singleTick.Health, cappedOffline.Health, "health calculation caps a long gap just like other needs");
 
-var dirty = BabyState.Restore("Mia", start, TimeSpan.Zero, 100, 100, 100, 0, 0, false, false, 0, 0, 28, 70);
+var dirty = BabyState.Restore("Mia", start, TimeSpan.Zero, 100, 100, 100, 0, 0, false, false, 0, 0, 28, 70, false);
 Equal(65.0, game.Advance(dirty, start.AddHours(1)).State.Health, "persistent low cleanliness can drain health");
 var caredForDirty = game.ApplyCare(dirty, CareAction.ChangeDiaper).State;
 Equal(100.0, caredForDirty.Cleanliness, "a dirty diaper can be addressed through care");
 Equal(76.0, game.Advance(caredForDirty, start.AddHours(1)).State.Health,
     "health recovers when all needs are met after a diaper change");
 
-var exhausted = BabyState.Restore("Mia", start, TimeSpan.Zero, 0, 0, 0, 0, 0, false, false, 0, 0, 0, 3);
+var exhausted = BabyState.Restore("Mia", start, TimeSpan.Zero, 0, 0, 0, 0, 0, false, false, 0, 0, 0, 3, false);
 exhausted = game.Advance(exhausted, start.AddHours(4)).State;
 Equal(0.0, exhausted.Health, "health cannot fall below zero");
 Equal(0.0, exhausted.Cleanliness, "cleanliness cannot fall below zero");
@@ -301,7 +301,7 @@ Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection")
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"6\""), "health save uses v6");
+Equal(true, healthSaves.Primary.Contains("version=\"7\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -336,32 +336,93 @@ mealtime.Adopt("Mia");
 var beforeMeal = mealtime.State;
 var beforeMealSave = mealtimeSaves.Primary;
 mealtimeClock = start.AddDays(3);
-ExpectUnavailable(mealtime, Food.Banana);
+ExpectUnavailable(() => mealtime.ApplyCare(CareAction.Feed, food: Food.Banana));
 Equal(beforeMealSave, mealtimeSaves.Primary, "locked food cannot change the save");
 Equal(beforeMeal, mealtime.State, "locked food cannot advance elapsed state");
 Equal(1, mealtimeSaves.Writes, "locked food commits nothing");
 mealtimeClock = start.AddDays(7);
-ExpectUnavailable(mealtime, (Food)99);
+ExpectUnavailable(() => mealtime.ApplyCare(CareAction.Feed, food: (Food)99));
 Equal(beforeMeal, mealtime.State, "unknown food cannot consume pending milestones");
 Equal(1, mealtimeSaves.Writes, "unknown food commits nothing");
 Equal((Reaction.Satisfied, true, true), mealtime.ApplyCare(CareAction.Feed, food: Food.Oats),
     "food availability uses age at the same instant as feeding");
 Equal(2, mealtimeSaves.Writes, "milestones and valid feeding commit once together");
 
+Equal(false, newborn.HasPendingNewSound, "incident does not appear before sitting");
+Equal(true, threshold.State.HasPendingNewSound, "sitting makes the incident available");
+Equal(true, crawler.State.HasPendingNewSound, "incident remains available until addressed");
+
+var reassured = game.ApplyCare(threshold.State, CareAction.ComfortNewSound);
+Equal(Reaction.NewSoundComforted, reassured.Reaction, "comfort has its own incident reaction");
+Equal(threshold.State.Comfort + 16, reassured.State.Comfort, "comfort choice soothes the baby");
+Equal(threshold.State.Connection + 2, reassured.State.Connection, "comfort choice builds connection");
+Equal(threshold.State.Energy, reassured.State.Energy, "comfort choice leaves energy unchanged");
+Equal(true, reassured.State.NewSoundResolved, "comfort resolves the incident");
+Equal(false, reassured.State.HasPendingNewSound, "resolved incident is no longer pending");
+
+var explored = game.ApplyCare(threshold.State, CareAction.ExploreNewSound);
+Equal(Reaction.NewSoundExplored, explored.Reaction, "exploration has its own incident reaction");
+Equal(threshold.State.Connection + 5, explored.State.Connection, "exploration builds more connection");
+Equal(threshold.State.Energy - 6, explored.State.Energy, "exploration uses energy");
+Equal(threshold.State.Comfort, explored.State.Comfort, "exploration leaves comfort unchanged");
+Equal(true, explored.State.NewSoundResolved, "exploration resolves the incident");
+
+var incidentClock = start;
+var incidentSaves = new MemorySaveStore();
+var incidentSession = new BabySession(game, incidentSaves, () => incidentClock);
+incidentSession.Adopt("Mia");
+var beforeIncident = incidentSession.State;
+incidentClock = start.AddDays(1);
+ExpectUnavailable(() => incidentSession.ApplyCare(CareAction.ComfortNewSound));
+Equal(beforeIncident, incidentSession.State, "too-early choice cannot advance elapsed time");
+Equal(1, incidentSaves.Writes, "too-early choice commits nothing");
+
+incidentClock = start.AddDays(3);
+incidentSaves.FailWrites = true;
+try
+{
+    incidentSession.ApplyCare(CareAction.ExploreNewSound);
+    throw new InvalidOperationException("Failed incident write should be surfaced.");
+}
+catch (IOException)
+{
+    Equal(beforeIncident, incidentSession.State, "failed incident write leaves all state unchanged");
+}
+incidentSaves.FailWrites = false;
+Equal((Reaction.NewSoundExplored, true, false), incidentSession.ApplyCare(CareAction.ExploreNewSound),
+    "successful retry commits the pending milestone and choice together");
+var incidentReload = new BabySession(game, incidentSaves, () => incidentClock);
+Equal(true, incidentReload.State.NewSoundResolved, "incident resolution survives v7 save and reload");
+var resolvedPayload = incidentSaves.Primary;
+incidentClock = start.AddDays(4);
+ExpectUnavailable(() => incidentReload.ApplyCare(CareAction.ComfortNewSound));
+ExpectUnavailable(() => incidentReload.ApplyCare(CareAction.ExploreNewSound));
+Equal(resolvedPayload, incidentSaves.Primary, "duplicate choices cannot change the save");
+Equal(start.AddDays(3), incidentReload.State.TimeCheckpoint, "duplicate choices cannot advance the checkpoint");
+
+const string preIncidentSave = "<baby version=\"6\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
+    "<age>6912000000000</age><satiety>41</satiety><comfort>52</comfort><energy>63</energy>" +
+    "<toy-familiarity>2</toy-familiarity><plush-familiarity>3</plush-familiarity>" +
+    "<can-sit-and-reach>true</can-sit-and-reach><can-crawl>true</can-crawl>" +
+    "<connection>34</connection><story-sessions>8</story-sessions><cleanliness>51</cleanliness><health>74</health></baby>";
+var migratedIncident = new BabySession(game, new MemorySaveStore { Primary = preIncidentSave }, () => start);
+Equal(true, migratedIncident.State.HasPendingNewSound, "a sitter in a v6 save can address the new incident");
+Equal(74.0, migratedIncident.State.Health, "v6 incident migration preserves unrelated progress");
+
 Console.WriteLine("Simulation checks passed.");
 
-static void ExpectUnavailable(BabySession session, Food food)
+static void ExpectUnavailable(Action attempt)
 {
     try
     {
-        session.ApplyCare(CareAction.Feed, food: food);
+        attempt();
     }
     catch (InvalidOperationException)
     {
         return;
     }
 
-    throw new InvalidOperationException("An unavailable food should be rejected.");
+    throw new InvalidOperationException("An unavailable care choice should be rejected.");
 }
 
 static void Equal<T>(T expected, T actual, string description)

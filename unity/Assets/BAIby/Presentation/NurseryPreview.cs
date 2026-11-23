@@ -64,6 +64,9 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
+            if (activePanel == NurseryPanel.NewSound && Input.GetKeyDown(KeyCode.Escape))
+                ShowPanel(NurseryPanel.Care);
+
             refreshIn -= Time.unscaledDeltaTime;
             if (refreshIn <= 0)
                 Refresh();
@@ -122,6 +125,9 @@ namespace BAIby.Presentation
             try
             {
                 var result = session.ApplyCare(action, toy, food);
+                if (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound)
+                    ShowPanel(NurseryPanel.Care);
+
                 Paint(result.Reaction, result.UnlockedSitting, result.UnlockedCrawling,
                     action == CareAction.Play ? toy : (Toy?)null, food);
             }
@@ -209,6 +215,8 @@ namespace BAIby.Presentation
                 case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
                 case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
                 case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
+                case Reaction.NewSoundComforted: return $"{name} settles in your arms as the sound fades.";
+                case Reaction.NewSoundExplored: return $"{name} listens closely as you explore the sound together.";
                 case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
                 case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
                 case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
@@ -235,7 +243,9 @@ namespace BAIby.Presentation
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (feeding.Root.activeSelf)
+            if (newSound.Root.activeSelf)
+                newSound.Scene.text = message;
+            else if (feeding.Root.activeSelf)
                 feeding.Feedback.text = message;
             else if (development.Root.activeSelf)
                 development.Feedback.text = message;
@@ -302,10 +312,11 @@ namespace BAIby.Presentation
             saveError = Label("Save Message", starter, "", 17, Ink, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.right, new Vector2(0, 30));
 
-            var panel = Tray("Care", false, 360);
+            var panel = Tray("Care", false, 378);
             controls = panel.parent.gameObject;
+            newSoundNotice = BuildNewSoundNotice(panel);
             status = Label("Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 283), Vector2.right, new Vector2(0, 347));
+                new Vector2(0, 283), Vector2.right, new Vector2(0, 365));
             status.resizeTextForBestFit = true;
             status.resizeTextMinSize = 19;
             status.resizeTextMaxSize = 25;
@@ -326,6 +337,8 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory));
             feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
+            newSound = new NewSoundPanel(Tray("New Sound Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), action => Care(action));
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
@@ -334,7 +347,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Feeding }
+        private enum NurseryPanel { Care, Development, Feeding, NewSound }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -349,9 +362,18 @@ namespace BAIby.Presentation
                 case NurseryPanel.Feeding:
                     feeding.Milk.Select();
                     break;
+                case NurseryPanel.NewSound:
+                    newSound.Comfort.Select();
+                    break;
                 default:
-                    var source = previous == NurseryPanel.Feeding ? feedButton : developmentButton;
-                    source.Select();
+                    switch (previous)
+                    {
+                        case NurseryPanel.Feeding: feedButton.Select(); break;
+                        case NurseryPanel.Development: developmentButton.Select(); break;
+                        case NurseryPanel.NewSound:
+                            (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
+                            break;
+                    }
                     break;
             }
         }
@@ -361,6 +383,9 @@ namespace BAIby.Presentation
             controls.SetActive(adopted && activePanel == NurseryPanel.Care);
             development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
             feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
+            var hasPendingSound = adopted && session.State.HasPendingNewSound;
+            newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
+            UpdateNewSoundNotice(hasPendingSound);
         }
 
         private RectTransform Tray(string label, bool top, float height)
