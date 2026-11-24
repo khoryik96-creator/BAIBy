@@ -463,6 +463,9 @@ namespace BAIby.Presentation
                         case JournalKind.HardDay:
                             list.Add(HardDayRow(entry));
                             break;
+                        case JournalKind.Helper:
+                            list.Add(HelperRow(entry));
+                            break;
                     }
                 }
 
@@ -658,6 +661,34 @@ namespace BAIby.Presentation
             }
 
             private static string DayWord(int day) => $"Day {day}";
+
+            // A helper day, muted: the Sitter (a baby) or the helpers (a pet) kept things steady. Never a milestone.
+            private JournalRow HelperRow(JournalEntry entry)
+            {
+                var parts = new List<string>();
+                if (petPages)
+                {
+                    if (entry.Feeds > 0)
+                        parts.Add(Count(entry.Feeds, "feeder portion"));
+                    if (entry.Plays > 0)
+                        parts.Add("ball launcher " + Times(entry.Plays));
+                    if (entry.Tidies > 0)
+                        parts.Add("litter box " + Times(entry.Tidies));
+                    return new JournalRow("Gear", Mist, $"{DayWord(entry.Day)} · The helpers kept things steady",
+                        $"{Date(entry.At)} · {string.Join(" · ", parts)}");
+                }
+
+                if (entry.Feeds > 0)
+                    parts.Add(Count(entry.Feeds, "bottle"));
+                if (entry.Plays > 0)
+                    parts.Add("peekaboo " + Times(entry.Plays));
+                if (entry.Tidies > 0)
+                    parts.Add("freshened up " + Times(entry.Tidies));
+                return new JournalRow("Home", Mist, $"{DayWord(entry.Day)} · The Sitter popped in",
+                    $"{Date(entry.At)} · {string.Join(" · ", parts)}");
+            }
+
+            private static string Times(int count) => count == 1 ? "once" : count == 2 ? "twice" : $"{count} times";
 
             private static string Count(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
