@@ -426,7 +426,7 @@ static class CareChecks
         Equal(1.0, CareRules.Score(care, Tunables), "a migrated baby starts with a full CareScore");
         Equal(Day(2026, 3, 5), care.CareDay, "the care day follows the player's local date");
         Equal(summer, care.Offset, "the ledger takes the player's offset");
-        Equal(true, saves.Primary.Contains("version=\"15\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v15");
+        Equal(true, saves.Primary.Contains("version=\"16\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v15");
         Equal(care, new BabySession(game, saves, () => clock).State.Care, "the anchored ledger survives a reload");
 
         session.ApplyCare(CareAction.Feed);
@@ -614,7 +614,8 @@ static class CareChecks
                 trace.Append(cared.Reaction);
             }
 
-            foreach (var value in new[] { state.Satiety, state.Comfort, state.Energy, state.Cleanliness, state.Health, state.Connection })
+            // Bond follows the ledger since slice 5 (an on-time meal adds to it, an excused one does not), so it is left out.
+            foreach (var value in new[] { state.Satiety, state.Comfort, state.Energy, state.Cleanliness, state.Health })
                 trace.Append(BitConverter.DoubleToInt64Bits(value).ToString("X16")).Append(',');
 
             trace.Append(state.TimeCheckpoint.UtcTicks).Append(',').Append(state.Age.Ticks).Append(',')

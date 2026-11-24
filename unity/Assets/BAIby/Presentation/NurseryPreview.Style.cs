@@ -20,9 +20,18 @@ namespace BAIby.Presentation
 
         private void ChooseAppearance(Func<BabyAppearance, BabyAppearance> change)
         {
+            var next = change(session.State.Appearance);
+            if (!session.CanWear(next, DeveloperModeOn))
+            {
+                // Earned looks wait for their care rhythm; nothing is ever sold.
+                var days = Math.Max(EarnedLooks.RhythmFor(next.Headwear), EarnedLooks.RhythmFor(next.Outfit));
+                style.Feedback.text = $"Earned with a {days}-day care rhythm. Keep caring each day!";
+                return;
+            }
+
             try
             {
-                session.SetAppearance(change(session.State.Appearance));
+                session.SetAppearance(next, DeveloperModeOn);
             }
             catch (Exception error)
             {
@@ -37,6 +46,7 @@ namespace BAIby.Presentation
         private void ApplyBabyAppearance(BabyAppearance appearance, bool retryFailed = false)
         {
             bool shown = nursery.SetAppearance(appearance, retryFailed);
+            style.SetEarned(session?.Bonding?.LongestRhythm ?? 0, DeveloperModeOn);
             style.UpdateSelection(appearance);
             if (!shown)
                 style.Feedback.text = "This look couldn't be shown right now.";
@@ -47,7 +57,8 @@ namespace BAIby.Presentation
 
 
         // The Style sheet: category tabs as a segmented pill, colours as round chips with a sage ring when chosen,
-        // and haircuts and hats as rounded option chips.
+        // and haircuts and hats as rounded option chips. Looks a care rhythm earns carry a small badge: Earned, or
+        // the rhythm that earns them.
         private sealed class StylePanel
         {
             // The sheet is no taller than the care sheet, so the baby stays clear above it.
@@ -120,6 +131,13 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
             }
 
+            // Which earned looks are earned: by the longest care rhythm, or all of them in developer mode.
+            public void SetEarned(int longestRhythm, bool unlockAll)
+            {
+                foreach (var category in categories)
+                    category.SetEarned(longestRhythm, unlockAll);
+            }
+
             private void ShowCategory(int index)
             {
                 shown = index;
@@ -169,21 +187,27 @@ namespace BAIby.Presentation
 
             private static SwatchSpec Wear(Outfit outfit) =>
                 new SwatchSpec(outfit.ToString(), ToColor(AppearancePalette.OutfitMain(outfit, SageMain)),
-                    ToColor(AppearancePalette.OutfitAccent(outfit, SageAccent)), look => look.WithOutfit(outfit));
+                    ToColor(AppearancePalette.OutfitAccent(outfit, SageAccent)), look => look.WithOutfit(outfit),
+                    EarnedLooks.RhythmFor(outfit));
 
             private static SwatchSpec Hat(Headwear headwear, string title) =>
-                new SwatchSpec(title, null, null, look => look.WithHeadwear(headwear));
+                new SwatchSpec(title, null, null, look => look.WithHeadwear(headwear), EarnedLooks.RhythmFor(headwear));
         }
 
         private sealed class SwatchSpec
         {
-            public SwatchSpec(string title, Color? chip, Color? trim, Func<BabyAppearance, BabyAppearance> change)
+            public SwatchSpec(string title, Color? chip, Color? trim, Func<BabyAppearance, BabyAppearance> change,
+                int earnedAt = 0)
             {
                 Title = title;
                 Chip = chip;
                 Trim = trim;
                 Change = change;
+                EarnedAt = earnedAt;
             }
+
+            // The care rhythm (days) that earns this look; 0 for a look that is always there.
+            public int EarnedAt { get; }
 
             public string Title { get; }
             public Color? Chip { get; }
@@ -222,6 +246,12 @@ namespace BAIby.Presentation
                     swatch.UpdateSelection(appearance);
             }
 
+            public void SetEarned(int longestRhythm, bool unlockAll)
+            {
+                foreach (var swatch in swatches)
+                    swatch.SetEarned(longestRhythm, unlockAll);
+            }
+
             public Button SelectedButton(BabyAppearance appearance)
             {
                 foreach (var swatch in swatches)
@@ -245,6 +275,10 @@ namespace BAIby.Presentation
             private readonly Image ring;
             private readonly Text label;
             private readonly bool colour;
+            private readonly int earnedAt;
+            private readonly Image badge;
+            private readonly Text badgeLabel;
+            private bool locked;
 
             public Button Button { get; }
 
@@ -295,6 +329,33 @@ namespace BAIby.Presentation
                     ring = Surface(selection, Fern);
                     SoftShapes.Outline(ring, 38);
                 }
+
+                // An earned look's badge sits on the chip's top right: "Earned", or the rhythm that earns it.
+                earnedAt = spec.EarnedAt;
+                if (earnedAt > 0)
+                {
+                    // Beside a colour chip's top right, or on a pill's top right corner; clear of the tabs above.
+                    var anchor = colour ? new Vector2(0.5f, 1) : Vector2.one;
+                    var corner = colour
+                        ? Box(Button.name + " Badge", Button.transform, anchor, anchor, new Vector2(6, -18), new Vector2(90, 8))
+                        : Box(Button.name + " Badge", Button.transform, anchor, anchor, new Vector2(-86, -16), new Vector2(-4, 10));
+                    badge = Surface(corner, FernSoft);
+                    SoftShapes.Pill(badge);
+                    badgeLabel = Label(Button.name + " Badge Label", corner, "Earned", 15, FernDeep, TextAnchor.MiddleCenter,
+                        new Vector2(4, 0), Vector2.one, new Vector2(-4, 0), FontStyle.Bold);
+                    FitText(badgeLabel, 11, 15);
+                }
+            }
+
+            public void SetEarned(int longestRhythm, bool unlockAll)
+            {
+                if (earnedAt <= 0)
+                    return;
+
+                locked = !unlockAll && longestRhythm < earnedAt;
+                badge.color = locked ? Mist : FernSoft;
+                badgeLabel.color = locked ? Muted : FernDeep;
+                badgeLabel.text = locked ? $"{earnedAt} days" : "Earned";
             }
 
             public bool Matches(BabyAppearance appearance) => change(appearance).Equals(appearance);
@@ -305,7 +366,7 @@ namespace BAIby.Presentation
                 ring.gameObject.SetActive(isSelected);
                 if (!colour)
                     Button.image.color = isSelected ? FernSoft : Mist;
-                label.color = isSelected ? (colour ? Ink : FernDeep) : Muted;
+                label.color = isSelected ? (colour ? Ink : FernDeep) : locked ? Secondary : Muted;
                 SetRole(label, isSelected ? TextRole.Strong : TextRole.Body);
             }
         }

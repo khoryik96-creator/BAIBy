@@ -220,15 +220,16 @@ static class GrowthChecks
 
         // Four kinds of care in one care day add Bond +2, once.
         var day = Crawler(At(2026, 3, 2, 8, 0), satiety: 60);
-        var connection = day.Connection;
+        // The on-time breakfast adds Bond +1 itself.
+        var connection = day.Bond + 1;
         day = game.ApplyCare(day, CareAction.Feed).State;
         day = game.ApplyCare(day, CareAction.ChangeDiaper).State;
         day = game.ApplyCare(day, CareAction.Rest).State;
-        Near(connection, day.Connection, "three kinds of care add no bonus");
+        Near(connection, day.Bond, "three kinds of care add no bonus");
         day = game.ApplyCare(day, CareAction.Soothe).State;
-        Near(connection + 3 + Growth.VarietyBond, day.Connection, "the fourth kind adds Bond +2 with the soothe");
+        Near(connection + 3 + Growth.VarietyBond, day.Bond, "the fourth kind adds Bond +2 with the soothe");
         day = game.ApplyCare(day, CareAction.ReadStory).State;
-        Near(connection + 3 + Growth.VarietyBond + 2, day.Connection, "the bonus comes once a day");
+        Near(connection + 3 + Growth.VarietyBond + 2, day.Bond, "the bonus comes once a day");
         var tomorrow = game.Advance(day, At(2026, 3, 3, 8, 0)).State;
         Equal(CareCategories.Rest | CareCategories.Story | CareCategories.Comfort | CareCategories.Hygiene | CareCategories.Meal,
             tomorrow.Development.Categories, "the categories wait for the next care action to roll over");
@@ -607,7 +608,7 @@ static class GrowthChecks
             draft.RecoveryMeals = 1;
         });
         var payload = BabySaveCodec.Encode(baby);
-        Equal(true, payload.StartsWith("<baby version=\"15\"") && payload.Contains("<development v=\"1\""), "the save is v15");
+        Equal(true, payload.StartsWith("<baby version=\"16\"") && payload.Contains("<development v=\"1\""), "the save is v15");
         var decoded = BabySaveCodec.Decode(payload);
         Equal(baby.Development, decoded.Development, "the development record round-trips exactly");
         Equal(MotorSkill.Crawling, decoded.ShySkill, "the setback survives a reload");
@@ -638,7 +639,7 @@ static class GrowthChecks
         Expect<NotSupportedException>(() => BabySaveCodec.Decode(newer.ToString(SaveOptions.DisableFormatting)),
             "a newer development record is unsupported, not corrupt");
         var future = XElement.Parse(payload);
-        future.SetAttributeValue("version", 16);
+        future.SetAttributeValue("version", 17);
         Expect<NotSupportedException>(() => BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting)),
             "a newer baby save is unsupported");
         foreach (var (name, value) in new[] { ("readiness", "1.5"), ("mode", "7"), ("shy", "3"), ("motor", "NaN"), ("toys", "8"),
@@ -660,7 +661,7 @@ static class GrowthChecks
         var now = at.AddHours(1);
         var session = new BabySession(game, saves, () => now);
         session.Refresh();
-        Equal(true, saves.Primary.Contains("version=\"15\"") && saves.Primary.Contains("<development v=\"1\""),
+        Equal(true, saves.Primary.Contains("version=\"16\"") && saves.Primary.Contains("<development v=\"1\""),
             "the next write is v15 with a development record");
         Equal(MotorSkill.Crawling, session.Growth.Next, "the session reports growth");
     }
@@ -780,7 +781,7 @@ static class GrowthChecks
 
     private static BabyState Rebuild(BabyState state, double satiety, CareRecord care, DevelopmentRecord development) =>
         BabyState.Restore(state.Name, state.TimeCheckpoint, state.Age, satiety, state.Comfort, state.Energy,
-            state.ToyFamiliarity, state.PlushFamiliarity, state.CanSitAndReach, state.CanCrawl, state.Connection,
+            state.ToyFamiliarity, state.PlushFamiliarity, state.CanSitAndReach, state.CanCrawl, state.Bond,
             state.StorySessions, state.Cleanliness, state.Health, state.NewSoundResolved, state.NurseryTheme, state.CanWalk,
             state.BlockTowers, state.Appearance, care, development);
 

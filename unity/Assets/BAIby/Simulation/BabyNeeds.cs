@@ -58,8 +58,9 @@ namespace BAIby.Simulation
         };
 
         // Preview days pass no real clock time, so they count as awake hours.
-        public static Values Awake(Values start, TimeSpan elapsed, TimeSpan cap, double recoveryBoost = 1) =>
-            Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0, recoveryBoost);
+        public static Values Awake(Values start, TimeSpan elapsed, TimeSpan cap, double recoveryBoost = 1,
+            double comfortFactor = 1) =>
+            Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0, recoveryBoost, comfortFactor);
 
         // What the health condition does to the needs over a gap.
         public readonly struct Effects
@@ -70,12 +71,21 @@ namespace BAIby.Simulation
             // Health recovers this many times faster before BoostUntil (UTC ticks).
             public readonly double RecoveryBoost;
             public readonly long BoostUntil;
+            // Comfort falls this many times faster (a clingy phase), switching to ComfortAfter at ComfortSwitch (UTC
+            // ticks) when a care day's close starts or ends the phase inside the gap.
+            public readonly double Comfort;
+            public readonly double ComfortAfter;
+            public readonly long ComfortSwitch;
 
-            public Effects(double energyCeiling, double recoveryBoost, long boostUntil)
+            public Effects(double energyCeiling, double recoveryBoost, long boostUntil, double comfort = 1,
+                double comfortAfter = 1, long comfortSwitch = long.MaxValue)
             {
                 EnergyCeiling = energyCeiling;
                 RecoveryBoost = recoveryBoost;
                 BoostUntil = boostUntil;
+                Comfort = comfort;
+                ComfortAfter = comfortAfter;
+                ComfortSwitch = comfortSwitch;
             }
         }
 
@@ -184,11 +194,16 @@ namespace BAIby.Simulation
                 var boosted = at < effects.BoostUntil;
                 if (boosted)
                     boundary = Math.Min(boundary, effects.BoostUntil - at);
+                // So is the instant a clingy phase begins or ends.
+                var beforeSwitch = at < effects.ComfortSwitch;
+                if (beforeSwitch)
+                    boundary = Math.Min(boundary, effects.ComfortSwitch - at);
                 var length = Math.Min(Math.Min(to - at, boundary), budget);
                 // The morning part of a night belongs to the previous evening's care day.
                 var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (timeOfDay < night.End.Ticks ? 1 : 0);
                 var energyCap = isNight ? Math.Min(NightEnergyCap(rest, nightDay), effects.EnergyCeiling) : 0;
-                values = Segment(values, Hours(length), isNight, energyCap, boosted ? effects.RecoveryBoost : 1);
+                values = Segment(values, Hours(length), isNight, energyCap, boosted ? effects.RecoveryBoost : 1,
+                    beforeSwitch ? effects.Comfort : effects.ComfortAfter);
                 budget -= length;
                 at += length;
             }
@@ -212,13 +227,14 @@ namespace BAIby.Simulation
             Math.Max(Math.Min(value, hold), value - rate * hours);
 
         // One stretch of constant rates. Energy rises at night (rate below zero) and never passes energyCap.
-        private static Values Segment(Values start, double hours, bool night, double energyCap, double recoveryBoost)
+        private static Values Segment(Values start, double hours, bool night, double energyCap, double recoveryBoost,
+            double comfortFactor = 1)
         {
             if (hours <= 0)
                 return start;
 
             var fullness = night ? NightFullness : AwakeFullness;
-            var comfort = night ? NightComfort : AwakeComfort;
+            var comfort = (night ? NightComfort : AwakeComfort) * comfortFactor;
             var cleanliness = night ? NightCleanliness : AwakeCleanliness;
             var energy = !night ? AwakeEnergy : start.Energy >= energyCap ? 0 : -NightEnergyGain;
             var rates = new[] { fullness, comfort, energy, cleanliness };

@@ -87,7 +87,7 @@ namespace BAIby.Simulation
         public GrowthTunables Tunables => tunables;
 
         // The ledger and needs a pure advance from the state would reach at an instant (UTC ticks).
-        public delegate (CareRecord Care, BabyNeeds.Values Needs) Projection(long at);
+        public delegate (CareRecord Care, BabyNeeds.Values Needs, double Bond) Projection(long at);
 
         // Readiness from age at the nominal pace, and a sample of the state as it is.
         public DevelopmentRecord Seed(BabyState state)
@@ -104,7 +104,7 @@ namespace BAIby.Simulation
             return new DevelopmentRecord.Builder
             {
                 Readiness = readiness,
-                Sample = SampleOf(SampleMode.Normal, BabyNeeds.From(state), state.Care, state.Connection, empty,
+                Sample = SampleOf(SampleMode.Normal, BabyNeeds.From(state), state.Care, state.Bond, empty,
                     state.TimeCheckpoint.UtcTicks),
                 Engagement = empty,
                 CategoryDay = state.Care.CareDay,
@@ -176,7 +176,7 @@ namespace BAIby.Simulation
         }
 
         // A preview day: no real time passes, so the ledger and engagement hold and the hours count as awake hours.
-        public Step Preview(BabyState state, TimeSpan elapsed, TimeSpan cap, double recoveryBoost)
+        public Step Preview(BabyState state, TimeSpan elapsed, TimeSpan cap, double recoveryBoost, double comfortFactor = 1)
         {
             var dev = state.Development ?? Seed(state);
             var run = new Run(this, state, dev);
@@ -196,8 +196,8 @@ namespace BAIby.Simulation
                 run.Cell(end - hour, sample, cond, 0);
                 if (end == next)
                 {
-                    var needs = BabyNeeds.Awake(start, TimeSpan.FromTicks(next), cap, recoveryBoost);
-                    sample = SampleOf(mode, needs, state.Care, state.Connection, dev.Engagement, at);
+                    var needs = BabyNeeds.Awake(start, TimeSpan.FromTicks(next), cap, recoveryBoost, comfortFactor);
+                    sample = SampleOf(mode, needs, state.Care, state.Bond, dev.Engagement, at);
                 }
 
                 hour = end;
@@ -208,10 +208,10 @@ namespace BAIby.Simulation
         }
 
         // Samples the state as it is now (after care, or at the end of a migrated advance).
-        public TrackSample SampleNow(BabyNeeds.Values needs, CareRecord record, double connection,
+        public TrackSample SampleNow(BabyNeeds.Values needs, CareRecord record, double bond,
             IReadOnlyList<EngagementEntry> engagement, long at) =>
             SampleOf(record.IsAwayAt(new DateTimeOffset(at, TimeSpan.Zero)) ? SampleMode.Away : SampleMode.Normal,
-                needs, record, connection, engagement, at);
+                needs, record, bond, engagement, at);
 
         // The setback rung, after an advance: only while the player is present (an advance within the presence gap,
         // at least the sick dwell into the visit), never while away, and never in Gentle care.
@@ -251,9 +251,12 @@ namespace BAIby.Simulation
         }
 
         // What one care action does to development. `before` is the state before the action; `record` the ledger
-        // after it (its LastReason says whether a meal was on time); `needs` and `connection` the values after it.
+        // after it (its LastReason says whether a meal was on time); `needs` the values after it. `scale` multiplies the
+        // action's engagement points (the care rhythm's bonus), and a fresh or familiar kind of play pays
+        // `temperament` times more for an explorer or a cautious little one. `settleBond` takes the day's variety bonus
+        // (0 when none) and returns Bond after the action, which the fresh sample uses.
         public CareOutcome AfterCare(BabyState before, CareAction action, Toy toy, Reaction reaction, CareRecord record,
-            BabyNeeds.Values needs, double connection)
+            BabyNeeds.Values needs, double scale, CuriosityPhase curiosity, double temperament, Func<double, double> settleBond)
         {
             var dev = before.Development ?? Seed(before);
             var draft = dev.ToBuilder();
@@ -261,7 +264,7 @@ namespace BAIby.Simulation
             var refused = reaction == Reaction.PushesToyAway || reaction == Reaction.TooPoorly ||
                 reaction == Reaction.MedicineNotNow;
             var bored = false;
-            var bond = 0.0;
+            var bonus = 0.0;
             var kind = refused ? null : KindOf(action, toy, record.LastReason);
             if (kind.HasValue)
             {
@@ -273,7 +276,10 @@ namespace BAIby.Simulation
                 var log = DevelopmentRules.Prune(dev.Engagement, at, tunables);
                 // Kept oldest first: an entry never predates one already kept.
                 var stamp = log.Count > 0 ? Math.Max(at, log[log.Count - 1].At) : at;
-                log.Add(new EngagementEntry(kind.Value, stamp, DevelopmentRules.Factor(repeats, wellbeing, novel, tunables)));
+                var leaning = (curiosity == CuriosityPhase.Explorer && repeats == 0) ||
+                    (curiosity == CuriosityPhase.Cautious && repeats > 0) ? temperament : 1;
+                var factor = DevelopmentRules.Factor(repeats, wellbeing, novel, tunables) * scale * leaning;
+                log.Add(new EngagementEntry(kind.Value, stamp, Math.Min(10, factor)));
                 draft.Engagement = DevelopmentRules.Prune(log, at, tunables);
                 bored = IsPlay(kind.Value) && repeats >= tunables.BoredRepeats;
             }
@@ -290,7 +296,7 @@ namespace BAIby.Simulation
             if (!draft.VarietyGiven && Count(draft.Categories) >= tunables.VarietyCategories)
             {
                 draft.VarietyGiven = true;
-                bond = tunables.VarietyBond;
+                bonus = tunables.VarietyBond;
             }
 
             var recovered = false;
@@ -314,11 +320,11 @@ namespace BAIby.Simulation
                 }
             }
 
-            var total = Math.Min(100, connection + bond);
-            draft.Sample = SampleNow(needs, record, total, draft.Engagement, at);
+            var bond = settleBond(bonus);
+            draft.Sample = SampleNow(needs, record, bond, draft.Engagement, at);
             if (draft.Sample.Wellbeing >= tunables.SetbackWellbeing)
                 draft.LowWellbeingTime = TimeSpan.Zero;
-            return new CareOutcome(draft.Build(), total, bored, recovered);
+            return new CareOutcome(draft.Build(), bond, bored, recovered, kind);
         }
 
         public GrowthReport Report(BabyState state)
@@ -378,13 +384,13 @@ namespace BAIby.Simulation
                 : at >= absenceEnd ? SampleMode.Helper : SampleMode.Normal;
             var projected = project(at);
             var dev = state.Development;
-            return SampleOf(mode, projected.Needs, projected.Care, state.Connection, dev.Engagement, at);
+            return SampleOf(mode, projected.Needs, projected.Care, projected.Bond, dev.Engagement, at);
         }
 
-        private TrackSample SampleOf(SampleMode mode, BabyNeeds.Values needs, CareRecord record, double connection,
+        private TrackSample SampleOf(SampleMode mode, BabyNeeds.Values needs, CareRecord record, double bond,
             IReadOnlyList<EngagementEntry> engagement, long at) =>
             DevelopmentRules.Sample(mode, Wellbeing(needs), record.Meals.Credit(care.MealRing, care.LateCredit),
-                connection / 100, needs.Health / 100, engagement, at, tunables);
+                bond / 100, needs.Health / 100, engagement, at, tunables);
 
         // Counted time with low Wellbeing in a stretch: only under the normal rules, up to the absence ceiling.
         private long CountedLow(long from, long to, long absenceEnd, TrackSample sample)
@@ -504,9 +510,13 @@ namespace BAIby.Simulation
 
             public bool AnyUnlocked => UnlockedSitting || UnlockedCrawling || UnlockedWalking;
 
-            public Step(DevelopmentRecord.Builder draft, bool[] can, bool[] unlocked)
+            // The age (ticks) at which each stage unlocked during the step; meaningful where Unlocked* is true.
+            public long[] UnlockAges { get; }
+
+            public Step(DevelopmentRecord.Builder draft, bool[] can, bool[] unlocked, long[] unlockAges)
             {
                 Draft = draft;
+                UnlockAges = (long[])unlockAges.Clone();
                 CanSitAndReach = can[0];
                 CanCrawl = can[1];
                 CanWalk = can[2];
@@ -519,16 +529,19 @@ namespace BAIby.Simulation
         internal readonly struct CareOutcome
         {
             public readonly DevelopmentRecord Record;
-            public readonly double Connection;
+            public readonly double Bond;
             public readonly bool Bored;
             public readonly bool Recovered;
+            // What the action counted as for engagement, if anything.
+            public readonly EngagementKind? Kind;
 
-            public CareOutcome(DevelopmentRecord record, double connection, bool bored, bool recovered)
+            public CareOutcome(DevelopmentRecord record, double bond, bool bored, bool recovered, EngagementKind? kind)
             {
                 Record = record;
-                Connection = connection;
+                Bond = bond;
                 Bored = bored;
                 Recovered = recovered;
+                Kind = kind;
             }
         }
 
@@ -642,7 +655,7 @@ namespace BAIby.Simulation
                 return any;
             }
 
-            public Step Finish() => new Step(Draft, can, unlocked);
+            public Step Finish() => new Step(Draft, can, unlocked, UnlockAges);
 
             private void Unlock()
             {
