@@ -441,10 +441,22 @@ namespace BAIby.Simulation
                 " | growth {0} {1:0.00} in {2:0.0}d | W {3:0.00} Q motor {4:0.00} learning {5:0.00} social {6:0.00} physical {7:0.00}{8}{9}",
                 report.Next, report.Readiness, report.ExpectedIn.TotalDays, sample.Wellbeing, sample.Motor, sample.Learning,
                 sample.Social, sample.Physical, sample.Mode == SampleMode.Normal ? "" : " " + sample.Mode,
-                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy) + string.Format(CultureInfo.InvariantCulture,
+                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy) + WordsSummary(report.Words) +
+                string.Format(CultureInfo.InvariantCulture,
                 " | bond {0:0.0} high {1:0.0} today +{2:0}/-{3:0} | security {4:0} curiosity {5:0} | rhythm {6} best {7} days {8}",
                 state.Bond, bonding.HighWater, bonding.Gained, bonding.Lost, bonding.Security, bonding.Curiosity, bonding.Rhythm,
                 bonding.LongestRhythm, bonding.TotalCareDays);
+        }
+
+        // " | first words 0.42 in 3.1d", or " | first words" once reached (a baby only).
+        private static string WordsSummary(WordsReport words)
+        {
+            if (words == null)
+                return string.Empty;
+            if (words.Reached)
+                return " | first words";
+            return string.Format(CultureInfo.InvariantCulture, " | first words {0:0.00} in {1:0.0}d", words.Readiness,
+                words.ExpectedIn.TotalDays);
         }
 
         // Today's routine windows at the state's checkpoint.

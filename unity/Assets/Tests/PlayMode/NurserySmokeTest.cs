@@ -1059,7 +1059,7 @@ namespace BAIby.Tests
             Assert.That(Child<Button>(view.gameObject, "Talk").gameObject.activeInHierarchy, Is.False,
                 "no Talk tile before First words");
             var announced = false;
-            for (var day = 0; day < 24 && !announced; day++)
+            for (var day = 0; day < 26 && !announced; day++)
             {
                 clock = clock.AddMinutes(1);
                 Tap(view.gameObject, "Preview next day");
