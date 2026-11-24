@@ -54,7 +54,27 @@ Care slice 2 of [care and growth](care-and-growth.md). Needs follow the real clo
 | Tap the strip (or **Routine**), then **Away 1 day** (or 3 days, 1 week, 2 weeks) | The chips read **Away**, the status says needs stay steady, and **We're back** replaces the choices. While away, needs settle no lower than 60 (lower needs stay put), Health holds, nothing is missed and age keeps its normal pace. |
 | Reopen after the Away period ends | Windows count again from the planned end; a return a day late is an ordinary absence. Any care, or **We're back**, ends Away mode early. |
 | Tap the strip (or **Routine**) and choose **Gentle** | Fussing starts only below 25, overdue meals never fuss, escalation waits 4 hours, and overfeeding costs less. **Standard** is the default. |
-| Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v13 on the next write. |
+| Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v14 on the next write. |
+
+## Health: under the weather, sick and the doctor
+
+Care slice 3 of [care and growth](care-and-growth.md). Health is a second track beside the mood: Well, **Under the weather**, **Sick** and **Recovering**. It moves at most one step per refresh, an absence alone never makes a baby sick, and the doctor is always free. A refresh more than 30 minutes after the last one is a return and starts a new visit; the minute tick on the nursery keeps a visit going (Home's tick does not save, so a long stay on Home counts as a return).
+
+| Step | Expected result |
+| --- | --- |
+| Adopt a baby and select **Preview next day** four times with no care in between | Each preview drains needs for up to 8 hours. Once Health is below 50, the next refresh (the next tap of any care or preview) puts the baby under the weather: a honey **Under the weather** chip replaces the favorite toy on the age line, the baby looks paler and droops a little, a bubble with a blue sniffle drop floats beside the head, and a **Doctor** (Free visit) button joins **Preview next day** and **Development** in the bottom row. Nothing overlaps the baby or the care buttons at 390 x 844. |
+| Rest or feed milk while under the weather | Energy stops at 70 (higher Energy is kept). Play, stories and baths still work. |
+| Stay in the nursery for 15 minutes with Health below 30 (keep the tab in front) | The baby becomes **Sick — needs the doctor** (rose chip): it lies in its nap pose under a lilac blanket, a thermometer bubble replaces the sniffle, and the status says it is resting with a little fever. Returning to the app never makes a baby sick on the spot; the 15 minutes count from the return. |
+| Tap **Play with rattle**, **Read a story**, **Stack blocks** or **Wash up → Bath time** while sick | Gently refused: "feels too poorly for that and stays snuggled in bed", a small shake, and nothing changes. **Feed**, **Soothe**, **Rest** and **Change diaper** still work. |
+| Tap **Doctor**, then **Visit Dr. Lee** | The panel invites a free visit, then says "Dr. Lee listens, checks a temperature and says Mia needs rest and medicine." Health rises by 15. A sick baby, or one still below Health 50, is now **Recovering · medicine 0 of 2** (green chip, a blanket and a capsule bubble); a baby only a little under the weather goes home well. **Done** returns to the tray. |
+| Look at **Medicine** outside a meal window | The button is disabled and says when the next meal starts (School day: breakfast 07:00 to 12:00, snack 14:00 to 18:00, dinner 18:00 to 21:30). |
+| Tap **Medicine** during a meal, then again in the same meal | The first dose counts ("Dose 1 of 2") and the chip reads **1 of 2**; the button then reads "Given · next meal" until the next meal window. |
+| Give the second dose in another meal window | "Well again!": the chip, the blanket and the button disappear. If Health is still below 50, the baby is under the weather again at the next refresh, so keep feeding and resting. |
+| Leave a recovering baby alone for 36 hours | Recovering ends by itself once Health is 60 or more. Health recovers twice as fast for the first 36 hours after the visit. |
+| Give an under-the-weather baby a good care day: two meals on time, nothing missed, play or a story, and bedtime | After the care day ends (04:00) the baby is well again, without the doctor, if Health is back at 50. |
+| Choose **Gentle** in the Routine panel | Under the weather starts below Health 40, Sick below 20 and only after 30 minutes present. |
+| Open **Home** | The card reads "A bit under the weather", "Poorly, would love the doctor" or "Getting better", and a sick baby lights the Home dot. |
+| Reopen a save from before this build | The baby opens well, with nothing counted. The save becomes v14 (care v3) on the next write. |
 
 ## Household
 
