@@ -1,6 +1,8 @@
 #if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
+using System.Collections.Generic;
 using BAIby.Application;
+using UnityEngine;
 
 namespace BAIby.Infrastructure
 {
@@ -10,10 +12,33 @@ namespace BAIby.Infrastructure
     public sealed class TestEntitlements : IPlaytestUnlocks
     {
         private readonly CachedEntitlements entitlements;
+        private readonly string developerModeKey;
 
-        public TestEntitlements(CachedEntitlements entitlements)
+        // saveKey places the developer-mode switch beside the household keys ({saveKey}.developer-mode).
+        public TestEntitlements(CachedEntitlements entitlements, string saveKey = PlayerPrefsBabySaveStore.DefaultKey)
         {
             this.entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
+            developerModeKey = (saveKey ?? throw new ArgumentNullException(nameof(saveKey))) + ".developer-mode";
+        }
+
+        public bool DeveloperMode => PlayerPrefs.GetInt(developerModeKey, 0) == 1;
+
+        public void SetDeveloperMode(bool on, IReadOnlyList<string> products)
+        {
+            if (products == null)
+                throw new ArgumentNullException(nameof(products));
+
+            // The switch is written first, so a launch after an interruption finishes the job from the saved
+            // switch: StartPreview grants everything again while it is on.
+            PlayerPrefs.SetInt(developerModeKey, on ? 1 : 0);
+            PlayerPrefs.Save();
+            foreach (var productId in products)
+            {
+                if (on && !entitlements.Owns(productId))
+                    entitlements.Grant(productId, EntitlementSource.Playtest);
+                else if (!on && entitlements.Owns(productId))
+                    entitlements.Revoke(productId);
+            }
         }
 
         public bool Owns(string productId) => entitlements.Owns(productId);

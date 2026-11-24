@@ -24,11 +24,15 @@ namespace BAIby.Presentation
         // Any playtest grant, from the toggle or a ?ent= URL flag, shows the badge.
         private bool PlaytestOn => playtest != null && playtest.HasGrants;
 
+        // Developer mode: every product granted and every earned breed open (Web, Editor and Development builds).
+        private bool DeveloperModeOn => playtest != null && playtest.DeveloperMode;
+
         private void BuildRoomPanels()
         {
             gate = new GatePanel(Tray("Parental Gate Panel", false, 420), CancelGate, SubmitGate);
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
-            settings = new SettingsPanel(Tray("Household Settings Panel", false, 400), ShowHome, RestorePurchases, ShowMoreRooms);
+            settings = new SettingsPanel(Tray("Household Settings Panel", false, 480), ShowHome, RestorePurchases, ShowMoreRooms,
+                ToggleDeveloperMode);
             journal = new JournalPanel(Tray("Journal Panel", false, 470), ShowHome);
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
         }
@@ -102,7 +106,7 @@ namespace BAIby.Presentation
                     moreRooms.Show(playtest, household);
                     break;
                 case HouseholdView.Settings:
-                    settings.Show(household, PlaytestOn);
+                    settings.Show(household, PlaytestOn, playtest);
                     break;
             }
         }
@@ -125,7 +129,7 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Settings;
             ApplyHouseholdView();
-            settings.Show(household, PlaytestOn);
+            settings.Show(household, PlaytestOn, playtest);
             settings.Close.Select();
         }
 
@@ -151,6 +155,34 @@ namespace BAIby.Presentation
                 : household.HasResting
                     ? "Test rooms removed. Little ones beyond the free rooms are resting."
                     : "Test rooms removed.";
+        }
+
+        // Opens every room, breed and premium item for testing, or returns the game to what is really owned and
+        // earned. Only reachable behind the parental gate, and only in builds that compile the playtest toggle.
+        private void ToggleDeveloperMode()
+        {
+            if (playtest == null || household == null)
+                return;
+
+            var on = !playtest.DeveloperMode;
+            try
+            {
+                household.UnlockEarnedBreeds = on;
+                playtest.SetDeveloperMode(on, DeveloperUnlocks.Products(household.PetCatalog));
+            }
+            catch (Exception error)
+            {
+                household.UnlockEarnedBreeds = playtest.DeveloperMode;
+                ReportFailure(error, "Developer mode couldn't be changed. Please try again.");
+                return;
+            }
+
+            settings.Show(household, PlaytestOn, playtest);
+            settings.Feedback.text = on
+                ? "Developer mode is on: every room, breed and premium item is open."
+                : household.HasResting
+                    ? "Developer mode is off. Little ones beyond the free rooms are resting."
+                    : "Developer mode is off. The game is back to what you own and have earned.";
         }
 
         private void RestorePurchases()
@@ -322,7 +354,10 @@ namespace BAIby.Presentation
             public Button Close { get; }
             public Text Feedback { get; }
 
-            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms)
+            private readonly Button developer;
+            private readonly Text developerLabel;
+
+            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper)
             {
                 Root = content.parent.gameObject;
                 var heading = Label("Settings Heading", content, "For grown-ups", 34, Ink, TextAnchor.MiddleLeft,
@@ -355,17 +390,32 @@ namespace BAIby.Presentation
                     SoftShapes.Lift(button.gameObject);
                 }
 
+                // Developer mode: test builds only (the button stays hidden when there is no playtest toggle).
+                developer = ActionButton("Developer mode", content, 0, 1, 0, 0, toggleDeveloper, Paper, Ink);
+                developerLabel = developer.GetComponentInChildren<Text>();
+                developerLabel.resizeTextForBestFit = true;
+                developerLabel.resizeTextMinSize = 16;
+                developerLabel.resizeTextMaxSize = 24;
+                PlaceFromTop((RectTransform)developer.transform, 0, 1, 306, 380, 3, 3);
+                SoftShapes.Round(developer.image, 1f);
+                developer.gameObject.SetActive(false);
+
                 Feedback = Label("Settings Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 15;
                 Feedback.resizeTextMaxSize = 21;
-                PlaceFromTop(Feedback.rectTransform, 0, 1, 308, 384);
+                PlaceFromTop(Feedback.rectTransform, 0, 1, 388, 460);
                 Root.SetActive(false);
             }
 
-            public void Show(HouseholdSession household, bool playtestOn)
+            public void Show(HouseholdSession household, bool playtestOn, IPlaytestUnlocks playtest)
             {
+                developer.gameObject.SetActive(playtest != null);
+                if (playtest != null)
+                    developerLabel.text = playtest.DeveloperMode
+                        ? "Developer mode: on · tap to turn off"
+                        : "Developer mode: off · unlock everything";
                 Feedback.text = string.Empty;
                 var rooms = $"Your home has {household.Capacity} rooms.";
                 if (household.HasResting)

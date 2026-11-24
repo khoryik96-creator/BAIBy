@@ -142,7 +142,7 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Home;
             ApplyHouseholdView();
-            var first = home.Show(household, PlaytestOn);
+            var first = home.Show(household, PlaytestOn, DeveloperModeOn);
             if (first != null)
                 first.Select();
         }
@@ -522,11 +522,12 @@ namespace BAIby.Presentation
             }
 
             // Rebuilds the cards from the household and returns the first card for focus.
-            public Button Show(HouseholdSession household, bool playtestOn)
+            public Button Show(HouseholdSession household, bool playtestOn, bool developerMode)
             {
                 ClearCards();
                 Feedback.text = string.Empty;
-                playtestBadge.gameObject.SetActive(playtestOn);
+                playtestBadge.text = developerMode ? "Developer mode" : "Playtest unlocks";
+                playtestBadge.gameObject.SetActive(playtestOn || developerMode);
                 var active = household.Active;
                 close.gameObject.SetActive(active != null);
 

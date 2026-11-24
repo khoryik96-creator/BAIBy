@@ -40,13 +40,22 @@ namespace BAIby.Bootstrap
                     honorPlaytestGrants);
                 IPlaytestUnlocks playtest = null;
 #if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
-                var unlocks = new TestEntitlements(entitlements);
+                var unlocks = new TestEntitlements(entitlements, saveKey);
                 unlocks.ApplyUrlFlags(UnityEngine.Application.absoluteURL);
                 playtest = unlocks;
 #endif
                 // Pets share the household, its slots and its rooms; premium breeds read the same entitlements.
-                var household = new HouseholdSession(simulation, new PetSimulation(), new PlayerPrefsHouseholdStore(saveKey),
+                var pets = new PetSimulation();
+#if UNITY_WEBGL || UNITY_EDITOR || DEVELOPMENT_BUILD
+                // Developer mode (the Grown-ups switch or ?dev=1) grants every product before the household
+                // reads capacity, so rooms and breeds open from the first frame. Granting again on each launch
+                // also covers products added since it was turned on.
+                if (unlocks.DeveloperMode || DeveloperUnlocks.RequestedBy(UnityEngine.Application.absoluteURL))
+                    unlocks.SetDeveloperMode(true, DeveloperUnlocks.Products(pets.Catalog));
+#endif
+                var household = new HouseholdSession(simulation, pets, new PlayerPrefsHouseholdStore(saveKey),
                     clock.Now, entitlements);
+                household.UnlockEarnedBreeds = playtest != null && playtest.DeveloperMode;
                 view.Open(household, entitlements, new OfflineStoreFront(), playtest);
             }
             catch (Exception error)

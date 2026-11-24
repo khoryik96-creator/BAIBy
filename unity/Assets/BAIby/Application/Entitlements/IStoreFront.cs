@@ -39,5 +39,12 @@ namespace BAIby.Application
 
         // True while any playtest grant is cached, which shows the "Playtest unlocks" badge.
         bool HasGrants { get; }
+
+        // Developer mode: every product granted and every earned breed open. Saved on this device only.
+        bool DeveloperMode { get; }
+
+        // Turns developer mode on (granting products) or off (removing them, so the game returns to what is
+        // really owned). products is every product the build knows; see DeveloperUnlocks.Products.
+        void SetDeveloperMode(bool on, System.Collections.Generic.IReadOnlyList<string> products);
     }
 }

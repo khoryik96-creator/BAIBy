@@ -28,7 +28,7 @@ gh run download RUN_ID --name baiby-web --dir build/Web
 python3 tools/check-web-build.py build/Web
 ```
 
-Open port **8000** to play: the front page goes straight to `/nursery/`. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
+Open port **8000** to play: the front page goes straight to `/nursery/`. To try everything without locks, open **Home → Grown-ups** and turn on **Developer mode** (or add `?dev=1` to the address): every room, premium breed and earned breed opens. Test builds only. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
 
 ## Mobile restart development
 
