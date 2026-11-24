@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../unity/Assets/BAIby/Simulation/BabyAppearance.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Simulation/Pets/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Character/Appearance/*.cs" />
   </ItemGroup>
 </Project>

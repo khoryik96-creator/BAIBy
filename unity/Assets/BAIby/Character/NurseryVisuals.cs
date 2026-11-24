@@ -95,6 +95,21 @@ namespace BAIby.Character
         public float PoseCeilingScreenY =>
             nurseryCamera == null ? 0 : nurseryCamera.WorldToScreenPoint(transform.TransformPoint(new Vector3(0, PoseCeiling, 0))).y;
 
+        // Where a pet stands in the room, and the world size of one baby pose pixel (pose art is drawn at
+        // 100 pixels per unit), so PetVisuals can draw a pet at its layout's runtime scale beside the baby.
+        public float FloorY => QuiltSurface;
+        public float PosePixelScale => sitter == null || sitter.sprite == null ? .62f : sitter.transform.localScale.x;
+        public float VisibleWidth => visibleWidth;
+
+        // Hides the baby and its contact shade while a pet's room is shown. Toys and cues follow Present.
+        public void SetBabyShown(bool shown)
+        {
+            if (baby.gameObject.activeSelf != shown)
+                baby.gameObject.SetActive(shown);
+            if (shade.gameObject.activeSelf != shown)
+                shade.gameObject.SetActive(shown);
+        }
+
         public static NurseryVisuals Create()
         {
             var visuals = new GameObject("BAIby Nursery").AddComponent<NurseryVisuals>();
@@ -591,7 +606,7 @@ namespace BAIby.Character
 
         // Copies the decoded pixels straight from the texture data where the layout is known, avoiding
         // a Color32[] per image; other formats go through GetPixels32.
-        private static byte[] ReadRgba(Texture2D texture, int pixelCount)
+        internal static byte[] ReadRgba(Texture2D texture, int pixelCount)
         {
             int length = pixelCount * AppearanceRecolor.Channels;
             var bytes = new byte[length];
@@ -1065,7 +1080,7 @@ namespace BAIby.Character
             return sprite;
         }
 
-        private static Sprite SpriteFrom(Texture2D texture, float pixelsPerUnit)
+        internal static Sprite SpriteFrom(Texture2D texture, float pixelsPerUnit)
         {
             var bounds = new Rect(0, 0, texture.width, texture.height);
             return Sprite.Create(texture, bounds, new Vector2(.5f, .5f), pixelsPerUnit, 0, SpriteMeshType.FullRect, Vector4.zero, false);

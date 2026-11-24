@@ -1,10 +1,17 @@
 <linker>
-  <!-- layout.json is read with JsonUtility, which fills these types through Unity's native serializer.
+  <!-- The baby and pet layout.json files are read with JsonUtility, which fills these types through Unity's native serializer.
        Keep them whole so IL2CPP managed code stripping (WebGL) cannot remove their constructors or fields. -->
   <assembly fullname="BAIby.Character">
     <type fullname="BAIby.Character.AppearanceLayoutData" preserve="all" />
     <type fullname="BAIby.Character.AppearanceReferenceData" preserve="all" />
     <type fullname="BAIby.Character.AppearancePoseData" preserve="all" />
     <type fullname="BAIby.Character.AppearanceOverlayData" preserve="all" />
+    <type fullname="BAIby.Character.PetLayoutData" preserve="all" />
+    <type fullname="BAIby.Character.PetReferenceData" preserve="all" />
+    <type fullname="BAIby.Character.PetRuntimeScaleData" preserve="all" />
+    <type fullname="BAIby.Character.PetOverlayData" preserve="all" />
+    <type fullname="BAIby.Character.PetPaletteData" preserve="all" />
+    <type fullname="BAIby.Character.PetCoatColorData" preserve="all" />
+    <type fullname="BAIby.Character.PetNamedColorData" preserve="all" />
   </assembly>
 </linker>
