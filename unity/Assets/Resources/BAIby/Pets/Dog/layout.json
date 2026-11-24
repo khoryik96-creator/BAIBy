@@ -1,0 +1,1593 @@
+{
+ "placeholder": true,
+ "species": "Dog",
+ "reference": {
+  "coat": [
+   214,
+   160,
+   104
+  ],
+  "markings": [
+   250,
+   238,
+   218
+  ],
+  "eyes": [
+   128,
+   84,
+   56
+  ],
+  "accent": [
+   178,
+   170,
+   122
+  ]
+ },
+ "runtimeScale": {
+  "young": 0.58,
+  "grown": 0.76
+ },
+ "breedBases": [
+  "Corgi"
+ ],
+ "poses": [
+  {
+   "name": "YoungAwake",
+   "width": 460,
+   "height": 564
+  },
+  {
+   "name": "YoungRest",
+   "width": 639,
+   "height": 411
+  },
+  {
+   "name": "GrownAwake",
+   "width": 452,
+   "height": 580
+  },
+  {
+   "name": "GrownRest",
+   "width": 660,
+   "height": 383
+  },
+  {
+   "name": "CorgiYoungAwake",
+   "width": 466,
+   "height": 548
+  },
+  {
+   "name": "CorgiYoungRest",
+   "width": 621,
+   "height": 427
+  },
+  {
+   "name": "CorgiGrownAwake",
+   "width": 489,
+   "height": 552
+  },
+  {
+   "name": "CorgiGrownRest",
+   "width": 644,
+   "height": 390
+  }
+ ],
+ "overlays": [
+  {
+   "path": "Markings/MixedBreed/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 40,
+   "y": 51,
+   "width": 361,
+   "height": 103,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Golden/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 17,
+   "y": 58,
+   "width": 406,
+   "height": 372,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 17,
+   "y": 58,
+   "width": 406,
+   "height": 230,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 54,
+   "y": 377,
+   "width": 330,
+   "height": 145,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Shiba/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 52,
+   "y": 4,
+   "width": 337,
+   "height": 507,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Poodle/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 4,
+   "y": 12,
+   "width": 434,
+   "height": 518,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Husky/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 52,
+   "y": 4,
+   "width": 337,
+   "height": 507,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Samoyed/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 29,
+   "y": 4,
+   "width": 382,
+   "height": 458,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Pomeranian/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 10,
+   "y": 27,
+   "width": 421,
+   "height": 447,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 24,
+   "y": 61,
+   "width": 392,
+   "height": 176,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 76,
+   "y": 79,
+   "width": 291,
+   "height": 435,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/BorderCollie/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 40,
+   "y": 51,
+   "width": 404,
+   "height": 495,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 130,
+   "y": 323,
+   "width": 180,
+   "height": 57,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 142,
+   "y": 328,
+   "width": 156,
+   "height": 87,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 144,
+   "y": 329,
+   "width": 152,
+   "height": 84,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/MixedBreed/YoungRest",
+   "pose": "YoungRest",
+   "x": 35,
+   "y": 50,
+   "width": 348,
+   "height": 112,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Golden/YoungRest",
+   "pose": "YoungRest",
+   "x": 18,
+   "y": 55,
+   "width": 388,
+   "height": 317,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/YoungRest",
+   "pose": "YoungRest",
+   "x": 18,
+   "y": 55,
+   "width": 388,
+   "height": 233,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 350,
+   "y": 128,
+   "width": 153,
+   "height": 125,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Shiba/YoungRest",
+   "pose": "YoungRest",
+   "x": 46,
+   "y": 4,
+   "width": 325,
+   "height": 304,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Poodle/YoungRest",
+   "pose": "YoungRest",
+   "x": 4,
+   "y": 17,
+   "width": 533,
+   "height": 349,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Husky/YoungRest",
+   "pose": "YoungRest",
+   "x": 46,
+   "y": 4,
+   "width": 326,
+   "height": 316,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Samoyed/YoungRest",
+   "pose": "YoungRest",
+   "x": 46,
+   "y": 4,
+   "width": 370,
+   "height": 394,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Pomeranian/YoungRest",
+   "pose": "YoungRest",
+   "x": 28,
+   "y": 26,
+   "width": 406,
+   "height": 381,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/YoungRest",
+   "pose": "YoungRest",
+   "x": 24,
+   "y": 58,
+   "width": 374,
+   "height": 182,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 153,
+   "y": 80,
+   "width": 331,
+   "height": 172,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/BorderCollie/YoungRest",
+   "pose": "YoungRest",
+   "x": 35,
+   "y": 50,
+   "width": 589,
+   "height": 321,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/YoungRest",
+   "pose": "YoungRest",
+   "x": 293,
+   "y": 134,
+   "width": 103,
+   "height": 193,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/YoungRest",
+   "pose": "YoungRest",
+   "x": 297,
+   "y": 138,
+   "width": 133,
+   "height": 185,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungRest",
+   "pose": "YoungRest",
+   "x": 298,
+   "y": 139,
+   "width": 131,
+   "height": 183,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/MixedBreed/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 38,
+   "y": 46,
+   "width": 329,
+   "height": 93,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Golden/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 17,
+   "y": 53,
+   "width": 370,
+   "height": 346,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 17,
+   "y": 53,
+   "width": 370,
+   "height": 208,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 25,
+   "y": 371,
+   "width": 353,
+   "height": 142,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Shiba/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 49,
+   "y": 4,
+   "width": 307,
+   "height": 525,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Poodle/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 4,
+   "y": 10,
+   "width": 397,
+   "height": 535,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Husky/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 49,
+   "y": 4,
+   "width": 307,
+   "height": 525,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Samoyed/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 26,
+   "y": 4,
+   "width": 353,
+   "height": 427,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Pomeranian/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 8,
+   "y": 25,
+   "width": 388,
+   "height": 417,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 24,
+   "y": 56,
+   "width": 357,
+   "height": 159,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 52,
+   "y": 73,
+   "width": 301,
+   "height": 454,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/BorderCollie/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 36,
+   "y": 46,
+   "width": 402,
+   "height": 518,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 107,
+   "y": 287,
+   "width": 191,
+   "height": 61,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 114,
+   "y": 291,
+   "width": 176,
+   "height": 93,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 116,
+   "y": 292,
+   "width": 172,
+   "height": 89,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/MixedBreed/GrownRest",
+   "pose": "GrownRest",
+   "x": 33,
+   "y": 45,
+   "width": 318,
+   "height": 100,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Golden/GrownRest",
+   "pose": "GrownRest",
+   "x": 18,
+   "y": 50,
+   "width": 357,
+   "height": 291,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/GrownRest",
+   "pose": "GrownRest",
+   "x": 18,
+   "y": 50,
+   "width": 357,
+   "height": 210,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Beagle/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 275,
+   "y": 78,
+   "width": 240,
+   "height": 136,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Shiba/GrownRest",
+   "pose": "GrownRest",
+   "x": 43,
+   "y": 4,
+   "width": 300,
+   "height": 275,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Poodle/GrownRest",
+   "pose": "GrownRest",
+   "x": 4,
+   "y": 14,
+   "width": 542,
+   "height": 321,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Husky/GrownRest",
+   "pose": "GrownRest",
+   "x": 43,
+   "y": 4,
+   "width": 302,
+   "height": 286,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Samoyed/GrownRest",
+   "pose": "GrownRest",
+   "x": 43,
+   "y": 4,
+   "width": 345,
+   "height": 365,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Pomeranian/GrownRest",
+   "pose": "GrownRest",
+   "x": 26,
+   "y": 24,
+   "width": 379,
+   "height": 355,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/GrownRest",
+   "pose": "GrownRest",
+   "x": 23,
+   "y": 53,
+   "width": 344,
+   "height": 164,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dalmatian/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 145,
+   "y": 72,
+   "width": 392,
+   "height": 234,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/BorderCollie/GrownRest",
+   "pose": "GrownRest",
+   "x": 33,
+   "y": 45,
+   "width": 612,
+   "height": 297,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/GrownRest",
+   "pose": "GrownRest",
+   "x": 274,
+   "y": 123,
+   "width": 93,
+   "height": 170,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/GrownRest",
+   "pose": "GrownRest",
+   "x": 277,
+   "y": 126,
+   "width": 123,
+   "height": 164,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownRest",
+   "pose": "GrownRest",
+   "x": 277,
+   "y": 127,
+   "width": 123,
+   "height": 163,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Corgi/YoungAwake",
+   "pose": "CorgiYoungAwake",
+   "x": 35,
+   "y": 4,
+   "width": 339,
+   "height": 491,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/CorgiYoungAwake",
+   "pose": "CorgiYoungAwake",
+   "x": 101,
+   "y": 344,
+   "width": 206,
+   "height": 63,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/CorgiYoungAwake",
+   "pose": "CorgiYoungAwake",
+   "x": 108,
+   "y": 348,
+   "width": 192,
+   "height": 94,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/CorgiYoungAwake",
+   "pose": "CorgiYoungAwake",
+   "x": 111,
+   "y": 349,
+   "width": 186,
+   "height": 91,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Corgi/YoungRest",
+   "pose": "CorgiYoungRest",
+   "x": 4,
+   "y": 4,
+   "width": 327,
+   "height": 237,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/CorgiYoungRest",
+   "pose": "CorgiYoungRest",
+   "x": 252,
+   "y": 159,
+   "width": 103,
+   "height": 193,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/CorgiYoungRest",
+   "pose": "CorgiYoungRest",
+   "x": 256,
+   "y": 163,
+   "width": 133,
+   "height": 185,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/CorgiYoungRest",
+   "pose": "CorgiYoungRest",
+   "x": 257,
+   "y": 164,
+   "width": 131,
+   "height": 183,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Corgi/GrownAwake",
+   "pose": "CorgiGrownAwake",
+   "x": 61,
+   "y": 4,
+   "width": 309,
+   "height": 496,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/CorgiGrownAwake",
+   "pose": "CorgiGrownAwake",
+   "x": 108,
+   "y": 305,
+   "width": 214,
+   "height": 68,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/CorgiGrownAwake",
+   "pose": "CorgiGrownAwake",
+   "x": 111,
+   "y": 307,
+   "width": 208,
+   "height": 102,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/CorgiGrownAwake",
+   "pose": "CorgiGrownAwake",
+   "x": 112,
+   "y": 308,
+   "width": 206,
+   "height": 98,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Corgi/GrownRest",
+   "pose": "CorgiGrownRest",
+   "x": 4,
+   "y": 4,
+   "width": 301,
+   "height": 213,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/CorgiGrownRest",
+   "pose": "CorgiGrownRest",
+   "x": 236,
+   "y": 146,
+   "width": 93,
+   "height": 170,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/CorgiGrownRest",
+   "pose": "CorgiGrownRest",
+   "x": 239,
+   "y": 149,
+   "width": 123,
+   "height": 164,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/CorgiGrownRest",
+   "pose": "CorgiGrownRest",
+   "x": 239,
+   "y": 150,
+   "width": 123,
+   "height": 163,
+   "gTarget": "secondary"
+  }
+ ],
+ "palette": {
+  "coats": [
+   {
+    "breed": "MixedBreed",
+    "coat": "Tan",
+    "main": [
+     214,
+     160,
+     104
+    ],
+    "secondary": [
+     250,
+     238,
+     218
+    ],
+    "dark": [
+     250,
+     238,
+     218
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "MixedBreed",
+    "coat": "Black",
+    "main": [
+     78,
+     70,
+     76
+    ],
+    "secondary": [
+     236,
+     222,
+     204
+    ],
+    "dark": [
+     236,
+     222,
+     204
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "MixedBreed",
+    "coat": "Brown",
+    "main": [
+     156,
+     104,
+     72
+    ],
+    "secondary": [
+     242,
+     224,
+     200
+    ],
+    "dark": [
+     242,
+     224,
+     200
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "MixedBreed",
+    "coat": "Cream",
+    "main": [
+     240,
+     220,
+     184
+    ],
+    "secondary": [
+     253,
+     246,
+     232
+    ],
+    "dark": [
+     253,
+     246,
+     232
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "MixedBreed",
+    "coat": "White",
+    "main": [
+     246,
+     242,
+     236
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     255,
+     253,
+     250
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Golden",
+    "coat": "Golden",
+    "main": [
+     232,
+     178,
+     96
+    ],
+    "secondary": [
+     248,
+     222,
+     168
+    ],
+    "dark": [
+     248,
+     222,
+     168
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Golden",
+    "coat": "Cream",
+    "main": [
+     244,
+     222,
+     178
+    ],
+    "secondary": [
+     252,
+     240,
+     214
+    ],
+    "dark": [
+     252,
+     240,
+     214
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Golden",
+    "coat": "Red",
+    "main": [
+     204,
+     122,
+     68
+    ],
+    "secondary": [
+     238,
+     190,
+     140
+    ],
+    "dark": [
+     238,
+     190,
+     140
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Beagle",
+    "coat": "Tricolor",
+    "main": [
+     210,
+     150,
+     90
+    ],
+    "secondary": [
+     252,
+     248,
+     242
+    ],
+    "dark": [
+     64,
+     56,
+     58
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Beagle",
+    "coat": "Tan",
+    "main": [
+     220,
+     172,
+     116
+    ],
+    "secondary": [
+     252,
+     248,
+     242
+    ],
+    "dark": [
+     176,
+     116,
+     72
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Shiba",
+    "coat": "Red",
+    "main": [
+     226,
+     138,
+     72
+    ],
+    "secondary": [
+     252,
+     238,
+     214
+    ],
+    "dark": [
+     252,
+     238,
+     214
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Shiba",
+    "coat": "Sable",
+    "main": [
+     190,
+     128,
+     80
+    ],
+    "secondary": [
+     248,
+     232,
+     208
+    ],
+    "dark": [
+     248,
+     232,
+     208
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Shiba",
+    "coat": "Cream",
+    "main": [
+     244,
+     226,
+     196
+    ],
+    "secondary": [
+     254,
+     248,
+     238
+    ],
+    "dark": [
+     254,
+     248,
+     238
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Shiba",
+    "coat": "Black",
+    "main": [
+     72,
+     64,
+     68
+    ],
+    "secondary": [
+     238,
+     208,
+     162
+    ],
+    "dark": [
+     238,
+     208,
+     162
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Corgi",
+    "coat": "Red",
+    "main": [
+     226,
+     140,
+     70
+    ],
+    "secondary": [
+     254,
+     248,
+     240
+    ],
+    "dark": [
+     254,
+     248,
+     240
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Corgi",
+    "coat": "Sable",
+    "main": [
+     194,
+     132,
+     84
+    ],
+    "secondary": [
+     252,
+     246,
+     238
+    ],
+    "dark": [
+     252,
+     246,
+     238
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Corgi",
+    "coat": "Tricolor",
+    "main": [
+     72,
+     64,
+     70
+    ],
+    "secondary": [
+     254,
+     248,
+     240
+    ],
+    "dark": [
+     254,
+     248,
+     240
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Poodle",
+    "coat": "White",
+    "main": [
+     248,
+     244,
+     238
+    ],
+    "secondary": [
+     255,
+     252,
+     248
+    ],
+    "dark": [
+     255,
+     252,
+     248
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Poodle",
+    "coat": "Black",
+    "main": [
+     68,
+     62,
+     68
+    ],
+    "secondary": [
+     98,
+     90,
+     96
+    ],
+    "dark": [
+     98,
+     90,
+     96
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Poodle",
+    "coat": "Chocolate",
+    "main": [
+     126,
+     84,
+     62
+    ],
+    "secondary": [
+     156,
+     110,
+     84
+    ],
+    "dark": [
+     156,
+     110,
+     84
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Poodle",
+    "coat": "Cream",
+    "main": [
+     246,
+     226,
+     190
+    ],
+    "secondary": [
+     252,
+     238,
+     212
+    ],
+    "dark": [
+     252,
+     238,
+     212
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Husky",
+    "coat": "Gray",
+    "main": [
+     150,
+     152,
+     164
+    ],
+    "secondary": [
+     250,
+     250,
+     252
+    ],
+    "dark": [
+     250,
+     250,
+     252
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Brown",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Husky",
+    "coat": "Black",
+    "main": [
+     72,
+     70,
+     78
+    ],
+    "secondary": [
+     250,
+     250,
+     252
+    ],
+    "dark": [
+     250,
+     250,
+     252
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Brown",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Husky",
+    "coat": "Red",
+    "main": [
+     196,
+     124,
+     84
+    ],
+    "secondary": [
+     252,
+     246,
+     240
+    ],
+    "dark": [
+     252,
+     246,
+     240
+    ],
+    "eyes": "Blue",
+    "allowedEyes": [
+     "Brown",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Samoyed",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     255,
+     255,
+     255
+    ],
+    "dark": [
+     255,
+     255,
+     255
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Samoyed",
+    "coat": "Cream",
+    "main": [
+     248,
+     232,
+     204
+    ],
+    "secondary": [
+     255,
+     250,
+     240
+    ],
+    "dark": [
+     255,
+     250,
+     240
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Pomeranian",
+    "coat": "Orange",
+    "main": [
+     236,
+     152,
+     74
+    ],
+    "secondary": [
+     250,
+     214,
+     160
+    ],
+    "dark": [
+     250,
+     214,
+     160
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Pomeranian",
+    "coat": "Cream",
+    "main": [
+     246,
+     226,
+     190
+    ],
+    "secondary": [
+     253,
+     244,
+     226
+    ],
+    "dark": [
+     253,
+     244,
+     226
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Pomeranian",
+    "coat": "Black",
+    "main": [
+     68,
+     62,
+     68
+    ],
+    "secondary": [
+     118,
+     106,
+     110
+    ],
+    "dark": [
+     118,
+     106,
+     110
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Dalmatian",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     60,
+     54,
+     58
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "BorderCollie",
+    "coat": "Black",
+    "main": [
+     62,
+     58,
+     64
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "BorderCollie",
+    "coat": "Red",
+    "main": [
+     158,
+     94,
+     64
+    ],
+    "secondary": [
+     252,
+     248,
+     240
+    ],
+    "dark": [
+     252,
+     248,
+     240
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "BorderCollie",
+    "coat": "Blue",
+    "main": [
+     122,
+     130,
+     144
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Brown",
+    "allowedEyes": [
+     "Brown",
+     "Amber"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "name": "Brown",
+    "color": [
+     124,
+     80,
+     54
+    ]
+   },
+   {
+    "name": "Amber",
+    "color": [
+     180,
+     122,
+     62
+    ]
+   },
+   {
+    "name": "Blue",
+    "color": [
+     110,
+     160,
+     212
+    ]
+   }
+  ],
+  "collarAccents": [
+   {
+    "name": "Midnight",
+    "color": [
+     70,
+     86,
+     140
+    ]
+   }
+  ]
+ }
+}

@@ -175,3 +175,96 @@ def hamster_entries():
 
 def hamster_eye_entries():
     return [{"name": k, "color": list(v)} for k, v in HAMSTER_EYES.items()]
+
+
+# ---------------------------------------------------------------- dog (P3)
+# Placeholder dog colours per breed coat: ``main`` (region R), ``secondary`` (region G: the light muzzle, bib and paw
+# tips, the Husky's mask, the Shiba's urajiro, the Corgi's and Border Collie's blaze) and ``dark`` (the Beagle's saddle
+# and the Dalmatian's spots, recoloured on their own: see dog.py).  Coats follow the dog entries in
+# PetCatalog.CreateDefault; the first coat per breed is its default.  The Dachshund has no art yet (arriving soon).
+DOG_COATS = {
+    "MixedBreed": {
+        "Tan": ((214, 160, 104), (250, 238, 218)),
+        "Black": ((78, 70, 76), (236, 222, 204)),
+        "Brown": ((156, 104, 72), (242, 224, 200)),
+        "Cream": ((240, 220, 184), (253, 246, 232)),
+        "White": ((246, 242, 236), (255, 253, 250)),
+    },
+    "Golden": {
+        "Golden": ((232, 178, 96), (248, 222, 168)),
+        "Cream": ((244, 222, 178), (252, 240, 214)),
+        "Red": ((204, 122, 68), (238, 190, 140)),
+    },
+    "Beagle": {
+        "Tricolor": ((210, 150, 90), (252, 248, 242), (64, 56, 58)),
+        "Tan": ((220, 172, 116), (252, 248, 242), (176, 116, 72)),
+    },
+    "Shiba": {
+        "Red": ((226, 138, 72), (252, 238, 214)),
+        "Sable": ((190, 128, 80), (248, 232, 208)),
+        "Cream": ((244, 226, 196), (254, 248, 238)),
+        "Black": ((72, 64, 68), (238, 208, 162)),
+    },
+    "Corgi": {
+        "Red": ((226, 140, 70), (254, 248, 240)),
+        "Sable": ((194, 132, 84), (252, 246, 238)),
+        "Tricolor": ((72, 64, 70), (254, 248, 240)),
+    },
+    "Poodle": {
+        "White": ((248, 244, 238), (255, 252, 248)),
+        "Black": ((68, 62, 68), (98, 90, 96)),
+        "Chocolate": ((126, 84, 62), (156, 110, 84)),
+        "Cream": ((246, 226, 190), (252, 238, 212)),
+    },
+    "Husky": {
+        "Gray": ((150, 152, 164), (250, 250, 252)),
+        "Black": ((72, 70, 78), (250, 250, 252)),
+        "Red": ((196, 124, 84), (252, 246, 240)),
+    },
+    "Samoyed": {
+        "White": ((250, 248, 244), (255, 255, 255)),
+        "Cream": ((248, 232, 204), (255, 250, 240)),
+    },
+    "Pomeranian": {
+        "Orange": ((236, 152, 74), (250, 214, 160)),
+        "Cream": ((246, 226, 190), (253, 244, 226)),
+        "Black": ((68, 62, 68), (118, 106, 110)),
+    },
+    "Dalmatian": {
+        "White": ((250, 248, 244), (255, 253, 250), (60, 54, 58)),
+    },
+    "BorderCollie": {
+        "Black": ((62, 58, 64), (252, 250, 246)),
+        "Red": ((158, 94, 64), (252, 248, 240)),
+        "Blue": ((122, 130, 144), (252, 250, 246)),
+    },
+}
+
+DOG_EYES = {
+    "Brown": (124, 80, 54),
+    "Amber": (180, 122, 62),
+    "Blue": (110, 160, 212),
+}
+
+
+def dog_allowed_eyes(breed):
+    return ["Brown", "Blue"] if breed == "Husky" else ["Brown", "Amber"]
+
+
+def dog_coat_colors(breed, coat):
+    cols = DOG_COATS[breed][coat]
+    return cols[0], cols[1], (cols[2] if len(cols) > 2 else cols[1])
+
+
+def dog_entries():
+    out = []
+    for breed, coats in DOG_COATS.items():
+        for coat in coats:
+            main, sec, dark = dog_coat_colors(breed, coat)
+            out.append({"breed": breed, "coat": coat, "main": list(main), "secondary": list(sec), "dark": list(dark),
+                        "eyes": "Blue" if breed == "Husky" else "Brown", "allowedEyes": dog_allowed_eyes(breed)})
+    return out
+
+
+def dog_eye_entries():
+    return [{"name": k, "color": list(v)} for k, v in DOG_EYES.items()]

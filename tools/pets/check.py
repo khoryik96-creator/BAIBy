@@ -18,6 +18,13 @@ the Panda's patches, the Roborovski's brow spots are G, the Teddy bear's long
 coat (a feature overlay in the main coat, R) may reach past the base
 silhouette, and its bow is A.  Its poses are smaller than the baby's.  Each
 species' art stays within about 2 MB.
+
+The dog (P3): every shipped breed's overlay carries its ears (a feature overlay in
+the main coat R that may reach past the silhouette) and any G markings; the
+Beagle's saddle and the Dalmatian's spots are dark overlays; the Corgi stands on
+its own short-legged base poses (``breedBases``: ``Base/Corgi{Pose}``), with its
+neck wear; the Dachshund has no art (arriving soon).  Its budget is 3 MB: eight
+base poses and eleven breeds' ears.
 """
 
 from __future__ import annotations
@@ -86,6 +93,55 @@ class HamsterRules:
     @staticmethod
     def may_leave_silhouette(path):
         return path.startswith("Markings/TeddyBear/")
+
+
+class DogRules:
+    name = "Dog"
+    breeds = ["MixedBreed", "Golden", "Beagle", "Shiba", "Corgi", "Poodle", "Husky", "Samoyed", "Pomeranian", "Dalmatian",
+              "BorderCollie"]
+    wear = WEAR
+    size_range = SIZE_RANGE
+    min_side = 300
+    base_allowed = (0, 1, 2)     # every dog has a light muzzle, bib and paw tips (G)
+    dark = ["Beagle", "Dalmatian"]
+    variants = ["Corgi"]
+    budget = 3_200_000
+
+    @classmethod
+    def poses(cls):
+        return POSES + [v + p for v in cls.variants for p in POSES]
+
+    @classmethod
+    def want_overlays(cls):
+        plain = [b for b in cls.breeds if b not in cls.variants]
+        return ({f"Markings/{b}/{p}" for b in cls.breeds for p in POSES}
+                | {f"Markings/{b}/{p}Dark" for b in cls.dark for p in POSES}
+                | {f"Accessories/{w}/{p}" for w in cls.wear for p in cls.poses()}) if plain else set()
+
+    @staticmethod
+    def allowed(path):
+        if path.startswith("Accessories/"):
+            return (3,)
+        return (1,) if path.endswith("Dark") else (0, 1)
+
+    @staticmethod
+    def required(path):
+        # the ears are in the main coat; only some breeds add G markings
+        return (3,) if path.startswith("Accessories/") else (1,) if path.endswith("Dark") else (0,)
+
+    @staticmethod
+    def may_leave_silhouette(path):
+        return path.startswith("Markings/") and not path.endswith("Dark")
+
+    @classmethod
+    def pose_of(cls, path):
+        """The base pose an overlay composites over: a variant breed's markings sit on its own base."""
+        parts = path.split("/")
+        if parts[0] == "Markings" and parts[1] in cls.variants:
+            return parts[1] + parts[2]
+        return None
+
+
 OUTLINE = np.array([77, 41, 23])
 GUID = re.compile(r"^guid: ([0-9a-f]{32})$", re.M)
 
@@ -161,8 +217,11 @@ def check_species(rules, guids):
     if rs and rs.get("young", 0) >= rs.get("grown", 0):
         fail("runtimeScale.young must be smaller than runtimeScale.grown")
     poses = {p["name"]: p for p in layout.get("poses", [])}
-    if sorted(poses) != sorted(POSES):
-        fail(f"layout poses {sorted(poses)} != {sorted(POSES)}")
+    want_poses = rules.poses() if hasattr(rules, "poses") else POSES
+    if sorted(poses) != sorted(want_poses):
+        fail(f"layout poses {sorted(poses)} != {sorted(want_poses)}")
+    if sorted(layout.get("breedBases", [])) != sorted(getattr(rules, "variants", [])):
+        fail(f"{rules.name} breedBases {layout.get('breedBases')!r} != {getattr(rules, 'variants', [])!r}")
     overlays = {o["path"]: o for o in layout.get("overlays", [])}
     want_overlays = rules.want_overlays()
     if set(overlays) != want_overlays:
@@ -218,11 +277,15 @@ def check_species(rules, guids):
         if pose is None:
             fail(f"{path}: unknown pose {o['pose']}")
             continue
+        expected_pose = rules.pose_of(path) if hasattr(rules, "pose_of") else None
+        if expected_pose is not None and o["pose"] != expected_pose:
+            fail(f"{path}: composites over {o['pose']}, expected the breed's own base {expected_pose}")
         if o["x"] < 0 or o["y"] < 0 or o["x"] + w > pose["width"] or o["y"] + h > pose["height"]:
             fail(f"{path}: overlay {o['x']},{o['y']} {w}x{h} outside pose {pose['width']}x{pose['height']}")
             continue
         allowed = rules.allowed(path)
-        check_regions(f"{rules.name} {path}", img, reg, allowed)
+        check_regions(f"{rules.name} {path}", img, reg, allowed,
+                      required=rules.required(path) if hasattr(rules, "required") else None)
         if o["pose"] in base_alpha and not rules.may_leave_silhouette(path):
             under = base_alpha[o["pose"]][o["y"]:o["y"] + h, o["x"]:o["x"] + w]
             outside = (img[..., 3] > 8) & (under == 0)
@@ -257,7 +320,7 @@ def check_species(rules, guids):
 
     check_meta(lp, False, guids)
     for folder in [CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories"] + [CAT / "Accessories" / w for w in rules.wear] + \
-            [CAT / "Markings" / b for b in rules.breeds]:
+            [CAT / "Markings" / b for b in rules.breeds]:  # noqa: E127
         if not folder.is_dir():
             fail(f"missing folder {folder.relative_to(ROOT)}")
         else:
@@ -267,8 +330,10 @@ def check_species(rules, guids):
 def main():
     guids = []
     check_meta(PETS, True, guids)
-    for rules in (CatRules, HamsterRules):
+    for rules in (CatRules, HamsterRules, DogRules):
         check_species(rules, guids)
+    if (PETS / "Dog" / "Markings" / "Dachshund").exists():
+        fail("the Dachshund has no art yet: it is listed as arriving soon")
     # every file under Pets/ has a meta, no stray metas
     for p in PETS.rglob("*"):
         if p.suffix == ".meta":
@@ -277,10 +342,11 @@ def main():
         elif not p.with_name(p.name + ".meta").exists():
             fail(f"missing meta for {p.relative_to(ROOT)}")
     # each species' shipped art stays within the Web download budget (about 2 MB)
-    for rules in (CatRules, HamsterRules):
+    for rules in (CatRules, HamsterRules, DogRules):
         size = sum(f.stat().st_size for f in (PETS / rules.name).rglob("*") if f.is_file() and f.suffix != ".meta")
-        if size > 2_000_000:
-            fail(f"{rules.name} art is {size / 1e6:.2f} MB, over the 2 MB budget")
+        budget = getattr(rules, "budget", 2_000_000)
+        if size > budget:
+            fail(f"{rules.name} art is {size / 1e6:.2f} MB, over the {budget / 1e6:.0f} MB budget")
         print(f"ok {rules.name} art {size / 1e6:.2f} MB")
     return finish(guids)
 

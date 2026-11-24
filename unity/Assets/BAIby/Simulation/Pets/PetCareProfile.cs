@@ -20,6 +20,15 @@ namespace BAIby.Simulation.Pets
     // scramble hand to hand) and Bedding the Cleanliness role. Its quiet hours are the day nap: needs fall slowly and
     // Energy comes back to full. Milestones Wheel (day 2), Tunnel (day 4) and Hand-tame (day 6) follow Milestone timing
     // on the same readiness chain as the cat's; the hamster grows up on day 5, so it may become hand-tame as a grown-up.
+    //
+    // The dog (P3): meals Morning and Evening like the cat, and two walks: an early one before school (a grace window
+    // that closes excused when school gets in the way) and an evening one after school, which keeps its together ring.
+    // A walk is together time that comforts (CareTags.Walk): it calms a restless dog, a poorly dog still manages a slow
+    // sniff round the garden, and nothing automates it. Fetch is play, which a grumpy dog turns away from; each game
+    // that is not one too many is familiarity towards its tricks (DogTricks). Exercise plays the Comfort role; the daily
+    // brush is its wash, and a missed brush leaves a chewed slipper. Milestones Fetch (day 3), Leash walk (day 6) and
+    // Agility (day 9) follow Milestone timing; the dog grows up on day 10, so only care slow enough to pass the nominal
+    // pace makes agility a grown-up's (guaranteed by day 12.6).
     public sealed class PetCareProfile
     {
         public static readonly PetCareProfile Cat = new PetCareProfile(Species.Cat, CareRoutine.Cat,
@@ -67,6 +76,29 @@ namespace BAIby.Simulation.Pets
             nightFullness: 0.8, nightComfort: 0.5, nightEnergy: 9, nightCleanliness: 0.8,
             comfort: PetMeter.Exercise, cleanliness: PetMeter.Bedding, restsAlone: true);
 
+        public static readonly PetCareProfile Dog = new PetCareProfile(Species.Dog, CareRoutine.Dog,
+            new CareProfile("dog", new Dictionary<string, CareTags>
+            {
+                ["feed"] = CareTags.Meal,
+                ["walk"] = CareTags.Together | CareTags.Walk | CareTags.Comfort,
+                ["fetch"] = CareTags.Together | CareTags.Play,
+                ["brush"] = CareTags.Hygiene,
+                ["rest"] = CareTags.Bedtime,
+                ["medicine"] = CareTags.Medicine,
+            }),
+            new Dictionary<PetVerb, string>
+            {
+                [PetVerb.Feed] = "feed",
+                [PetVerb.Walk] = "walk",
+                [PetVerb.Fetch] = "fetch",
+                [PetVerb.Brush] = "brush",
+                [PetVerb.Rest] = "rest",
+            },
+            new[] { MotorSkill.Fetch, MotorSkill.LeashWalk, MotorSkill.Agility },
+            new[] { TimeSpan.FromDays(3), TimeSpan.FromDays(6), TimeSpan.FromDays(9) },
+            nightFullness: 1.5, nightComfort: 0.5, nightEnergy: 9, nightCleanliness: 0.5,
+            comfort: PetMeter.Exercise, playKind: EngagementKind.Fetch, trickVerb: PetVerb.Fetch);
+
         private readonly Dictionary<PetVerb, string> verbs;
         private readonly MotorSkill[] skills;
         private readonly TimeSpan[] skillAges;
@@ -91,6 +123,11 @@ namespace BAIby.Simulation.Pets
         public PetMeter CleanlinessMeter { get; }
         // The species rests on its own (a day nap): quiet hours always restore Energy, with no bedtime asked.
         public bool RestsAlone { get; }
+        // What play counts as for engagement (a cat's wand and a hamster's wheel are PlayWand, a dog's fetch is Fetch).
+        // A walk is always PlayWand (Motor).
+        public EngagementKind PlayKind { get; }
+        // The verb whose familiarity teaches tricks (a dog's fetch), or null.
+        public PetVerb? TrickVerb { get; }
         // How many meals a full care day asks for (two for a cat, one for a hamster's dinner), and whether it asks for
         // a bedtime (a hamster's day nap is its own).
         public int MealsPerDay => RoutineCalendar.MealWindows(Routine);
@@ -99,8 +136,10 @@ namespace BAIby.Simulation.Pets
         private PetCareProfile(Species species, CareRoutine routine, CareProfile profile, Dictionary<PetVerb, string> verbs,
             MotorSkill[] skills, TimeSpan[] skillAges, double nightFullness, double nightComfort, double nightEnergy,
             double nightCleanliness, PetMeter comfort = PetMeter.Comfort, PetMeter cleanliness = PetMeter.Cleanliness,
-            bool restsAlone = false)
+            bool restsAlone = false, EngagementKind playKind = EngagementKind.PlayWand, PetVerb? trickVerb = null)
         {
+            PlayKind = playKind;
+            TrickVerb = trickVerb;
             ComfortMeter = comfort;
             CleanlinessMeter = cleanliness;
             RestsAlone = restsAlone;
@@ -118,7 +157,7 @@ namespace BAIby.Simulation.Pets
 
         // The species' care profile, or null when the species keeps PetSimulation's simple rules.
         public static PetCareProfile For(Species species) =>
-            species == Species.Cat ? Cat : species == Species.Hamster ? Hamster : null;
+            species == Species.Cat ? Cat : species == Species.Hamster ? Hamster : species == Species.Dog ? Dog : null;
 
         // The need role a meter plays, as the shared rules name it, or null when the meter has none.
         public PetMeter? RoleOf(PetMeter meter)
@@ -158,14 +197,17 @@ namespace BAIby.Simulation.Pets
         public CareTags TagsFor(PetVerb verb) => Profile.TagsFor(VerbId(verb));
 
         // What the verb counts as for engagement (docs/care-and-growth.md, slice 4: play feeds Motor, petting is
-        // soothing for Social, brushing is grooming; an on-time meal counts as a meal).
+        // soothing for Social, brushing is grooming; an on-time meal counts as a meal). A dog's walk is play (Motor) and
+        // its fetch is Fetch (Motor and Learning).
         public EngagementKind? KindOf(PetVerb verb, bool onTimeMeal)
         {
             var tags = TagsFor(verb);
             if ((tags & CareTags.Meal) != 0)
                 return onTimeMeal ? EngagementKind.Meal : (EngagementKind?)null;
-            if ((tags & CareTags.Play) != 0)
+            if ((tags & CareTags.Walk) != 0)
                 return EngagementKind.PlayWand;
+            if ((tags & CareTags.Play) != 0)
+                return PlayKind;
             if ((tags & CareTags.Comfort) != 0)
                 return EngagementKind.Soothe;
             if ((tags & CareTags.Hygiene) != 0)
@@ -179,7 +221,7 @@ namespace BAIby.Simulation.Pets
             var tags = TagsFor(verb);
             if ((tags & CareTags.Meal) != 0)
                 return CareCategories.Meal;
-            if ((tags & CareTags.Play) != 0)
+            if ((tags & (CareTags.Play | CareTags.Walk)) != 0)
                 return CareCategories.Play;
             if ((tags & CareTags.Comfort) != 0)
                 return CareCategories.Comfort;

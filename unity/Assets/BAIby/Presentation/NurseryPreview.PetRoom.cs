@@ -133,7 +133,7 @@ namespace BAIby.Presentation
             nursery.ResetPresentation();
             BuildPetVerbs(companion.PetState.Species);
             var celebration = TakePetCelebrations(out var failure);
-            PaintPetRoom(celebration ?? message);
+            PaintPetRoom(Joined(ReunionLine(companion.PetState), celebration ?? message));
             var first = petVerbButtons.Count > 0 ? petVerbButtons[0] : null;
             if (first != null)
                 first.Select();
@@ -161,12 +161,39 @@ namespace BAIby.Presentation
             }
 
             var celebration = TakePetCelebrations(out var celebrationFailure) ?? PetStickerLine(FindCompanion(petSlot)?.PetState);
+            celebration = Joined(ReunionLine(FindCompanion(petSlot)?.PetState), celebration);
             PaintPetRoom(celebration, keepStatus: celebration == null);
             if (failure != null)
                 ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
             else if (celebrationFailure != null)
                 Debug.LogException(celebrationFailure);
         }
+
+        // A dog's welcome when the player comes back (its signature moment, PetReunion): the line and a happy bounce scale
+        // with the time since the last hands-on care. Played once per return; any care ends it. Never guilt, always joy.
+        private string ReunionLine(PetState state)
+        {
+            if (state == null || household == null || household.IsResting(petSlot))
+                return null;
+            var scale = PetReunion.Of(state, household.PetCatalog);
+            if (scale == ReunionScale.None || state.Care == null)
+                return null;
+            var key = (petSlot, state.Care.LastCareAt.UtcTicks);
+            if (reunionPlayed == key)
+                return null;
+            reunionPlayed = key;
+            petStage.PlayReunion(PetReunion.Bounces(scale), (float)PetReunion.BounceHeight(scale));
+            var line = PetReunion.Line(scale, state.Name);
+            // Away mode since the last care: a neighbour walked the dog.
+            var neighbour = state.Care.AwayUntil > state.Care.AwayFrom && state.Care.AwayUntil > state.Care.LastCareAt;
+            return neighbour ? line + $" The neighbour says {state.Name} was a very good dog on every walk." : line;
+        }
+
+        // The return already played for this pet (its slot and the last care it answered).
+        private (int Slot, long LastCare) reunionPlayed = (-1, 0);
+
+        private static string Joined(string first, string second) =>
+            first == null ? second : second == null ? first : first + " " + second;
 
         private void CarePet(PetVerb verb)
         {
@@ -441,6 +468,8 @@ namespace BAIby.Presentation
                 return stage == PetStage.Grown ? "Grown cat" : "Kitten";
             if (species == Species.Hamster)
                 return stage == PetStage.Grown ? "Grown hamster" : "Hamster pup";
+            if (species == Species.Dog)
+                return stage == PetStage.Grown ? "Grown dog" : "Puppy";
 
             var name = SpeciesName(species).ToLowerInvariant();
             return stage == PetStage.Grown ? "Grown " + name : "Young " + name;
@@ -474,6 +503,10 @@ namespace BAIby.Presentation
                     return PetSimulation.IsNapping(state)
                         ? $"{name} is already snoozing in the nest. Peek quietly!"
                         : $"{name} curls into a little ball for a quick snooze and wakes up bright-eyed.";
+                case PetVerb.Rest when state.Species == Species.Dog:
+                    return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
+                        ? $"{name} circles three times and settles in the basket for the night, right on time."
+                        : $"{name} flops into the basket for a snooze and wakes up with a big stretch.";
                 case PetVerb.Nap:
                 case PetVerb.Rest:
                     return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
@@ -490,6 +523,16 @@ namespace BAIby.Presentation
                     return tier == BondTier.BestFriends ? $"{name} climbs into your cupped hands and settles in for a cuddle."
                         : tier == BondTier.Trusting ? $"{name} sniffs your fingers and scrambles from hand to hand."
                         : $"{name} sniffs your hand curiously, whiskers twitching.";
+                case PetVerb.Walk:
+                    return tier == BondTier.BestFriends ? $"{name} trots right beside you, looking up every few steps."
+                        : tier == BondTier.Trusting ? $"{name} sniffs everything and wags all the way round the block."
+                        : $"{name} bounds along on the lead, tail held high.";
+                case PetVerb.Fetch:
+                    var trick = DogTricks.GamesToNext(state.Tricks);
+                    return tier == BondTier.BestFriends ? $"{name} races after the ball, drops it at your feet and does a happy spin."
+                        : trick > 0 && state.Tricks > 0 ? $"{name} races after the ball and brings it back! {trick} more " +
+                          (trick == 1 ? "game" : "games") + " and a new trick clicks."
+                        : $"{name} races after the ball and brings it back!";
                 default:
                     return $"{name} enjoys your company.";
             }
@@ -514,6 +557,18 @@ namespace BAIby.Presentation
                 if (state.Meter(PetMeter.Bedding) < low)
                     return $"{name}'s nest could use some fresh, fluffy bedding.";
                 return state.IsGrown ? $"{name} is busy stashing seeds in a corner." : $"{name} is exploring the cage, nose twitching.";
+            }
+            if (state.Species == Species.Dog)
+            {
+                if (IsSleepy(state))
+                    return $"{name} is yawning by the basket. A rest would help.";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return $"{name} is nudging the food bowl with their nose.";
+                if (state.Meter(PetMeter.Exercise) < low)
+                    return $"{name} is restless, nose at the door. A walk will help.";
+                if (state.Meter(PetMeter.Cleanliness) < low)
+                    return $"{name}'s coat is a bit muddy and could use a brush.";
+                return state.IsGrown ? $"{name} is snoozing by the door with one ear up." : $"{name} is chasing their tail round the room.";
             }
             if (IsSleepy(state))
                 return $"{name} is curled up and sleepy. A nap would help.";
@@ -555,6 +610,20 @@ namespace BAIby.Presentation
                     return "Could use fresh bedding";
                 needsCare = false;
                 return state.IsGrown ? "Stashing seeds" : "Happy and curious";
+            }
+
+            if (state.Species == Species.Dog)
+            {
+                if (IsSleepy(state))
+                    return "Ready for a rest";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return "A little peckish";
+                if (state.Meter(PetMeter.Exercise) < low)
+                    return "Nose at the door";
+                if (state.Meter(PetMeter.Cleanliness) < low)
+                    return "Could use a brush";
+                needsCare = false;
+                return state.IsGrown ? "Snoozing by the door" : "Happy and waggy";
             }
 
             if (IsSleepy(state))

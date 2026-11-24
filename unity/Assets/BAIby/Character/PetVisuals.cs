@@ -16,6 +16,9 @@ namespace BAIby.Character
     // sniffle drop when it is under the weather, a thermometer when it is sick (it rests in its rest pose too), a capsule
     // while it recovers. A shy skill (a setback) turns play (wand or wheel) into a quiet rest instead.
     //
+    // A dog (P3) trots on a walk, bounds after the ball, settles in its basket for a rest, and gives a reunion welcome:
+    // happy bounces whose number and height grow with the time away (PetReunion).
+    //
     // A species whose layout has a habitat (the hamster's cage, P2) stands in it: one layer behind the pet and one in
     // front, drawn at the baby's pose-pixel scale on the room's floor line. Its textures follow the shown species.
     public sealed class PetVisuals : MonoBehaviour
@@ -53,6 +56,9 @@ namespace BAIby.Character
         private PetVerb cue;
         private float cueStarted = -100;
         private float arrived = -100;
+        private float reunionStarted = -100;
+        private int reunionBounces;
+        private float reunionHeight;
         private bool shy;
         private Sprite disc;
         private Transform badge;
@@ -131,6 +137,14 @@ namespace BAIby.Character
 
         // A little "new arrival" pop, for adoption and the breed picker.
         public void PlayArrival() => arrived = Time.unscaledTime;
+
+        // A dog's welcome home: `bounces` happy hops `height` pose-heights high (more and higher the longer the time away).
+        public void PlayReunion(int bounces, float height)
+        {
+            reunionBounces = Mathf.Max(0, bounces);
+            reunionHeight = Mathf.Max(0, height);
+            reunionStarted = Time.unscaledTime;
+        }
 
         // A portrait for a Home card: the awake pose of that look and stage at half size. Kept for the
         // few cards on Home and freed by ReleasePortraits. Null when the art could not be built. A journal
@@ -497,9 +511,9 @@ namespace BAIby.Character
 
             var now = Time.unscaledTime;
             var sinceCue = now - cueStarted;
-            // A shy pet answers play (the wand or the wheel) with a quiet rest instead.
-            bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel;
-            bool napping = (cue == PetVerb.Nap || (shy && play)) && sinceCue < NapDuration;
+            // A shy pet answers play (the wand, the wheel, a walk or fetch) with a quiet rest instead.
+            bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel || cue == PetVerb.Walk || cue == PetVerb.Fetch;
+            bool napping = (cue == PetVerb.Nap || cue == PetVerb.Rest || (shy && play)) && sinceCue < NapDuration;
             float targetRest = wantsRest || napping ? 1 : 0;
             restBlend = Mathf.MoveTowards(restBlend, targetRest, Time.unscaledDeltaTime * 1.6f);
             if ((restBlend > 0 && restSprite == null && !restFailed) || (restBlend < 1 && awakeSprite == null && !awakeFailed))
@@ -516,10 +530,21 @@ namespace BAIby.Character
             SetAlpha(rest, resting);
 
             float active = sinceCue < CueDuration ? Mathf.Sin(Mathf.Clamp01(sinceCue / CueDuration) * Mathf.PI) : 0;
-            // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce.
+            // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce; a dog's walk is a brisk little trot.
+            bool trot = cue == PetVerb.Wheel || cue == PetVerb.Walk;
             float hop = play && !shy
-                ? Mathf.Abs(Mathf.Sin(sinceCue * (cue == PetVerb.Wheel ? 13f : 7.5f))) * active * (cue == PetVerb.Wheel ? .45f : 1f)
+                ? Mathf.Abs(Mathf.Sin(sinceCue * (trot ? 13f : 7.5f))) * active * (trot ? .45f : 1f)
                 : 0;
+            // The reunion welcome: a run of happy bounces, each a little lower than the last.
+            float sinceReunion = now - reunionStarted;
+            const float bounceTime = .42f;
+            if (reunionBounces > 0 && sinceReunion < reunionBounces * bounceTime)
+            {
+                int index = Mathf.FloorToInt(sinceReunion / bounceTime);
+                float phase = (sinceReunion - index * bounceTime) / bounceTime;
+                float height = reunionHeight * (1 - .18f * index) * Mathf.Sin(phase * Mathf.PI);
+                hop = Mathf.Max(hop, height * PoseHeight() * pixelScale * (float)RuntimeScale() / .32f);
+            }
             float purr = cue == PetVerb.Pet || cue == PetVerb.GentleHold ? Mathf.Sin(now * 30f) * active : 0;
             float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl ? active : 0;
             float groom = cue == PetVerb.Brush || cue == PetVerb.FluffBedding ? Mathf.Sin(sinceCue * 5f) * active : 0;

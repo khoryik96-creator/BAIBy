@@ -39,11 +39,13 @@ sys.path.insert(0, str(ROOT / "tools" / "appearance"))
 sys.path.insert(0, str(HERE))
 
 import recolor as baby  # noqa: E402  (tools/appearance/recolor.py)
-from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, EYES, HAMSTER_COATS, HAMSTER_EYES, allowed_eyes,  # noqa: E402
-                     coat_colors, hamster_allowed_eyes, hamster_coat_colors)
+from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, DOG_COATS, DOG_EYES, EYES, HAMSTER_COATS,  # noqa: E402
+                     HAMSTER_EYES, allowed_eyes, coat_colors, dog_allowed_eyes, dog_coat_colors, hamster_allowed_eyes,
+                     hamster_coat_colors)
 
 CAT = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets" / "Cat"
 HAMSTER = CAT.parent / "Hamster"
+DOG = CAT.parent / "Dog"
 RES = ROOT / "unity" / "Assets" / "Resources" / "BAIby"
 DEFAULT_OUT = Path("/tmp/claude-0/-home-user-BAIBy/729cdbf9-e760-56a7-bde4-d84d73210b9a/scratchpad/cat-preview")
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
@@ -112,6 +114,116 @@ class Hamster(Cat):
         img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
         out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
         return Image.fromarray(out, "RGBA")
+
+
+class Dog(Cat):
+    """The dog: a breed listed in ``breedBases`` (the Corgi) stands on its own base pose ("Corgi" + pose), whose
+    markings keep the plain pose's path and whose neck wear follows its pose."""
+
+    def __init__(self):
+        super().__init__(DOG)
+        self.variants = set(self.layout.get("breedBases", []))
+
+    def layers(self, pose, breed=None, collar=False, dark_targets=None, wear="Collar"):
+        shown = breed + pose if breed in self.variants else pose
+        img = load(self.folder / "Base" / f"{shown}.bytes")
+        reg = load(self.folder / "Base" / f"{shown}Regions.bytes")
+        paths = []
+        if breed:
+            paths += [p for p in (f"Markings/{breed}/{pose}", f"Markings/{breed}/{pose}Dark") if p in self.overlays]
+        if collar:
+            paths.append(f"Accessories/{wear}/{shown}")
+        for p in paths:
+            o = self.overlays[p]
+            oi = load(self.folder / f"{p}.bytes")
+            orr = load(self.folder / f"{p}Regions.bytes")
+            if o.get("gTarget") == "dark" and dark_targets is not None:
+                oi = baby.recolor(oi, orr, dark_targets, self.refs)
+                orr = np.zeros_like(orr)
+            img, reg = baby.composite(img, reg, oi, orr, o["x"], o["y"])
+        return img, reg
+
+    def draw(self, pose, breed="MixedBreed", coat=None, eyes=None, collar=None, wear="Collar"):
+        coat = coat or next(iter(DOG_COATS[breed]))
+        main, sec, dark = dog_coat_colors(breed, coat)
+        eye = DOG_EYES[eyes or ("Blue" if breed == "Husky" else "Brown")]
+        accent = (baby.OUTFIT[collar][1] if collar and baby.OUTFIT[collar] else self.refs[3]) if collar else self.refs[3]
+        img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
+        out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
+        return Image.fromarray(out, "RGBA")
+
+
+def dog_sheets(out):
+    dog = Dog()
+    cat = Cat()
+    breeds = list(DOG_COATS)
+    cells = []
+    for b in breeds:
+        for p in POSES:
+            cells.append((dog.draw(p, b), f"{b} / {p}"))
+    grid(cells, 4, 340, 300, 0.5, "Placeholder dog: breed x pose (default coat; the Dachshund is arriving soon)").save(
+        out / "dog-breeds.png")
+
+    cells = []
+    k = 0
+    for b in breeds:
+        eyes = dog_allowed_eyes(b)
+        for coat in DOG_COATS[b]:
+            e = eyes[k % len(eyes)]
+            cells.append((dog.draw("YoungAwake" if k % 2 == 0 else "GrownAwake", b, coat, e), f"{b} {coat} / {e}"))
+            k += 1
+    grid(cells, 6, 260, 290, 0.48, "Dog coats per breed (recoloured with the baby formula)").save(out / "dog-coats.png")
+
+    cells = []
+    for b in breeds:
+        for p in ("YoungRest", "GrownRest"):
+            cells.append((dog.draw(p, b, list(DOG_COATS[b])[-1]), f"{b} / {p}"))
+    grid(cells, 4, 340, 220, 0.5, "Dog rest poses (lying down, chin on paws)").save(out / "dog-rest.png")
+
+    cells = []
+    colours = ["Sky", "Butter", "Lilac", "Terracotta", "Blush", "Oat", "Midnight", "Sage"]
+    for i, p in enumerate(POSES):
+        for j, wear in enumerate(("Collar", "Bandana", "Bow")):
+            colour = colours[(i * 3 + j) % len(colours)]
+            b = ("MixedBreed", "Corgi", "Husky", "Golden")[i]
+            cells.append((dog.draw(p, b, collar=colour, wear=wear), f"{wear} {colour} / {b} {p}"))
+    grid(cells, 3, 340, 300, 0.5, "Neck wear (region A) in the outfit accent palette").save(out / "dog-wear.png")
+
+    cells = []
+    for p in POSES:
+        cells.append((dog.draw(p, "MixedBreed"), f"Mixed breed / {p}"))
+        cells.append((dog.draw(p, "Corgi"), f"Corgi (short legs) / {p}"))
+    grid(cells, 4, 340, 300, 0.5, "The premium Corgi: its own short-legged base and big ears").save(out / "dog-corgi.png")
+
+    # beside the Sitter baby and a kitten, each at its layout runtimeScale
+    rs, crs = dog.layout["runtimeScale"], cat.layout["runtimeScale"]
+    sitter = Image.open(RES / "Baby" / "Sitter.png").convert("RGBA")
+
+    def scaled(im, k):
+        return im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+
+    kitten = scaled(cat.draw("YoungAwake", "Tabby"), crs["young"])
+    puppy = scaled(dog.draw("YoungAwake", "MixedBreed"), rs["young"])
+    grown = scaled(dog.draw("GrownAwake", "Golden"), rs["grown"])
+    corgi = scaled(dog.draw("GrownAwake", "Corgi"), rs["grown"])
+    panels = []
+    for row in ((kitten, puppy), (grown, corgi)):
+        bd = Image.open(RES / "Nursery" / "Backdrop.png").convert("RGBA")
+        bd.alpha_composite(sitter, (16, 1470 - sitter.height))
+        x = 16 + sitter.width + 10
+        for im in row:
+            bd.alpha_composite(im, (x, 1500 - im.height))
+            x += im.width + 8
+        panels.append(bd.crop((0, 900, bd.width, 1672)))
+    w, h = panels[0].size
+    sheet = Image.new("RGBA", (w * 2 + 20, h), BG)
+    for i, pnl in enumerate(panels):
+        sheet.alpha_composite(pnl, (i * (w + 20), 0))
+    sheet.resize((sheet.width * 2 // 3, sheet.height * 2 // 3), Image.LANCZOS).save(out / "dog-nursery.png")
+
+    cells = [(dog.draw("YoungAwake", "Corgi"), "Corgi Red"), (dog.draw("GrownAwake", "Husky"), "Husky Gray"),
+             (dog.draw("YoungAwake", "Dalmatian"), "Dalmatian"), (dog.draw("GrownRest", "Beagle"), "Beagle asleep")]
+    grid(cells, 2, 680, 640, 1.0, "Dog 1:1 detail").save(out / "dog-detail.png")
 
 
 def hamster_sheets(out):
@@ -213,13 +325,15 @@ def grid(cells, cols, cell_w, cell_h, scale, title=None, pad=12):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--species", default="Cat,Hamster")
+    ap.add_argument("--species", default="Cat,Hamster,Dog")
     args = ap.parse_args()
     out = args.out
     out.mkdir(parents=True, exist_ok=True)
     species = args.species.split(",")
     if "Hamster" in species:
         hamster_sheets(out)
+    if "Dog" in species:
+        dog_sheets(out)
     if "Cat" not in species:
         print("wrote", out)
         return

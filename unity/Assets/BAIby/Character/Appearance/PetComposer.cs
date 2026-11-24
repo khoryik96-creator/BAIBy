@@ -11,7 +11,9 @@ namespace BAIby.Character
     // Pure compositing for a pet pose, shared by PetVisuals and checked by tests/Appearance. The order
     // follows docs/pet-mode.md and tools/pets: base, breed markings, a "dark" markings overlay recolored
     // on its own first (Calico), the accessory, then one recolor pass and the transparent-edge fill.
-    // A breed without marking art shows the plain base; an accessory without art is left off.
+    // A breed without marking art shows the plain base; an accessory without art is left off. A breed the layout lists
+    // in breedBases (the Corgi) is drawn on its own base pose (breed + pose), with its markings and the accessory
+    // drawn for that pose.
     public sealed class PetComposer
     {
         private readonly PetLayout layout;
@@ -34,22 +36,23 @@ namespace BAIby.Character
         {
             if (source == null)
                 throw new ArgumentNullException(nameof(source));
-            if (!layout.TryGetPoseSize(pose, out width, out height))
-                throw new InvalidOperationException("The pet layout has no " + pose + " pose.");
+            var shown = layout.ShownPose(breed, pose);
+            if (!layout.TryGetPoseSize(shown, out width, out height))
+                throw new InvalidOperationException("The pet layout has no " + shown + " pose.");
 
             int length = width * height * AppearanceRecolor.Channels;
             Ensure(ref pixels, length);
             Ensure(ref regions, length);
-            var basePath = PetLayout.BasePath(pose);
+            var basePath = PetLayout.BasePath(shown);
             Buffer.BlockCopy(Checked(source(basePath, width, height), length, basePath), 0, pixels, 0, length);
             var baseRegions = PetLayout.RegionsPath(basePath);
             Buffer.BlockCopy(Checked(source(baseRegions, width, height), length, baseRegions), 0, regions, 0, length);
 
-            CompositeIfPresent(PetLayout.MarkingsPath(breed, pose), pose, width, height, source, order, null);
+            CompositeIfPresent(PetLayout.MarkingsPath(breed, pose), shown, width, height, source, order, null);
             var dark = PetLayout.DarkMarkingsPath(breed, pose);
             if (layout.IsDarkOverlay(dark))
-                CompositeIfPresent(dark, pose, width, height, source, order, PetPalette.DarkTargets(layout, breed, coat, accent));
-            CompositeIfPresent(PetLayout.AccessoryPath(accessory, pose), pose, width, height, source, order, null);
+                CompositeIfPresent(dark, shown, width, height, source, order, PetPalette.DarkTargets(layout, breed, coat, accent));
+            CompositeIfPresent(PetLayout.AccessoryPath(accessory, shown), shown, width, height, source, order, null);
 
             AppearanceRecolor.Recolor(pixels, regions, width * height, layout.Reference,
                 PetPalette.Targets(layout, breed, coat, accent));

@@ -159,6 +159,10 @@ namespace BAIby.Simulation.Pets
         // Whether the pet is in its day nap at its checkpoint (a hamster through school hours): a cosy, normal sleep.
         public static bool IsNapping(PetState state) => state?.Care != null && CareRules.IsNapping(state.Care);
 
+        // How big a welcome the pet gives at its checkpoint (a dog's reunion greeting, scaled to time away since the
+        // last hands-on care; None for other species).
+        public ReunionScale Reunion(PetState state) => PetReunion.Of(state, Catalog);
+
         // The free vet's visit (Health +15, then Recovering with medicine, or home well). Advance first.
         public PetStep VisitVet(PetState state) => care.VisitVet(Profiled(state));
 

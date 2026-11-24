@@ -1,4 +1,4 @@
-# Pet art pipeline (PLACEHOLDER cat and hamster)
+# Pet art pipeline (PLACEHOLDER cat, hamster and dog)
 
 > **Everything this tool produces is PLACEHOLDER art.** It exists so pet mode
 > (P1 Cat, `docs/pet-mode.md`) is playable before the commissioned cat
@@ -48,6 +48,35 @@ match the layout) and that each species' art stays under 2 MB (cat about 1.1 MB,
 Known limitations: the Teddy bear's tufts are procedural and read a little spiky at small sizes; the Panda's saddle is
 a plain band; there is no head-anchor data; the habitat is a flat placeholder that does not follow the room theme.
 
+## Dog (P3)
+
+`dog.py` draws the dog with the cat's helpers (`cat.py`), in the same chibi style: a big round head with a light
+muzzle, a glossy button nose and a happy open mouth (a closed smile asleep), the baby's cheek blush and big glossy
+eyes, a pear-shaped sitting body with two straight forelegs, light paw tips and a curled tail; at rest it lies down
+with its chin on its paws and its eyes closed. Outputs go to `unity/Assets/Resources/BAIby/Pets/Dog/` with the same
+contract and a `layout.json` saying `"placeholder": true`. `runtimeScale` is `young` 0.58 and `grown` 0.76.
+
+| Path | What |
+| --- | --- |
+| `Base/{Pose}` (+`Regions`) | the dog **without ears**: the light muzzle, chest bib and paw tips are region G (the palette's `secondary`) |
+| `Base/Corgi{Pose}` (+`Regions`) | the Corgi's own base: the same dog with the leg region scaled to 55% and a wider, lower body. `layout.json` `breedBases: ["Corgi"]` tells the composer to draw that breed on `Corgi` + pose |
+| `Markings/{Breed}/{Pose}` | every shipped breed's **feature overlay**: its ears in the main coat (R) and any G markings; it may reach past the base silhouette, so each pose is cropped to the union of the base and its overlays. Button ears fold forward (Mixed breed, Border Collie), long ears hang (Golden, Beagle), floppy ears (Dalmatian), curly ears with a topknot and cuffs (Poodle), prick ears stand behind the head (Shiba, Husky, Samoyed, the smaller Pomeranian's and the Corgi's big ones). G markings: the Husky's face mask and brow spots, the Shiba's urajiro, the Corgi's and Border Collie's blaze (and the collie's collar, socks and tail tip), the Beagle's blaze. Fluff in the main coat: the Samoyed's and Pomeranian's ruff, the Golden's chest feathering. The Corgi's overlay keeps the plain pose name in its path and composites over `Corgi{Pose}` |
+| `Markings/{Beagle,Dalmatian}/{Pose}Dark` | the Beagle's saddle and the Dalmatian's spots (gTarget `dark`) |
+| `Accessories/{Collar,Bandana,Bow}/{Pose}` | neck wear (A), for the Corgi's poses too; free for the dog (no pack sells dog wear) |
+
+The Dachshund's long body needs a new silhouette, so it has no art and the game lists it as arriving soon. The palette
+(`palette.py` `DOG_COATS`) has every catalog coat of the eleven shipped breeds, `Brown` eyes by default (`Blue` for the
+Husky, `Amber` allowed). `check.py` checks the dog's eight poses, the breed bases, that every breed's overlay has its
+main coat, that the dark overlays and the wear stay inside the silhouette, that there is no Dachshund art, and a 3.2 MB
+budget (about 3.1 MB: eight bases and eleven breeds' ears). `preview.py` writes `dog-breeds.png`, `dog-coats.png`,
+`dog-rest.png`, `dog-wear.png`, `dog-corgi.png`, `dog-nursery.png` and `dog-detail.png`.
+
+Known limitations: the legs are straight columns whose tops fade into the chest; the Beagle's saddle reads mostly on
+the haunches when it sits; the Corgi's tricolour has no tan points; black coats separate from the outline by value
+only; the bandana sits on the side of the neck when the dog lies down; the Husky's mask overlay misses the head
+outline's anti-aliased rim by a few pixels (`build.py` prints the worst case); the Dalmatian's spots stay between its
+ears, since the spots overlay composites after them; there is no head-anchor data.
+
 ## Requirements
 
 * Python 3.10+
@@ -63,7 +92,7 @@ pip install -r tools/pets/requirements.txt
 
 ```
 python3 tools/pets/build.py     # regenerate every cat and hamster asset + layout.json + .meta files (~4 min, 4 processes)
-python3 tools/pets/build.py --species Hamster   # one species
+python3 tools/pets/build.py --species Dog       # one species (about 5 minutes for the dog)
 python3 tools/pets/check.py     # self-check of the shipped files (exit code 1 on failure)
 python3 tools/pets/preview.py   # contact sheets (default: the session scratchpad; --out DIR)
 ```
