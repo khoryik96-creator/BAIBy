@@ -48,10 +48,14 @@ namespace BAIby.Simulation
                 case CareMood.Content:
                     return fussy == CareMoodCause.None ? record : Become(record, CareMood.Fussy, fussy);
                 case CareMood.Fussy:
+                    // Whatever made the companion fussy may have gone while nobody was looking (energy comes
+                    // back overnight). Calm first, so fussing that has already ended never escalates.
+                    if (fussy == CareMoodCause.None)
+                        return Become(record, CareMood.Content, CareMoodCause.None);
                     var upset = UpsetCause(record, needs, rules, tunables);
                     if (upset != CareMoodCause.None && record.Checkpoint - record.MoodSince >= rules.UpsetDwell)
                         return Become(record, CareMood.Upset, upset);
-                    return fussy == CareMoodCause.None ? Become(record, CareMood.Content, CareMoodCause.None) : record;
+                    return record;
                 default:
                     return record;
             }

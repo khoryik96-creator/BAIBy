@@ -195,23 +195,30 @@ namespace BAIby.Simulation
             var rates = new[] { fullness, comfort, energy, cleanliness };
             var values = new[] { start.Satiety, start.Comfort, start.Energy, start.Cleanliness };
 
-            var recovering = HoursAtOrAbove(values, rates, energyCap, RecoveryThreshold, hours);
-            var deteriorating = hours - HoursAtOrAbove(values, rates, energyCap, LowNeedThreshold, hours);
-            var recovered = Math.Min(100, start.Health + recovering * RecoveryPerHour);
+            // Health changes in time order: loss while a need is low before the safe stretch, recovery inside
+            // it (RecoveryThreshold is above LowNeedThreshold, so recovery never falls outside), loss after it.
+            // Applying them in order keeps one long advance equal to many short ones.
+            var safe = WindowAtOrAbove(values, rates, energyCap, LowNeedThreshold, hours);
+            var recovery = WindowAtOrAbove(values, rates, energyCap, RecoveryThreshold, hours);
+            var health = Math.Max(0, start.Health - safe.Low * HealthLossPerHour);
+            health = Math.Min(100, health + (recovery.High - recovery.Low) * RecoveryPerHour);
+            health = Math.Max(0, health - (hours - safe.High) * HealthLossPerHour);
             return new Values
             {
                 Satiety = Math.Max(0, start.Satiety - fullness * hours),
                 Comfort = Math.Max(0, start.Comfort - comfort * hours),
                 Energy = energy < 0 ? Math.Min(energyCap, start.Energy - energy * hours) : Math.Max(0, start.Energy - energy * hours),
                 Cleanliness = Math.Max(0, start.Cleanliness - cleanliness * hours),
-                Health = Math.Max(0, recovered - deteriorating * HealthLossPerHour),
+                Health = health,
             };
         }
 
-        // How long, within [0, hours], every need is at or above the threshold. Each need is monotonic within a
-        // segment, so the set is one interval.
-        private static double HoursAtOrAbove(double[] values, double[] rates, double ceiling, double threshold, double hours)
+        // When, within [0, hours], every need is at or above the threshold. Each need is monotonic within a
+        // segment, so the set is one interval; an empty set is (hours, hours).
+        private static (double Low, double High) WindowAtOrAbove(double[] values, double[] rates, double ceiling,
+            double threshold, double hours)
         {
+            var empty = (hours, hours);
             var low = 0.0;
             var high = hours;
             for (var i = 0; i < values.Length; i++)
@@ -221,18 +228,18 @@ namespace BAIby.Simulation
                 if (rate > 0)
                 {
                     if (value < threshold)
-                        return 0;
+                        return empty;
                     high = Math.Min(high, (value - threshold) / rate);
                 }
                 else if (value < threshold)
                 {
                     if (rate == 0 || ceiling < threshold)
-                        return 0;
+                        return empty;
                     low = Math.Max(low, (threshold - value) / -rate);
                 }
             }
 
-            return Math.Max(0, high - low);
+            return high > low ? (low, high) : empty;
         }
 
         private static double Hours(long ticks) => (double)ticks / TimeSpan.TicksPerHour;

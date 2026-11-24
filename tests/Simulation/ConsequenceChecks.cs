@@ -26,6 +26,7 @@ static class ConsequenceChecks
         GentleIsGentler();
         RoutineStripStates();
         Migration();
+        ReviewFixes();
         Console.WriteLine("Care consequence checks passed.");
     }
 
@@ -530,6 +531,29 @@ static class ConsequenceChecks
         for (var i = 0; i < strip.Count; i++)
             kinds[i] = strip[i].Kind.ToString();
         return kinds;
+    }
+
+    // Codex review of PR #15: a long absence must land where frequent refreshes would.
+    private static void ReviewFixes()
+    {
+        var game = Game();
+
+        // Fussing whose only cause (low Energy) recovers overnight calms; it never escalates on return.
+        var sleepy = Baby(At(2026, 3, 2, 22, 0), satiety: 90, comfort: 90, energy: 25, countFrom: At(2026, 3, 2, 22, 0));
+        var fussing = game.Advance(sleepy, At(2026, 3, 2, 22, 5)).State;
+        Equal(CareMood.Fussy, fussing.Care.Mood, "Energy 25 makes the baby fussy");
+        var morning = game.Advance(fussing, At(2026, 3, 3, 1, 0)).State;
+        Equal(true, morning.Energy >= 35, "Energy recovers overnight");
+        Equal(CareMood.Content, morning.Care.Mood, "fussing that ended overnight calms instead of escalating");
+
+        // Health lost early in the night is won back later, as it would be with a refresh partway through.
+        var evening = At(2026, 3, 2, 21, 30);
+        var tired = BabyState.Restore("Mia", evening, TimeSpan.FromDays(4), 100, 100, 20, 3, 0, true, false, 10, 1, 100, 100, true,
+            care: Anchored(evening));
+        var once = game.Advance(tired, evening.AddHours(6)).State;
+        var twice = game.Advance(game.Advance(tired, evening.AddHours(2)).State, evening.AddHours(6)).State;
+        Near(twice.Health, once.Health, "one long night changes Health like a night with a refresh");
+        Near(100, once.Health, "early night-time Health loss is recovered later that night");
     }
 
     private static BabySimulation Game() =>
