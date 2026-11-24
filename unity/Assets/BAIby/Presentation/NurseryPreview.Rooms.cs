@@ -31,8 +31,8 @@ namespace BAIby.Presentation
         {
             gate = new GatePanel(Tray("Parental Gate Panel", false, 420), CancelGate, SubmitGate);
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
-            settings = new SettingsPanel(Tray("Household Settings Panel", false, 480), ShowHome, RestorePurchases, ShowMoreRooms,
-                ToggleDeveloperMode, ShowHelpersPanel);
+            settings = new SettingsPanel(Tray("Household Settings Panel", false, SettingsPanel.Height), ShowHome, RestorePurchases,
+                ShowMoreRooms, ToggleDeveloperMode, ShowHelpersPanel, ToggleTalkTyping);
             helpersPanel = new HelpersPanel(Tray("Helpers Panel", false, 500), ShowSettings, ToggleHelper, ToggleTestHelpers);
             journal = new JournalPanel(Tray("Journal Panel", false, JournalPanel.PetHeight), CloseJournal, nursery.PhotoSprite);
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
@@ -190,6 +190,29 @@ namespace BAIby.Presentation
                 : household.HasResting
                     ? "Developer mode is off. Little ones beyond the free rooms are resting."
                     : "Developer mode is off. The game is back to what you own and have earned.";
+        }
+
+        // Lets children type a few words in Talk time, or back to feeling chips only (the default). Behind the gate.
+        private void ToggleTalkTyping()
+        {
+            if (household == null)
+                return;
+
+            var on = !household.TalkTyping;
+            try
+            {
+                household.SetTalkTyping(on);
+            }
+            catch (Exception error)
+            {
+                ReportFailure(error, "Talk time couldn't be changed. Please try again.");
+                return;
+            }
+
+            settings.Show(household, PlaytestOn, playtest);
+            settings.Feedback.text = on
+                ? "Children can type a few words in Talk time. The words stay on this device and are never saved."
+                : "Talk time uses the feeling chips only.";
         }
 
         private void RestorePurchases()
@@ -359,7 +382,10 @@ namespace BAIby.Presentation
 
         private sealed class SettingsPanel
         {
+            public const float Height = 560;
+
             private readonly Text detail;
+            private readonly Text typingLabel;
 
             public GameObject Root { get; }
             public Button Close { get; }
@@ -369,7 +395,7 @@ namespace BAIby.Presentation
             private readonly Text developerLabel;
 
             public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper,
-                Action helpers)
+                Action helpers, Action toggleTyping)
             {
                 Root = content.parent.gameObject;
                 var heading = Label("Settings Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
@@ -406,13 +432,22 @@ namespace BAIby.Presentation
                     SoftShapes.Lift(button.gameObject);
                 }
 
+                // Talk time: children may type a few words (off by default). The words are never saved.
+                var typing = ActionButton("Settings talk typing", content, 0, 1, 0, 0, toggleTyping, Paper, Ink);
+                typingLabel = typing.GetComponentInChildren<Text>();
+                typingLabel.resizeTextForBestFit = true;
+                typingLabel.resizeTextMinSize = 16;
+                typingLabel.resizeTextMaxSize = 24;
+                PlaceFromTop((RectTransform)typing.transform, 0, 1, 306, 380, 3, 3);
+                SoftShapes.Round(typing.image, 1f);
+
                 // Developer mode: test builds only (the button stays hidden when there is no playtest toggle).
                 developer = ActionButton("Developer mode", content, 0, 1, 0, 0, toggleDeveloper, Paper, Ink);
                 developerLabel = developer.GetComponentInChildren<Text>();
                 developerLabel.resizeTextForBestFit = true;
                 developerLabel.resizeTextMinSize = 16;
                 developerLabel.resizeTextMaxSize = 24;
-                PlaceFromTop((RectTransform)developer.transform, 0, 1, 306, 380, 3, 3);
+                PlaceFromTop((RectTransform)developer.transform, 0, 1, 390, 464, 3, 3);
                 SoftShapes.Round(developer.image, 1f);
                 developer.gameObject.SetActive(false);
 
@@ -421,7 +456,7 @@ namespace BAIby.Presentation
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 15;
                 Feedback.resizeTextMaxSize = 21;
-                PlaceFromTop(Feedback.rectTransform, 0, 1, 388, 460);
+                PlaceFromTop(Feedback.rectTransform, 0, 1, 472, 544);
                 Root.SetActive(false);
             }
 
@@ -433,6 +468,9 @@ namespace BAIby.Presentation
                         ? "Developer mode: on · tap to turn off"
                         : "Developer mode: off · unlock everything";
                 Feedback.text = string.Empty;
+                typingLabel.text = household.TalkTyping
+                    ? "Children can type in Talk time · tap to turn off"
+                    : "Let children type in Talk time · off";
                 var rooms = $"Your home has {household.Capacity} rooms.";
                 if (household.HasResting)
                     rooms += " Little ones beyond them are resting and safe, and their needs don't drop.";

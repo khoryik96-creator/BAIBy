@@ -39,6 +39,10 @@ namespace BAIby.Presentation
         {
             if (growth == null)
                 return string.Empty;
+            if (growth.Next == MotorSkill.None && !pet && growth.Words != null)
+                return growth.Words.Reached ? "Sitting, crawling, first steps and first words reached"
+                    : growth.Paused ? "Growing waits while " + name + " is poorly"
+                    : "Likely to say first words " + Soon(growth.Words.ExpectedIn);
             if (growth.Next == MotorSkill.None)
                 return pet ? "Pouncing, climbing and high jumps reached" : "Sitting, crawling and first steps reached";
             if (growth.Paused)
@@ -69,6 +73,9 @@ namespace BAIby.Presentation
                     $"{Math.Min(meals, growth.RecoveryMeals)} of {meals}, {cuddles} {Math.Min(2, growth.RecoverySoothes)} of 2.";
             if (growth.Paused)
                 return pet ? $"Meals, gentle petting and {VetName} the vet will help." : "Feeds, cuddles and Dr. Lee will help.";
+            if (growth.Next == MotorSkill.None && !pet && growth.Words != null)
+                return growth.Words.Reached ? $"Talk time is open: tap Talk to tell {name} how you feel."
+                    : "Stories and new sounds help with first words.";
             if (growth.Next == MotorSkill.None)
                 return pet ? "Wand play, petting and brushing keep every track growing."
                     : "Play, stories and cuddles keep every track growing.";

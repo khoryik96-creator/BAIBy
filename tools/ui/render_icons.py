@@ -80,6 +80,9 @@ ICONS = {
                'M15.5 13.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z'], []),
     'Journal': (['M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z', 'M9 3v18', 'M12.5 8h3.5',
                  'M12.5 12h3.5'], []),
+    # Talk time: a rounded speech bubble with three dots.
+    'Talk': (['M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
+              'M8 10.5h.01M12 10.5h.01M16 10.5h.01'], []),
 }
 
 META = """fileFormatVersion: 2

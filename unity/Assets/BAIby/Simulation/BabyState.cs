@@ -15,7 +15,9 @@ namespace BAIby.Simulation
         TooPoorly, DoctorVisited, DoctorAllClear, MedicineTaken, MedicineDone, MedicineNotNow,
         // Development: the same play over and over pays less and looks bored; a good day after a setback brings the
         // shy skill back.
-        Bored, SkillBack
+        Bored, SkillBack,
+        // Talk time's gestures besides a cuddle (Calmed): a happy bounce, and a calm sit close by.
+        HappyBounce, SitsCalmly
     }
 
     public sealed class BabyState

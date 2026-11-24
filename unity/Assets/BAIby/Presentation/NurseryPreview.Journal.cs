@@ -466,6 +466,18 @@ namespace BAIby.Presentation
                         case JournalKind.Helper:
                             list.Add(HelperRow(entry));
                             break;
+                        case JournalKind.FirstWords:
+                            list.Add(new JournalRow("Talk", Butter, $"{DayWord(entry.Day)} · First words!",
+                                $"{Date(entry.At)} · {companion} said their first words"));
+                            break;
+                        case JournalKind.Talk:
+                            list.Add(new JournalRow("Talk", Lilac, $"{DayWord(entry.Day)} · Talk time",
+                                TalkJournalLine(companion, entry.Feeling)));
+                            break;
+                        case JournalKind.BigTalk:
+                            list.Add(new JournalRow("Talk", Mist, $"{DayWord(entry.Day)} · We talked about something big",
+                                Date(entry.At)));
+                            break;
                     }
                 }
 
@@ -505,7 +517,7 @@ namespace BAIby.Presentation
                     if (entry.Day < fromDay || entry.Day > toDay)
                         continue;
                     photos += entry.Kind == JournalKind.Photo ? 1 : 0;
-                    milestones += entry.Kind == JournalKind.Milestone ? 1 : 0;
+                    milestones += entry.Kind == JournalKind.Milestone || entry.Kind == JournalKind.FirstWords ? 1 : 0;
                     hard += entry.Kind == JournalKind.HardDay ? 1 : 0;
                 }
 

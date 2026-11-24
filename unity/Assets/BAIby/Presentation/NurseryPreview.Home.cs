@@ -251,6 +251,7 @@ namespace BAIby.Presentation
                     unlocked.UnlockedSitting |= milestone == CompanionMilestone.Sitting;
                     unlocked.UnlockedCrawling |= milestone == CompanionMilestone.Crawling;
                     unlocked.UnlockedWalking |= milestone == CompanionMilestone.Walking;
+                    firstWordsWaiting |= milestone == CompanionMilestone.FirstWords;
                 }
 
                 return null;
