@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BAIby.Application;
 using BAIby.Character;
 using BAIby.Simulation;
@@ -55,6 +56,7 @@ namespace BAIby.Presentation
             FitSafeArea();
             FitInterface();
             FitRoutineStrip();
+            FrameStage();
             if (Input.GetKeyDown(KeyCode.Escape))
                 GoBack();
 
@@ -278,7 +280,8 @@ namespace BAIby.Presentation
             }
 
             title.text = state.Name;
-            wake.text = "NURSERY";
+            // The day line sits where this label would; an adopted companion's header shows only the day line.
+            wake.text = string.Empty;
             age.text = DayLine(state.Age, StageName(state));
             careTitle.text = "Care for " + state.Name;
             favorite.text = state.FavoriteToy is Toy favored ? $"Favorite: {ToyName(favored)}" : string.Empty;
@@ -586,9 +589,46 @@ namespace BAIby.Presentation
         {
             var root = Box(label, safeArea, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
                 new Vector2(-360, 0), new Vector2(360, height + SheetChrome));
+            sheets.Add(root);
             Sheet(root);
             return Box("Content", root, Vector2.zero, Vector2.one, new Vector2(SideMargin, SheetBottomPad),
                 new Vector2(-SideMargin, -SheetTopPad));
+        }
+
+        // Every bottom sheet, so the stage can keep the baby or pet above whichever one is open.
+        private readonly List<RectTransform> sheets = new List<RectTransform>();
+        private readonly Vector3[] stageCorners = new Vector3[4];
+
+        // Tells the stage which part of the screen is open: above the tallest open sheet and below the header
+        // cards and routine strip. The overlay canvas reports corners in screen pixels.
+        private void FrameStage()
+        {
+            if (nursery == null || Screen.height < 1)
+                return;
+
+            var bottom = 0f;
+            foreach (var sheet in sheets)
+            {
+                if (sheet == null || !sheet.gameObject.activeInHierarchy)
+                    continue;
+                sheet.GetWorldCorners(stageCorners);
+                bottom = Mathf.Max(bottom, stageCorners[1].y);
+            }
+
+            var top = (float)Screen.height;
+            if (header != null && header.activeInHierarchy)
+            {
+                ((RectTransform)header.transform).GetWorldCorners(stageCorners);
+                top = Mathf.Min(top, stageCorners[0].y);
+            }
+
+            if (routineStrip != null && routineStrip.Root.activeInHierarchy)
+            {
+                ((RectTransform)routineStrip.Root.transform).GetWorldCorners(stageCorners);
+                top = Mathf.Min(top, stageCorners[0].y);
+            }
+
+            nursery.SetOpenBand(bottom / Screen.height, top / Screen.height);
         }
 
         private static void Sheet(RectTransform root)

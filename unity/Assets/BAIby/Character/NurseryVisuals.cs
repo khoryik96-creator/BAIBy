@@ -98,6 +98,10 @@ namespace BAIby.Character
         private Transform baby;
         private float visibleWidth;
         private float aspect;
+        // The open part of the screen, between the interface's top cards and its bottom sheet, as fractions of
+        // the screen height (see SetOpenBand). The full screen until the interface reports otherwise.
+        private float bandBottom;
+        private float bandTop = 1;
         private float reactionStarted;
         private Reaction reaction;
         private bool hasPresented;
@@ -134,6 +138,40 @@ namespace BAIby.Character
         public float FloorY => QuiltSurface;
         public float PosePixelScale => sitter == null || sitter.sprite == null ? .62f : sitter.transform.localScale.x;
         public float VisibleWidth => visibleWidth;
+
+        // Fits the stage into the part of the screen the interface leaves open: bottom and top are that band's
+        // edges as fractions of the screen height. The camera moves down (and zooms out a little when the band is
+        // short) so the quilt sits just above the bottom sheet and the tallest pose stays under the top cards.
+        // The room's backdrop still covers everything the sheet does not.
+        public void SetOpenBand(float bottom, float top)
+        {
+            bottom = Mathf.Clamp(bottom, 0, .7f);
+            top = Mathf.Clamp(top, bottom + .2f, 1);
+            if (Mathf.Abs(bottom - bandBottom) < .002f && Mathf.Abs(top - bandTop) < .002f)
+                return;
+
+            bandBottom = bottom;
+            bandTop = top;
+            ApplyOpenBand();
+        }
+
+        private void ApplyOpenBand()
+        {
+            if (nurseryCamera == null)
+                return;
+
+            const float roomSize = 3.60f;
+            const float floor = QuiltSurface - .14f;
+            const float span = PoseCeiling + .06f - floor;
+            var open = Mathf.Max(.25f, bandTop - bandBottom - .02f);
+            var size = Mathf.Clamp(span / (2 * open), roomSize, roomSize * 1.32f);
+            // The floor lands on the band's bottom edge; the camera never rises above the room's centre, so the
+            // backdrop always covers the top of the screen.
+            var y = Mathf.Min(0, floor + size - bandBottom * 2 * size);
+            nurseryCamera.orthographicSize = size;
+            nurseryCamera.transform.localPosition = new Vector3(0, y, -10);
+            Frame();
+        }
 
         // Hides the baby and its contact shade while a pet's room is shown. Toys and cues follow Present.
         public void SetBabyShown(bool shown)

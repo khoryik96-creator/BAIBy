@@ -16,7 +16,9 @@ namespace BAIby.Presentation
     {
         private const double SleepyEnergy = 30;
 
-        private static readonly Color[] TileTints = { Peach, Lilac, Sky, Mint, Butter, Blush };
+        // A property, not a static field: the tints live in another part of this partial class, and static fields
+        // across partial files may initialise in either order, which left every pet tile transparent.
+        private static Color[] TileTints => new[] { Peach, Lilac, Sky, Mint, Butter, Blush };
 
         private readonly NeedMeterSlot[] petMeters = new NeedMeterSlot[PetCatalog.MaxVisibleMeters];
         private readonly List<Button> petVerbButtons = new List<Button>();
