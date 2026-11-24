@@ -9,11 +9,12 @@ using BAIby.Simulation.Pets;
 
 namespace BAIby.Tests.Appearance
 {
-    // The cat layout, palette and compositing (tools/pets/README.md), checked against the shipped art.
+    // The cat and hamster layouts, palettes and compositing (tools/pets/README.md), checked against the shipped art.
     internal static class PetArtChecks
     {
         private static readonly string CatFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
             "unity", "Assets", "Resources", "BAIby", "Pets", "Cat"));
+        private static readonly string HamsterFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Hamster"));
 
         public static void Run(Action<bool, string> check)
         {
@@ -23,13 +24,87 @@ namespace BAIby.Tests.Appearance
             ComposesEveryPoseFromTheShippedArt(layout, check);
             CalicoDarkPatchesKeepTheirColor(layout, check);
             InvalidLayoutsAreRejected(check);
+            Hamster(LoadLayout(HamsterFolder), check);
         }
 
-        private static PetLayout LoadLayout()
+        private static PetLayout LoadLayout(string folder = null)
         {
             var options = new JsonSerializerOptions { IncludeFields = true };
-            var data = JsonSerializer.Deserialize<PetLayoutData>(File.ReadAllText(Path.Combine(CatFolder, "layout.json")), options);
+            var data = JsonSerializer.Deserialize<PetLayoutData>(File.ReadAllText(Path.Combine(folder ?? CatFolder, "layout.json")), options);
             return PetLayout.FromData(data);
+        }
+
+        // P2: every hamster breed ships (the Teddy bear's long coat included), each composes from the shipped art in
+        // every pose with its tiny bow, and the dorsal stripe and Panda patches keep their own dark color.
+        private static void Hamster(PetLayout layout, Action<bool, string> check)
+        {
+            check(layout.YoungScale > 0 && layout.YoungScale < layout.GrownScale, "a young hamster is drawn smaller than a grown one");
+            var striped = new[] { PetBreed.WinterWhite, PetBreed.Sapphire, PetBreed.Campbells, PetBreed.Panda };
+            foreach (var breed in PetCatalog.Default.BreedsOf(Species.Hamster))
+            {
+                check(breed.AvailableNow, breed.Breed + " ships with the hamster");
+                foreach (var coat in breed.Coats)
+                    check(layout.TryGetCoat(breed.Breed, coat, out _), "the hamster palette lists " + breed.Breed + " " + coat);
+            }
+
+            var composer = new PetComposer(layout);
+            var loads = new List<string>();
+            PetArtSource source = (path, width, height) =>
+            {
+                loads.Add(path);
+                return Png.Read(Path.Combine(HamsterFolder, path + ".bytes"), width, height);
+            };
+            foreach (var breed in PetCatalog.Default.BreedsOf(Species.Hamster))
+            {
+                foreach (PetStage stage in Enum.GetValues(typeof(PetStage)))
+                {
+                    foreach (var resting in new[] { false, true })
+                    {
+                        var pose = PetLayout.PoseName(stage, resting);
+                        check(layout.TryGetOverlay(PetLayout.AccessoryPath(PetAccessory.Bow, pose), out _), "the hamster's bow has a " + pose + " overlay");
+                        loads.Clear();
+                        var pixels = composer.Compose(breed.Breed, breed.DefaultCoat, PetAccessory.Bow, Outfit.Blush, pose, source,
+                            PixelRowOrder.TopDown, out var width, out var height);
+                        var visible = 0;
+                        for (var i = 3; i < width * height * 4; i += 4)
+                            if (pixels[i] > 0)
+                                visible++;
+                        check(visible > width * height / 4, breed.Breed + " " + pose + " composes a visible hamster");
+                        var marked = breed.Breed == PetBreed.SyrianGolden ? 0 : 2;
+                        check(loads.Count == 4 + marked, breed.Breed + " " + pose + " loads base, markings and bow (" + string.Join(", ", loads) + ")");
+                        check(layout.IsDarkOverlay(PetLayout.DarkMarkingsPath(breed.Breed, pose)) == Array.IndexOf(striped, breed.Breed) >= 0,
+                            breed.Breed + " " + pose + " has a dark overlay only for the stripe or patches");
+                    }
+                }
+            }
+
+            // The Panda's patches are recolored once with its dark color, like Calico's.
+            var panda = (byte[])composer.Compose(PetBreed.Panda, PetCoat.White, PetAccessory.None, Outfit.Sage, "YoungAwake",
+                source, PixelRowOrder.TopDown, out var w, out var h).Clone();
+            layout.TryGetOverlay(PetLayout.DarkMarkingsPath(PetBreed.Panda, "YoungAwake"), out var overlay);
+            var dark = Png.Read(Path.Combine(HamsterFolder, overlay.Path + ".bytes"), overlay.Width, overlay.Height);
+            var darkRegions = Png.Read(Path.Combine(HamsterFolder, overlay.Path + "Regions.bytes"), overlay.Width, overlay.Height);
+            AppearanceRecolor.Recolor(dark, darkRegions, overlay.Width * overlay.Height, layout.Reference,
+                PetPalette.DarkTargets(layout, PetBreed.Panda, PetCoat.White, Outfit.Sage));
+            var matched = 0;
+            var opaque = 0;
+            for (var y = 0; y < overlay.Height; y++)
+            {
+                for (var x = 0; x < overlay.Width; x++)
+                {
+                    var source0 = (y * overlay.Width + x) * 4;
+                    if (dark[source0 + 3] != 255)
+                        continue;
+                    opaque++;
+                    var target = ((overlay.YFromTop + y) * w + overlay.X + x) * 4;
+                    if (panda[target] == dark[source0] && panda[target + 1] == dark[source0 + 1] && panda[target + 2] == dark[source0 + 2])
+                        matched++;
+                }
+            }
+
+            check(opaque > 0 && matched > opaque * 9 / 10, "the Panda's patches keep their own recolor (" + matched + "/" + opaque + ")");
+            var golden = PetPalette.Targets(layout, PetBreed.SyrianGolden, PetCoat.Golden, Outfit.Sage);
+            check(golden.Region(0).Equals(layout.Reference.Region(0)), "the reference coat is the Syrian golden");
         }
 
         private static void LayoutCoversEveryCatBreed(PetLayout layout, Action<bool, string> check)

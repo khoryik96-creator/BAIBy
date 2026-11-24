@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Contact sheets for the PLACEHOLDER cat art, built only from the shipped files.
+"""Contact sheets for the PLACEHOLDER pet art (cat and hamster), built only from the shipped files.
 
-    python3 tools/pets/preview.py [--out DIR]
+    python3 tools/pets/preview.py [--out DIR] [--species Cat,Hamster]
 
 Recolouring and compositing use tools/appearance/recolor.py (the baby contract
 math, mirroring AppearanceRecolor.cs): composite base -> markings -> Calico dark
@@ -17,6 +17,10 @@ Sheets:
   raw.png      unrecoloured base + overlays and their region maps (debug)
   nursery.png  each pose on the nursery backdrop beside the Sitter baby, cat at layout runtimeScale
   detail.png   three cats at 1:1 for close inspection
+
+Hamster sheets (hamster-*.png): breeds x poses, every coat, the rest poses, the
+tiny bow, the young and grown hamster beside the Sitter baby and a kitten at their
+runtime scales, and a 1:1 detail sheet.
 """
 
 from __future__ import annotations
@@ -35,9 +39,11 @@ sys.path.insert(0, str(ROOT / "tools" / "appearance"))
 sys.path.insert(0, str(HERE))
 
 import recolor as baby  # noqa: E402  (tools/appearance/recolor.py)
-from palette import COATS, COLLAR_ACCENTS, DEFAULT_EYES, EYES, allowed_eyes, coat_colors  # noqa: E402
+from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, EYES, HAMSTER_COATS, HAMSTER_EYES, allowed_eyes,  # noqa: E402
+                     coat_colors, hamster_allowed_eyes, hamster_coat_colors)
 
 CAT = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets" / "Cat"
+HAMSTER = CAT.parent / "Hamster"
 RES = ROOT / "unity" / "Assets" / "Resources" / "BAIby"
 DEFAULT_OUT = Path("/tmp/claude-0/-home-user-BAIBy/729cdbf9-e760-56a7-bde4-d84d73210b9a/scratchpad/cat-preview")
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
@@ -50,8 +56,9 @@ def load(path: Path) -> np.ndarray:
 
 
 class Cat:
-    def __init__(self):
-        self.layout = json.loads((CAT / "layout.json").read_text())
+    def __init__(self, folder=CAT):
+        self.folder = folder
+        self.layout = json.loads((folder / "layout.json").read_text())
         r = self.layout["reference"]
         self.refs = [tuple(r["coat"]), tuple(r["markings"]), tuple(r["eyes"]), tuple(r["accent"])]
         self.overlays = {o["path"]: o for o in self.layout["overlays"]}
@@ -60,19 +67,20 @@ class Cat:
         """Composite base -> markings -> (Calico) dark patches -> collar.  Overlays with
         gTarget "dark" are recoloured on their own with ``dark_targets`` first and then
         composited with zero region weights; without targets they stay raw."""
-        img = load(CAT / "Base" / f"{pose}.bytes")
-        reg = load(CAT / "Base" / f"{pose}Regions.bytes")
+        img = load(self.folder / "Base" / f"{pose}.bytes")
+        reg = load(self.folder / "Base" / f"{pose}Regions.bytes")
         paths = []
-        if breed and breed != "DomesticShorthair":
+        if breed and f"Markings/{breed}/{pose}" in self.overlays:
             paths.append(f"Markings/{breed}/{pose}")
+        if breed:
             paths += [p for p, o in self.overlays.items()
                       if o["pose"] == pose and p.startswith(f"Markings/{breed}/") and o.get("gTarget") == "dark"]
         if collar:
             paths.append(f"Accessories/{wear}/{pose}")
         for p in paths:
             o = self.overlays[p]
-            oi = load(CAT / f"{p}.bytes")
-            orr = load(CAT / f"{p}Regions.bytes")
+            oi = load(self.folder / f"{p}.bytes")
+            orr = load(self.folder / f"{p}Regions.bytes")
             if o.get("gTarget") == "dark" and dark_targets is not None:
                 oi = baby.recolor(oi, orr, dark_targets, self.refs)
                 orr = np.zeros_like(orr)
@@ -90,6 +98,87 @@ class Cat:
         img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
         out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
         return Image.fromarray(out, "RGBA")
+
+
+class Hamster(Cat):
+    def __init__(self):
+        super().__init__(HAMSTER)
+
+    def draw(self, pose, breed="SyrianGolden", coat=None, eyes=None, collar=None, wear="Bow"):
+        coat = coat or next(iter(HAMSTER_COATS[breed]))
+        main, sec, dark = hamster_coat_colors(breed, coat)
+        eye = HAMSTER_EYES[eyes or "Dark"]
+        accent = (baby.OUTFIT[collar][1] if collar and baby.OUTFIT[collar] else self.refs[3]) if collar else self.refs[3]
+        img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
+        out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
+        return Image.fromarray(out, "RGBA")
+
+
+def hamster_sheets(out):
+    ham = Hamster()
+    cat = Cat()
+    breeds = list(HAMSTER_COATS)
+    cells = []
+    for b in breeds:
+        for p in POSES:
+            cells.append((ham.draw(p, b), f"{b} / {p}"))
+    grid(cells, 4, 320, 270, 0.6, "Placeholder hamster: breed x pose (default coat)").save(out / "hamster-breeds.png")
+
+    cells = []
+    k = 0
+    for b in breeds:
+        eyes = hamster_allowed_eyes(b)
+        for coat in HAMSTER_COATS[b]:
+            for p in ("YoungAwake", "GrownAwake"):
+                e = eyes[k % len(eyes)]
+                cells.append((ham.draw(p, b, coat, e), f"{b} {coat} / {e}"))
+            k += 1
+    grid(cells, 6, 250, 250, 0.5, "Hamster coats per breed (recoloured with the baby formula)").save(out / "hamster-coats.png")
+
+    cells = []
+    for b in breeds:
+        for coat in list(HAMSTER_COATS[b])[:2]:
+            for p in ("YoungRest", "GrownRest"):
+                cells.append((ham.draw(p, b, coat), f"{b} {coat} / {p}"))
+    grid(cells, 4, 320, 190, 0.5, "Hamster rest poses (curled asleep), two coats per breed").save(out / "hamster-rest.png")
+
+    cells = []
+    colours = ["Sky", "Butter", "Lilac", "Terracotta", "Blush", "Oat", "Midnight", "Sage"]
+    for i, p in enumerate(POSES):
+        for j in range(2):
+            colour = colours[(i * 2 + j) % len(colours)]
+            cells.append((ham.draw(p, breeds[(i * 2 + j) % len(breeds)], collar=colour), f"Bow {colour} / {p}"))
+    grid(cells, 4, 320, 270, 0.6, "A tiny bow (region A) in the outfit accent palette").save(out / "hamster-bow.png")
+
+    # beside the Sitter baby and a kitten, each at its layout runtimeScale
+    rs, crs = ham.layout["runtimeScale"], cat.layout["runtimeScale"]
+    sitter = Image.open(RES / "Baby" / "Sitter.png").convert("RGBA")
+
+    def scaled(im, k):
+        return im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+
+    kitten = scaled(cat.draw("YoungAwake", "Tabby"), crs["young"])
+    young = scaled(ham.draw("YoungAwake", "SyrianGolden"), rs["young"])
+    grown = scaled(ham.draw("GrownAwake", "Panda"), rs["grown"])
+    asleep = scaled(ham.draw("YoungRest", "WinterWhite", "Gray"), rs["young"])
+    panels = []
+    for row in ((kitten, young), (grown, asleep)):
+        bd = Image.open(RES / "Nursery" / "Backdrop.png").convert("RGBA")
+        bd.alpha_composite(sitter, (16, 1470 - sitter.height))
+        x = 16 + sitter.width + 10
+        for im in row:
+            bd.alpha_composite(im, (x, 1500 - im.height))
+            x += im.width + 8
+        panels.append(bd.crop((0, 900, bd.width, 1672)))
+    w, h = panels[0].size
+    sheet = Image.new("RGBA", (w * 2 + 20, h), BG)
+    for i, pnl in enumerate(panels):
+        sheet.alpha_composite(pnl, (i * (w + 20), 0))
+    sheet.resize((sheet.width * 2 // 3, sheet.height * 2 // 3), Image.LANCZOS).save(out / "hamster-nursery.png")
+
+    cells = [(ham.draw("YoungAwake", "TeddyBear"), "Teddy bear Golden"), (ham.draw("GrownAwake", "Campbells"), "Campbell's Gray"),
+             (ham.draw("YoungRest", "Panda"), "Panda asleep")]
+    grid(cells, 3, 600, 480, 1.0, "Hamster 1:1 detail").save(out / "hamster-detail.png")
 
 
 def font(size):
@@ -124,9 +213,16 @@ def grid(cells, cols, cell_w, cell_h, scale, title=None, pad=12):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--species", default="Cat,Hamster")
     args = ap.parse_args()
     out = args.out
     out.mkdir(parents=True, exist_ok=True)
+    species = args.species.split(",")
+    if "Hamster" in species:
+        hamster_sheets(out)
+    if "Cat" not in species:
+        print("wrote", out)
+        return
     cat = Cat()
     breeds = list(COATS)
     s = 0.5

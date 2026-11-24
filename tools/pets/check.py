@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-check of the PLACEHOLDER cat assets.
+"""Self-check of the PLACEHOLDER pet assets: the cat (P1) and the hamster (P2).
 
     python3 tools/pets/check.py
 
@@ -11,6 +11,13 @@ G weight and the collar only A weight; every overlay (including the Calico
 dark-patch overlays) has the right gTarget, matches its declared size,
 lies inside its pose bounds and over the base silhouette; every palette coat has
 main/secondary/dark colours; the outline colour is the baby #4D2917.  Exits non-zero on any failure.
+
+The hamster follows the same rules with its own art: its base also carries G
+weight (the light belly and muzzle), its dark overlays are the dorsal stripe and
+the Panda's patches, the Roborovski's brow spots are G, the Teddy bear's long
+coat (a feature overlay in the main coat, R) may reach past the base
+silhouette, and its bow is A.  Its poses are smaller than the baby's.  Each
+species' art stays within about 2 MB.
 """
 
 from __future__ import annotations
@@ -31,6 +38,54 @@ POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
 BREEDS = ["Tabby", "Tuxedo", "Siamese", "Calico"]
 WEAR = ["Collar", "Bandana", "Bow"]
 SIZE_RANGE = (380, 700)          # baby poses are 409..619 px on each side
+
+
+class CatRules:
+    name = "Cat"
+    breeds = BREEDS
+    wear = WEAR
+    size_range = SIZE_RANGE
+    min_side = 300
+    base_allowed = (0, 2)
+
+    @staticmethod
+    def want_overlays():
+        return ({f"Markings/{b}/{p}" for b in BREEDS for p in POSES} | {f"Markings/Calico/{p}Dark" for p in POSES}
+                | {f"Accessories/{w}/{p}" for w in WEAR for p in POSES})
+
+    @staticmethod
+    def allowed(path):
+        return (3,) if path.startswith("Accessories/") else (1,)
+
+    @staticmethod
+    def may_leave_silhouette(path):
+        return False
+
+
+class HamsterRules:
+    name = "Hamster"
+    breeds = ["Roborovski", "TeddyBear", "WinterWhite", "Sapphire", "Campbells", "Panda"]
+    wear = ["Bow"]
+    size_range = (300, 700)      # small poses: the hamster is drawn smaller than the baby
+    min_side = 220
+    base_allowed = (0, 1, 2)     # every hamster has a light belly (G)
+    dark = ["WinterWhite", "Sapphire", "Campbells", "Panda"]
+
+    @classmethod
+    def want_overlays(cls):
+        return ({f"Markings/{b}/{p}" for b in ("Roborovski", "TeddyBear") for p in POSES}
+                | {f"Markings/{b}/{p}Dark" for b in cls.dark for p in POSES}
+                | {f"Accessories/{w}/{p}" for w in cls.wear for p in POSES})
+
+    @staticmethod
+    def allowed(path):
+        if path.startswith("Accessories/"):
+            return (3,)
+        return (0,) if path.startswith("Markings/TeddyBear/") else (1,)
+
+    @staticmethod
+    def may_leave_silhouette(path):
+        return path.startswith("Markings/TeddyBear/")
 OUTLINE = np.array([77, 41, 23])
 GUID = re.compile(r"^guid: ([0-9a-f]{32})$", re.M)
 
@@ -82,15 +137,17 @@ def check_regions(name, img, reg, allowed, required=None):
             fail(f"{name}: channel {'RGBA'[ch]} is empty")
 
 
-def main():
-    guids = []
+def check_species(rules, guids):
+    CAT = PETS / rules.name
     lp = CAT / "layout.json"
     if not lp.exists():
-        fail("layout.json missing")
-        return finish(guids)
+        fail(f"{rules.name}/layout.json missing")
+        return
     layout = json.loads(lp.read_text())
     if layout.get("placeholder") is not True:
         fail("layout.json must say placeholder: true")
+    if layout.get("species") != rules.name:
+        fail(f"layout.json names species {layout.get('species')!r}, expected {rules.name!r}")
     ref = layout.get("reference", {})
     for k in ("coat", "markings", "eyes", "accent"):
         v = ref.get(k)
@@ -107,8 +164,7 @@ def main():
     if sorted(poses) != sorted(POSES):
         fail(f"layout poses {sorted(poses)} != {sorted(POSES)}")
     overlays = {o["path"]: o for o in layout.get("overlays", [])}
-    want_overlays = ({f"Markings/{b}/{p}" for b in BREEDS for p in POSES} | {f"Markings/Calico/{p}Dark" for p in POSES}
-                     | {f"Accessories/{w}/{p}" for w in WEAR for p in POSES})
+    want_overlays = rules.want_overlays()
     if set(overlays) != want_overlays:
         fail(f"overlay set mismatch: missing {sorted(want_overlays - set(overlays))}, "
              f"extra {sorted(set(overlays) - want_overlays)}")
@@ -135,19 +191,19 @@ def main():
         h, w = img.shape[:2]
         if (w, h) != (p["width"], p["height"]):
             fail(f"Base/{name} is {w}x{h}, layout says {p['width']}x{p['height']}")
-        if not (SIZE_RANGE[0] <= max(w, h) <= SIZE_RANGE[1] and min(w, h) >= 300):
-            fail(f"Base/{name} size {w}x{h} outside the baby pose range")
-        check_regions(f"Base/{name}", img, reg, allowed=(0, 2),
+        if not (rules.size_range[0] <= max(w, h) <= rules.size_range[1] and min(w, h) >= rules.min_side):
+            fail(f"{rules.name} Base/{name} size {w}x{h} outside the pose size range")
+        check_regions(f"{rules.name} Base/{name}", img, reg, allowed=rules.base_allowed,
                       required=(0, 2) if name.endswith("Awake") else (0,))  # closed eyes have no iris
         # style: the darkest opaque colour is the baby outline
         opaque = img[..., 3] == 255
         dist = np.abs(img[..., :3].astype(int) - OUTLINE).sum(axis=-1)
         if (opaque & (dist <= 6)).mean() < 0.03:
-            fail(f"Base/{name}: too few #4D2917 outline pixels")
+            fail(f"{rules.name} Base/{name}: too few #4D2917 outline pixels")
         base_alpha[name] = img[..., 3]
         check_meta(ip, False, guids)
         check_meta(rp, False, guids)
-        print(f"ok Base/{name} {w}x{h}")
+        print(f"ok {rules.name} Base/{name} {w}x{h}")
 
     for path, o in sorted(overlays.items()):
         ip, rp = CAT / f"{path}.bytes", CAT / f"{path}Regions.bytes"
@@ -165,24 +221,54 @@ def main():
         if o["x"] < 0 or o["y"] < 0 or o["x"] + w > pose["width"] or o["y"] + h > pose["height"]:
             fail(f"{path}: overlay {o['x']},{o['y']} {w}x{h} outside pose {pose['width']}x{pose['height']}")
             continue
-        allowed = (3,) if path.startswith("Accessories/") else (1,)
-        check_regions(path, img, reg, allowed)
-        if o["pose"] in base_alpha:
+        allowed = rules.allowed(path)
+        check_regions(f"{rules.name} {path}", img, reg, allowed)
+        if o["pose"] in base_alpha and not rules.may_leave_silhouette(path):
             under = base_alpha[o["pose"]][o["y"]:o["y"] + h, o["x"]:o["x"] + w]
             outside = (img[..., 3] > 8) & (under == 0)
             if outside.any():
                 fail(f"{path}: {int(outside.sum())} overlay pixels outside the base silhouette")
         check_meta(ip, False, guids)
         check_meta(rp, False, guids)
-        print(f"ok {path} at {o['x']},{o['y']} {w}x{h}")
+        print(f"ok {rules.name} {path} at {o['x']},{o['y']} {w}x{h}")
+
+    # the hamster's habitat: a back and a front layer of the declared size, opaque somewhere, floor inside
+    habitat = layout.get("habitat")
+    if rules.name == "Hamster" and not habitat:
+        fail("the hamster layout needs its habitat")
+    if habitat:
+        hw, hh, hf = habitat.get("width"), habitat.get("height"), habitat.get("floor")
+        if not all(isinstance(v, int) for v in (hw, hh, hf)) or not 0 < hf < hh:
+            fail(f"{rules.name} habitat needs int width, height and a floor inside it")
+        for key in ("back", "front"):
+            hp = CAT / f"{habitat.get(key)}.bytes"
+            if not hp.exists():
+                fail(f"missing habitat {key} {hp.relative_to(ROOT)}")
+                continue
+            img = load(hp)
+            if img.shape[1] != hw or img.shape[0] != hh:
+                fail(f"habitat {key} is {img.shape[1]}x{img.shape[0]}, layout says {hw}x{hh}")
+            if not (img[..., 3] == 255).any():
+                fail(f"habitat {key} is empty")
+            check_meta(hp, False, guids)
+            print(f"ok {rules.name} habitat {key} {img.shape[1]}x{img.shape[0]}")
+        if (CAT / "Habitat").is_dir():
+            check_meta(CAT / "Habitat", True, guids)
 
     check_meta(lp, False, guids)
-    for folder in [PETS, CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories"] + [CAT / "Accessories" / w for w in WEAR] + \
-            [CAT / "Markings" / b for b in BREEDS]:
+    for folder in [CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories"] + [CAT / "Accessories" / w for w in rules.wear] + \
+            [CAT / "Markings" / b for b in rules.breeds]:
         if not folder.is_dir():
             fail(f"missing folder {folder.relative_to(ROOT)}")
         else:
             check_meta(folder, True, guids)
+
+
+def main():
+    guids = []
+    check_meta(PETS, True, guids)
+    for rules in (CatRules, HamsterRules):
+        check_species(rules, guids)
     # every file under Pets/ has a meta, no stray metas
     for p in PETS.rglob("*"):
         if p.suffix == ".meta":
@@ -190,6 +276,12 @@ def main():
                 fail(f"stray meta {p.relative_to(ROOT)}")
         elif not p.with_name(p.name + ".meta").exists():
             fail(f"missing meta for {p.relative_to(ROOT)}")
+    # each species' shipped art stays within the Web download budget (about 2 MB)
+    for rules in (CatRules, HamsterRules):
+        size = sum(f.stat().st_size for f in (PETS / rules.name).rglob("*") if f.is_file() and f.suffix != ".meta")
+        if size > 2_000_000:
+            fail(f"{rules.name} art is {size / 1e6:.2f} MB, over the 2 MB budget")
+        print(f"ok {rules.name} art {size / 1e6:.2f} MB")
     return finish(guids)
 
 
