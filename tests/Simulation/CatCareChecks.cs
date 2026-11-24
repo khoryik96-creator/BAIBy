@@ -509,6 +509,20 @@ static class CatCareChecks
         household.EndPetAway(2);
         Equal(false, household.Companions[0].PetState.Care.IsAway, "and back");
         Equal(PetCue.MedicineNotNow, household.GivePetMedicine(2).Cue, "medicine only while recovering");
+
+        // A kitten's milestones wait as celebrations in their own manifest element, so a build that cannot read them
+        // loses only the announcement, never the household.
+        now = At(10, 13, 0);
+        household.AdvanceAll(activeOnScreen: false);
+        var manifest = System.Xml.Linq.XElement.Parse(store.ManifestPrimary);
+        Equal("2", (string)manifest.Attribute("version"), "the manifest stays v2");
+        Equal(true, manifest.Element("pet-celebrations").Elements().Count() >= 1, "milestones wait in pet-celebrations");
+        Equal(true, manifest.Element("celebrations").Elements().All(element => (int)element.Attribute("milestone") <= 3),
+            "ordinary celebrations keep the milestones an older build knows");
+        var reopened = new HouseholdSession(game, pets, store, () => now, null);
+        var played = reopened.TakeCelebrations(2);
+        Equal(true, played.Count > 0 && played.Last() == CompanionMilestone.Grown && played.Contains(CompanionMilestone.Pounce),
+            "they survive a reload in order, growing up last");
         _ = refused;
         _ = away;
     }
