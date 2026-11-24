@@ -37,6 +37,8 @@ namespace BAIby.Tests
             var newborn = Child<SpriteRenderer>(view.gameObject, "Newborn artwork");
             Assert.That(newborn.gameObject.activeInHierarchy && newborn.enabled, Is.True);
             Assert.That(newborn.sprite, Is.Not.Null);
+            Assert.That(Child<Text>(view.gameObject, "Choice Heading").text, Is.EqualTo("Who's joining your home?"));
+            Tap(view.gameObject, "Adopt a baby");
             Child<InputField>(view.gameObject, "Name").text = "Mia";
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
@@ -425,6 +427,8 @@ namespace BAIby.Tests
             var view = NurseryStartup.StartPreview(saveKey);
             yield return null;
             Assert.That(Child<Button>(view.gameObject, "Back to home").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Button>(view.gameObject, "Choice back to home").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "Adopt a baby");
             Child<InputField>(view.gameObject, "Name").text = "Mia";
             Tap(view.gameObject, "Start raising");
             Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
@@ -449,6 +453,7 @@ namespace BAIby.Tests
             Assert.That(Child<Image>(view.gameObject, "Home card Mia Selection").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.False);
             Tap(view.gameObject, "+ Adopt");
+            Tap(view.gameObject, "Adopt a baby");
             Assert.That(Child<Button>(view.gameObject, "Back to home").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<InputField>(view.gameObject, "Name").text, Is.Empty);
             Child<InputField>(view.gameObject, "Name").text = "Leo";
@@ -629,6 +634,94 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Ivy"));
         }
 
+        [UnityTest]
+        public IEnumerator HouseholdAdoptsACatBesideABabyAndRestoresIt()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var view = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+
+            // Who's joining your home? A pet: only the cat has arrived, the others are dimmed.
+            Tap(view.gameObject, "Adopt a pet");
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet Adoption Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Button>(view.gameObject, "Species Dog").interactable, Is.False, "an unshipped species is dimmed");
+            Assert.That(Child<Text>(view.gameObject, "Species Dog Note").text, Is.EqualTo("Arriving soon"));
+            Tap(view.gameObject, "Species Cat");
+
+            // Locked breeds can be previewed but not chosen; the free starter can.
+            Tap(view.gameObject, "Breed Tabby");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "an earned breed waits for its goal");
+            Assert.That(Child<Text>(view.gameObject, "Pet breed detail").text, Does.Contain("full care day"));
+            Tap(view.gameObject, "Breed Bengal");
+            Assert.That(Child<Text>(view.gameObject, "Breed Bengal Status").text, Is.EqualTo("Premium"));
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "a premium breed is not owned on the Web");
+            Tap(view.gameObject, "Breed Domestic shorthair");
+            Tap(view.gameObject, "Coat Gray");
+            var preview = Child<SpriteRenderer>(view.gameObject, "Pet awake artwork");
+            Assert.That(preview.gameObject.activeInHierarchy && preview.enabled && preview.sprite != null, Is.True,
+                "the breed picker previews the cat in the room");
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Newborn artwork").gameObject.activeInHierarchy, Is.False,
+                "the baby steps aside for the pet preview");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Pip";
+            Tap(view.gameObject, "Adopt pet");
+
+            // The cat's room: slot 1 stays free for a baby.
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Pip"));
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Does.Contain("Kitten"));
+            Assert.That(PlayerPrefs.HasKey(saveKey), Is.False, "a pet never takes slot 1");
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet"));
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Fullness").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet need 1").Find("Label").GetComponent<Text>().text,
+                Is.EqualTo("Fullness"), "the room shows the cat's own meters");
+            var fullness = NeedValue(view.gameObject, "Pet need 1");
+            Tap(view.gameObject, "Pet care Feed");
+            Assert.That(NeedValue(view.gameObject, "Pet need 1"), Is.GreaterThan(fullness));
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("Pip"));
+            Tap(view.gameObject, "Pet care Pet");
+            Tap(view.gameObject, "Pet care Nap");
+            Assert.That(Child<Button>(view.gameObject, "Home").gameObject.activeInHierarchy, Is.True);
+
+            // Home shows the cat with its species glyph and stage; a baby joins beside it.
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<Text>(view.gameObject, "Home card Pip Stage").text, Is.EqualTo("Kitten"));
+            Assert.That(HasObject(view.gameObject, "Home card Pip Species"), Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Home card Pip Portrait").sprite, Is.Not.Null);
+            Tap(view.gameObject, "+ Adopt");
+            Adopt(view.gameObject, "Mia");
+            Assert.That(PlayerPrefs.HasKey(saveKey), Is.True, "the baby takes slot 1");
+            Assert.That(SwitchLabel(view.gameObject), Is.EqualTo("Switch to Pip"));
+            Tap(view.gameObject, "Home");
+            Assert.That(HasButton(view.gameObject, "+ Adopt"), Is.False, "a baby and a cat fill the two free rooms");
+            UnityEngine.Object.Destroy(view.gameObject);
+            yield return null;
+
+            var restored = NurseryStartup.StartPreview(saveKey);
+            yield return null;
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Mia"));
+            Tap(restored.gameObject, "Switch companion");
+            Assert.That(Child<Text>(restored.gameObject, "Baby Name").text, Is.EqualTo("Pip"), "the cat reopens in its room");
+            Assert.That(Child<RectTransform>(restored.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
+            for (var day = 0; day < 7; day++)
+                Tap(restored.gameObject, "Pet preview next day");
+            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Grown cat"));
+            Assert.That(Child<Text>(restored.gameObject, "Pet Reaction").text, Does.Contain("grown up"));
+
+            Tap(restored.gameObject, "Home");
+            Tap(restored.gameObject, "Say goodbye to Pip");
+            Tap(restored.gameObject, "Continue goodbye");
+            Tap(restored.gameObject, "Confirm goodbye");
+            Assert.That(PlayerPrefs.HasKey(saveKey + ".slot2"), Is.False);
+            Assert.That(Child<Text>(restored.gameObject, "Home keepsakes").text, Does.Contain("Pip (cat"));
+        }
+
         [UnityTearDown]
         public IEnumerator CleanUp()
         {
@@ -664,6 +757,7 @@ namespace BAIby.Tests
 
         private static void Adopt(GameObject view, string name)
         {
+            Tap(view, "Adopt a baby");
             Child<InputField>(view, "Name").text = name;
             Tap(view, "Start raising");
             Assert.That(Child<Text>(view, "Baby Name").text, Is.EqualTo(name));

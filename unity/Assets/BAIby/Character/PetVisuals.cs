@@ -24,6 +24,7 @@ namespace BAIby.Character
         private readonly List<Portrait> portraits = new List<Portrait>();
         private readonly Dictionary<Species, PetLayout> layouts = new Dictionary<Species, PetLayout>();
         private readonly HashSet<Species> missingLayouts = new HashSet<Species>();
+        private NurseryVisuals room;
         private Transform rig;
         private SpriteRenderer awake;
         private SpriteRenderer rest;
@@ -46,22 +47,17 @@ namespace BAIby.Character
         private float cueStarted = -100;
         private float arrived = -100;
 
-        public static PetVisuals Create(Transform parent)
+        // The pet stands in the nursery's room: on its floor line, drawn at the layout's runtime scale
+        // relative to the baby's pose pixels, following the room as the screen changes shape.
+        public static PetVisuals Create(NurseryVisuals room)
         {
             var visuals = new GameObject("BAIby Pet").AddComponent<PetVisuals>();
-            visuals.transform.SetParent(parent, false);
+            visuals.room = room;
+            if (room != null)
+                visuals.transform.SetParent(room.transform, false);
             visuals.Build();
             visuals.gameObject.SetActive(false);
             return visuals;
-        }
-
-        // The room's floor line, the world size of one baby pose pixel and the visible width; the pet is
-        // drawn at the layout's runtime scale relative to the baby's pixels.
-        public void Place(float floor, float babyPixelScale, float width)
-        {
-            floorY = floor;
-            pixelScale = babyPixelScale > 0 ? babyPixelScale : pixelScale;
-            visibleWidth = width > 0 ? width : visibleWidth;
         }
 
         public void SetShown(bool shown)
@@ -354,6 +350,13 @@ namespace BAIby.Character
         {
             if (look == null)
                 return;
+
+            if (room != null)
+            {
+                floorY = room.FloorY;
+                pixelScale = room.PosePixelScale > 0 ? room.PosePixelScale : pixelScale;
+                visibleWidth = room.VisibleWidth > 0 ? room.VisibleWidth : visibleWidth;
+            }
 
             var now = Time.unscaledTime;
             var sinceCue = now - cueStarted;

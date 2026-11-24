@@ -3,6 +3,7 @@ using BAIby.Application;
 using BAIby.Infrastructure;
 using BAIby.Presentation;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -43,8 +44,9 @@ namespace BAIby.Bootstrap
                 unlocks.ApplyUrlFlags(UnityEngine.Application.absoluteURL);
                 playtest = unlocks;
 #endif
-                var household = new HouseholdSession(simulation, new PlayerPrefsHouseholdStore(saveKey), clock.Now,
-                    entitlements);
+                // Pets share the household, its slots and its rooms; premium breeds read the same entitlements.
+                var household = new HouseholdSession(simulation, new PetSimulation(), new PlayerPrefsHouseholdStore(saveKey),
+                    clock.Now, entitlements);
                 view.Open(household, entitlements, new OfflineStoreFront(), playtest);
             }
             catch (Exception error)

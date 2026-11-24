@@ -52,6 +52,9 @@ namespace BAIby.Presentation
                 case HouseholdView.Settings: return settings.Feedback;
                 case HouseholdView.Journal: return journal.Feedback;
                 case HouseholdView.Wake: return wakePanel.Feedback;
+                case HouseholdView.Choose: return choice.Feedback;
+                case HouseholdView.PetAdoption: return petAdoption.Feedback;
+                case HouseholdView.PetRoom: return petStatus;
                 default: return null;
             }
         }
@@ -80,6 +83,16 @@ namespace BAIby.Presentation
                         ShowHome();
                     else
                         UpdatePanelVisibility(session?.State != null);
+                    break;
+                case HouseholdView.PetRoom:
+                    if (household.Active == null || household.Active.Slot != petSlot || household.Active.PetSession == null)
+                        ShowHome();
+                    else
+                        UpdateHouseholdChips(true);
+                    break;
+                case HouseholdView.PetAdoption:
+                    // A grant or refund can lock or unlock a premium breed in the picker.
+                    RefreshPetAdoption();
                     break;
                 case HouseholdView.Wake:
                     if (!household.IsResting(wakeSlot))
@@ -171,19 +184,22 @@ namespace BAIby.Presentation
         private void OpenJournal(int slot)
         {
             var companion = FindCompanion(slot);
-            if (companion?.State == null)
+            if (companion == null || !companion.IsReadable)
                 return;
 
             view = HouseholdView.Journal;
             ApplyHouseholdView();
-            journal.Show(companion.State, household.IsResting(slot));
+            if (companion.PetState != null)
+                journal.ShowPet(companion.PetState, household.IsResting(slot));
+            else
+                journal.Show(companion.State, household.IsResting(slot));
             journal.Close.Select();
         }
 
         private void AskWake(int slot)
         {
             var companion = FindCompanion(slot);
-            if (companion?.State == null || !household.IsResting(slot))
+            if (companion == null || !companion.IsReadable || !household.IsResting(slot))
                 return;
 
             var awake = new List<HouseholdCompanion>();
@@ -196,14 +212,14 @@ namespace BAIby.Presentation
             wakeSlot = slot;
             view = HouseholdView.Wake;
             ApplyHouseholdView();
-            wakePanel.Ask(companion.State.Name, household.Capacity, awake).Select();
+            wakePanel.Ask(companion.Name, household.Capacity, awake).Select();
         }
 
         private void ConfirmWake(int restSlot)
         {
             var waking = FindCompanion(wakeSlot);
             var resting = FindCompanion(restSlot);
-            if (waking?.State == null || resting == null)
+            if (waking == null || !waking.IsReadable || resting == null)
                 return;
 
             try
@@ -224,8 +240,8 @@ namespace BAIby.Presentation
                 return;
             }
 
-            var name = waking.State.Name;
-            var other = resting.State?.Name;
+            var name = waking.Name;
+            var other = resting.Name;
             ShowHome();
             home.Feedback.text = other == null
                 ? $"{name} is back in a room."
@@ -360,7 +376,7 @@ namespace BAIby.Presentation
             }
         }
 
-        private sealed class JournalPanel
+        private sealed partial class JournalPanel
         {
             private readonly Text heading;
             private readonly Text state;
@@ -504,7 +520,7 @@ namespace BAIby.Presentation
                     var companion = awake[i];
                     var column = i % 2;
                     var top = ChoicesTop + i / 2 * RowHeight;
-                    var label = companion.State?.Name;
+                    var label = companion.Name;
                     var slot = companion.Slot;
                     var button = ActionButton(label == null ? $"Rest slot {slot} instead" : $"Rest {label} instead",
                         choices, 0, 1, 0, 0, () => choose(slot), Fern, Color.white);
