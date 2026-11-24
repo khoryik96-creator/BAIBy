@@ -24,8 +24,8 @@
   ]
  },
  "runtimeScale": {
-  "young": 0.58,
-  "grown": 0.76
+  "young": 0.56,
+  "grown": 0.68
  },
  "breedBases": [
   "Corgi"

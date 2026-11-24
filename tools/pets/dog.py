@@ -55,7 +55,7 @@ VARIANT = "Corgi"
 VARIANT_POSES = [VARIANT + p for p in POSES]
 ALL_POSES = POSES + VARIANT_POSES
 # Suggested runtime scale beside the baby: a puppy is a little bigger than a kitten, a grown dog bigger again.
-RUNTIME_SCALE = {"Young": 0.58, "Grown": 0.76}
+RUNTIME_SCALE = {"Young": 0.56, "Grown": 0.68}
 CANVAS = {"YoungAwake": (600, 680), "GrownAwake": (620, 760), "YoungRest": (760, 500), "GrownRest": (830, 520)}
 # Breed overlays: Markings/{breed}/{pose} for every shipped breed; "Dark" ones too for these.
 BREEDS = ["MixedBreed", "Golden", "Beagle", "Shiba", "Corgi", "Poodle", "Husky", "Samoyed", "Pomeranian", "Dalmatian",
