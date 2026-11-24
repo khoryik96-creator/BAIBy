@@ -33,7 +33,7 @@ namespace BAIby.Presentation
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
             settings = new SettingsPanel(Tray("Household Settings Panel", false, 480), ShowHome, RestorePurchases, ShowMoreRooms,
                 ToggleDeveloperMode);
-            journal = new JournalPanel(Tray("Journal Panel", false, 470), ShowHome);
+            journal = new JournalPanel(Tray("Journal Panel", false, JournalPanel.PetHeight), CloseJournal, nursery.PhotoSprite);
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
         }
 
@@ -224,7 +224,8 @@ namespace BAIby.Presentation
             if (companion.PetState != null)
                 journal.ShowPet(companion.PetState, household.IsResting(slot));
             else
-                journal.Show(companion.State, household.IsResting(slot));
+                journal.ShowBaby(companion.State, companion.Session.Journal, companion.Session.Bonding,
+                    household.IsResting(slot));
             journal.Close.Select();
         }
 
@@ -443,50 +444,35 @@ namespace BAIby.Presentation
             public Button Close { get; }
             public Text Feedback { get; }
 
-            public JournalPanel(RectTransform content, Action close)
+            public JournalPanel(RectTransform content, Action close, Func<BabyAppearance, int, bool, Sprite> photoSprite)
             {
                 Root = content.parent.gameObject;
+                this.photoSprite = photoSprite;
                 heading = Line("Journal Heading", content, 38, 0.72f, 6, 66, FontStyle.Bold);
                 Close = ActionButton("Close journal", content, 0.73f, 1, 0, 0, close, Mist, Ink);
                 Close.GetComponentInChildren<Text>().text = "Done";
                 PlaceFromTop((RectTransform)Close.transform, 0.73f, 1, 10, 66, 3, 3);
                 SoftShapes.Round(Close.image, 1f);
 
-                state = Line("Journal Status", content, 21, 1, 70, 110);
+                state = Line("Journal Status", content, 21, 1, 70, 100);
                 state.color = Secondary;
-                age = Line("Journal Age", content, 23, 1, 112, 146);
-                Line("Journal Milestones", content, 30, 1, 150, 186, FontStyle.Bold).text = "Milestones";
-                sitting = Line("Journal Sitting", content, 22, 1, 188, 218);
-                crawling = Line("Journal Crawling", content, 22, 1, 218, 248);
-                walking = Line("Journal Walking", content, 22, 1, 248, 278);
-                Line("Journal Interests", content, 30, 1, 282, 318, FontStyle.Bold).text = "Interests";
-                favoriteToy = Line("Journal Favorite Toy", content, 22, 1, 320, 350);
-                stories = Line("Journal Stories", content, 22, 1, 350, 380);
-                blocks = Line("Journal Blocks", content, 22, 1, 380, 410);
-                connection = Line("Journal Connection", content, 23, 1, 414, 448, FontStyle.Bold);
+                // A pet's journal is a page of lines; a baby's has tabs and pages (NurseryPreview.Journal.cs).
+                var lines = Box("Journal Pet Lines", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                petLines = lines.gameObject;
+                age = Line("Journal Age", lines, 23, 1, 112, 146);
+                Line("Journal Milestones", lines, 30, 1, 150, 186, FontStyle.Bold).text = "Milestones";
+                sitting = Line("Journal Sitting", lines, 22, 1, 188, 218);
+                crawling = Line("Journal Crawling", lines, 22, 1, 218, 248);
+                walking = Line("Journal Walking", lines, 22, 1, 248, 278);
+                Line("Journal Interests", lines, 30, 1, 282, 318, FontStyle.Bold).text = "Interests";
+                favoriteToy = Line("Journal Favorite Toy", lines, 22, 1, 320, 350);
+                stories = Line("Journal Stories", lines, 22, 1, 350, 380);
+                blocks = Line("Journal Blocks", lines, 22, 1, 380, 410);
+                connection = Line("Journal Bond", lines, 23, 1, 414, 448, FontStyle.Bold);
                 connection.color = FernDeep;
                 Feedback = Line("Journal Feedback", content, 19, 1, 448, 468);
+                BuildPages(content);
                 Root.SetActive(false);
-            }
-
-            public void Show(BabyState baby, bool resting)
-            {
-                Feedback.text = string.Empty;
-                var details = BabyReport.From(baby);
-                heading.text = $"{details.Name}'s journal";
-                state.text = resting
-                    ? $"{details.Name} is resting. They're safe, and their needs don't drop while they rest."
-                    : $"{details.Name} is awake in their room.";
-                var days = (int)details.Age.TotalDays;
-                var stage = StageTitle(HouseholdRules.StageOf(baby));
-                age.text = days == 1 ? $"1 day old · {stage}" : $"{days} days old · {stage}";
-                sitting.text = "Sitting and reaching · " + (details.CanSitAndReach ? "Unlocked" : "Not yet");
-                crawling.text = "Crawling · " + (details.CanCrawl ? "Unlocked" : "Not yet");
-                walking.text = "First steps · " + (details.CanWalk ? "Unlocked" : "Not yet");
-                favoriteToy.text = details.FavoriteToy is Toy favorite ? $"Favorite toy · {ToyName(favorite)}" : "No favorite toy yet";
-                stories.text = $"Stories read · {details.StorySessions}";
-                blocks.text = $"Towers built · {details.BlockTowers}";
-                connection.text = $"Connection · {Mathf.RoundToInt((float)details.Connection)} / 100";
             }
 
             private static Text Line(string name, Transform content, int size, float right, float top, float bottom,

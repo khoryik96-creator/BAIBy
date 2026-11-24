@@ -100,7 +100,7 @@ namespace BAIby.Presentation
                         ShowPanel(activePanel switch
                         {
                             NurseryPanel.Diaper => NurseryPanel.Hygiene,
-                            NurseryPanel.Blocks or NurseryPanel.Report => NurseryPanel.Development,
+                            NurseryPanel.Blocks or NurseryPanel.Report or NurseryPanel.Journal => NurseryPanel.Development,
                             _ => NurseryPanel.Care
                         });
                     break;
@@ -156,8 +156,9 @@ namespace BAIby.Presentation
                     TakeCelebrations(active.Slot, ref unlocked);
             }
 
+            // A settled little one plays by themselves for a moment now and then.
             if (onScreen)
-                Paint(Reaction.None, unlocked);
+                Paint(Reaction.None, unlocked, idle: PlaysAlone(session.State));
             else if (view == HouseholdView.Home)
                 home.Refresh(household);
 
@@ -215,6 +216,7 @@ namespace BAIby.Presentation
                 return false;
             }
 
+            RememberMoment(result.Reaction);
             if (activePanel == NurseryPanel.Blocks)
                 ShowPanel(NurseryPanel.Development);
             else if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
@@ -248,7 +250,7 @@ namespace BAIby.Presentation
 
         private void Paint(Reaction reaction,
             (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default,
-            Toy? playedToy = null, Food food = Food.Milk)
+            Toy? playedToy = null, Food food = Food.Milk, bool idle = false)
         {
             var state = view == HouseholdView.Nursery ? session?.State : null;
             var adopted = state != null;
@@ -263,7 +265,8 @@ namespace BAIby.Presentation
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
             // A shy skill (a setback) shows the stage before it; the walking-again celebration plays the skill.
-            nursery.Present(adopted, state?.ShowsSitting ?? false, VisualReaction(state, reaction), visibleToy, ambientToy,
+            var shown = idle && reaction == Reaction.None ? Reaction.TracksToy : VisualReaction(state, reaction);
+            nursery.Present(adopted, state?.ShowsSitting ?? false, shown, visibleToy, ambientToy,
                 canCrawl: state?.ShowsCrawling ?? false, food: food, canWalk: state?.ShowsWalking ?? false);
             nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0,
                 state?.Care.Condition ?? CareCondition.Well);
@@ -293,24 +296,32 @@ namespace BAIby.Presentation
             cleanliness.Set(state.Cleanliness);
             var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeGrowthReaction(state, reaction) ??
                 DescribeReaction(state.Name, reaction, visibleToy, food);
+            // Milestones are celebrated as before, and each has a page in the journal now.
+            var sticker = StickerLine(state);
             if (unlocked.UnlockedWalking)
-                status.text = $"{state.Name} can take a few steps now. " +
+                status.text = $"{state.Name} can take a few steps now, and it's in the journal. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
             else if (unlocked.UnlockedCrawling)
-                status.text = $"{state.Name} can crawl now. " +
+                status.text = $"{state.Name} can crawl now, and it's in the journal. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
             else if (unlocked.UnlockedSitting)
-                status.text = $"{state.Name} can sit up now. " +
+                status.text = $"{state.Name} can sit up now, and it's in the journal. " +
                     (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
+            else if (sticker != null)
+                status.text = sticker;
             else
-                status.text = reaction == Reaction.None ? DescribeCondition(state) ?? DescribeNeeds(state) : reactionText;
+                status.text = reaction == Reaction.None
+                    ? DescribeCondition(state) ?? DescribeNeeds(state, TemperamentMoment(state))
+                    : reactionText;
 
             UpdateRoutineSlots(session.Routine, state.Care.Preset);
             routine.UpdateDetails(state, DescribeCondition(state) ??
                 $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
             var growth = session.Growth;
-            development.UpdateDetails(state, age.text, status.text, growth);
-            report.UpdateDetails(BabyReport.From(state), growth);
+            development.UpdateDetails(state, age.text, status.text, growth, session.Bonding);
+            report.UpdateDetails(BabyReport.From(state), growth,
+                TemperamentLine(session.Security, session.Curiosity, state.Bond));
+            UpdatePhotoTile();
             feeding.UpdateDetails(state, status.text);
             UpdateHealthControls(state, reaction, reactionText);
             UpdateMood(state.Care.Mood);
@@ -360,7 +371,8 @@ namespace BAIby.Presentation
             }
         }
 
-        private static string DescribeNeeds(BabyState state)
+        // What the baby needs, or (when nothing does) where temperament stands, or a quiet line.
+        private static string DescribeNeeds(BabyState state, string temperament = null)
         {
             const double low = 45;
             if (state.Health < low)
@@ -373,7 +385,7 @@ namespace BAIby.Presentation
                 return $"{state.Name} seems hungry.";
             if (state.Comfort < low)
                 return $"{state.Name} is unsettled and might like some soothing.";
-            return $"{state.Name} is looking around the nursery.";
+            return temperament ?? $"{state.Name} is looking around the nursery.";
         }
 
         private void ReportFailure(Exception error, string message)
@@ -403,6 +415,8 @@ namespace BAIby.Presentation
                 feeding.Feedback.text = message;
             else if (development.Root.activeSelf)
                 development.Feedback.text = message;
+            else if (journal.Root.activeSelf)
+                journal.Feedback.text = message;
             else if (doctor.Root.activeSelf)
                 doctor.Feedback.text = message;
             else if (controls.activeSelf)
@@ -460,7 +474,7 @@ namespace BAIby.Presentation
             BuildCareSheet(panel);
             development = new DevelopmentPanel(Tray("Development Panel", false, DevelopmentPanel.Height),
                 () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
-                () => ShowPanel(NurseryPanel.Report));
+                () => ShowPanel(NurseryPanel.Report), OpenBabyJournal);
             report = new ReportPanel(Tray("Report Panel", false, ReportPanel.Height), () => ShowPanel(NurseryPanel.Development));
             blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
                 () => ShowPanel(NurseryPanel.Development), CompleteBlocks);
@@ -489,7 +503,7 @@ namespace BAIby.Presentation
             LayoutCareSheet();
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor, Journal }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -503,12 +517,16 @@ namespace BAIby.Presentation
                     {
                         NurseryPanel.Blocks => development.StackBlocks,
                         NurseryPanel.Report => development.OpenReport,
+                        NurseryPanel.Journal => development.OpenJournal,
                         _ => development.ReadStory
                     };
                     developmentFocus.Select();
                     break;
                 case NurseryPanel.Report:
                     report.Done.Select();
+                    break;
+                case NurseryPanel.Journal:
+                    journal.Close.Select();
                     break;
                 case NurseryPanel.Blocks:
                     blocks.FirstBlock.Select();
@@ -574,6 +592,8 @@ namespace BAIby.Presentation
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
             doctor.Root.SetActive(adopted && activePanel == NurseryPanel.Doctor);
+            // The journal opens from Growth here, or from Home for any companion.
+            journal.Root.SetActive(view == HouseholdView.Journal || (adopted && activePanel == NurseryPanel.Journal));
             routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);

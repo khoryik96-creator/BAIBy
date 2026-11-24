@@ -10,8 +10,8 @@ namespace BAIby.Presentation
         private DevelopmentPanel development;
         private Button developmentButton;
 
-        // Growth: the day and stage, a projection card for the next skill, three pastel metric cards, the last
-        // moment, and tiles for a story, blocks and the report.
+        // Growth: the day and stage, a projection card for the next skill, three pastel metric cards (the care rhythm,
+        // Bond and towers), the last moment, and tiles for a story, blocks, the report and the journal.
         private sealed class DevelopmentPanel
         {
             public const float Height = 446;
@@ -21,10 +21,11 @@ namespace BAIby.Presentation
             public Button ReadStory { get; }
             public Button StackBlocks { get; }
             public Button OpenReport { get; }
+            public Button OpenJournal { get; }
 
             private readonly Text age;
-            private readonly Text connection;
-            private readonly Text storySessions;
+            private readonly Text bond;
+            private readonly Text rhythm;
             private readonly Text blockTowers;
             private readonly Text blockAvailability;
             private readonly Text stackTitle;
@@ -33,7 +34,7 @@ namespace BAIby.Presentation
             private readonly (Image Pill, Text Label, Image Mark) pace;
 
             public DevelopmentPanel(RectTransform content, Action close, Action readStory, Action openBlocks,
-                Action openReport)
+                Action openReport, Action openJournal)
             {
                 Root = content.parent.gameObject;
                 var heading = SheetHeading("Development Heading", content, "Growth", Height);
@@ -56,16 +57,17 @@ namespace BAIby.Presentation
                     new Vector2(70, 6), Vector2.right, new Vector2(-16, 40));
                 FitText(projectionHint, 14, 19);
                 pace = Pill("Growth Pace", card, "", Color.white, FernDeep, Fern);
-                storySessions = MetricCard("Story sessions", "Story Sessions Value", content, 0, 1f / 3, Lilac);
-                connection = MetricCard("Connection", "Connection Value", content, 1f / 3, 2f / 3, Blush);
+                rhythm = MetricCard("Care rhythm", "Rhythm Value", content, 0, 1f / 3, Lilac);
+                bond = MetricCard("Bond", "Bond Value", content, 1f / 3, 2f / 3, Blush);
                 blockTowers = MetricCard("Towers built", "Towers Value", content, 2f / 3, 1, Butter);
 
                 Feedback = Label("Development Feedback", content, "", 23, Muted, TextAnchor.MiddleLeft,
                     new Vector2(0, 104), Vector2.right, new Vector2(0, 156));
                 FitText(Feedback, 16, 23);
-                ReadStory = Tile("Read a story", content, 0, 1f / 3, "Story", Blush, readStory);
-                StackBlocks = Tile("Stack blocks", content, 1f / 3, 2f / 3, "Blocks", Butter, openBlocks);
-                OpenReport = Tile("Baby report", content, 2f / 3, 1, "Report", Sky, openReport);
+                ReadStory = Tile("Read a story", content, 0, 0.25f, "Story", Blush, readStory);
+                StackBlocks = Tile("Stack blocks", content, 0.25f, 0.5f, "Blocks", Butter, openBlocks);
+                OpenReport = Tile("Baby report", content, 0.5f, 0.75f, "Report", Sky, openReport);
+                OpenJournal = Tile("Journal", content, 0.75f, 1, "Journal", Lilac, openJournal);
                 stackTitle = StackBlocks.GetComponentInChildren<Text>();
                 blockAvailability = Label("Blocks Availability", StackBlocks.transform, "Early walker stage",
                     16, Muted, TextAnchor.MiddleCenter, new Vector2(4, 4), Vector2.right, new Vector2(-4, 26), FontStyle.Bold);
@@ -73,7 +75,7 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
-            public void UpdateDetails(BabyState state, string ageText, string feedback, GrowthReport growth)
+            public void UpdateDetails(BabyState state, string ageText, string feedback, GrowthReport growth, BondRecord bonding)
             {
                 age.text = ageText;
                 projection.text = ProjectionLine(state, growth);
@@ -86,8 +88,9 @@ namespace BAIby.Presentation
                 var width = PillWidth(pace.Label, Px(24));
                 Place(pill, new Vector2(1, 1), new Vector2(-14, -10), new Vector2(width, 32));
                 projection.rectTransform.offsetMax = new Vector2(-(paceText.Length > 0 ? width + 24 : 16), -6);
-                storySessions.text = state.StorySessions.ToString();
-                connection.text = $"{Mathf.RoundToInt((float)state.Connection)} / 100";
+                var days = bonding?.Rhythm ?? 0;
+                rhythm.text = days == 1 ? "1 day" : $"{days} days";
+                bond.text = $"{Mathf.RoundToInt((float)state.Bond)} / 100";
                 blockTowers.text = state.BlockTowers.ToString();
                 StackBlocks.interactable = state.CanWalk;
                 stackTitle.rectTransform.offsetMin = new Vector2(stackTitle.rectTransform.offsetMin.x, state.CanWalk ? 8 : 26);

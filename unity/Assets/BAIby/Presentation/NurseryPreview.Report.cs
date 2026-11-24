@@ -10,7 +10,7 @@ namespace BAIby.Presentation
         private ReportPanel report;
 
         // The baby report: each track's quality and the growth chart band, the milestones with the next one's
-        // projection, interests and Connection.
+        // projection, interests, and Bond with a warm word for where temperament stands right now.
         private sealed class ReportPanel
         {
             public const float Height = 600;
@@ -23,6 +23,7 @@ namespace BAIby.Presentation
             private readonly Text stories;
             private readonly Text blocks;
             private readonly Text bond;
+            private readonly Text temperament;
 
             public GameObject Root { get; }
             public Button Done { get; }
@@ -56,14 +57,17 @@ namespace BAIby.Presentation
                     new Vector2(0, 8), new Vector2(0, 82));
                 SoftShapes.Radius(Surface(bondCard, FernSoft), Px(20));
                 IconAt("Bond Icon", bondCard, "Soothe", FernDeep, new Vector2(0, 0.5f), new Vector2(40, 0), Px(20));
-                Label("Bond Label", bondCard, "Connection", 26, FernDeep, TextAnchor.MiddleLeft,
-                    new Vector2(70, 0), Vector2.one, new Vector2(-20, 0), FontStyle.Bold);
+                Label("Bond Label", bondCard, "Bond", 26, FernDeep, TextAnchor.MiddleLeft,
+                    new Vector2(70, 34), Vector2.one, new Vector2(-150, -4), FontStyle.Bold);
+                temperament = Label("Report Temperament", bondCard, "", 18, FernDeep, TextAnchor.MiddleLeft,
+                    new Vector2(70, 6), Vector2.right, new Vector2(-150, 36));
+                FitText(temperament, 13, 18);
                 bond = Label("Report Bond Value", bondCard, "", 32, FernDeep, TextAnchor.MiddleRight,
                     new Vector2(20, 0), Vector2.one, new Vector2(-20, 0), FontStyle.Bold);
                 Root.SetActive(false);
             }
 
-            public void UpdateDetails(BabyReport details, GrowthReport growth)
+            public void UpdateDetails(BabyReport details, GrowthReport growth, string temperamentLine)
             {
                 foreach (DevelopmentTrack track in Enum.GetValues(typeof(DevelopmentTrack)))
                     tracks[(int)track].text = growth == null ? string.Empty
@@ -79,7 +83,8 @@ namespace BAIby.Presentation
                 blocks.text = details.EnjoysBlocks
                     ? $"Enjoys blocks · {details.BlockTowers} towers built"
                     : $"Towers built · {details.BlockTowers}";
-                bond.text = $"{Mathf.RoundToInt((float)details.Connection)} / 100";
+                bond.text = $"{Mathf.RoundToInt((float)details.Bond)} / 100";
+                temperament.text = temperamentLine ?? string.Empty;
             }
 
             private static void Section(string name, Transform content, float bottom, float top, string text = null)
