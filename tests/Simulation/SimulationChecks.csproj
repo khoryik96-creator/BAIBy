@@ -3,9 +3,17 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Unity 6 compiles C# 9; keep the shared runtime files within it. -->
+    <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../unity/Assets/BAIby/Simulation/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Simulation/Pets/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Simulation/Care/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Application/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Infrastructure/LocalClock.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Application/Household/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Application/Entitlements/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Presentation/WipeGeometry.cs" />
   </ItemGroup>
 </Project>

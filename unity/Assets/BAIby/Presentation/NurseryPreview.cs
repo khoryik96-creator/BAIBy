@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 namespace BAIby.Presentation
 {
-    public sealed class NurseryPreview : MonoBehaviour
+    public sealed partial class NurseryPreview : MonoBehaviour
     {
         private static readonly Color Ink = new Color32(43, 51, 44, 255);
         private static readonly Color Secondary = new Color32(75, 85, 74, 255);
@@ -16,6 +16,7 @@ namespace BAIby.Presentation
         private static readonly Color Fern = new Color32(58, 89, 70, 255);
         private static readonly Color Mist = new Color32(224, 232, 217, 255);
 
+        // The active companion's session; the household owns and caches every companion's session.
         private BabySession session;
         private NurseryVisuals nursery;
         private RectTransform safeArea;
@@ -25,6 +26,7 @@ namespace BAIby.Presentation
         private GameObject controls;
         private Text title;
         private Text age;
+        private Text favorite;
         private Text status;
         private Text saveError;
         private Text wake;
@@ -32,22 +34,20 @@ namespace BAIby.Presentation
         private InputField nameField;
         private NeedMeter satiety;
         private NeedMeter comfort;
+        private NeedMeter energy;
+        private NeedMeter health;
+        private NeedMeter cleanliness;
         private float refreshIn;
+        private NurseryPanel activePanel;
+        private Button washUpButton;
 
         private void Awake()
         {
             nursery = NurseryVisuals.Create();
             nursery.transform.SetParent(transform, true);
             nursery.Present(false, false, Reaction.None);
+            petStage = PetVisuals.Create(nursery);
             BuildInterface();
-        }
-
-        public void Open(BabySession babySession)
-        {
-            session = babySession ?? throw new ArgumentNullException(nameof(babySession));
-            adopt.interactable = true;
-            Paint(Reaction.None, false);
-            Refresh();
         }
 
         public void ReportStartupFailure(Exception error)
@@ -59,38 +59,124 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
+            FitRoutineStrip();
+            if (Input.GetKeyDown(KeyCode.Escape))
+                GoBack();
+
             refreshIn -= Time.unscaledDeltaTime;
             if (refreshIn <= 0)
                 Refresh();
         }
 
+        private void GoBack()
+        {
+            switch (view)
+            {
+                case HouseholdView.Goodbye:
+                case HouseholdView.MoreRooms:
+                case HouseholdView.Settings:
+                case HouseholdView.Journal:
+                case HouseholdView.Wake:
+                    ShowHome();
+                    break;
+                case HouseholdView.Gate:
+                    CancelGate();
+                    break;
+                case HouseholdView.Home:
+                    ShowActiveCompanion();
+                    break;
+                case HouseholdView.Adoption:
+                    // The baby's name step goes back to the choice of a baby or a pet.
+                    StartAdoption();
+                    break;
+                case HouseholdView.Choose:
+                    if (household != null && household.Companions.Count > 0)
+                        ShowHome();
+                    break;
+                case HouseholdView.PetAdoption:
+                    PetAdoptionBack();
+                    break;
+                case HouseholdView.PetRoom:
+                    break;
+                default:
+                    if (activePanel != NurseryPanel.Care)
+                        ShowPanel(activePanel switch
+                        {
+                            NurseryPanel.Diaper => NurseryPanel.Hygiene,
+                            NurseryPanel.Blocks or NurseryPanel.Report => NurseryPanel.Development,
+                            _ => NurseryPanel.Care
+                        });
+                    break;
+            }
+        }
+
         private void OnApplicationPause(bool paused)
         {
-            if (!paused && session != null)
-                Refresh();
+            if (!paused && household != null)
+                Refresh(resumed: true);
         }
 
         private void OnApplicationFocus(bool focused)
         {
-            if (focused && session != null)
-                Refresh();
+            if (focused && household != null)
+                Refresh(resumed: true);
         }
 
-        private void Refresh()
+        // Advances every companion on resume and on the minute tick. Milestones of companions that are
+        // not on screen wait as pending celebrations. On Home the minute tick is a preview that makes no
+        // writes; resuming or leaving Home commits it.
+        private void Refresh(bool resumed = false)
         {
             refreshIn = 60;
-            if (session?.State == null)
+            if (household == null)
                 return;
 
+            if (view == HouseholdView.Home && !resumed)
+            {
+                home.Refresh(household);
+                return;
+            }
+
+            if (view == HouseholdView.PetRoom)
+            {
+                RefreshPetRoom();
+                return;
+            }
+
+            var onScreen = view == HouseholdView.Nursery && session?.State != null;
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default;
+            Exception failure = null;
             try
             {
-                var unlocked = session.Refresh();
-                Paint(Reaction.None, unlocked);
+                unlocked = household.AdvanceAll(onScreen);
             }
             catch (Exception error)
             {
-                ReportFailure(error, "Your progress couldn't be saved. Please try again.");
+                // The on-screen companion's unlocks were kept as a pending celebration; play them now.
+                failure = error;
+                var active = household.Active;
+                if (onScreen && active != null)
+                    TakeCelebrations(active.Slot, ref unlocked);
             }
+
+            if (onScreen)
+                Paint(Reaction.None, unlocked);
+            else if (view == HouseholdView.Home)
+                home.Refresh(household);
+
+            if (failure != null)
+                ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", unlocked);
+        }
+
+        // An announced milestone stays on screen. The failed write is logged, retried on the next tick
+        // and reported then.
+        private void ReportUnlessAnnounced(Exception error, string message,
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) announced)
+        {
+            if (announced.UnlockedSitting || announced.UnlockedCrawling || announced.UnlockedWalking)
+                Debug.LogException(error);
+            else
+                ReportFailure(error, message);
         }
 
         private void Adopt()
@@ -101,29 +187,55 @@ namespace BAIby.Presentation
                 return;
             }
 
+            if (household == null)
+                return;
+
+            var before = household.Companions.Count;
             try
             {
-                session.Adopt(nameField.text);
-                Paint(Reaction.None, false);
+                ShowCompanion(household.Adopt(nameField.text), default);
             }
             catch (Exception error)
             {
+                // The record is written before the manifest, so an adopted baby is opened even when
+                // the manifest write fails; the next launch lists it again.
+                if (household.Companions.Count > before && view == HouseholdView.Adoption)
+                    ShowCompanion(household.Active, default);
                 ReportFailure(error, "The nursery couldn't be saved. Please try again.");
             }
         }
 
-        private void Care(CareAction action)
+        private bool Care(CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
+            (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) result;
             try
             {
-                var result = session.ApplyCare(action);
-                Paint(result.Reaction, result.UnlockedSitting);
+                result = session.ApplyCare(action, toy, food);
             }
             catch (Exception error)
             {
                 ReportFailure(error, "This action couldn't be saved. Please try again.");
+                return false;
             }
+
+            if (activePanel == NurseryPanel.Blocks)
+                ShowPanel(NurseryPanel.Development);
+            else if (activePanel == NurseryPanel.Diaper || activePanel == NurseryPanel.Hygiene ||
+                (activePanel == NurseryPanel.NewSound && !session.State.HasPendingNewSound))
+                ShowPanel(NurseryPanel.Care);
+            Paint(result.Reaction, (result.UnlockedSitting, result.UnlockedCrawling, result.UnlockedWalking),
+                action == CareAction.Play ? toy : (Toy?)null, food);
+            return true;
         }
+
+        private void OpenDiaperExercise()
+        {
+            diaper.ResetActivity();
+            ShowPanel(NurseryPanel.Diaper);
+        }
+
+        private bool CompleteDiaper() =>
+            activePanel == NurseryPanel.Diaper && Care(CareAction.ChangeDiaper);
 
         private void NextPreviewDay()
         {
@@ -137,53 +249,149 @@ namespace BAIby.Presentation
             }
         }
 
-        private void Paint(Reaction reaction, bool unlocked)
+        private void Paint(Reaction reaction,
+            (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked = default,
+            Toy? playedToy = null, Food food = Food.Milk)
         {
-            var state = session.State;
+            var state = view == HouseholdView.Nursery ? session?.State : null;
             var adopted = state != null;
-            welcome.SetActive(!adopted);
-            controls.SetActive(adopted);
+            ApplyHouseholdView();
             satiety.Root.gameObject.SetActive(adopted);
             comfort.Root.gameObject.SetActive(adopted);
+            energy.Root.gameObject.SetActive(adopted);
+            health.Root.gameObject.SetActive(adopted);
+            cleanliness.Root.gameObject.SetActive(adopted);
             saveError.text = string.Empty;
-            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction);
+            ApplyNurseryTheme(state?.NurseryTheme ?? NurseryTheme.Sage);
+            var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
+            var visibleToy = playedToy ?? ambientToy;
+            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
+                canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
+            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0);
+            // After Present, so the look is built first for the stage that is actually shown.
+            ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
 
             if (!adopted)
+            {
+                title.text = household != null && household.Companions.Count > 0 ? "A new arrival" : "Your nursery";
+                wake.text = "BAIby";
+                age.text = string.Empty;
+                favorite.text = string.Empty;
                 return;
+            }
 
             title.text = state.Name;
             wake.text = "NURSERY";
             var days = (int)state.Age.TotalDays;
-            var stage = state.CanSitAndReach ? "Early sitter" : "Newborn";
+            var stage = StageName(state);
             age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
+            favorite.text = state.FavoriteToy is Toy favored ? $"Favorite: {ToyName(favored)}" : string.Empty;
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
-            if (unlocked)
-                status.text = reaction == Reaction.None
-                    ? $"{state.Name} can sit up now. Try playing with the toy."
-                    : $"{state.Name} can sit up now. {DescribeReaction(state.Name, reaction)}";
-            else if (reaction != Reaction.None)
-                status.text = DescribeReaction(state.Name, reaction);
-            else if (string.IsNullOrEmpty(status.text))
-                status.text = $"Spend a little time with {state.Name}.";
+            energy.Set(state.Energy);
+            health.Set(state.Health);
+            cleanliness.Set(state.Cleanliness);
+            var reactionText = DescribeReaction(state.Name, reaction, visibleToy, food);
+            if (unlocked.UnlockedWalking)
+                status.text = $"{state.Name} can take a few steps now. " +
+                    (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
+            else if (unlocked.UnlockedCrawling)
+                status.text = $"{state.Name} can crawl now. " +
+                    (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
+            else if (unlocked.UnlockedSitting)
+                status.text = $"{state.Name} can sit up now. " +
+                    (reaction == Reaction.None ? "Try playing with the toy." : reactionText);
+            else
+                status.text = reaction == Reaction.None ? DescribeCondition(state) ?? DescribeNeeds(state) : reactionText;
+
+            UpdateRoutineSlots(session.Routine, state.Care.Preset);
+            routine.UpdateDetails(state, DescribeCondition(state) ??
+                $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
+            development.UpdateDetails(state, age.text, status.text);
+            report.UpdateDetails(BabyReport.From(state));
+            feeding.UpdateDetails(state, status.text);
         }
 
-        private static string DescribeReaction(string name, Reaction reaction)
+        private static string StageName(BabyState state)
+        {
+            if (state.CanWalk)
+                return "Early walker";
+            if (state.CanCrawl)
+                return "Crawler";
+
+            return state.CanSitAndReach ? "Early sitter" : "Newborn";
+        }
+
+        private static string ToyName(Toy toy) => toy == Toy.Plush ? "Plush" : "Rattle";
+
+        private static string DescribeReaction(string name, Reaction reaction, Toy toy, Food food)
         {
             switch (reaction)
             {
-                case Reaction.Satisfied: return $"{name} looks satisfied after feeding.";
+                case Reaction.Satisfied: return $"{name} looks satisfied after their {FoodName(food).ToLowerInvariant()}.";
                 case Reaction.Calmed: return $"{name} relaxes as you soothe them.";
-                case Reaction.TracksToy: return $"{name} follows the toy with their eyes.";
-                case Reaction.ReachesForToy: return $"{name} sits up and reaches for the toy.";
+                case Reaction.Rested: return $"{name} settled for a nap and woke up rested.";
+                case Reaction.FreshDiaper: return $"{name} is clean and dry after a fresh diaper.";
+                case Reaction.FreshBath: return $"{name} splashed in the bath and feels fresh and relaxed.";
+                case Reaction.EnjoysStory: return $"{name} watches the pages as you read together.";
+                case Reaction.StackedBlocks: return $"{name} beams at the block tower you built together.";
+                case Reaction.NewSoundComforted: return $"{name} settles in your arms as the sound fades.";
+                case Reaction.NewSoundExplored: return $"{name} listens closely as you explore the sound together.";
+                case Reaction.TracksToy: return $"{name} follows the {ToyName(toy).ToLowerInvariant()} with their eyes.";
+                case Reaction.ReachesForToy: return $"{name} sits up and reaches for the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.CrawlsToToy: return $"{name} crawls toward the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.WalksToToy: return $"{name} takes a few steps toward the {ToyName(toy).ToLowerInvariant()}.";
+                case Reaction.PushesToyAway: return $"{name} is too upset to play and pushes it away. Soothing will help.";
+                case Reaction.TooFull:
+                    return $"{name} is too full for the {FoodName(food).ToLowerInvariant()} and spits up a little. Try again later.";
                 default: return string.Empty;
             }
+        }
+
+        private static string DescribeNeeds(BabyState state)
+        {
+            const double low = 45;
+            if (state.Health < low)
+                return $"{state.Name} seems under the weather and could use some care.";
+            if (state.Cleanliness < low)
+                return $"{state.Name} could use a fresh diaper.";
+            if (state.Energy < low && state.Energy <= state.Satiety && state.Energy <= state.Comfort)
+                return $"{state.Name} rubs their eyes. It might be time for a nap.";
+            if (state.Satiety < low && state.Satiety <= state.Comfort)
+                return $"{state.Name} seems hungry.";
+            if (state.Comfort < low)
+                return $"{state.Name} is unsettled and might like some soothing.";
+            return $"{state.Name} is looking around the nursery.";
         }
 
         private void ReportFailure(Exception error, string message)
         {
             Debug.LogException(error);
-            if (controls.activeSelf)
+            if (HouseholdFeedback() is Text householdFeedback)
+                householdFeedback.text = message;
+            else if (goodbye.Root.activeSelf)
+                goodbye.Feedback.text = message;
+            else if (home.Root.activeSelf)
+                home.Feedback.text = message;
+            else if (blocks.Root.activeSelf)
+                blocks.Feedback.text = message;
+            else if (decor.Root.activeSelf)
+                decor.Feedback.text = message;
+            else if (routine.Root.activeSelf)
+                routine.Summary.text = message;
+            else if (style.Root.activeSelf)
+                style.Feedback.text = message;
+            else if (diaper.Root.activeSelf)
+                diaper.Feedback.text = message;
+            else if (hygiene.Root.activeSelf)
+                hygiene.Feedback.text = message;
+            else if (newSound.Root.activeSelf)
+                newSound.Scene.text = message;
+            else if (feeding.Root.activeSelf)
+                feeding.Feedback.text = message;
+            else if (development.Root.activeSelf)
+                development.Feedback.text = message;
+            else if (controls.activeSelf)
                 status.text = message;
             else
                 saveError.text = message;
@@ -209,23 +417,36 @@ namespace BAIby.Presentation
             safeArea = Box("Safe Area", canvas.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             FitSafeArea();
 
-            var top = Tray("Header", true, 190);
+            var top = Tray("Header", true, 239);
+            header = top.parent.gameObject;
             wake = Label("Header Label", top, "BAIby", 19, Fern, TextAnchor.MiddleLeft,
-                new Vector2(0, 146), new Vector2(1, 1), new Vector2(0, -15));
+                new Vector2(0, 195), new Vector2(1, 1), new Vector2(0, -15));
             title = Label("Baby Name", top, "Your nursery", 48, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 86), new Vector2(1, 1), new Vector2(0, -38), FontStyle.Bold);
+                new Vector2(0, 135), new Vector2(0.56f, 1), new Vector2(0, -52), FontStyle.Bold);
             title.resizeTextForBestFit = true;
             title.resizeTextMinSize = 27;
             title.resizeTextMaxSize = 48;
+            decorButton = ActionButton("Decor", top, 0.79f, 1, 143, 231, () => ShowPanel(NurseryPanel.Decor), Mist, Ink);
+            decorButton.gameObject.SetActive(false);
+            BuildStyleButton(top);
+            BuildHouseholdChips(top);
             age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
-                new Vector2(0, 59), new Vector2(1, 1), new Vector2(0, -101));
-            satiety = Meter("Fullness", top, 0, 0.5f);
-            comfort = Meter("Comfort", top, 0.5f, 1);
+                new Vector2(0, 108), new Vector2(1, 1), new Vector2(0, -101));
+            favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
+                new Vector2(0, 108), Vector2.one, new Vector2(0, -101));
+            satiety = Meter("Fullness", top, 0, 1f / 3, 61);
+            comfort = Meter("Comfort", top, 1f / 3, 2f / 3, 61);
+            energy = Meter("Energy", top, 2f / 3, 1, 61);
+            cleanliness = Meter("Cleanliness", top, 0, 0.5f, 12);
+            health = Meter("Health", top, 0.5f, 1, 12);
 
             var starter = Tray("Welcome", false, 250);
             welcome = starter.parent.gameObject;
             Label("Prompt", starter, "What’s your baby’s name?", 29, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 165), new Vector2(1, 1), new Vector2(0, -24), FontStyle.Bold);
+                new Vector2(0, 165), new Vector2(0.72f, 1), new Vector2(0, -24), FontStyle.Bold);
+            backToHome = ActionButton("Back to home", starter, 0.73f, 1, 170, 230, ShowHome, Mist, Ink);
+            backToHome.GetComponentInChildren<Text>().fontSize = 21;
+            backToHome.gameObject.SetActive(false);
             var field = Box("Name", starter, Vector2.zero, Vector2.right, new Vector2(0, 104), new Vector2(0, 165));
             nameField = field.gameObject.AddComponent<InputField>();
             nameField.targetGraphic = Surface(field, Mist);
@@ -241,20 +462,140 @@ namespace BAIby.Presentation
             saveError = Label("Save Message", starter, "", 17, Ink, TextAnchor.MiddleLeft,
                 Vector2.zero, Vector2.right, new Vector2(0, 30));
 
-            var panel = Tray("Care", false, 229);
+            var panel = Tray("Care", false, 378);
             controls = panel.parent.gameObject;
+            newSoundNotice = BuildNewSoundNotice(panel);
             status = Label("Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 135), Vector2.right, new Vector2(0, 216));
+                new Vector2(0, 283), Vector2.right, new Vector2(0, 365));
             status.resizeTextForBestFit = true;
             status.resizeTextMinSize = 19;
             status.resizeTextMaxSize = 25;
-            ActionButton("Feed", panel, 0, 1f / 3, 61, 134, () => Care(CareAction.Feed), Fern, Color.white);
-            ActionButton("Soothe", panel, 1f / 3, 2f / 3, 61, 134, () => Care(CareAction.Soothe), Fern, Color.white);
-            ActionButton("Play", panel, 2f / 3, 1, 61, 134, () => Care(CareAction.Play), Fern, Color.white);
-            ActionButton("Preview next day", panel, 0, 1, 7, 54, NextPreviewDay, Mist, Ink);
+            feedButton = ActionButton("Feed", panel, 0, 1f / 3, 195, 283,
+                () => ShowPanel(NurseryPanel.Feeding), Fern, Color.white);
+            ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
+            ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
+            washUpButton = ActionButton("Wash up", panel, 0, 1f / 3, 99, 187,
+                () => ShowPanel(NurseryPanel.Hygiene), Fern, Color.white);
+            ActionButton("Play with rattle", panel, 1f / 3, 2f / 3, 99, 187,
+                () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
+            ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
+                () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
+            ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
+            developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
+                () => ShowPanel(NurseryPanel.Development), Mist, Ink);
+            development = new DevelopmentPanel(Tray("Development Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
+                () => ShowPanel(NurseryPanel.Report));
+            report = new ReportPanel(Tray("Report Panel", false, 470), () => ShowPanel(NurseryPanel.Development));
+            blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
+                () => ShowPanel(NurseryPanel.Development), CompleteBlocks);
+            feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), food => Care(CareAction.Feed, food: food));
+            newSound = new NewSoundPanel(Tray("New Sound Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), action => Care(action));
+            hygiene = new HygienePanel(Tray("Hygiene Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), OpenDiaperExercise, () => Care(CareAction.Bath));
+            diaper = new DiaperPanel(Tray("Diaper Panel", false, 378),
+                () => ShowPanel(NurseryPanel.Hygiene), CompleteDiaper);
+            decor = new DecorPanel(Tray("Decor Panel", false, 360),
+                () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
+            style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            BuildRoutine();
+            BuildHome();
             controls.SetActive(false);
             satiety.Root.gameObject.SetActive(false);
             comfort.Root.gameObject.SetActive(false);
+            energy.Root.gameObject.SetActive(false);
+            health.Root.gameObject.SetActive(false);
+            cleanliness.Root.gameObject.SetActive(false);
+        }
+
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine }
+
+        private void ShowPanel(NurseryPanel next)
+        {
+            var previous = activePanel;
+            activePanel = next;
+            UpdatePanelVisibility(true);
+            switch (next)
+            {
+                case NurseryPanel.Development:
+                    var developmentFocus = previous switch
+                    {
+                        NurseryPanel.Blocks => development.StackBlocks,
+                        NurseryPanel.Report => development.OpenReport,
+                        _ => development.ReadStory
+                    };
+                    developmentFocus.Select();
+                    break;
+                case NurseryPanel.Report:
+                    report.Done.Select();
+                    break;
+                case NurseryPanel.Blocks:
+                    blocks.FirstBlock.Select();
+                    break;
+                case NurseryPanel.Feeding:
+                    feeding.Milk.Select();
+                    break;
+                case NurseryPanel.NewSound:
+                    newSound.Comfort.Select();
+                    break;
+                case NurseryPanel.Hygiene:
+                    hygiene.Feedback.text = string.Empty;
+                    hygiene.ChangeDiaper.Select();
+                    break;
+                case NurseryPanel.Diaper:
+                    diaper.StartControl.Select();
+                    break;
+                case NurseryPanel.Decor:
+                    decor.ChoiceFor(session.State.NurseryTheme).Select();
+                    break;
+                case NurseryPanel.Routine:
+                    (session.State.Care.Style == CareStyle.Gentle ? routine.GentleButton : routine.StandardButton).Select();
+                    break;
+                case NurseryPanel.Style:
+                    style.Open(session.State.Appearance);
+                    // Shows the failure note again if the saved look's art could not be built.
+                    ApplyBabyAppearance(session.State.Appearance);
+                    break;
+                default:
+                    switch (previous)
+                    {
+                        case NurseryPanel.Feeding: feedButton.Select(); break;
+                        case NurseryPanel.Development: developmentButton.Select(); break;
+                        case NurseryPanel.Diaper:
+                        case NurseryPanel.Hygiene: washUpButton.Select(); break;
+                        case NurseryPanel.Decor: decorButton.Select(); break;
+                        case NurseryPanel.Style: styleButton.Select(); break;
+                        case NurseryPanel.Routine: RoutineOpener.Select(); break;
+                        case NurseryPanel.NewSound:
+                            (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
+                            break;
+                    }
+                    break;
+            }
+        }
+
+        private void UpdatePanelVisibility(bool adopted)
+        {
+            controls.SetActive(adopted && activePanel == NurseryPanel.Care);
+            development.Root.SetActive(adopted && activePanel == NurseryPanel.Development);
+            blocks.Root.SetActive(adopted && activePanel == NurseryPanel.Blocks);
+            report.Root.SetActive(adopted && activePanel == NurseryPanel.Report);
+            feeding.Root.SetActive(adopted && activePanel == NurseryPanel.Feeding);
+            hygiene.Root.SetActive(adopted && activePanel == NurseryPanel.Hygiene);
+            diaper.Root.SetActive(adopted && activePanel == NurseryPanel.Diaper);
+            decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
+            style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
+            routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
+            routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
+            decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
+            styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
+            UpdateHouseholdChips(adopted && activePanel == NurseryPanel.Care);
+            var hasPendingSound = adopted && session.State.HasPendingNewSound;
+            newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
+            UpdateNewSoundNotice(hasPendingSound);
+            UpdateRoutineEntry();
         }
 
         private RectTransform Tray(string label, bool top, float height)
@@ -279,10 +620,10 @@ namespace BAIby.Presentation
             previousScreen = screen;
         }
 
-        private static NeedMeter Meter(string label, Transform parent, float left, float right)
+        private static NeedMeter Meter(string label, Transform parent, float left, float right, float bottom)
         {
             var root = Box(label, parent, new Vector2(left, 0), new Vector2(right, 0),
-                new Vector2(0, 12), new Vector2(-12, 56));
+                new Vector2(0, bottom), new Vector2(-12, bottom + 44));
             Label("Label", root, label, 20, Ink, TextAnchor.UpperLeft,
                 new Vector2(0, 12), Vector2.one, Vector2.zero);
             var bar = Box("Bar", root, Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 8));

@@ -25,3 +25,4 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - run: dotnet run --project tests/Simulation/SimulationChecks.csproj --configuration Release
+      - run: dotnet run --project tests/Appearance/AppearanceChecks.csproj --configuration Release

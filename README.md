@@ -1,8 +1,9 @@
 # BAIby
 
-BAIby is a virtual baby raising game. The Android and iOS restart focuses on a believable, stylized 3D baby whose reactions, routines, and abilities change through play and as they grow.
+BAIby is a virtual baby raising game. The Android and iOS restart focuses on a chibi-style 2D baby whose reactions, routines, and abilities change through play and as they grow.
 
 - [Restart roadmap](docs/roadmap.md)
+- [Feature parity with v5.3](docs/feature-parity.md)
 - [Mobile architecture](docs/architecture.md)
 - [Regression guardrails](docs/regression.md)
 - [Nursery playtest checklist](docs/playtest.md)
@@ -31,7 +32,7 @@ Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try the three care actions, and use **Preview next day** to exercise the first milestone.
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → + Adopt**) to raise a cat with placeholder art; see the [cat playtest](docs/playtest.md#cats-p1).
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 
@@ -42,12 +43,15 @@ Unity -batchmode -quit -projectPath "$PWD/unity" -buildTarget WebGL \
 
 You can also select **BAIby → Build Browser Preview** in the Editor. An activated Editor is required. The export goes to `build/Web`. Serve it through the preview route above.
 
-In the Editor, open **Window → General → Test Runner** and run the Play Mode smoke test. It adopts a baby through the nursery UI, exercises the care buttons, and reopens an isolated save to verify that the milestone and toy familiarity persist.
+In the Editor, open **Window → General → Test Runner** and run the Play Mode smoke test. It adopts a baby through the nursery UI, exercises the care buttons, and reopens an isolated save to verify that the milestone and toy familiarity persist. Other cases cover the household, resting companions, and a cat adopted beside a baby.
 
 The [simulation](unity/Assets/BAIby/Simulation) and [session](unity/Assets/BAIby/Application) compile as plain C#. Run their regression checks with the .NET 8 SDK.
 
 ```sh
 dotnet run --project tests/Simulation/SimulationChecks.csproj --configuration Release
+dotnet run --project tests/Appearance/AppearanceChecks.csproj --configuration Release
 ```
 
-The character and milestone timing are for playtesting. The slice uses Unity’s built-in renderer. The production roadmap targets URP after the first visual review. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.
+The baby's look comes from region maps and hair and headwear overlays generated from the pose illustrations. Regenerate them with the tool in [tools/appearance](tools/appearance), which also renders preview sheets for review.
+
+The character and milestone timing are for playtesting. The nursery uses layered 2D artwork, with awake and sleeping chibi poses for each developmental stage. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.

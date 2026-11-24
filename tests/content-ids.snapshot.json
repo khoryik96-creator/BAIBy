@@ -1,0 +1,311 @@
+{
+  "BabyStage": {
+    "Newborn": 0,
+    "Sitter": 1,
+    "Crawler": 2,
+    "Walker": 3
+  },
+  "BondTier": {
+    "Acquainted": 0,
+    "Trusting": 1,
+    "BestFriends": 2
+  },
+  "BreedArtTier": {
+    "Recolor": 0,
+    "Overlay": 1,
+    "NewSilhouette": 2
+  },
+  "BreedUnlock": {
+    "Free": 0,
+    "Earned": 1,
+    "Premium": 2
+  },
+  "CareMark": {
+    "OnTime": 0,
+    "Late": 1,
+    "Missed": 2
+  },
+  "CareMoment": {
+    "Morning": 0,
+    "Afternoon": 1,
+    "Evening": 2,
+    "Bedtime": 3
+  },
+  "CareMood": {
+    "Content": 0,
+    "Fussy": 1,
+    "Upset": 2
+  },
+  "CareMoodCause": {
+    "None": 0,
+    "LowNeed": 1,
+    "MealOverdue": 2,
+    "MissedWindow": 3,
+    "Unanswered": 4,
+    "MissedMeals": 5,
+    "LowCareScore": 6
+  },
+  "CareReason": {
+    "None": 0,
+    "Started": 1,
+    "AwaitingAnchor": 2,
+    "GapExcused": 3,
+    "NewCareDay": 4,
+    "OffsetShiftScheduled": 5,
+    "TravelDayExcused": 6,
+    "AbsenceCovered": 7,
+    "WindowMissed": 8,
+    "MealOnTime": 9,
+    "MealLate": 10,
+    "MealTooFull": 11,
+    "MealOutsideWindow": 12,
+    "MealExcused": 13,
+    "BedtimeOnTime": 14,
+    "BedtimeLate": 15,
+    "BedtimeOutsideWindow": 16,
+    "BedtimeExcused": 17,
+    "TogetherCounted": 18,
+    "TogetherAlreadyCounted": 19,
+    "TogetherExcused": 20,
+    "NoRoutineTag": 21,
+    "RoutineScheduled": 22,
+    "StyleChanged": 23,
+    "AwayStarted": 24,
+    "AwayEnded": 25,
+    "WashOnTime": 26,
+    "WashLate": 27,
+    "WashExcused": 28,
+    "WashOutsideWindow": 29
+  },
+  "CareStyle": {
+    "Standard": 0,
+    "Gentle": 1,
+    "Realistic": 2
+  },
+  "CareTags": {
+    "None": 0,
+    "Meal": 1,
+    "Together": 2,
+    "Hygiene": 4,
+    "Bedtime": 8,
+    "Medicine": 16,
+    "Tidy": 32,
+    "Comfort": 64
+  },
+  "CompanionKind": {
+    "Baby": 0,
+    "Pet": 1
+  },
+  "CompanionMilestone": {
+    "Sitting": 0,
+    "Crawling": 1,
+    "Walking": 2,
+    "Grown": 3
+  },
+  "EarnedGoal": {
+    "FirstFullCareDay": 0,
+    "Bond40": 1,
+    "RaisedToGrown": 2,
+    "SevenOnTimeCareDays": 3
+  },
+  "EntitlementSource": {
+    "Store": 0,
+    "Playtest": 1
+  },
+  "Food": {
+    "Milk": 0,
+    "Banana": 1,
+    "Oats": 2
+  },
+  "HairColor": {
+    "Chestnut": 0,
+    "Black": 1,
+    "Espresso": 2,
+    "Auburn": 3,
+    "Honey": 4,
+    "Platinum": 5
+  },
+  "HairStyle": {
+    "Curls": 0,
+    "Coils": 1,
+    "Smooth": 2,
+    "Tuft": 3
+  },
+  "Headwear": {
+    "None": 0,
+    "Bow": 1,
+    "BearBeanie": 2,
+    "BucketHat": 3,
+    "DaisyClip": 4
+  },
+  "MomentStatus": {
+    "Pending": 0,
+    "OnTime": 1,
+    "Late": 2,
+    "Missed": 3,
+    "Excused": 4,
+    "Covered": 5
+  },
+  "NurseryTheme": {
+    "Sage": 0,
+    "Peach": 1
+  },
+  "Outfit": {
+    "Sage": 0,
+    "Oat": 1,
+    "Sky": 2,
+    "Blush": 3,
+    "Butter": 4,
+    "Lilac": 5,
+    "Terracotta": 6,
+    "Midnight": 7
+  },
+  "PetAccessory": {
+    "None": 0,
+    "Collar": 1,
+    "Bandana": 2,
+    "Bow": 3,
+    "TankCastle": 4
+  },
+  "PetBreed": {
+    "DomesticShorthair": 100,
+    "Tabby": 101,
+    "Tuxedo": 102,
+    "Siamese": 103,
+    "Calico": 104,
+    "Ragdoll": 105,
+    "MaineCoon": 106,
+    "Bengal": 107,
+    "BritishShorthair": 108,
+    "RussianBlue": 109,
+    "Sphynx": 110,
+    "MixedBreed": 200,
+    "Golden": 201,
+    "Beagle": 202,
+    "Shiba": 203,
+    "Corgi": 204,
+    "Poodle": 205,
+    "Dachshund": 206,
+    "Husky": 207,
+    "Samoyed": 208,
+    "Pomeranian": 209,
+    "Dalmatian": 210,
+    "BorderCollie": 211,
+    "Goldfish": 300,
+    "Guppy": 301,
+    "Betta": 302,
+    "NeonTetraSchool": 303,
+    "Angelfish": 304,
+    "Koi": 305,
+    "Clownfish": 306,
+    "Discus": 307,
+    "Dutch": 400,
+    "NetherlandDwarf": 401,
+    "HollandLop": 402,
+    "Lionhead": 403,
+    "Angora": 404,
+    "Rex": 405,
+    "FlemishGiant": 406,
+    "Harlequin": 407,
+    "SyrianGolden": 500,
+    "WinterWhite": 501,
+    "Roborovski": 502,
+    "TeddyBear": 503,
+    "Panda": 504,
+    "Sapphire": 505,
+    "Campbells": 506
+  },
+  "PetCoat": {
+    "Cream": 0,
+    "Ginger": 1,
+    "Gray": 2,
+    "Black": 3,
+    "White": 4,
+    "Brown": 5,
+    "Golden": 6,
+    "Silver": 7,
+    "Blue": 8,
+    "Seal": 9,
+    "Lilac": 10,
+    "Red": 11,
+    "Sable": 12,
+    "Tan": 13,
+    "Fawn": 14,
+    "Orange": 15,
+    "Yellow": 16,
+    "Purple": 17,
+    "Chocolate": 18,
+    "Tricolor": 19
+  },
+  "PetCue": {
+    "Content": 0,
+    "IgnoredFlakes": 1
+  },
+  "PetMeter": {
+    "Fullness": 0,
+    "Energy": 1,
+    "Comfort": 2,
+    "Cleanliness": 3,
+    "Health": 4,
+    "Exercise": 5,
+    "Bedding": 6,
+    "Water": 7,
+    "Calm": 8,
+    "Hay": 9,
+    "Litter": 10
+  },
+  "PetMoment": {
+    "Kneading": 0,
+    "Purring": 1,
+    "BringsToy": 2,
+    "ReunionGreeting": 3,
+    "CheekPouches": 4,
+    "SwimsToGlass": 5,
+    "Binky": 6
+  },
+  "PetStage": {
+    "Young": 0,
+    "Grown": 1
+  },
+  "PetVerb": {
+    "Feed": 0,
+    "Pet": 1,
+    "Wand": 2,
+    "Brush": 3,
+    "Nap": 4,
+    "Walk": 5,
+    "Fetch": 6,
+    "Rest": 7,
+    "Bowl": 8,
+    "Wheel": 9,
+    "FluffBedding": 10,
+    "GentleHold": 11,
+    "SprinkleFood": 12,
+    "WipeGlass": 13,
+    "WaterChange": 14,
+    "Hay": 15,
+    "Greens": 16,
+    "Groom": 17,
+    "FloorTime": 18,
+    "Litter": 19
+  },
+  "RoutinePreset": {
+    "SchoolDay": 0,
+    "Home": 1
+  },
+  "SkinTone": {
+    "Warm": 0,
+    "Fair": 1,
+    "Light": 2,
+    "Tan": 3,
+    "Brown": 4,
+    "Deep": 5
+  },
+  "Species": {
+    "Cat": 0,
+    "Dog": 1,
+    "Fish": 2,
+    "Rabbit": 3,
+    "Hamster": 4
+  }
+}

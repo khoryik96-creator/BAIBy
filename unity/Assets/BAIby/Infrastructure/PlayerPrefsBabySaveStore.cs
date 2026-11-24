@@ -16,6 +16,17 @@ namespace BAIby.Infrastructure
             backupKey = key + ".backup";
         }
 
+        // Slot 1 is the original single-baby key, so an existing save is already slot 1.
+        public static string SlotKey(string saveKey, int slot)
+        {
+            if (saveKey == null)
+                throw new ArgumentNullException(nameof(saveKey));
+            if (slot < 1 || slot > HouseholdRules.PhysicalSlots)
+                throw new ArgumentOutOfRangeException(nameof(slot));
+
+            return slot == 1 ? saveKey : saveKey + ".slot" + slot;
+        }
+
         public string Read() => PlayerPrefs.HasKey(key) ? PlayerPrefs.GetString(key) : null;
         public string ReadBackup() => PlayerPrefs.HasKey(backupKey) ? PlayerPrefs.GetString(backupKey) : null;
 
@@ -25,6 +36,14 @@ namespace BAIby.Infrastructure
                 PlayerPrefs.SetString(backupKey, previousValidPayload);
 
             PlayerPrefs.SetString(key, payload);
+            PlayerPrefs.Save();
+        }
+
+        // Removes the record and its backup.
+        public void Delete()
+        {
+            PlayerPrefs.DeleteKey(key);
+            PlayerPrefs.DeleteKey(backupKey);
             PlayerPrefs.Save();
         }
     }

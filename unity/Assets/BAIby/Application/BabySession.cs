@@ -1,5 +1,5 @@
 using System;
-using System.IO;
+using System.Collections.Generic;
 using BAIby.Simulation;
 
 namespace BAIby.Application
@@ -7,41 +7,29 @@ namespace BAIby.Application
     public sealed class BabySession
     {
         private readonly BabySimulation simulation;
-        private readonly IBabySaveStore saves;
+        private readonly SavedRecord<BabyState> record;
         private readonly Func<DateTimeOffset> now;
-        private string lastSavedPayload;
 
         // Null until the player adopts a baby or a saved baby is restored.
-        public BabyState State { get; private set; }
+        public BabyState State => record.Value;
+
+        // Developer read-out of the care ledger; empty before adoption.
+        public string CareSummary => State == null ? string.Empty : simulation.DescribeCare(State);
+
+        // Today's routine windows as of the last refresh; empty before adoption.
+        public IReadOnlyList<RoutineSlot> Routine =>
+            State == null ? (IReadOnlyList<RoutineSlot>)Array.Empty<RoutineSlot>() : BabySimulation.Routine(State);
+
+        // Whether feeding now would overfeed.
+        public bool IsFull => State != null && simulation.IsFull(State);
 
         public BabySession(BabySimulation simulation, IBabySaveStore saves, Func<DateTimeOffset> now)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
-            this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
+            if (saves == null)
+                throw new ArgumentNullException(nameof(saves));
             this.now = now ?? throw new ArgumentNullException(nameof(now));
-
-            var primary = saves.Read();
-            if (primary != null)
-            {
-                try
-                {
-                    Restore(primary);
-                    return;
-                }
-                catch (InvalidDataException)
-                {
-                    var fallback = saves.ReadBackup();
-                    if (fallback == null)
-                        throw;
-
-                    Restore(fallback);
-                    return;
-                }
-            }
-
-            var backup = saves.ReadBackup();
-            if (backup != null)
-                Restore(backup);
+            record = new SavedRecord<BabyState>(saves, BabySaveCodec.Decode, BabySaveCodec.Encode);
         }
 
         public void Adopt(string name)
@@ -52,49 +40,79 @@ namespace BAIby.Application
             Commit(simulation.Adopt(name, now()));
         }
 
-        public bool Refresh()
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Refresh()
         {
             if (State == null)
-                return false;
+                return (false, false, false);
 
             var update = simulation.Advance(State, now());
             if (update.State != State)
                 Commit(update.State);
 
-            return update.UnlockedSitting;
+            return (update.UnlockedSitting, update.UnlockedCrawling, update.UnlockedWalking);
         }
 
-        public (Reaction Reaction, bool UnlockedSitting) ApplyCare(CareAction action)
+        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) ApplyCare(
+            CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             var elapsed = simulation.Advance(GetAdoptedBaby(), now());
-            var caredFor = simulation.ApplyCare(elapsed.State, action);
+            var caredFor = simulation.ApplyCare(elapsed.State, action, toy, food);
             Commit(caredFor.State);
-            return (caredFor.Reaction, elapsed.UnlockedSitting);
+            return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
         }
 
-        public bool AdvancePreview(TimeSpan elapsed)
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(TimeSpan elapsed)
         {
             var current = simulation.Advance(GetAdoptedBaby(), now());
             var preview = simulation.AdvancePreview(current.State, elapsed);
             Commit(preview.State);
-            return current.UnlockedSitting || preview.UnlockedSitting;
+            return (current.UnlockedSitting || preview.UnlockedSitting,
+                current.UnlockedCrawling || preview.UnlockedCrawling,
+                current.UnlockedWalking || preview.UnlockedWalking);
+        }
+
+        // Starts Away mode now, for up to 14 days. Any care, or EndAway, brings the baby back to normal.
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) StartAway(TimeSpan duration)
+        {
+            var current = simulation.Advance(GetAdoptedBaby(), now());
+            Commit(simulation.StartAway(current.State, duration));
+            return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) EndAway()
+        {
+            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var back = simulation.EndAway(current.State);
+            if (back != State)
+                Commit(back);
+
+            return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        public void SetCareStyle(CareStyle style)
+        {
+            var updated = simulation.ChangeCareStyle(GetAdoptedBaby(), style);
+            if (updated != State)
+                Commit(updated);
+        }
+
+        public void SetNurseryTheme(NurseryTheme theme)
+        {
+            var updated = GetAdoptedBaby().WithNurseryTheme(theme);
+            if (updated != State)
+                Commit(updated);
+        }
+
+        public void SetAppearance(BabyAppearance appearance)
+        {
+            var updated = GetAdoptedBaby().WithAppearance(appearance);
+            if (updated != State)
+                Commit(updated);
         }
 
         private BabyState GetAdoptedBaby() =>
             State ?? throw new InvalidOperationException("Adopt a baby first.");
 
-        private void Restore(string payload)
-        {
-            State = BabySaveCodec.Decode(payload);
-            lastSavedPayload = payload;
-        }
-
-        private void Commit(BabyState updated)
-        {
-            var payload = BabySaveCodec.Encode(updated);
-            saves.Write(payload, lastSavedPayload);
-            lastSavedPayload = payload;
-            State = updated;
-        }
+        private void Commit(BabyState updated) => record.Commit(updated);
     }
 }

@@ -1,22 +1,57 @@
 using System;
+using System.Collections.Generic;
 
 namespace BAIby.Simulation
 {
     public sealed class BabySimulation
     {
+        // The baby's care verbs and the routine tags they carry. Stable IDs; append, never rename.
+        public static readonly CareProfile BabyCareProfile = new CareProfile("baby", new Dictionary<string, CareTags>
+        {
+            ["feed"] = CareTags.Meal,
+            ["soothe"] = CareTags.Together | CareTags.Comfort,
+            ["play"] = CareTags.Together,
+            ["rest"] = CareTags.Bedtime,
+            ["read-story"] = CareTags.Together,
+            ["change-diaper"] = CareTags.Hygiene,
+            ["comfort-new-sound"] = CareTags.Together | CareTags.Comfort,
+            ["explore-new-sound"] = CareTags.Together,
+            ["bath"] = CareTags.Hygiene,
+            ["stack-blocks"] = CareTags.Together,
+        });
+
+        // The offline decay cap from the care retune: a missed day is felt without needs collapsing.
+        public static readonly TimeSpan DefaultMaxNeedDecay = TimeSpan.FromHours(8);
+        private readonly CareTunables careTunables;
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan maxNeedDecay;
-        internal const int MaxFamiliarity = 3;
+        private readonly TimeSpan crawlingAge;
+        private readonly TimeSpan walkingAge;
+        private const double InitialEnergy = 80;
+        private const double MilkFullness = 35;
+        private const double BananaFullness = 28;
+        private const double OatsFullness = 40;
 
-        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay)
+        public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge,
+            CareTunables careTunables = null)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
             if (maxNeedDecay <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(maxNeedDecay));
 
+            if (crawlingAge <= sittingAge)
+                throw new ArgumentOutOfRangeException(nameof(crawlingAge), "Crawling follows sitting.");
+
+            if (walkingAge <= crawlingAge)
+                throw new ArgumentOutOfRangeException(nameof(walkingAge), "Walking follows crawling.");
+
             this.sittingAge = sittingAge;
             this.maxNeedDecay = maxNeedDecay;
+            this.crawlingAge = crawlingAge;
+            this.walkingAge = walkingAge;
+            this.careTunables = careTunables ?? CareTunables.Default;
+            this.careTunables.Validate();
         }
 
         public BabyState Adopt(string name, DateTimeOffset now)
@@ -24,67 +59,300 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, 0, false);
+            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
+                BabyAppearance.Default, CareRules.Start(now, careTunables));
         }
 
-        public (BabyState State, bool UnlockedSitting) Advance(BabyState state, DateTimeOffset now)
+        // Real time: needs follow the local day and night, the ledger evaluates windows, and the needs axis
+        // moves at most one rung. Development keeps its nominal pace, Away mode included.
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
         {
             if (now <= state.TimeCheckpoint)
-                return (state, false);
+                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care);
 
-            return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
+            var care = CareRules.Advance(state.Care, now, careTunables);
+            var needs = BabyNeeds.Real(BabyNeeds.From(state), state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
+                careTunables.DayStart);
+            // The first advance of a migrated ledger excuses the whole gap and moves nobody on the ladder.
+            if (!state.Care.AwaitingAnchor)
+                care = CareConsequences.Settle(care, Snapshot(needs), careTunables);
+
+            return AdvanceElapsed(state, now, now - state.TimeCheckpoint, needs, care);
         }
 
-        public (BabyState State, bool UnlockedSitting) AdvancePreview(BabyState state, TimeSpan elapsed)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
         {
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
 
-            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
+            // Preview days pass no real time, so no routine window passes: the ledger and the mood are
+            // untouched (Covered), and the hours count as awake hours.
+            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed,
+                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay), state.Care);
         }
 
-        private (BabyState State, bool UnlockedSitting) AdvanceElapsed(
-            BabyState state, DateTimeOffset now, TimeSpan elapsed)
+        // Read-only ledger summary for the Development panel.
+        public string DescribeCare(BabyState state)
         {
-            var decayHours = Math.Min(elapsed.TotalHours, maxNeedDecay.TotalHours);
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return CareDiagnostics.Summary(state.Care, careTunables);
+        }
+
+        // Today's routine windows at the state's checkpoint.
+        public static IReadOnlyList<RoutineSlot> Routine(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return RoutineStrip.Today(state.Care);
+        }
+
+        // A planned absence of up to 14 days, free: windows are Covered, needs held, development at its nominal
+        // pace. Advance to the current instant first; it starts at the state's checkpoint.
+        public BabyState StartAway(BabyState state, TimeSpan duration)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return state.With(care: CareRules.StartAway(state.Care, duration));
+        }
+
+        public BabyState EndAway(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            var care = CareRules.EndAway(state.Care);
+            return ReferenceEquals(care, state.Care) ? state : state.With(care: care);
+        }
+
+        public BabyState ChangeCareStyle(BabyState state, CareStyle style)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            var care = CareRules.ChangeStyle(state.Care, style);
+            return ReferenceEquals(care, state.Care) ? state : state.With(care: care);
+        }
+
+        // Whether feeding now would overfeed: a mild Comfort and Cleanliness drop, never harm.
+        public bool IsFull(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return state.Satiety >= careTunables.FullMealThreshold;
+        }
+
+        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvanceElapsed(
+            BabyState state, DateTimeOffset now, TimeSpan elapsed, BabyNeeds.Values needs, CareRecord care)
+        {
             var age = state.Age + elapsed;
             var canSit = state.CanSitAndReach || age >= sittingAge;
-            var updated = new BabyState(state.Name, now, age,
-                Math.Max(0, state.Satiety - decayHours * 10),
-                Math.Max(0, state.Comfort - decayHours * 5),
-                state.ToyFamiliarity, canSit);
+            var canCrawl = state.CanCrawl || age >= crawlingAge;
+            var canWalk = state.CanWalk || age >= walkingAge;
+            var unlockedSitting = canSit && !state.CanSitAndReach;
+            var unlockedCrawling = canCrawl && !state.CanCrawl;
+            var unlockedWalking = canWalk && !state.CanWalk;
+            if (elapsed == TimeSpan.Zero && !unlockedSitting && !unlockedCrawling && !unlockedWalking)
+                return (state, false, false, false);
 
-            return (updated, canSit && !state.CanSitAndReach);
+            var updated = state.With(timeCheckpoint: now, age: age,
+                satiety: needs.Satiety, comfort: needs.Comfort, energy: needs.Energy,
+                canSitAndReach: canSit, canCrawl: canCrawl, canWalk: canWalk,
+                cleanliness: needs.Cleanliness, health: needs.Health, care: care);
+
+            return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
         }
 
-        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action)
+        public static bool CanFeed(BabyState state, Food food) =>
+            food == Food.Milk || (state.CanCrawl && (food == Food.Banana || food == Food.Oats));
+
+        public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action,
+            Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
             var satiety = state.Satiety;
             var comfort = state.Comfort;
-            var familiarity = state.ToyFamiliarity;
+            var energy = state.Energy;
+            var cleanliness = state.Cleanliness;
+            var connection = state.Connection;
+            var storySessions = state.StorySessions;
+            var blockTowers = state.BlockTowers;
+            var newSoundResolved = state.NewSoundResolved;
+            var rattleFamiliarity = state.ToyFamiliarity;
+            var plushFamiliarity = state.PlushFamiliarity;
+            var rules = careTunables.RulesFor(state.Care.Style);
+            // A messy room cuts every comfort gain a little.
+            var comfortGain = 1 - rules.MessComfortCut * state.Care.Mess;
+            // An upset baby pushes toys away: play, stories and blocks give nothing.
+            var refusesPlay = CareConsequences.RefusesPlay(state.Care);
+            var tags = BabyCareProfile.TagsFor(CareVerbFor(action));
             Reaction reaction;
 
             switch (action)
             {
                 case CareAction.Feed:
-                    satiety = Math.Min(100, satiety + 25);
+                    if (!CanFeed(state, food))
+                        throw new InvalidOperationException("This food is unavailable for the baby.");
+
+                    switch (food)
+                    {
+                        case Food.Milk:
+                            satiety = Math.Min(100, satiety + MilkFullness);
+                            energy = Math.Min(100, energy + 5);
+                            break;
+                        case Food.Banana:
+                            satiety = Math.Min(100, satiety + BananaFullness);
+                            comfort = Math.Min(100, comfort + 8 * comfortGain);
+                            break;
+                        case Food.Oats:
+                            satiety = Math.Min(100, satiety + OatsFullness);
+                            break;
+                    }
+
                     reaction = Reaction.Satisfied;
+                    if (IsFull(state))
+                    {
+                        comfort = Math.Max(0, comfort - rules.OverfeedComfort);
+                        cleanliness = Math.Max(0, cleanliness - rules.OverfeedCleanliness);
+                        reaction = Reaction.TooFull;
+                    }
                     break;
                 case CareAction.Soothe:
-                    comfort = Math.Min(100, comfort + 20);
+                    comfort = Math.Min(100, comfort + 20 * comfortGain);
+                    connection += 3;
                     reaction = Reaction.Calmed;
                     break;
+                case CareAction.Rest:
+                    energy = Math.Min(100, energy + 35);
+                    reaction = Reaction.Rested;
+                    break;
+                case CareAction.ChangeDiaper:
+                    cleanliness = 100;
+                    reaction = Reaction.FreshDiaper;
+                    break;
+                case CareAction.Bath:
+                    cleanliness = Math.Min(100, cleanliness + 45);
+                    comfort = Math.Min(100, comfort + 30 * comfortGain);
+                    energy = Math.Max(0, energy - 8);
+                    reaction = Reaction.FreshBath;
+                    break;
+                case CareAction.StackBlocks:
+                    if (!state.CanWalk)
+                        throw new InvalidOperationException("Stacking blocks is unavailable before the walking milestone.");
+                    if (refusesPlay)
+                    {
+                        reaction = Reaction.PushesToyAway;
+                        tags = CareTags.None;
+                        break;
+                    }
+
+                    energy = Math.Max(0, energy - 8);
+                    connection += 3;
+                    blockTowers = IncrementCount(blockTowers);
+                    reaction = Reaction.StackedBlocks;
+                    break;
+                case CareAction.ReadStory:
+                    if (refusesPlay)
+                    {
+                        reaction = Reaction.PushesToyAway;
+                        tags = CareTags.None;
+                        break;
+                    }
+
+                    energy = Math.Max(0, energy - 6);
+                    connection += 2;
+                    storySessions = IncrementCount(storySessions);
+                    reaction = Reaction.EnjoysStory;
+                    break;
+                case CareAction.ComfortNewSound:
+                case CareAction.ExploreNewSound:
+                    if (!state.HasPendingNewSound)
+                        throw new InvalidOperationException("The new sound event is unavailable.");
+
+                    newSoundResolved = true;
+                    if (action == CareAction.ComfortNewSound)
+                    {
+                        comfort = Math.Min(100, comfort + 16 * comfortGain);
+                        connection += 2;
+                        reaction = Reaction.NewSoundComforted;
+                    }
+                    else
+                    {
+                        energy = Math.Max(0, energy - 6);
+                        connection += 5;
+                        reaction = Reaction.NewSoundExplored;
+                    }
+                    break;
                 case CareAction.Play:
-                    familiarity = Math.Min(MaxFamiliarity, familiarity + 1);
-                    reaction = state.CanSitAndReach && familiarity >= 2
-                        ? Reaction.ReachesForToy : Reaction.TracksToy;
+                    if (toy != Toy.Rattle && toy != Toy.Plush)
+                        throw new ArgumentOutOfRangeException(nameof(toy));
+                    if (refusesPlay)
+                    {
+                        reaction = Reaction.PushesToyAway;
+                        tags = CareTags.None;
+                        break;
+                    }
+
+                    connection += 1;
+                    energy = Math.Max(0, energy - 12);
+                    if (toy == Toy.Rattle)
+                        rattleFamiliarity = IncrementCount(rattleFamiliarity);
+                    else
+                        plushFamiliarity = IncrementCount(plushFamiliarity);
+
+                    var familiarity = toy == Toy.Rattle ? rattleFamiliarity : plushFamiliarity;
+                    reaction = ToyReaction(state, familiarity);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action));
             }
 
-            return (new BabyState(state.Name, state.TimeCheckpoint, state.Age,
-                satiety, comfort, familiarity, state.CanSitAndReach), reaction);
+            // The ledger records the routine (and ends Away mode); then the right care calms the needs axis.
+            var care = CareRules.ApplyCare(state.Care, tags, state.Satiety, careTunables);
+            var cared = new BabyNeeds.Values { Satiety = satiety, Comfort = comfort, Energy = energy, Cleanliness = cleanliness };
+            care = CareConsequences.AfterCare(care, tags, Snapshot(cared), careTunables);
+            return (state.With(satiety: satiety, comfort: comfort, energy: energy,
+                toyFamiliarity: rattleFamiliarity, plushFamiliarity: plushFamiliarity,
+                connection: Math.Min(100, connection), storySessions: storySessions, cleanliness: cleanliness,
+                newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care), reaction);
         }
+
+        private static NeedSnapshot Snapshot(BabyNeeds.Values needs) =>
+            new NeedSnapshot(needs.Lowest, needs.Satiety, needs.Comfort);
+
+        private static Reaction ToyReaction(BabyState state, int familiarity)
+        {
+            if (familiarity < 2)
+                return Reaction.TracksToy;
+            if (state.CanWalk)
+                return Reaction.WalksToToy;
+            if (state.CanCrawl)
+                return Reaction.CrawlsToToy;
+
+            return state.CanSitAndReach ? Reaction.ReachesForToy : Reaction.TracksToy;
+        }
+
+        public static string CareVerbFor(CareAction action)
+        {
+            switch (action)
+            {
+                case CareAction.Feed: return "feed";
+                case CareAction.Soothe: return "soothe";
+                case CareAction.Play: return "play";
+                case CareAction.Rest: return "rest";
+                case CareAction.ReadStory: return "read-story";
+                case CareAction.ChangeDiaper: return "change-diaper";
+                case CareAction.ComfortNewSound: return "comfort-new-sound";
+                case CareAction.ExploreNewSound: return "explore-new-sound";
+                case CareAction.Bath: return "bath";
+                case CareAction.StackBlocks: return "stack-blocks";
+                default: throw new ArgumentOutOfRangeException(nameof(action));
+            }
+        }
+
+        private static int IncrementCount(int count) => count == int.MaxValue ? count : count + 1;
     }
 }

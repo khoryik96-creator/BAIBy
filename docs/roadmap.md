@@ -4,7 +4,7 @@ The first release should let players get to know a baby, see how their care chan
 
 ## 1. Prove the character on a phone
 
-Build one nursery camera, one toy, and two developmental looks in Unity with URP. Try a newborn who tracks a toy and an older baby who can sit and reach for it. Use a cohesive character model with age-appropriate proportions, eyelids, hands, facial poses, and distinct posture. Test animation transitions, gaze and hand contact at gameplay camera distance. Record the reference clips and profile a physical Android phone and iPhone before ordering a full set of age-stage assets.
+Build one illustrated nursery, one toy, and two developmental looks in Unity. Show the swaddled newborn from the welcome screen and give the same baby a distinct sitting pose as they grow. Use awake and sleeping illustrations and readable care reactions at phone size. Record reference clips and profile a physical Android phone and iPhone before producing more age-stage assets.
 
 ## 2. Ship an internal playable slice
 
@@ -14,7 +14,7 @@ Keep gameplay in a plain C# simulation with injected time and seeded gameplay ra
 
 ## 3. Expand after the loop works
 
-Add routines, outfits, toys, and developmental abilities in small batches. Growth follows elapsed game time. Care affects needs, familiarity, and preferences. Cap offline need decay so players can return after a break and recover through ordinary care. Decide pacing and any v5.3 save import before the first external beta. Treat browser behavior as historical reference and call out intentional changes, including the switch from feeding-based growth to elapsed-time growth.
+Add routines, outfits, toys, and developmental abilities in small batches. Growth follows elapsed game time, and care quality shifts each milestone within 0.8x to 1.3x of its nominal age, as described in [care and growth](care-and-growth.md). Care affects needs, development, familiarity, and preferences. Cap offline need decay so players can return after a break and recover through ordinary care. Decide pacing and any v5.3 save import before the first external beta. Treat browser behavior as historical reference and call out intentional changes, including the switch from feeding-based growth to elapsed-time growth.
 
 ## 4. Prepare mobile beta
 
