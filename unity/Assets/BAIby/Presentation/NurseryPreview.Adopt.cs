@@ -494,6 +494,11 @@ namespace BAIby.Presentation
             private readonly List<PickerTile> coatTiles = new List<PickerTile>();
             private Species? builtSpecies;
             private PetBreed? builtCoatsFor;
+            // The sheet's height before a third breed row adds to it, and the row height that addition uses.
+            private readonly RectTransform sheetRoot;
+            private readonly float baseSheetTop;
+            private const float BreedRow = 64;
+            private float breedExtra;
 
             public GameObject Root { get; }
             public InputField NameField { get; }
@@ -506,6 +511,8 @@ namespace BAIby.Presentation
                 this.chooseBreed = chooseBreed;
                 this.chooseCoat = chooseCoat;
                 Root = content.parent.gameObject;
+                sheetRoot = (RectTransform)content.parent;
+                baseSheetTop = sheetRoot.offsetMax.y;
                 heading = Label("Pet Adoption Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 FitText(heading, 26, 38);
@@ -562,16 +569,13 @@ namespace BAIby.Presentation
 
                 breedGroup = Group("Pet breed page", content);
                 breedGrid = Box("Pet breed grid", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(breedGrid, 0, 1, 66, 194);
                 coatRow = Box("Pet coat row", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(coatRow, 0, 1, 198, 252);
                 breedDetail = Label("Pet breed detail", breedGroup, "", 21, Muted, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
                 FitText(breedDetail, 14, 21);
-                PlaceFromTop(breedDetail.rectTransform, 0, 1, 256, 306);
                 this.next = ActionButton("Breed next", breedGroup, 0.5f, 1, 0, 0, next, Fern, Color.white);
                 this.next.GetComponentInChildren<Text>().text = "Choose a name";
-                PlaceFromTop((RectTransform)this.next.transform, 0.5f, 1, 312, 378, 3, 0);
+                PlaceBreedPage(2);
 
                 nameGroup = Group("Pet name page", content);
                 nameHeading = Label("Pet name prompt", nameGroup, "", 24, Muted, TextAnchor.MiddleLeft,
@@ -617,7 +621,7 @@ namespace BAIby.Presentation
                 nameGroup.gameObject.SetActive(Page == 2);
                 heading.text = Page == 0 ? "Which pet?" : Page == 1 ? "Choose a breed" : "Welcome home";
                 // On the breed page the feedback shares the bottom row with the Next button.
-                PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 288 : 314, 378);
+                FitSheet();
             }
 
             public void FocusPage()
@@ -642,6 +646,28 @@ namespace BAIby.Presentation
                     pair.Value.image.color = pair.Key == species ? Peach : Mist;
             }
 
+            // Two breed rows fit the standard sheet; each further row (the dog's twelve breeds need three) makes the
+            // grid one row taller and the sheet grows with it, so every tile keeps room for its name and status.
+            private void PlaceBreedPage(int rows)
+            {
+                var extra = Mathf.Max(0, rows - 2) * BreedRow;
+                PlaceFromTop(breedGrid, 0, 1, 66, 194 + extra);
+                PlaceFromTop(coatRow, 0, 1, 198 + extra, 252 + extra);
+                PlaceFromTop(breedDetail.rectTransform, 0, 1, 256 + extra, 306 + extra);
+                PlaceFromTop((RectTransform)next.transform, 0.5f, 1, 312 + extra, 378 + extra, 3, 0);
+                breedExtra = extra;
+                FitSheet();
+            }
+
+            // Only the breed page is taller; the species and name pages keep the standard sheet.
+            private void FitSheet()
+            {
+                var extra = Page == 1 ? breedExtra : 0;
+                sheetRoot.offsetMax = new Vector2(sheetRoot.offsetMax.x, baseSheetTop + extra);
+                if (Feedback != null)
+                    PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 288 : 314 + extra, 378 + extra);
+            }
+
             public void ShowBreeds(Species species, IReadOnlyList<BreedDefinition> breeds, IReadOnlyList<string> statuses,
                 IReadOnlyList<bool> unlocked, PetBreed selected)
             {
@@ -650,6 +676,7 @@ namespace BAIby.Presentation
                     Clear(breedGrid, breedTiles);
                     builtCoatsFor = null;
                     var rows = Mathf.Max(1, (breeds.Count + BreedColumns - 1) / BreedColumns);
+                    PlaceBreedPage(rows);
                     for (var i = 0; i < breeds.Count; i++)
                     {
                         var breed = breeds[i].Breed;
