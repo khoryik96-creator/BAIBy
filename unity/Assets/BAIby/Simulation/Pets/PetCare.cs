@@ -205,7 +205,9 @@ namespace BAIby.Simulation.Pets
             var species = catalog.Get(state.Species);
             state = Seeded(state);
             var growth = Growth(state);
-            var bonded = BondRules.PreviewDay(state.Bond, state.Bonding, state.TimeCheckpoint.UtcTicks, bond);
+            var profile = Profile(state);
+            var bonded = BondRules.PreviewDay(state.Bond, state.Bonding, state.TimeCheckpoint.UtcTicks, bond,
+                RoutineCalendar.GoodDayMeals(profile.Routine), !profile.NapsByDay);
             var comfort = BondRules.SecurityOf(bonded.Record, bond) == SecurityPhase.Clingy ? bond.ClingyComfort : 1;
             var effects = BabyNeeds.EffectsFor(state.Care, null, care, bond);
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
@@ -272,10 +274,17 @@ namespace BAIby.Simulation.Pets
                 refused = true;
                 cue = PetCue.PushesToyAway;
             }
+            else if ((tags & CareTags.Play) != 0 && state.Care.Mood == CareMood.Content && CareRules.IsNapping(state.Care))
+            {
+                // A content hamster sleeps on through its day nap: the wheel waits for the evening. Never a failure, and
+                // a fidgety one is awake anyway, so it may run.
+                refused = true;
+                cue = PetCue.Napping;
+            }
             else
             {
                 foreach (var effect in definition.Effects)
-                    values = Apply(values, effect, comfortGain, ceiling);
+                    values = Apply(values, profile.RoleOf(effect.Meter), effect.Delta, comfortGain, ceiling);
                 if ((tags & CareTags.Meal) != 0 && IsFull(state))
                 {
                     values.Comfort = Math.Max(0, values.Comfort - rules.OverfeedComfort);
@@ -471,23 +480,28 @@ namespace BAIby.Simulation.Pets
                 throw new InvalidOperationException($"A {state.Species} needs a {meter} meter for its care profile.");
             }
 
-            return new BabyNeeds.NeedRates(Awake(PetMeter.Fullness), Awake(PetMeter.Comfort), Awake(PetMeter.Energy),
-                Awake(PetMeter.Cleanliness), profile.NightFullness, profile.NightComfort, profile.NightEnergy,
-                profile.NightCleanliness);
+            return new BabyNeeds.NeedRates(Awake(profile.FullnessMeter), Awake(profile.ComfortMeter), Awake(profile.EnergyMeter),
+                Awake(profile.CleanlinessMeter), profile.NightFullness, profile.NightComfort, profile.NightEnergy,
+                profile.NightCleanliness, profile.RestsAlone);
         }
 
         private static BabyGrowth.Subject Subject(PetState state) =>
             new BabyGrowth.Subject(state.Age.Ticks, state.Milestones, state.Development, state.Care, Values(state), state.Bond,
                 state.TimeCheckpoint);
 
-        private static BabyNeeds.Values Values(PetState state) => new BabyNeeds.Values
+        // The pet's four needs in the shared roles (a hamster's Exercise is its Comfort, its Bedding its Cleanliness).
+        private static BabyNeeds.Values Values(PetState state)
         {
-            Satiety = state.Meter(PetMeter.Fullness),
-            Comfort = state.Meter(PetMeter.Comfort),
-            Energy = state.Meter(PetMeter.Energy),
-            Cleanliness = state.Meter(PetMeter.Cleanliness),
-            Health = state.Health,
-        };
+            var profile = PetCareProfile.For(state.Species);
+            return new BabyNeeds.Values
+            {
+                Satiety = state.Meter(profile.FullnessMeter),
+                Comfort = state.Meter(profile.ComfortMeter),
+                Energy = state.Meter(profile.EnergyMeter),
+                Cleanliness = state.Meter(profile.CleanlinessMeter),
+                Health = state.Health,
+            };
+        }
 
         private static Dictionary<PetMeter, double> Copy(PetState state)
         {
@@ -499,21 +513,22 @@ namespace BAIby.Simulation.Pets
 
         private static Dictionary<PetMeter, double> Meters(PetState state, BabyNeeds.Values values)
         {
+            var profile = PetCareProfile.For(state.Species);
             var meters = Copy(state);
-            meters[PetMeter.Fullness] = values.Satiety;
-            meters[PetMeter.Comfort] = values.Comfort;
-            meters[PetMeter.Energy] = values.Energy;
-            meters[PetMeter.Cleanliness] = values.Cleanliness;
+            meters[profile.FullnessMeter] = values.Satiety;
+            meters[profile.ComfortMeter] = values.Comfort;
+            meters[profile.EnergyMeter] = values.Energy;
+            meters[profile.CleanlinessMeter] = values.Cleanliness;
             meters[PetMeter.Health] = values.Health;
             return meters;
         }
 
-        // One verb effect on the needs: comfort gains are cut by mess, and Energy gains stop at the unwell cap (higher
-        // Energy is kept).
-        private static BabyNeeds.Values Apply(BabyNeeds.Values values, MeterEffect effect, double comfortGain, double ceiling)
+        // One verb effect on the needs, by the role its meter plays: comfort gains are cut by mess, and Energy gains stop
+        // at the unwell cap (higher Energy is kept).
+        private static BabyNeeds.Values Apply(BabyNeeds.Values values, PetMeter? role, double delta, double comfortGain,
+            double ceiling)
         {
-            var delta = effect.Delta;
-            switch (effect.Meter)
+            switch (role)
             {
                 case PetMeter.Fullness:
                     values.Satiety = Clamp(values.Satiety + delta);

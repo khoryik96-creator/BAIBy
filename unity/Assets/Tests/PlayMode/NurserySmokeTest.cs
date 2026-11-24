@@ -775,7 +775,7 @@ namespace BAIby.Tests
             var view = NurseryStartup.StartPreview(saveKey);
             yield return null;
 
-            // Who's joining your home? A pet: only the cat has arrived, the others are dimmed.
+            // Who's joining your home? A pet: the cat and the hamster have arrived, the others are dimmed.
             Tap(view.gameObject, "Adopt a pet");
             Assert.That(Child<RectTransform>(view.gameObject, "Pet Adoption Panel").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<Button>(view.gameObject, "Species Dog").interactable, Is.False, "an unshipped species is dimmed");
@@ -943,6 +943,90 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Close journal");
             Tap(view.gameObject, "Done");
             Assert.That(Child<RectTransform>(view.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
+        }
+
+        // P2 on a fake clock: a hamster adopted through the species row and the breed picker (an earned and a premium breed
+        // preview, the free Syrian golden adopted), its habitat, its routine strip (day nap, wheel, dinner, bedding), a
+        // wheel it sleeps through by day, dinner and wheel time on time in the evening, its first spin on the wheel in the
+        // bubble and the journal, and its Home card.
+        [UnityTest]
+        public IEnumerator HamsterNapsByDayAndRunsItsWheelInTheEvening()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 10, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Tap(view.gameObject, "Adopt a pet");
+            Assert.That(Child<Text>(view.gameObject, "Species Hamster Note").text, Is.EqualTo("Here now"));
+            Tap(view.gameObject, "Species Hamster");
+            Tap(view.gameObject, "Breed Winter white");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "an earned hamster waits for its goal");
+            Assert.That(Child<Text>(view.gameObject, "Pet breed detail").text, Does.Contain("full care day for a hamster"));
+            Tap(view.gameObject, "Breed Teddy bear");
+            Assert.That(Child<Text>(view.gameObject, "Breed Teddy bear Status").text, Is.EqualTo("Premium"));
+            Tap(view.gameObject, "Breed Syrian golden");
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Pet habitat back").enabled, Is.True, "the hamster lives in its habitat");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Nib";
+            Tap(view.gameObject, "Adopt pet");
+
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Nib"));
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Does.Contain("Hamster pup"));
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet need 3").Find("Label").GetComponent<Text>().text,
+                Is.EqualTo("Bedding"), "the room shows the hamster's own meters");
+            Assert.That(HasObject(view.gameObject, "Routine Day nap") && HasObject(view.gameObject, "Routine Wheel") &&
+                HasObject(view.gameObject, "Routine Dinner") && HasObject(view.gameObject, "Routine Bedding"), Is.True,
+                "the strip shows the hamster's day");
+
+            // By day it naps: the wheel waits for the evening, and nothing is missed.
+            Tap(view.gameObject, "Pet care Wheel");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("fast asleep"));
+            yield return new WaitForSecondsRealtime(1f);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Pet rest artwork").color.a, Is.GreaterThan(0.5f),
+                "a napping hamster curls up in its rest pose");
+            Tap(view.gameObject, "Pet care GentleHold");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("peek"));
+
+            // Two days later, in the evening: dinner and wheel time on time.
+            clock = new DateTimeOffset(2026, 3, 4, 17, 30, 0, TimeSpan.Zero);
+            var bubbles = new List<string>();
+            Tap(view.gameObject, "Pet care Bowl");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Assert.That(bubbles[0], Does.Contain("Dinner time"));
+            Tap(view.gameObject, "Pet care Wheel");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Assert.That(bubbles[1], Does.Contain("Wheel time"));
+            Tap(view.gameObject, "Pet care FluffBedding");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+
+            for (var day = 0; day < 4 && !bubbles.Any(text => text.Contains("spin on the wheel")); day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Pet preview next day");
+                bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            }
+
+            Assert.That(bubbles.Any(text => text.Contains("spin on the wheel")), Is.True, "the first wheel spin is celebrated");
+            Tap(view.gameObject, "Pet growth");
+            Tap(view.gameObject, "Journal");
+            var titles = Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)).ToList();
+            if (Child<Button>(view.gameObject, "Older journal page").interactable)
+                Tap(view.gameObject, "Older journal page");
+            titles.AddRange(Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)));
+            Assert.That(titles.Any(title => title.Contains("First spin on the wheel")), Is.True, "the wheel is in the journal");
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Done");
+
+            Tap(view.gameObject, "Home");
+            Assert.That(HasObject(view.gameObject, "Home card Nib Species"), Is.True);
+            Assert.That(Child<Image>(view.gameObject, "Home card Nib Portrait").sprite, Is.Not.Null);
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet version=\"2\"><name>Nib</name><species>4</species>"));
         }
 
         // Helpers (monetization M4) on a fake clock: Grown-ups, behind the gate, adds the test helpers; the Routine sheet

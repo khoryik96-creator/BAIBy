@@ -469,7 +469,8 @@ namespace BAIby.Presentation
 
         // The bubble floats above its sheet, its small corner toward the baby; on wide screens it sits beside the
         // baby's head. Long messages shrink their type a little before the bubble grows taller.
-        private void LayoutBubble(Image shape, RectTransform rect, Text text, RectTransform sheet)
+        // lift raises the bubble above something that sits on the sheet's top edge, such as the pet feeder's chip.
+        private void LayoutBubble(Image shape, RectTransform rect, Text text, RectTransform sheet, float lift = 0)
         {
             if (shape == null || text == null || safeArea == null)
                 return;
@@ -486,7 +487,7 @@ namespace BAIby.Presentation
             var padY = Px(8);
             var sheetHeight = sheet.rect.height;
             // Above the sheet the bubble stays under the baby's chin, about 46% of the height from the bottom.
-            var room = beside ? 132 : Mathf.Max(64, 0.46f * area.y - sheetHeight - 14 - 2 * padY);
+            var room = beside ? 132 : Mathf.Max(64, 0.46f * area.y - sheetHeight - 14 - lift - 2 * padY);
             var size = 24;
             Vector2 content;
             do
@@ -509,7 +510,7 @@ namespace BAIby.Presentation
             {
                 SoftShapes.Bubble(shape, true, Px(16));
                 var x = width > 370 ? -width / 2 : Mathf.Clamp(-40, -StackWidth / 2, StackWidth / 2 - width);
-                rect.anchoredPosition = new Vector2(x, 14);
+                rect.anchoredPosition = new Vector2(x, 14 + lift);
             }
         }
 

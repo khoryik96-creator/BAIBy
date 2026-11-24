@@ -1,0 +1,736 @@
+{
+ "placeholder": true,
+ "species": "Hamster",
+ "reference": {
+  "coat": [
+   232,
+   170,
+   98
+  ],
+  "markings": [
+   248,
+   234,
+   212
+  ],
+  "eyes": [
+   120,
+   80,
+   66
+  ],
+  "accent": [
+   178,
+   170,
+   122
+  ]
+ },
+ "runtimeScale": {
+  "young": 0.48,
+  "grown": 0.56
+ },
+ "habitat": {
+  "back": "Habitat/Back",
+  "front": "Habitat/Front",
+  "width": 760,
+  "height": 480,
+  "floor": 64
+ },
+ "poses": [
+  {
+   "name": "YoungAwake",
+   "width": 462,
+   "height": 426
+  },
+  {
+   "name": "YoungRest",
+   "width": 556,
+   "height": 286
+  },
+  {
+   "name": "GrownAwake",
+   "width": 452,
+   "height": 438
+  },
+  {
+   "name": "GrownRest",
+   "width": 581,
+   "height": 286
+  }
+ ],
+ "overlays": [
+  {
+   "path": "Markings/Roborovski/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 146,
+   "y": 92,
+   "width": 170,
+   "height": 27,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/TeddyBear/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 21,
+   "y": 4,
+   "width": 422,
+   "height": 418,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/WinterWhite/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 219,
+   "y": 44,
+   "width": 26,
+   "height": 79,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Sapphire/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 219,
+   "y": 44,
+   "width": 26,
+   "height": 79,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Campbells/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 219,
+   "y": 44,
+   "width": 26,
+   "height": 79,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Panda/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 88,
+   "y": 29,
+   "width": 283,
+   "height": 300,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Bow/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 245,
+   "y": 40,
+   "width": 73,
+   "height": 32,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Roborovski/YoungRest",
+   "pose": "YoungRest",
+   "x": 122,
+   "y": 83,
+   "width": 146,
+   "height": 38,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/TeddyBear/YoungRest",
+   "pose": "YoungRest",
+   "x": 34,
+   "y": 10,
+   "width": 518,
+   "height": 265,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/WinterWhite/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 178,
+   "y": 33,
+   "width": 302,
+   "height": 91,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Sapphire/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 178,
+   "y": 33,
+   "width": 302,
+   "height": 91,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Campbells/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 178,
+   "y": 33,
+   "width": 302,
+   "height": 91,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Panda/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 76,
+   "y": 17,
+   "width": 354,
+   "height": 211,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Bow/YoungRest",
+   "pose": "YoungRest",
+   "x": 195,
+   "y": 22,
+   "width": 73,
+   "height": 32,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Roborovski/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 147,
+   "y": 92,
+   "width": 158,
+   "height": 24,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/TeddyBear/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 20,
+   "y": 4,
+   "width": 414,
+   "height": 425,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/WinterWhite/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 215,
+   "y": 43,
+   "width": 23,
+   "height": 76,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Sapphire/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 215,
+   "y": 43,
+   "width": 23,
+   "height": 76,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Campbells/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 215,
+   "y": 43,
+   "width": 23,
+   "height": 76,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Panda/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 48,
+   "y": 31,
+   "width": 354,
+   "height": 294,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Bow/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 238,
+   "y": 39,
+   "width": 73,
+   "height": 32,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Roborovski/GrownRest",
+   "pose": "GrownRest",
+   "x": 121,
+   "y": 91,
+   "width": 134,
+   "height": 35,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/TeddyBear/GrownRest",
+   "pose": "GrownRest",
+   "x": 33,
+   "y": 4,
+   "width": 545,
+   "height": 278,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/WinterWhite/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 173,
+   "y": 26,
+   "width": 330,
+   "height": 97,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Sapphire/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 173,
+   "y": 26,
+   "width": 330,
+   "height": 97,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Campbells/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 173,
+   "y": 26,
+   "width": 330,
+   "height": 97,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Panda/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 74,
+   "y": 26,
+   "width": 374,
+   "height": 212,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Bow/GrownRest",
+   "pose": "GrownRest",
+   "x": 187,
+   "y": 32,
+   "width": 72,
+   "height": 31,
+   "gTarget": "secondary"
+  }
+ ],
+ "palette": {
+  "coats": [
+   {
+    "breed": "SyrianGolden",
+    "coat": "Golden",
+    "main": [
+     232,
+     170,
+     98
+    ],
+    "secondary": [
+     250,
+     240,
+     222
+    ],
+    "dark": [
+     250,
+     240,
+     222
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "SyrianGolden",
+    "coat": "Cream",
+    "main": [
+     244,
+     220,
+     182
+    ],
+    "secondary": [
+     252,
+     246,
+     234
+    ],
+    "dark": [
+     252,
+     246,
+     234
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "SyrianGolden",
+    "coat": "Brown",
+    "main": [
+     178,
+     124,
+     86
+    ],
+    "secondary": [
+     246,
+     230,
+     210
+    ],
+    "dark": [
+     246,
+     230,
+     210
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "WinterWhite",
+    "coat": "White",
+    "main": [
+     240,
+     238,
+     236
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     156,
+     152,
+     158
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "WinterWhite",
+    "coat": "Gray",
+    "main": [
+     168,
+     164,
+     168
+    ],
+    "secondary": [
+     248,
+     246,
+     242
+    ],
+    "dark": [
+     88,
+     84,
+     90
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "WinterWhite",
+    "coat": "Sable",
+    "main": [
+     162,
+     128,
+     100
+    ],
+    "secondary": [
+     248,
+     240,
+     228
+    ],
+    "dark": [
+     98,
+     72,
+     56
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Roborovski",
+    "coat": "Tan",
+    "main": [
+     226,
+     188,
+     136
+    ],
+    "secondary": [
+     252,
+     248,
+     242
+    ],
+    "dark": [
+     252,
+     248,
+     242
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "Roborovski",
+    "coat": "White",
+    "main": [
+     246,
+     242,
+     236
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     255,
+     253,
+     250
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "TeddyBear",
+    "coat": "Golden",
+    "main": [
+     234,
+     182,
+     112
+    ],
+    "secondary": [
+     252,
+     240,
+     222
+    ],
+    "dark": [
+     252,
+     240,
+     222
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "TeddyBear",
+    "coat": "Cream",
+    "main": [
+     246,
+     226,
+     192
+    ],
+    "secondary": [
+     253,
+     247,
+     236
+    ],
+    "dark": [
+     253,
+     247,
+     236
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "TeddyBear",
+    "coat": "Chocolate",
+    "main": [
+     140,
+     96,
+     70
+    ],
+    "secondary": [
+     236,
+     216,
+     196
+    ],
+    "dark": [
+     236,
+     216,
+     196
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "Panda",
+    "coat": "White",
+    "main": [
+     250,
+     247,
+     242
+    ],
+    "secondary": [
+     250,
+     247,
+     242
+    ],
+    "dark": [
+     66,
+     62,
+     72
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "Sapphire",
+    "coat": "Blue",
+    "main": [
+     168,
+     174,
+     196
+    ],
+    "secondary": [
+     244,
+     244,
+     248
+    ],
+    "dark": [
+     96,
+     100,
+     124
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "Sapphire",
+    "coat": "Gray",
+    "main": [
+     184,
+     184,
+     188
+    ],
+    "secondary": [
+     246,
+     246,
+     246
+    ],
+    "dark": [
+     104,
+     104,
+     110
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark"
+    ]
+   },
+   {
+    "breed": "Campbells",
+    "coat": "Gray",
+    "main": [
+     166,
+     146,
+     124
+    ],
+    "secondary": [
+     240,
+     232,
+     220
+    ],
+    "dark": [
+     86,
+     70,
+     58
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Campbells",
+    "coat": "Fawn",
+    "main": [
+     226,
+     190,
+     142
+    ],
+    "secondary": [
+     250,
+     242,
+     228
+    ],
+    "dark": [
+     150,
+     110,
+     78
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Campbells",
+    "coat": "Black",
+    "main": [
+     88,
+     84,
+     98
+    ],
+    "secondary": [
+     210,
+     204,
+     210
+    ],
+    "dark": [
+     46,
+     42,
+     52
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "name": "Dark",
+    "color": [
+     62,
+     40,
+     36
+    ]
+   },
+   {
+    "name": "Ruby",
+    "color": [
+     150,
+     58,
+     74
+    ]
+   }
+  ],
+  "collarAccents": []
+ }
+}

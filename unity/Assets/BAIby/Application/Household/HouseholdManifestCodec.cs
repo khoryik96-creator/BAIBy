@@ -21,7 +21,9 @@ namespace BAIby.Application
         // household that never touches the setting keeps its manifest byte for byte; a build without helpers ignores it.
         // Talk time's typing, when a grown-up turned it on, is a <talk typing="true"/> element in the same way (absent
         // means off, the default). The pet rooms' theme, when it is not Sage, is a <rooms pet-theme="2"/> element. First words waiting as a celebration sit in their own <talk-celebrations> element,
-        // which a build without Talk time ignores (and drops: only the announcement is lost, the journal keeps them).
+        // which a build without Talk time ignores (and drops: only the announcement is lost, the journal keeps them). A
+        // hamster's milestones (wheel, tunnel, hand-tame: P2) wait in their own <hamster-celebrations> element the same
+        // way, so a build from before the hamster ignores them.
         private const int Version = 2;
         private const int VersionBeforePets = 1;
 
@@ -46,8 +48,10 @@ namespace BAIby.Application
             var celebrations = new XElement("celebrations");
             var petCelebrations = new XElement("pet-celebrations");
             var talkCelebrations = new XElement("talk-celebrations");
+            var hamsterCelebrations = new XElement("hamster-celebrations");
             foreach (var celebration in manifest.Celebrations)
                 (celebration.Milestone == CompanionMilestone.FirstWords ? talkCelebrations
+                    : IsHamsterMilestone(celebration.Milestone) ? hamsterCelebrations
                     : celebration.Milestone >= CompanionMilestone.Pounce ? petCelebrations : celebrations).Add(new XElement("celebration",
                     new XAttribute("slot", celebration.Slot),
                     new XAttribute("milestone", (int)celebration.Milestone)));
@@ -71,6 +75,8 @@ namespace BAIby.Application
 
             if (petCelebrations.HasElements)
                 root.Add(petCelebrations);
+            if (hamsterCelebrations.HasElements)
+                root.Add(hamsterCelebrations);
             if (talkCelebrations.HasElements)
                 root.Add(talkCelebrations);
 
@@ -113,9 +119,16 @@ namespace BAIby.Application
 
                 var celebrations = new List<PendingCelebration>();
                 var petCelebrations = root.Element("pet-celebrations")?.Elements("celebration") ?? new XElement[0];
-                // A kitten's milestones always come before it grows up, so they are read first.
+                // A kitten's milestones always come before it grows up, so they are read first, and so are a hamster's.
                 foreach (var element in petCelebrations)
                     celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), Milestone(element)));
+                foreach (var element in root.Element("hamster-celebrations")?.Elements("celebration") ?? new XElement[0])
+                {
+                    var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
+                    if (!IsHamsterMilestone(milestone))
+                        throw new InvalidDataException("Only a hamster's milestones wait in hamster-celebrations.");
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), milestone));
+                }
                 foreach (var element in Field(root, "celebrations").Elements("celebration"))
                     celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), Milestone(element)));
                 foreach (var element in root.Element("talk-celebrations")?.Elements("celebration") ?? new XElement[0])
@@ -285,11 +298,16 @@ namespace BAIby.Application
 
         private static DateTimeOffset Instant(XAttribute ticks) => new DateTimeOffset((long)ticks, TimeSpan.Zero);
 
-        // A milestone of <celebrations> or <pet-celebrations>; First words wait only in <talk-celebrations>.
+        private static bool IsHamsterMilestone(CompanionMilestone milestone) =>
+            milestone == CompanionMilestone.Wheel || milestone == CompanionMilestone.Tunnel ||
+            milestone == CompanionMilestone.HandTame;
+
+        // A milestone of <celebrations> or <pet-celebrations>; First words wait only in <talk-celebrations>, and a
+        // hamster's milestones only in <hamster-celebrations>.
         private static CompanionMilestone Milestone(XElement element)
         {
             var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
-            if (milestone == CompanionMilestone.FirstWords)
+            if (milestone == CompanionMilestone.FirstWords || IsHamsterMilestone(milestone))
                 throw new InvalidDataException("First words wait in talk-celebrations.");
             return milestone;
         }

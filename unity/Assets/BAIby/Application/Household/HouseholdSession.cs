@@ -381,7 +381,8 @@ namespace BAIby.Application
             // A care the pet refused (too poorly, or swatting the toy away when grumpy) counts for nothing.
             if (Refused(care.Cue))
                 kind = PetCareKind.None;
-            var day = before.CareDays.Record(kind, PetCareDays.DayNumber(now()));
+            var rule = PetCareDays.RuleFor(species);
+            var day = before.CareDays.Record(kind, PetCareDays.DayNumber(now()), rule.Meals, rule.Bedtime);
             var completed = day.Completed;
             AddPetCelebrations(slot, companion.PetSession.Reached, care.BecameGrown);
             SaveProgress(species, before.WithCareDays(day.Days));
@@ -454,7 +455,7 @@ namespace BAIby.Application
         }
 
         private static bool Refused(PetCue cue) =>
-            cue == PetCue.TooPoorly || cue == PetCue.PushesToyAway || cue == PetCue.MedicineNotNow;
+            cue == PetCue.TooPoorly || cue == PetCue.PushesToyAway || cue == PetCue.MedicineNotNow || cue == PetCue.Napping;
 
         // Milestones reached and growing up, in order, as pending celebrations the pet's room plays once.
         private bool AddPetCelebrations(int slot, IReadOnlyList<MotorSkill> reached, bool grown)
@@ -467,6 +468,9 @@ namespace BAIby.Application
                     case MotorSkill.Pounce: added |= AddCelebration(slot, CompanionMilestone.Pounce); break;
                     case MotorSkill.Climb: added |= AddCelebration(slot, CompanionMilestone.Climb); break;
                     case MotorSkill.HighJump: added |= AddCelebration(slot, CompanionMilestone.HighJump); break;
+                    case MotorSkill.Wheel: added |= AddCelebration(slot, CompanionMilestone.Wheel); break;
+                    case MotorSkill.Tunnel: added |= AddCelebration(slot, CompanionMilestone.Tunnel); break;
+                    case MotorSkill.HandTame: added |= AddCelebration(slot, CompanionMilestone.HandTame); break;
                 }
             }
 

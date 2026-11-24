@@ -543,7 +543,7 @@ namespace BAIby.Presentation
 
                 if (record.InSpell)
                     list.Insert(0, new JournalRow("Heart", Blush, $"Since {DayWord(record.SpellDay).ToLowerInvariant()} · Feeling poorly",
-                        petPages ? $"Rest, gentle petting and {VetName} the vet help. You'll get through it together."
+                        petPages ? $"Rest, {Comforting} and {VetName} the vet help. You'll get through it together."
                             : "Rest, cuddles and Dr. Lee help. You'll get through it together."));
                 if (list.Count == 0)
                     list.Add(new JournalRow("Heart", Blush, "No hard days so far",
@@ -639,10 +639,10 @@ namespace BAIby.Presentation
                     ? $"Days {entry.SinceDay} to {entry.Day}" : DayWord(entry.Day);
                 if (entry.Spell == HardSpell.Shy)
                     return new JournalRow("Heart", Blush, $"{days} · A bit shy about {SkillGerund(entry.Skill)}",
-                        $"A good day of meals and {(petPages ? "petting" : "cuddles")} brought {SkillGerund(entry.Skill)} back.");
+                        $"A good day of meals and {(petPages ? Comforting : "cuddles")} brought {SkillGerund(entry.Skill)} back.");
 
                 return new JournalRow("Heart", Blush, $"{days} · A poorly spell",
-                    petPages ? "Rest, medicine and gentle petting helped. All better now!"
+                    petPages ? $"Rest, medicine and {Comforting} helped. All better now!"
                         : "Rest, medicine and cuddles helped. All better now!");
             }
 
@@ -655,6 +655,9 @@ namespace BAIby.Presentation
                     case MotorSkill.Pounce: return "First pounce";
                     case MotorSkill.Climb: return "First climb";
                     case MotorSkill.HighJump: return "First high jump";
+                    case MotorSkill.Wheel: return "First spin on the wheel";
+                    case MotorSkill.Tunnel: return "Through the tunnel";
+                    case MotorSkill.HandTame: return "Hand-tame";
                     default: return "First steps";
                 }
             }
@@ -668,6 +671,9 @@ namespace BAIby.Presentation
                     case MotorSkill.Pounce: return "wiggle, wiggle, pounce!";
                     case MotorSkill.Climb: return "up the cat tree";
                     case MotorSkill.HighJump: return "all the way to the windowsill";
+                    case MotorSkill.Wheel: return "round and round and round";
+                    case MotorSkill.Tunnel: return "in one end and out the other";
+                    case MotorSkill.HandTame: return "climbed right into your hand";
                     default: return "toddling towards a toy";
                 }
             }
@@ -683,9 +689,9 @@ namespace BAIby.Presentation
                     if (entry.Feeds > 0)
                         parts.Add(Count(entry.Feeds, "feeder portion"));
                     if (entry.Plays > 0)
-                        parts.Add("ball launcher " + Times(entry.Plays));
+                        parts.Add((HamsterShown ? "spare wheel " : "ball launcher ") + Times(entry.Plays));
                     if (entry.Tidies > 0)
-                        parts.Add("litter box " + Times(entry.Tidies));
+                        parts.Add((HamsterShown ? "litter corner " : "litter box ") + Times(entry.Tidies));
                     return new JournalRow("Gear", Mist, $"{DayWord(entry.Day)} · The helpers kept things steady",
                         $"{Date(entry.At)} · {string.Join(" · ", parts)}");
                 }

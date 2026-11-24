@@ -15,6 +15,40 @@ namespace BAIby.Character
         public AppearancePoseData[] poses;
         public PetOverlayData[] overlays;
         public PetPaletteData palette;
+        // The hamster's cage (P2), drawn round the pet in the shared room; absent for the cat.
+        public PetHabitatData habitat;
+    }
+
+    [Serializable]
+    public sealed class PetHabitatData
+    {
+        // Paths of the layers behind and in front of the pet (relative to the species folder, without ".bytes").
+        public string back;
+        public string front;
+        // Both layers' size in the baby's pose pixels, and the floor line's height above their bottom edge.
+        public int width;
+        public int height;
+        public int floor;
+    }
+
+    // A species' habitat: two fixed-colour layers the size of Width x Height pose pixels, the pet standing on the line
+    // Floor pixels above their bottom edge, between them.
+    public sealed class PetHabitat
+    {
+        public PetHabitat(string back, string front, int width, int height, int floor)
+        {
+            Back = back;
+            Front = front;
+            Width = width;
+            Height = height;
+            Floor = floor;
+        }
+
+        public string Back { get; }
+        public string Front { get; }
+        public int Width { get; }
+        public int Height { get; }
+        public int Floor { get; }
     }
 
     [Serializable]
@@ -103,8 +137,10 @@ namespace BAIby.Character
 
         private PetLayout(AppearanceColors reference, double youngScale, double grownScale,
             Dictionary<string, AppearancePoseData> poses, Dictionary<string, AppearanceOverlay> overlays,
-            HashSet<string> darkOverlays, Dictionary<string, PetCoatColors> coats, Dictionary<string, AppearanceColor> eyes)
+            HashSet<string> darkOverlays, Dictionary<string, PetCoatColors> coats, Dictionary<string, AppearanceColor> eyes,
+            PetHabitat habitat)
         {
+            Habitat = habitat;
             Reference = reference;
             YoungScale = youngScale;
             GrownScale = grownScale;
@@ -122,6 +158,9 @@ namespace BAIby.Character
         public double GrownScale { get; }
 
         public double RuntimeScale(PetStage stage) => stage == PetStage.Grown ? GrownScale : YoungScale;
+
+        // The species' habitat (the hamster's cage), or null when the pet lives in the room as it is (the cat).
+        public PetHabitat Habitat { get; }
 
         public static string PoseName(PetStage stage, bool resting) =>
             (stage == PetStage.Grown ? "Grown" : "Young") + (resting ? "Rest" : "Awake");
@@ -214,7 +253,18 @@ namespace BAIby.Character
                 }
             }
 
-            return new PetLayout(reference, data.runtimeScale.young, data.runtimeScale.grown, poses, overlays, dark, coats, eyes);
+            // JsonUtility fills a missing object with defaults, so an empty back path means no habitat.
+            PetHabitat habitat = null;
+            var h = data.habitat;
+            if (h != null && !string.IsNullOrEmpty(h.back))
+            {
+                if (string.IsNullOrEmpty(h.front) || h.width <= 0 || h.height <= 0 || h.floor < 0 || h.floor >= h.height)
+                    throw new FormatException("The pet habitat needs both layers, a positive size and a floor inside it.");
+                habitat = new PetHabitat(h.back, h.front, h.width, h.height, h.floor);
+            }
+
+            return new PetLayout(reference, data.runtimeScale.young, data.runtimeScale.grown, poses, overlays, dark, coats, eyes,
+                habitat);
         }
 
         public bool TryGetPoseSize(string pose, out int width, out int height)

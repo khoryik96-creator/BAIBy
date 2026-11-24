@@ -17,6 +17,9 @@ namespace BAIby.Presentation
                 case MotorSkill.Pounce: return "pouncing";
                 case MotorSkill.Climb: return "climbing";
                 case MotorSkill.HighJump: return "high jumps";
+                case MotorSkill.Wheel: return "running on the wheel";
+                case MotorSkill.Tunnel: return "the tunnel";
+                case MotorSkill.HandTame: return "climbing onto your hand";
                 default: return "walking";
             }
         }
@@ -30,6 +33,9 @@ namespace BAIby.Presentation
                 case MotorSkill.Pounce: return "pounce";
                 case MotorSkill.Climb: return "climb";
                 case MotorSkill.HighJump: return "try a high jump";
+                case MotorSkill.Wheel: return "run a whole spin on the wheel";
+                case MotorSkill.Tunnel: return "scurry through the tunnel";
+                case MotorSkill.HandTame: return "climb onto your hand";
                 default: return "take first steps";
             }
         }
@@ -44,7 +50,8 @@ namespace BAIby.Presentation
                     : growth.Paused ? "Growing waits while " + name + " is poorly"
                     : "Likely to say first words " + Soon(growth.Words.ExpectedIn);
             if (growth.Next == MotorSkill.None)
-                return pet ? "Pouncing, climbing and high jumps reached" : "Sitting, crawling and first steps reached";
+                return !pet ? "Sitting, crawling and first steps reached"
+                    : HamsterShown ? "Wheel, tunnel and hand-tame reached" : "Pouncing, climbing and high jumps reached";
             if (growth.Paused)
                 return "Growing waits while " + name + " is poorly";
 
@@ -62,23 +69,24 @@ namespace BAIby.Presentation
             return $"in about {Math.Round(days):0} days";
         }
 
-        // `meals` is how many on-time meals a good day asks for (three, or two for a cat).
+        // `meals` is how many on-time meals a good day asks for (three, two for a cat, or a hamster's one dinner).
         private static string ProjectionHint(string name, GrowthReport growth, bool pet = false, int meals = 3)
         {
             if (growth == null)
                 return string.Empty;
-            var cuddles = pet ? "pets" : "cuddles";
+            var cuddles = !pet ? "cuddles" : HamsterShown ? "holds" : "pets";
             if (growth.Shy != MotorSkill.None)
                 return $"A bit shy about {SkillGerund(growth.Shy)}. A good day helps: meals on time " +
                     $"{Math.Min(meals, growth.RecoveryMeals)} of {meals}, {cuddles} {Math.Min(2, growth.RecoverySoothes)} of 2.";
             if (growth.Paused)
-                return pet ? $"Meals, gentle petting and {VetName} the vet will help." : "Feeds, cuddles and Dr. Lee will help.";
+                return pet ? $"Meals, {Comforting} and {VetName} the vet will help." : "Feeds, cuddles and Dr. Lee will help.";
             if (growth.Next == MotorSkill.None && !pet && growth.Words != null)
                 return growth.Words.Reached ? $"Talk time is open: tap Talk to tell {name} how you feel."
                     : "Stories and new sounds help with first words.";
             if (growth.Next == MotorSkill.None)
-                return pet ? "Wand play, petting and brushing keep every track growing."
-                    : "Play, stories and cuddles keep every track growing.";
+                return !pet ? "Play, stories and cuddles keep every track growing."
+                    : HamsterShown ? "Wheel time, gentle holds and fresh bedding keep every track growing."
+                    : "Wand play, petting and brushing keep every track growing.";
 
             switch (growth.Pace)
             {
@@ -100,6 +108,9 @@ namespace BAIby.Presentation
                 case MotorSkill.Pounce:
                 case MotorSkill.Climb: return "Wand play at playtime helps.";
                 case MotorSkill.HighJump: return "Wand play and meals on time help.";
+                case MotorSkill.Wheel:
+                case MotorSkill.Tunnel: return "Wheel time in the evening helps.";
+                case MotorSkill.HandTame: return "Gentle holds and dinner on time help.";
                 default: return "Play and regular meals help.";
             }
         }
