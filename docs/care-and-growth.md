@@ -1,6 +1,6 @@
 # Care and growth
 
-**Status: decided proposal.** Slices 1 (the shadow ledger), 2 (routine strip, need retune, Fussy and Upset, mess, overfeeding, Away mode and care styles), 3 (Under the weather, Sick, the doctor, medicine and Recovering, for babies), 4 (development tracks, readiness timing, the setback, projection and the Report, for babies), 5 (Bond, temperament, the care rhythm, the journal and earned looks, for babies) and 7 (pet profiles, the cat first) are built; the helper's needs floor is not (its Bond and Security costs are). Numbers are starting tunables for playtests, and the open decisions are listed at the end.
+**Status: decided proposal.** Slices 1 (the shadow ledger), 2 (routine strip, need retune, Fussy and Upset, mess, overfeeding, Away mode and care styles), 3 (Under the weather, Sick, the doctor, medicine and Recovering, for babies), 4 (development tracks, readiness timing, the setback, projection and the Report, for babies), 5 (Bond, temperament, the care rhythm, the journal and earned looks, for babies) and 7 (pet profiles, the cat first) are built; the absence helper's needs floor is not (its Bond and Security costs are). Paid Helpers ([monetization](monetization.md#helpers-built-in-m4) M4) are built on these rules for babies and cats: see Absence. Numbers are starting tunables for playtests, and the open decisions are listed at the end.
 
 It merges three proposals (care-to-growth, return loops, systems and tuning) with the user's request: care on time, every action affects growth, and real consequences for late, missed or poor care. It follows [pet mode](pet-mode.md) and [monetization](monetization.md) and names where it changes them.
 
@@ -41,7 +41,7 @@ The player sets a wake time (05:00 to 10:00, default 07:00), applied from the ne
 | Night | until wake | none | none | Quiet hours |
 
 - The **Home** preset, for a player who is around all day, has Morning 07:00 to 09:30 (late until 11:00), a lunch Afternoon 12:00 to 14:00 (15:00), Evening 17:30 to 19:30 (20:30) and Bedtime 19:00 to 20:30 (+60 min). In both presets the wake time moves only the Morning window.
-- Feeding at Fullness 90 or more never counts as a meal. **Excused** (first 24 h, travel day, migration) and **Covered** (helper, Away mode) are left out of CareScore.
+- Feeding at Fullness 90 or more never counts as a meal. **Excused** (first 24 h, travel day, migration), **Covered** (helper, Away mode) and **Helped** (a paid feeder served in the window and nobody fed by hand) are left out of CareScore.
 - A late bedtime restores Energy to 85 instead of 100. No bedtime means the baby dozes on the mat (Energy 65) and wakes Fussy. Playing at night costs Energy 15 and Comfort 10.
 
 Need retune for real-clock meals (Fullness decays 10/h today):
@@ -119,7 +119,7 @@ The first **36 counted hours** use the full rules. Then a helper covers ("Grandm
 | Next milestone | About 6 h later | About 1.3 days later | About 2 days later, waiting to be shown |
 | Way back | Feed, soothe, next meal | One good care day | 3 on-time moments over 2 days, doubled Bond gains |
 
-**Away mode** (1 to 14 days, free, set before leaving) excuses windows, holds needs at 60, runs development at the nominal pace (Q 0.6, the neutral pace of decision 6), and costs no Bond or rhythm. Monetization says it pauses growth; this proposal prefers a neutral pace (decision 6). Paid Helpers count as Covered, never on-time care, with floors at 40 to 45, below the 60 that counts as well kept.
+**Away mode** (1 to 14 days, free, set before leaving) excuses windows, holds needs at 60, runs development at the nominal pace (Q 0.6, the neutral pace of decision 6), and costs no Bond or rhythm. Monetization says it pauses growth; this proposal prefers a neutral pace (decision 6). Paid Helpers count as Covered, never on-time care, with floors at 40 to 45, below the 60 that counts as well kept. As built (monetization M4): floors Fullness 45, Comfort 40, Cleanliness 40, acting only within 24 hours of the last hands-on care and only in counted hours (never in Away mode, never on the anchoring advance of a migrated ledger). A meal window the feeder served in, with no hands-on meal, closes **Helped**: on the needs axis it is Covered (out of the meal ring and CareScore, not owed, not overdue, so no fussing for it and no push towards Upset or Under the weather); on the attention axis it is a missed meal (Bond -2, temperament's missed meal, the rhythm's day with a miss, no good care day), so a paid-helper day is not the absence helper's covered day and freezes nothing. Play and tidy hold Comfort and Cleanliness only; a missed wash still leaves its mess. Health is never raised directly.
 
 ## Flagged decision: the strongest consequence
 

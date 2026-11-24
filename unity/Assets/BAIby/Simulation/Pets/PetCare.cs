@@ -37,16 +37,21 @@ namespace BAIby.Simulation.Pets
         private readonly CareTunables care;
         private readonly GrowthTunables growthTunables;
         private readonly BondTunables bond;
+        private readonly HelperRules helpers;
         private readonly TimeSpan maxNeedDecay;
 
-        public PetCare(PetCatalog catalog, TimeSpan maxNeedDecay, CareTunables care, GrowthTunables growth, BondTunables bond)
+        public PetCare(PetCatalog catalog, TimeSpan maxNeedDecay, CareTunables care, GrowthTunables growth, BondTunables bond,
+            HelperRules helpers)
         {
             this.catalog = catalog;
             this.maxNeedDecay = maxNeedDecay;
             this.care = care;
             growthTunables = growth;
             this.bond = bond;
+            this.helpers = helpers;
         }
+
+        public HelperRules HelperRules => helpers;
 
         public CareTunables CareTunables => care;
         public BondTunables BondTunables => bond;
@@ -81,7 +86,10 @@ namespace BAIby.Simulation.Pets
 
         public JournalRecord Journal(PetState state) => Seeded(state).Journal;
 
-        public PetStep Advance(PetState state, DateTimeOffset now)
+        public PetStep Advance(PetState state, DateTimeOffset now) => Advance(state, now, null, null);
+
+        // With the household's helpers (an auto-feeder, a ball launcher and a self-cleaning litter box), as for the baby.
+        public PetStep Advance(PetState state, DateTimeOffset now, HelperSettings settings, ICollection<HelperEvent> events)
         {
             var species = catalog.Get(state.Species);
             var growth = Growth(state);
@@ -107,15 +115,38 @@ namespace BAIby.Simulation.Pets
             var bonded = BondRules.Advance(state.Bond, state.Bonding, state.Care, ledger, now.UtcTicks, bond, care);
             var start = Values(state);
             var effects = BabyNeeds.EffectsFor(state.Care, bonded, care, bond);
-            var needs = BabyNeeds.Real(start, state.Care, advanced, maxNeedDecay, care.AwayHoldLevel, care.DayStart, effects,
-                rates);
+            var helped = HelperAdvance.Active(state.Care, settings);
+            BabyNeeds.Values needs;
+            HelperRun run = null;
+            if (helped)
+            {
+                var gap = HelperAdvance.Real(state.Care, advanced, now, start, maxNeedDecay, care, effects, rates, settings,
+                    helpers);
+                advanced = gap.Care;
+                needs = gap.Needs;
+                run = gap.Run;
+            }
+            else
+            {
+                needs = BabyNeeds.Real(start, state.Care, advanced, maxNeedDecay, care.AwayHoldLevel, care.DayStart, effects,
+                    rates);
+            }
+
             var from = state.Care;
             var step = growth.Real(Subject(state), now, at =>
             {
                 if (at == now.UtcTicks)
                     return (advanced, needs, bonded.Bond);
-                var ledgerAt = CareRules.Advance(from, new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset), care);
+                var instant = new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset);
+                var ledgerAt = CareRules.Advance(from, instant, care);
                 var bondAt = BondRules.Advance(state.Bond, state.Bonding, from, ledger, at, bond, care).Bond;
+                if (helped)
+                {
+                    var gapAt = HelperAdvance.Real(from, ledgerAt, instant, start, maxNeedDecay, care, effects, rates,
+                        settings, helpers);
+                    return (gapAt.Care, gapAt.Needs, bondAt);
+                }
+
                 return (ledgerAt, BabyNeeds.Real(start, from, ledgerAt, maxNeedDecay, care.AwayHoldLevel, care.DayStart,
                     effects, rates), bondAt);
             });
@@ -137,14 +168,39 @@ namespace BAIby.Simulation.Pets
             var after = state.With(timeCheckpoint: now, age: age, meters: Meters(state, needs), bond: bonded.Bond,
                 highestBond: Math.Max(state.HighestBond, bonded.Bond), isGrown: isGrown, care: record,
                 development: development, bonding: bonded.Record, milestones: step.Stage);
-            return new PetStep(after.With(journal: Chronicle(state, after, step, bonded, true)), isGrown && !state.IsGrown,
-                Reached(state, step));
+            return new PetStep(after.With(journal: Helped(Chronicle(state, after, step, bonded, true), run, state.Age, events)),
+                isGrown && !state.IsGrown, Reached(state, step));
+        }
+
+        // Fills the auto-feeder to its full stock. Free: not care, no credit, nothing else moves.
+        public PetState StockFeeder(PetState state)
+        {
+            state = Seeded(state);
+            var record = HelperAdvance.Stock(state.Care, helpers.MaxStock, helpers);
+            return ReferenceEquals(record, state.Care) ? state : state.With(care: record);
+        }
+
+        private static JournalRecord Helped(JournalRecord journal, HelperRun run, TimeSpan startAge,
+            ICollection<HelperEvent> events)
+        {
+            if (run == null || run.Events.Count == 0)
+                return journal;
+
+            if (events != null)
+            {
+                foreach (var helperEvent in run.Events)
+                    events.Add(helperEvent);
+            }
+
+            return JournalRules.Helpers(journal, run.Events, startAge);
         }
 
         // A preview day passes no real time, so no routine window passes: the ledger and the mood hold, the hours count
         // as awake hours, the care since the last day mark closes a day for the rhythm and temperament, and readiness
         // follows the needs as they fall.
-        public PetStep Preview(PetState state, TimeSpan elapsed)
+        public PetStep Preview(PetState state, TimeSpan elapsed) => Preview(state, elapsed, null, null);
+
+        public PetStep Preview(PetState state, TimeSpan elapsed, HelperSettings settings, ICollection<HelperEvent> events)
         {
             var species = catalog.Get(state.Species);
             state = Seeded(state);
@@ -155,13 +211,16 @@ namespace BAIby.Simulation.Pets
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
             var counted = elapsed > PetState.MaxAge - state.Age ? PetState.MaxAge - state.Age : elapsed;
             var step = growth.Preview(Subject(state), counted, maxNeedDecay, boost, comfort);
-            var needs = BabyNeeds.Awake(Values(state), counted, maxNeedDecay, Rates(state), boost, comfort);
+            var run = HelperAdvance.Active(state.Care, settings)
+                ? HelperRun.BeginPreview(state.Care, settings, helpers, care.DayStart)
+                : null;
+            var needs = BabyNeeds.Awake(Values(state), counted, maxNeedDecay, Rates(state), boost, comfort, run);
             var age = state.Age + counted;
             var isGrown = state.IsGrown || age >= species.GrownAge;
             var after = state.With(age: age, meters: Meters(state, needs), isGrown: isGrown, development: step.Draft.Build(),
-                bonding: bonded.Record, milestones: step.Stage);
-            return new PetStep(after.With(journal: Chronicle(state, after, step, bonded, false)), isGrown && !state.IsGrown,
-                Reached(state, step));
+                bonding: bonded.Record, milestones: step.Stage, care: run == null ? null : state.Care.WithHelpers(run.Record));
+            return new PetStep(after.With(journal: Helped(Chronicle(state, after, step, bonded, false), run, state.Age, events)),
+                isGrown && !state.IsGrown, Reached(state, step));
         }
 
         // One care verb, or a medicine dose when `verb` is null. Advance to the current instant first.

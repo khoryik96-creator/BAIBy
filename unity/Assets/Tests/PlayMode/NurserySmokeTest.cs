@@ -945,6 +945,104 @@ namespace BAIby.Tests
             Assert.That(Child<RectTransform>(view.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
         }
 
+        // Helpers (monetization M4) on a fake clock: Grown-ups, behind the gate, adds the test helpers; the Routine sheet
+        // stocks the Sitter's bottles; the rings show floor markers; Next day brings the return summary (helpers first,
+        // the attention line last); the journal keeps a muted Sitter day; switching the feeder off removes its marker.
+        // Then a cat's auto-feeder shows its stock in the room.
+        [UnityTest]
+        public IEnumerator HelpersHoldNeedsSteadyAndOnlyThePlayerRaises()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Adopt(view.gameObject, "Mia");
+            Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(0), "no helper, no floor marker");
+            var opener = Child<RectTransform>(view.gameObject, "Routine Strip").gameObject.activeInHierarchy
+                ? "Routine Strip" : "Open routine";
+            Tap(view.gameObject, opener);
+            Assert.That(Child<RectTransform>(view.gameObject, "Routine Helpers").gameObject.activeInHierarchy, Is.False,
+                "the Routine sheet says nothing about helpers the household does not have");
+            Tap(view.gameObject, "Close routine");
+
+            // Grown-ups: the Helpers panel, behind the parental gate, with the test set (no shop in this build).
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            PassGate(view.gameObject);
+            Tap(view.gameObject, "Settings helpers");
+            Assert.That(Child<RectTransform>(view.gameObject, "Helpers Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Helpers Detail").text,
+                Does.Contain("Helpers keep things steady while you're busy. Only you can help Mia grow."));
+            Assert.That(Child<Button>(view.gameObject, "Helper Feeder").interactable, Is.False, "not owned yet");
+            Tap(view.gameObject, "Playtest helpers toggle");
+            Assert.That(Child<Button>(view.gameObject, "Helper Feeder").GetComponentInChildren<Text>(true).text,
+                Does.EndWith("On"), "an owned helper is on by default");
+            Tap(view.gameObject, "Close helpers");
+            Assert.That(Child<RectTransform>(view.gameObject, "Household Settings Panel").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close settings");
+            Tap(view.gameObject, "Close home");
+
+            // The Routine sheet stocks the Sitter's bottles: hands-on and free.
+            Tap(view.gameObject, opener);
+            Assert.That(Child<RectTransform>(view.gameObject, "Routine Helpers").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Routine Helpers Stock").text, Does.Contain("0 of 6"));
+            Tap(view.gameObject, "Stock feeder");
+            Assert.That(Child<Text>(view.gameObject, "Routine Helpers Stock").text, Does.Contain("6 of 6"));
+            Assert.That(Child<Button>(view.gameObject, "Stock feeder").interactable, Is.False, "a full feeder");
+            Tap(view.gameObject, "Close routine");
+            Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(3), "Fullness, Comfort and Clean show their helper floors");
+
+            // Next day: the Sitter popped in. Helper events come first, the attention line last, and no shop link.
+            Tap(view.gameObject, "Preview next day");
+            var summary = Reaction(view.gameObject);
+            Assert.That(summary, Does.StartWith("While you were busy, the Sitter"));
+            Assert.That(summary, Does.EndWith("Mia missed you; a cuddle or story will help."));
+            Assert.That(summary.ToLowerInvariant(), Does.Not.Contain("shop").And.Not.Contain("buy"));
+            Tap(view.gameObject, "Development");
+            Tap(view.gameObject, "Journal");
+            Assert.That(JournalRow(view.gameObject, 1), Does.Contain("The Sitter popped in"), "a muted Sitter day");
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Done");
+
+            // Switching the feeder off (Grown-ups) removes its floor marker.
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            PassGate(view.gameObject);
+            Tap(view.gameObject, "Settings helpers");
+            Tap(view.gameObject, "Helper Feeder");
+            Assert.That(Child<Text>(view.gameObject, "Helpers Feedback").text, Does.Contain("is off"));
+            Tap(view.gameObject, "Close helpers");
+            Tap(view.gameObject, "Close settings");
+            Tap(view.gameObject, "Close home");
+            Tap(view.gameObject, "Soothe");
+            Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(2), "a switched-off helper shows no marker");
+
+            // A cat's auto-feeder shows its stock in the room.
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "+ Adopt");
+            Tap(view.gameObject, "Adopt a pet");
+            Tap(view.gameObject, "Species Cat");
+            Tap(view.gameObject, "Breed Domestic shorthair");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Pip";
+            Tap(view.gameObject, "Adopt pet");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Pip"));
+            Assert.That(HasObject(view.gameObject, "Feeder Stock") &&
+                Child<RectTransform>(view.gameObject, "Feeder Stock").gameObject.activeInHierarchy, Is.False,
+                "the feeder is switched off, so the room shows no feeder");
+            Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(2), "the ball launcher and litter box show their floors");
+        }
+
+        // Ring markers shown for active helpers.
+        private static int ActiveFloors(GameObject view) =>
+            view.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.name == "Helper floor" && rect.gameObject.activeInHierarchy);
+
         [UnityTearDown]
         public IEnumerator CleanUp()
         {

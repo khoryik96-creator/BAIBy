@@ -6,8 +6,9 @@ namespace BAIby.Simulation
     // Display-only; never saved.
     public enum RoutineSlotKind { MorningMeal, AfternoonMeal, EveningMeal, Play, Bedtime, Wash }
 
-    // Later: the window has not opened. Due: open now. Overdue: past due, still waiting (late if done now).
-    public enum RoutineSlotState { Later, Due, Overdue, OnTime, DoneLate, Missed, Excused, Away }
+    // Later: the window has not opened. Due: open now. Overdue: past due, still waiting (late if done now). Helped: a
+    // helper served the meal (it still waits for a hands-on meal while the window is open).
+    public enum RoutineSlotState { Later, Due, Overdue, OnTime, DoneLate, Missed, Excused, Away, Helped }
 
     public sealed class RoutineSlot
     {
@@ -71,11 +72,13 @@ namespace BAIby.Simulation
             var openAt = Local(record, open);
             var dueAt = Local(record, due);
             var lateAt = Local(record, lateUntil);
-            return new RoutineSlot(kind, StateOf(record, status, openAt, dueAt, lateAt, anytime), openAt, dueAt, lateAt);
+            var meal = kind == RoutineSlotKind.MorningMeal || kind == RoutineSlotKind.AfternoonMeal ||
+                kind == RoutineSlotKind.EveningMeal;
+            return new RoutineSlot(kind, StateOf(record, status, openAt, dueAt, lateAt, anytime, meal), openAt, dueAt, lateAt);
         }
 
         private static RoutineSlotState StateOf(CareRecord record, MomentStatus status, DateTimeOffset open,
-            DateTimeOffset due, DateTimeOffset lateUntil, bool anytime)
+            DateTimeOffset due, DateTimeOffset lateUntil, bool anytime, bool meal)
         {
             var away = record.AwayUntil > record.AwayFrom && open < record.AwayUntil && lateUntil > record.AwayFrom;
             switch (status)
@@ -85,6 +88,7 @@ namespace BAIby.Simulation
                 case MomentStatus.Missed: return RoutineSlotState.Missed;
                 case MomentStatus.Excused: return RoutineSlotState.Excused;
                 case MomentStatus.Covered: return away ? RoutineSlotState.Away : RoutineSlotState.Excused;
+                case MomentStatus.Helped: return RoutineSlotState.Helped;
             }
 
             var at = record.Checkpoint;
@@ -96,6 +100,9 @@ namespace BAIby.Simulation
                 return RoutineSlotState.Due;
             if (at < open)
                 return RoutineSlotState.Later;
+            var served = record.Helpers.LastServe;
+            if (meal && served > 0 && served >= open.UtcTicks && served <= at.UtcTicks && at < lateUntil)
+                return RoutineSlotState.Helped;
             if (at < due)
                 return RoutineSlotState.Due;
 

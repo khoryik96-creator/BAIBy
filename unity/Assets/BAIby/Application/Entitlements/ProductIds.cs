@@ -10,6 +10,16 @@ namespace BAIby.Application
         // "More rooms": two extra household rooms.
         public const string HomeRooms2 = "home.rooms2";
 
+        // Helpers (docs/monetization.md): each on its own, or the household set of all three.
+        public const string HelperFeeder = "helper.feeder";
+        public const string HelperPlay = "helper.play";
+        public const string HelperTidy = "helper.tidy";
+        public const string HelperSet = "helper.set";
+
+        // Every helper product, the set last.
+        public static IReadOnlyList<string> HelperProducts { get; } =
+            Array.AsReadOnly(new[] { HelperFeeder, HelperPlay, HelperTidy, HelperSet });
+
         // Product families in the premium catalogue, for example breed.dog.corgi or helper.set. A cached
         // grant from a family this build does not know yet is kept untouched for a newer build.
         private static readonly string[] Families =

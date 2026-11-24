@@ -95,6 +95,8 @@ namespace BAIby.Application
         private readonly HashSet<int> occupied = new HashSet<int>();
         // Slots whose goodbye has started but whose final manifest is not yet written.
         private readonly HashSet<int> leaving = new HashSet<int>();
+        // Helpers the household switched off; owned helpers are on otherwise.
+        private readonly List<HelperKind> helpersOff = new List<HelperKind>();
         private int activeSlot;
         private string storedManifest;
         private string lastValidManifest;
@@ -148,6 +150,59 @@ namespace BAIby.Application
         }
 
         public int Capacity => HouseholdRules.CapacityFor(entitlements, companions.Count);
+
+        // The helpers that may act now: owned (helper.set or the helper's own product) and switched on. Household-wide,
+        // for every companion with a care record (babies and cats). Computed at runtime and never saved in a record.
+        public HelperSettings Helpers => HelperOwnership.Settings(entitlements, helpersOff);
+
+        public bool OwnsHelper(HelperKind kind) => HelperOwnership.Owns(entitlements, kind);
+
+        public bool OwnsAnyHelper => HelperOwnership.OwnsAny(entitlements);
+
+        // Whether the household switched an owned helper on (the default once owned).
+        public bool IsHelperSwitchedOn(HelperKind kind) => !helpersOff.Contains(kind);
+
+        // Switches a helper on or off for the whole household (Grown-ups, behind the parental gate). Saved in the
+        // manifest only while some helper is off.
+        public void SetHelperOn(HelperKind kind, bool on)
+        {
+            if (!Enum.IsDefined(typeof(HelperKind), kind))
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            if (on != helpersOff.Contains(kind))
+                return;
+
+            if (on)
+                helpersOff.Remove(kind);
+            else
+                helpersOff.Add(kind);
+            try
+            {
+                WriteManifest();
+            }
+            catch
+            {
+                if (on)
+                    helpersOff.Add(kind);
+                else
+                    helpersOff.Remove(kind);
+                throw;
+            }
+        }
+
+        // What a companion's helpers did since the last call (the return summary); empty for a slot without a session.
+        public IReadOnlyList<HelperEvent> TakeHelperEvents(int slot)
+        {
+            var companion = Find(slot);
+            if (companion?.Session != null)
+                return companion.Session.TakeHelperEvents();
+            if (companion?.PetSession != null)
+                return companion.PetSession.TakeHelperEvents();
+            return Array.Empty<HelperEvent>();
+        }
+
+        // Fills a cat's auto-feeder: free, not care. A species without helpers is left alone.
+        public PetCareOutcome StockPetFeeder(int slot) =>
+            PetAction(slot, session => (PetCue.Content, session.StockFeeder()));
         public IReadOnlyList<HouseholdCompanion> Companions => companions.AsReadOnly();
         public IReadOnlyList<Keepsake> Keepsakes => keepsakes.AsReadOnly();
 
@@ -204,7 +259,7 @@ namespace BAIby.Application
 
             // The record is written first. If the manifest write is interrupted, the next launch finds
             // the record by probing and lists it again.
-            var session = new BabySession(simulation, store.Slot(slot), now);
+            var session = Wired(new BabySession(simulation, store.Slot(slot), now));
             session.Adopt(name);
             return Welcome(new HouseholdCompanion(slot, session.State.TimeCheckpoint, session));
         }
@@ -227,7 +282,7 @@ namespace BAIby.Application
             if (slot == 0)
                 throw new InvalidOperationException("No free household slot is available for a pet.");
 
-            var session = new PetSession(pets, store.Slot(slot), now);
+            var session = Wired(new PetSession(pets, store.Slot(slot), now));
             session.Adopt(name, appearance);
             return Welcome(new HouseholdCompanion(slot, session.State.TimeCheckpoint, CompanionKind.Pet, null, session));
         }
@@ -352,7 +407,7 @@ namespace BAIby.Application
             if (state == null || IsResting(slot))
                 return state;
 
-            return pets.Advance(state, now()).State;
+            return pets.Step(state, now(), Helpers).State;
         }
 
         private HouseholdCompanion Welcome(HouseholdCompanion companion)
@@ -444,7 +499,7 @@ namespace BAIby.Application
             if (state == null || IsResting(slot))
                 return state;
 
-            return simulation.Advance(state, now()).State;
+            return simulation.Advance(state, now(), Helpers).State;
         }
 
         // Keeps wakeSlot in a room and lets restSlot rest instead, by swapping their places in Home order.
@@ -712,8 +767,9 @@ namespace BAIby.Application
                 try
                 {
                     probed.Add(slot, kind == CompanionKind.Pet
-                        ? new HouseholdCompanion(slot, default, CompanionKind.Pet, null, new PetSession(pets, saves, now))
-                        : new HouseholdCompanion(slot, default, CompanionKind.Baby, new BabySession(simulation, saves, now), null));
+                        ? new HouseholdCompanion(slot, default, CompanionKind.Pet, null, Wired(new PetSession(pets, saves, now)))
+                        : new HouseholdCompanion(slot, default, CompanionKind.Baby, Wired(new BabySession(simulation, saves, now)),
+                            null));
                 }
                 catch (InvalidDataException)
                 {
@@ -728,6 +784,19 @@ namespace BAIby.Application
             }
 
             return probed;
+        }
+
+        // Every session reads the household's helpers at each advance.
+        private BabySession Wired(BabySession session)
+        {
+            session.Helpers = () => Helpers;
+            return session;
+        }
+
+        private PetSession Wired(PetSession session)
+        {
+            session.Helpers = () => Helpers;
+            return session;
         }
 
         private static HouseholdCompanion Unreadable(int slot, CompanionKind? kind) =>
@@ -841,6 +910,7 @@ namespace BAIby.Application
             }
 
             keepsakes.AddRange(manifest.Keepsakes);
+            helpersOff.AddRange(manifest.HelpersOff);
             foreach (var record in manifest.SpeciesRecords)
                 speciesRecords[record.Species] = record;
             var active = Find(manifest.ActiveSlot);
@@ -958,7 +1028,10 @@ namespace BAIby.Application
             foreach (var species in SpeciesWithProgress())
                 records.Add(RecordFor(species));
 
-            var payload = HouseholdManifestCodec.Encode(new HouseholdManifest(entries, activeSlot, celebrations, keepsakes, records));
+            var manifest = new HouseholdManifest(entries, activeSlot, celebrations, keepsakes, records);
+            if (helpersOff.Count > 0)
+                manifest = manifest.WithHelpersOff(helpersOff);
+            var payload = HouseholdManifestCodec.Encode(manifest);
             if (payload != storedManifest)
             {
                 store.WriteManifest(payload, lastValidManifest);

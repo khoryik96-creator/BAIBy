@@ -43,6 +43,7 @@ namespace BAIby.Simulation
         PlayLate = 33,
         PlayExcused = 34,
         PlayOutsideWindow = 35,
+        MealHelped = 36,
     }
 
     // Developer read-outs of the care ledger. Never shown to players.
@@ -88,6 +89,7 @@ namespace BAIby.Simulation
                 case CareReason.PlayLate: return "play late";
                 case CareReason.PlayExcused: return "play in an excused window";
                 case CareReason.PlayOutsideWindow: return "play outside the window";
+                case CareReason.MealHelped: return "a helper served the meal (counted as missed for Bond)";
                 default: throw new ArgumentOutOfRangeException(nameof(reason));
             }
         }
@@ -131,6 +133,8 @@ namespace BAIby.Simulation
                 .Append(" mess ").Append(record.Mess.ToString(invariant))
                 .Append(record.Style == CareStyle.Standard ? "" : " " + record.Style)
                 .Append(record.IsAway ? " away" : "")
+                .Append(record.Helpers.IsEmpty ? "" : string.Format(invariant, " | helpers stock {0} today {1}/{2}/{3}",
+                    record.Helpers.Stock, record.Helpers.Feeds, record.Helpers.Plays, record.Helpers.Tidies))
                 .Append(" | ").Append(record.Condition)
                 .Append(record.ConditionCause == CareConditionCause.None ? "" : " (" + record.ConditionCause + ")")
                 .Append(record.Condition == CareCondition.UnderTheWeather

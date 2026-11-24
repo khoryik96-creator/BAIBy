@@ -15,10 +15,17 @@ namespace BAIby.Application
     // v3 adds the health axis: the condition (well, under the weather, sick, recovering), its cause and start, the
     // counted time and visits under the weather, the current visit's start, medicine doses and the last good care
     // day. Older records decode as well, with nothing counted, and their current visit starting at the checkpoint.
+    //
+    // v4 adds the household helpers: a <helpers> child with the feeder's stock, the day's counts and the last serve, and
+    // the Helped moment status ('H'). It is written only once a helper has been stocked or has acted, so a companion
+    // without helpers keeps v3 byte for byte and an older build can still open it; an older build leaves a v4 record
+    // alone. Older records decode with no helper state (helpers off until the player uses them).
     internal static class CareRecordCodec
     {
         public const string ElementName = "care";
-        private const int Version = 3;
+        private const int Version = 4;
+        private const int VersionBeforeHelpers = 3;
+        private const string HelpersName = "helpers";
         private const int VersionBeforeConsequences = 1;
         private const int VersionBeforeHealth = 2;
 
@@ -27,8 +34,9 @@ namespace BAIby.Application
             if (care == null)
                 throw new ArgumentNullException(nameof(care));
 
-            return new XElement(ElementName,
-                new XAttribute("v", Version),
+            var helpers = care.Helpers;
+            var element = new XElement(ElementName,
+                new XAttribute("v", helpers.IsEmpty ? VersionBeforeHelpers : Version),
                 new XAttribute("checkpoint", care.Checkpoint.UtcTicks),
                 new XAttribute("offset", (int)care.Offset.TotalMinutes),
                 new XAttribute("next-offset", (int)care.NextOffset.TotalMinutes),
@@ -70,6 +78,15 @@ namespace BAIby.Application
                 new XAttribute("doses", care.MedicineDoses),
                 new XAttribute("dose-window", care.LastDoseWindow),
                 new XAttribute("good-day", care.GoodDay));
+            if (!helpers.IsEmpty)
+                element.Add(new XElement(HelpersName,
+                    new XAttribute("stock", helpers.Stock),
+                    new XAttribute("day", helpers.Day),
+                    new XAttribute("feeds", helpers.Feeds),
+                    new XAttribute("plays", helpers.Plays),
+                    new XAttribute("tidies", helpers.Tidies),
+                    new XAttribute("served", helpers.LastServe)));
+            return element;
         }
 
         public static CareRecord Decode(XElement element) => Decode(element, CareRoutine.Baby);
@@ -114,6 +131,9 @@ namespace BAIby.Application
                     LastReason = (CareReason)(int)Attribute(element, "reason"),
                     Routine = routine,
                 };
+                // The Helped status came with helpers.
+                if (version < Version && Array.IndexOf(draft.Moments, MomentStatus.Helped) >= 0)
+                    throw new InvalidDataException("A care record before helpers cannot hold a helped moment.");
                 // Before the health axis every companion was well; its visit starts at the checkpoint.
                 draft.ConditionSince = draft.Checkpoint;
                 draft.SessionStart = draft.Checkpoint;
@@ -151,6 +171,14 @@ namespace BAIby.Application
                 draft.MedicineDoses = (int)Attribute(element, "doses");
                 draft.LastDoseWindow = (long)Attribute(element, "dose-window");
                 draft.GoodDay = (long)Attribute(element, "good-day");
+                if (version == VersionBeforeHelpers)
+                    return draft.Build();
+
+                var helpers = element.Element(HelpersName);
+                if (helpers != null)
+                    draft.Helpers = new HelperRecord((int)Attribute(helpers, "stock"), (long)Attribute(helpers, "day"),
+                        (int)Attribute(helpers, "feeds"), (int)Attribute(helpers, "plays"), (int)Attribute(helpers, "tidies"),
+                        (long)Attribute(helpers, "served"));
                 return draft.Build();
             }
             catch (Exception exception) when (exception is FormatException || exception is ArgumentException ||

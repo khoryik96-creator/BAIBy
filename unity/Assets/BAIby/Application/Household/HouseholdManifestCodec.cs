@@ -17,6 +17,8 @@ namespace BAIby.Application
         // A cat's milestones (pounce, climb, high jump: care slice 7) waiting as celebrations sit in their own
         // <pet-celebrations> element, which a v2 build that cannot read them ignores (and drops: only the pending
         // announcement is lost, and the journal keeps the milestone).
+        // Helpers the household switched off sit in a <helpers off="0 2"> element, written only when one is off, so a
+        // household that never touches the setting keeps its manifest byte for byte; a build without helpers ignores it.
         private const int Version = 2;
         private const int VersionBeforePets = 1;
 
@@ -65,6 +67,14 @@ namespace BAIby.Application
             if (petCelebrations.HasElements)
                 root.Add(petCelebrations);
 
+            if (manifest.HelpersOff.Count > 0)
+            {
+                var off = new List<string>();
+                foreach (var kind in manifest.HelpersOff)
+                    off.Add(((int)kind).ToString(System.Globalization.CultureInfo.InvariantCulture));
+                root.Add(new XElement("helpers", new XAttribute("off", string.Join(" ", off))));
+            }
+
             return root.ToString(SaveOptions.DisableFormatting);
         }
 
@@ -110,7 +120,21 @@ namespace BAIby.Application
                         species.Add(DecodeSpecies(element));
                 }
 
-                return new HouseholdManifest(companions, (int)Attribute(root, "active"), celebrations, keepsakes, species);
+                var manifest = new HouseholdManifest(companions, (int)Attribute(root, "active"), celebrations, keepsakes, species);
+                var helpers = root.Element("helpers");
+                if (helpers == null)
+                    return manifest;
+
+                var off = new List<HelperKind>();
+                foreach (var part in ((string)Attribute(helpers, "off")).Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var id = int.Parse(part, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+                    // A helper a newer build added is left out here; this build cannot switch it.
+                    if (Enum.IsDefined(typeof(HelperKind), id))
+                        off.Add((HelperKind)id);
+                }
+
+                return manifest.WithHelpersOff(off);
             }
             // Undefined IDs, duplicate slots and out-of-range values throw ArgumentException subclasses.
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||

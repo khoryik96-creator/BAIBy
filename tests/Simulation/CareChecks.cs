@@ -534,7 +534,7 @@ static class CareChecks
 
         // A newer build may write a newer care record inside a baby save this build reads.
         var future = new XElement(valid);
-        future.Element("care").SetAttributeValue("v", "4");
+        future.Element("care").SetAttributeValue("v", "5");
         try
         {
             BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting));
@@ -547,7 +547,7 @@ static class CareChecks
         session = new BabySession(Game(), saves, () => care.Checkpoint);
         session.ApplyCare(CareAction.Feed);
         var newer = XElement.Parse(saves.Primary);
-        newer.Element("care").SetAttributeValue("v", "4");
+        newer.Element("care").SetAttributeValue("v", "5");
         saves.Primary = newer.ToString(SaveOptions.DisableFormatting);
         var backupBefore = saves.Backup;
         try

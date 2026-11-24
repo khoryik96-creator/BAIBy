@@ -38,7 +38,7 @@ namespace BAIby.Simulation.Pets
         }
 
         public PetSimulation(PetCatalog catalog, TimeSpan maxNeedDecay, CareTunables careTunables = null,
-            GrowthTunables growthTunables = null, BondTunables bondTunables = null)
+            GrowthTunables growthTunables = null, BondTunables bondTunables = null, HelperRules helperRules = null)
         {
             if (catalog == null)
                 throw new ArgumentNullException(nameof(catalog));
@@ -54,7 +54,9 @@ namespace BAIby.Simulation.Pets
             growthRules.Validate();
             var bondRules = bondTunables ?? BondTunables.Default;
             bondRules.Validate();
-            care = new PetCare(catalog, maxNeedDecay, careRules, growthRules, bondRules);
+            var helpers = helperRules ?? HelperRules.Default;
+            helpers.Validate(careRules.Standard.FussyNeed, careRules.FullMealThreshold);
+            care = new PetCare(catalog, maxNeedDecay, careRules, growthRules, bondRules, helpers);
         }
 
         // Whether the pet's species runs on the shared care systems.
@@ -87,12 +89,16 @@ namespace BAIby.Simulation.Pets
         }
 
         // Real time, with the milestones a species with a care profile reached on the way.
-        public PetStep Step(PetState state, DateTimeOffset now)
+        public PetStep Step(PetState state, DateTimeOffset now) => Step(state, now, null, null);
+
+        // With the household's helpers (null for none). Only a species with a care profile has helpers; the others keep
+        // their simple rules and ignore them.
+        public PetStep Step(PetState state, DateTimeOffset now, HelperSettings helpers, ICollection<HelperEvent> events = null)
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
             if (HasCareProfile(state))
-                return care.Advance(state, now);
+                return care.Advance(state, now, helpers, events);
             var legacy = now <= state.TimeCheckpoint
                 ? AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero)
                 : AdvanceElapsed(state, now, now - state.TimeCheckpoint);
@@ -106,14 +112,17 @@ namespace BAIby.Simulation.Pets
         }
 
         // A playtest day: the pet's own clock moves without real time passing (no routine window passes).
-        public PetStep PreviewStep(PetState state, TimeSpan elapsed)
+        public PetStep PreviewStep(PetState state, TimeSpan elapsed) => PreviewStep(state, elapsed, null, null);
+
+        public PetStep PreviewStep(PetState state, TimeSpan elapsed, HelperSettings helpers,
+            ICollection<HelperEvent> events = null)
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
             if (HasCareProfile(state))
-                return care.Preview(state, elapsed);
+                return care.Preview(state, elapsed, helpers, events);
 
             var legacy = AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
             return new PetStep(legacy.State, legacy.BecameGrown);
@@ -184,6 +193,19 @@ namespace BAIby.Simulation.Pets
         public PetState StartAway(PetState state, TimeSpan duration) => care.StartAway(Profiled(state), duration);
 
         public PetState EndAway(PetState state) => care.EndAway(Profiled(state));
+
+        // Whether the pet can have helpers (its species has a care profile).
+        public static bool HasHelpers(PetState state) => HasCareProfile(state);
+
+        // Fills the auto-feeder (a species with a care profile).
+        public PetState StockFeeder(PetState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            return HasCareProfile(state) ? care.StockFeeder(state) : state;
+        }
+
+        public HelperRules HelperRules => care.HelperRules;
 
         public PetState ChangeCareStyle(PetState state, CareStyle style) => care.ChangeStyle(Profiled(state), style);
 

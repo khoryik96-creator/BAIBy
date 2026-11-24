@@ -55,7 +55,8 @@ no hard outlines on interface surfaces. The only dark outline is the quilt's, wh
 - `Card(root, color, radius)`: a floating card with a soft shadow.
 - `ActionButton`: primary (Fern), soft (Mist) or outlined (Paper) buttons; `IconButton` for 44 px icon buttons.
 - `CareTile`: a pastel tile with an icon badge and a label; `ChoiceRow` for a full-width choice with effects.
-- `Pill`, `PlacePill`: chips that hug their words. `Meter` and `PlaceMeters`: ring meters.
+- `Pill`, `PlacePill`: chips that hug their words. `Meter` and `PlaceMeters`: ring meters; `NeedMeter.SetFloor` puts a
+  10-unit Ink dot (55%) on the ring's stroke at an active helper's floor, and nothing when no helper holds that need.
 - `IconAt`: a tinted line icon from `Resources/BAIby/UI/Icons`, rendered by
   [`tools/ui/render_icons.py`](../tools/ui/render_icons.py) (white, 96 px, tinted in game).
 

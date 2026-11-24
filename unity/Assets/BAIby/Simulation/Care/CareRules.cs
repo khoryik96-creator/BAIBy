@@ -12,6 +12,9 @@ namespace BAIby.Simulation
     // Routines: the record's CareRoutine picks its windows. A routine with a play window (a cat's) feeds its together
     // ring from that window (on time, late or missed, like a meal) instead of from the whole day, and never owes it.
     //
+    // Helpers: a meal window the feeder served in (and nobody fed by hand) is Helped. It stays out of the rings and is
+    // not owed, like Covered, so the needs axis holds; Bond, temperament and the rhythm still count it as missed.
+    //
     // Time rules: elapsed time uses the UTC instant and the offset only places windows. An offset change
     // applies from the next care day. A change over TravelJump excuses only the care day it lands on; the
     // days it spans count like any absence. The care day never decreases, a backwards clock changes nothing,
@@ -67,7 +70,13 @@ namespace BAIby.Simulation
         // The same, adding what the advance resolved (missed meals, closed days, helper days) to `events` in time
         // order. The events of one advance and of several shorter ones are the same.
         public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables,
-            ICollection<LedgerEvent> events)
+            ICollection<LedgerEvent> events) =>
+            Advance(record, now, tunables, events, null);
+
+        // The same, with the instants (UTC ticks, in order) the feeder served during the gap. With the record's last
+        // serve they make a meal window that closes without a hands-on meal Helped instead of missed.
+        public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables,
+            ICollection<LedgerEvent> events, IReadOnlyList<long> served)
         {
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
@@ -83,7 +92,7 @@ namespace BAIby.Simulation
             if (draft.AwaitingAnchor)
                 return Anchor(draft, now, tunables);
 
-            var gap = new GapSummary { Events = events };
+            var gap = new GapSummary { Events = events, Served = served };
             var travel = false;
             if (now.Offset != draft.NextOffset)
             {
@@ -248,8 +257,11 @@ namespace BAIby.Simulation
                 var open = Place(record.CareDay, record.Offset, window.Open);
                 var due = Place(record.CareDay, record.Offset, window.Due);
                 var lateUntil = Place(record.CareDay, record.Offset, window.LateUntil);
+                // A meal the feeder served in this window is not overdue: the companion is not hungry.
+                var served = record.Helpers.LastServe;
                 if (at >= due && at < lateUntil && !record.DayExcused && open >= record.ExcusedUntil.UtcTicks &&
-                    !OverlapsAway(record.AwayFrom.UtcTicks, record.AwayUntil.UtcTicks, open, at))
+                    !OverlapsAway(record.AwayFrom.UtcTicks, record.AwayUntil.UtcTicks, open, at) &&
+                    !(served >= open && served <= at && served > 0))
                     return true;
             }
 
@@ -408,7 +420,8 @@ namespace BAIby.Simulation
                 if (window.Core == CareTags.Meal)
                 {
                     mealsDone += done ? 1 : 0;
-                    mealsMissed += status == MomentStatus.Missed ? 1 : 0;
+                    // The attention axis counts a helped meal as missed.
+                    mealsMissed += status == MomentStatus.Missed || status == MomentStatus.Helped ? 1 : 0;
                 }
                 else if (window.Core == CareTags.Bedtime)
                 {
@@ -441,8 +454,12 @@ namespace BAIby.Simulation
                 var open = Place(draft.CareDay, draft.Offset, window.Open);
                 var closeAt = Math.Min(lateUntil, through);
                 var core = window.Core;
-                draft.Moments[index] = Resolve(draft, open, closeAt, tunables, gap, () => PushMissed(draft, core, tunables));
-                if (core == CareTags.Meal && draft.Moments[index] == MomentStatus.Missed)
+                var fed = core == CareTags.Meal && Fed(draft, open, closeAt, gap.Served);
+                draft.Moments[index] = Resolve(draft, open, closeAt, tunables, gap, () => PushMissed(draft, core, tunables),
+                    fed);
+                // A helped meal is still a missed meal for Bond.
+                if (core == CareTags.Meal &&
+                    (draft.Moments[index] == MomentStatus.Missed || draft.Moments[index] == MomentStatus.Helped))
                     gap.Events?.Add(new LedgerEvent(LedgerEventKind.MealMissed, closeAt, draft.CareDay));
             }
 
@@ -457,7 +474,7 @@ namespace BAIby.Simulation
         }
 
         private static MomentStatus Resolve(CareRecord.Builder draft, long open, long closeAt, CareTunables tunables,
-            GapSummary gap, Action pushMissed)
+            GapSummary gap, Action pushMissed, bool fed = false)
         {
             if (IsExcused(draft, open))
             {
@@ -478,6 +495,13 @@ namespace BAIby.Simulation
                 return MomentStatus.Covered;
             }
 
+            if (fed)
+            {
+                draft.CoveredCount = Add(draft.CoveredCount, 1);
+                gap.Helped = true;
+                return MomentStatus.Helped;
+            }
+
             pushMissed();
             gap.Missed = true;
             return MomentStatus.Missed;
@@ -493,7 +517,8 @@ namespace BAIby.Simulation
             foreach (var window in Windows(draft))
             {
                 var status = draft.Moments[(int)window.Moment];
-                if (status == MomentStatus.Missed || status == MomentStatus.Covered || status == MomentStatus.Pending)
+                if (status == MomentStatus.Missed || status == MomentStatus.Covered || status == MomentStatus.Helped ||
+                    status == MomentStatus.Pending)
                     return false;
                 if (window.Core == CareTags.Meal && status == MomentStatus.OnTime)
                     onTimeMeals++;
@@ -621,6 +646,24 @@ namespace BAIby.Simulation
             return CareReason.TogetherCounted;
         }
 
+        // Whether the feeder served in [open, closeAt): its last serve before this gap, or one during it.
+        private static bool Fed(CareRecord.Builder draft, long open, long closeAt, IReadOnlyList<long> served)
+        {
+            var last = draft.Helpers.LastServe;
+            if (last > 0 && last >= open && last < closeAt)
+                return true;
+            if (served == null)
+                return false;
+
+            foreach (var at in served)
+            {
+                if (at >= open && at < closeAt)
+                    return true;
+            }
+
+            return false;
+        }
+
         private static bool IsExcused(CareRecord.Builder draft, long open) =>
             draft.DayExcused || open < draft.ExcusedUntil.UtcTicks;
 
@@ -653,8 +696,11 @@ namespace BAIby.Simulation
             public bool Shifted;
             public bool Missed;
             public bool Covered;
+            public bool Helped;
             // Where the advance reports what it resolved; null when nobody asked.
             public ICollection<LedgerEvent> Events;
+            // When the feeder served during the gap (UTC ticks, in order); null when it did not.
+            public IReadOnlyList<long> Served;
 
             public CareReason Reason(bool travel, CareReason previous)
             {
@@ -664,6 +710,8 @@ namespace BAIby.Simulation
                     return CareReason.TravelDayExcused;
                 if (Missed)
                     return CareReason.WindowMissed;
+                if (Helped)
+                    return CareReason.MealHelped;
                 if (Shifted)
                     return CareReason.OffsetShiftScheduled;
 

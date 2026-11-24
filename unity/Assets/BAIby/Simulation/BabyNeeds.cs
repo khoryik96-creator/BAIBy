@@ -22,6 +22,8 @@ namespace BAIby.Simulation
     // - Pets share these rules through NeedRates: a cat's four meters (Fullness, Comfort, Energy, Cleanliness) fall at
     //   its species' and breed's rates instead of the baby's; the night, the bedtime rest, Away mode and Health work
     //   the same way.
+    // - Helpers (HelperRun) end a counted stretch where a need reaches its floor and raise it there, inside the counted
+    //   hours only (never while Away mode holds the needs). Without helpers nothing here changes.
     internal static class BabyNeeds
     {
         public const double AwakeFullness = 7;
@@ -98,6 +100,29 @@ namespace BAIby.Simulation
             double comfortFactor = 1) =>
             Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0, recoveryBoost, rates, comfortFactor);
 
+        // A preview day with helpers: the awake hours, ended where a helper acts.
+        public static Values Awake(Values start, TimeSpan elapsed, TimeSpan cap, NeedRates rates, double recoveryBoost,
+            double comfortFactor, HelperRun helpers)
+        {
+            if (helpers == null)
+                return Awake(start, elapsed, cap, rates, recoveryBoost, comfortFactor);
+
+            var total = Math.Min(elapsed.Ticks, cap.Ticks);
+            var values = start;
+            var at = 0L;
+            while (at < total)
+            {
+                values = helpers.Act(values, 0, TimeSpan.Zero, at);
+                var next = helpers.Next(values, 0, TimeSpan.Zero, rates.Fullness, rates.Comfort * comfortFactor,
+                    rates.Cleanliness);
+                var length = Math.Min(total - at, next);
+                values = Segment(values, Hours(length), false, 0, recoveryBoost, rates, comfortFactor);
+                at += length;
+            }
+
+            return values;
+        }
+
         // What the condition at the start of a gap, and a clingy phase (which can begin or end when a care day closes
         // inside the gap), do to the needs over it. Shared by every companion with a care record.
         public static Effects EffectsFor(CareRecord care, BondStep bond, CareTunables careTunables, BondTunables bondTunables)
@@ -152,7 +177,12 @@ namespace BAIby.Simulation
             Real(start, before, after, cap, holdLevel, dayStart, effects, NeedRates.Baby);
 
         public static Values Real(Values start, CareRecord before, CareRecord after, TimeSpan cap, double holdLevel,
-            TimeSpan dayStart, Effects effects, NeedRates rates)
+            TimeSpan dayStart, Effects effects, NeedRates rates) =>
+            Real(start, before, after, cap, holdLevel, dayStart, effects, rates, null);
+
+        // The same with helpers acting through the counted hours; null helpers is exactly the rules without them.
+        public static Values Real(Values start, CareRecord before, CareRecord after, TimeSpan cap, double holdLevel,
+            TimeSpan dayStart, Effects effects, NeedRates rates, HelperRun helpers)
         {
             var from = before.Checkpoint.UtcTicks;
             var to = after.Checkpoint.UtcTicks;
@@ -167,7 +197,7 @@ namespace BAIby.Simulation
                 boundary = Math.Max(from, Math.Min(to, boundary));
             }
 
-            var placing = new Placement(before, after, boundary, effects, rates);
+            var placing = new Placement(before, after, boundary, effects, rates, helpers);
             var awayFrom = Math.Max(from, before.AwayFrom.UtcTicks);
             var awayUntil = Math.Min(to, before.AwayUntil.UtcTicks);
             var budget = cap.Ticks;
@@ -189,14 +219,17 @@ namespace BAIby.Simulation
             public readonly long Boundary;
             public readonly Effects Effects;
             public readonly NeedRates Rates;
+            public readonly HelperRun Helpers;
 
-            public Placement(CareRecord before, CareRecord after, long boundary, Effects effects, NeedRates rates)
+            public Placement(CareRecord before, CareRecord after, long boundary, Effects effects, NeedRates rates,
+                HelperRun helpers)
             {
                 Before = before;
                 After = after;
                 Boundary = boundary;
                 Effects = effects;
                 Rates = rates;
+                Helpers = helpers;
             }
         }
 
@@ -208,7 +241,7 @@ namespace BAIby.Simulation
                 var before = placing.Before;
                 values = Counted(values, from, split, before.Offset,
                     RoutineCalendar.Night(before.Routine, before.Preset, before.WakeTime), placing.After, placing.Effects,
-                    placing.Rates, ref budget);
+                    placing.Rates, placing.Helpers, ref budget);
                 from = split;
             }
 
@@ -217,7 +250,7 @@ namespace BAIby.Simulation
 
             var after = placing.After;
             return Counted(values, from, to, after.Offset, RoutineCalendar.Night(after.Routine, after.Preset, after.WakeTime),
-                after, placing.Effects, placing.Rates, ref budget);
+                after, placing.Effects, placing.Rates, placing.Helpers, ref budget);
         }
 
         // A night belongs to the care day whose evening it follows; only that day's bedtime rest counts.
@@ -236,11 +269,13 @@ namespace BAIby.Simulation
 
         // `rest` holds the bedtime rest; `offset` and `night` place the stretch on the local clock.
         private static Values Counted(Values values, long from, long to, TimeSpan offset, (TimeSpan Start, TimeSpan End) night,
-            CareRecord rest, Effects effects, NeedRates rates, ref long budget)
+            CareRecord rest, Effects effects, NeedRates rates, HelperRun helpers, ref long budget)
         {
             var at = from;
             while (at < to && budget > 0)
             {
+                if (helpers != null)
+                    values = helpers.Act(values, at, offset, 0);
                 var timeOfDay = Mod(at + offset.Ticks, TimeSpan.TicksPerDay);
                 var isNight = timeOfDay >= night.Start.Ticks || timeOfDay < night.End.Ticks;
                 long boundary;
@@ -259,6 +294,11 @@ namespace BAIby.Simulation
                 var beforeSwitch = at < effects.ComfortSwitch;
                 if (beforeSwitch)
                     boundary = Math.Min(boundary, effects.ComfortSwitch - at);
+                // And so is the instant a helper acts.
+                if (helpers != null)
+                    boundary = Math.Min(boundary, helpers.Next(values, at, offset, isNight ? rates.NightFullness : rates.Fullness,
+                        (isNight ? rates.NightComfort : rates.Comfort) * (beforeSwitch ? effects.Comfort : effects.ComfortAfter),
+                        isNight ? rates.NightCleanliness : rates.Cleanliness));
                 var length = Math.Min(Math.Min(to - at, boundary), budget);
                 // The morning part of a night belongs to the previous evening's care day.
                 var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (timeOfDay < night.End.Ticks ? 1 : 0);

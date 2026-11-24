@@ -106,7 +106,8 @@
     "PlayOnTime": 32,
     "PlayLate": 33,
     "PlayExcused": 34,
-    "PlayOutsideWindow": 35
+    "PlayOutsideWindow": 35,
+    "MealHelped": 36
   },
   "CareStyle": {
     "Standard": 0,
@@ -195,13 +196,19 @@
     "BucketHat": 3,
     "DaisyClip": 4
   },
+  "HelperKind": {
+    "Feeder": 0,
+    "Play": 1,
+    "Tidy": 2
+  },
   "JournalKind": {
     "Arrival": 0,
     "Milestone": 1,
     "Photo": 2,
     "Sticker": 3,
     "HardDay": 4,
-    "Week": 5
+    "Week": 5,
+    "Helper": 6
   },
   "MomentStatus": {
     "Pending": 0,
@@ -209,7 +216,8 @@
     "Late": 2,
     "Missed": 3,
     "Excused": 4,
-    "Covered": 5
+    "Covered": 5,
+    "Helped": 6
   },
   "MotorSkill": {
     "None": 0,

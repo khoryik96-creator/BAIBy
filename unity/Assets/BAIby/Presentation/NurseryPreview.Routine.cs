@@ -45,7 +45,7 @@ namespace BAIby.Presentation
             routineButtonLabel = routineButton.GetComponentInChildren<Text>();
             routineButton.gameObject.SetActive(false);
             routine = new RoutinePanel(Tray("Routine Panel", false, 378), CloseRoutine,
-                ChooseCareStyle, StartAway, EndAway);
+                ChooseCareStyle, StartAway, EndAway, StockFeeder);
         }
 
         // The strip and the panel serve the baby in the nursery and the pet in its room.
@@ -334,6 +334,7 @@ namespace BAIby.Presentation
                     case RoutineSlotState.DoneLate: return "Done late";
                     case RoutineSlotState.Missed: return "Missed";
                     case RoutineSlotState.Away: return "Away";
+                    case RoutineSlotState.Helped: return "Helper";
                     default: return "Free";
                 }
             }
@@ -349,6 +350,7 @@ namespace BAIby.Presentation
                     case RoutineSlotState.DoneLate: return (EnergyRing, 18, false);
                     case RoutineSlotState.Missed: return (Hex(0xD98C98), 18, false);
                     case RoutineSlotState.Away: return (Hex(0xCFC3EA), 18, false);
+                    case RoutineSlotState.Helped: return (Hex(0xBDB6C2), 18, false);
                     case RoutineSlotState.Later: return (Divider, 18, false);
                     default: return (Divider, 18, true);
                 }
@@ -368,13 +370,26 @@ namespace BAIby.Presentation
             public Button EndAwayButton { get; }
             public Button GentleButton { get; }
             public Button StandardButton { get; }
+            public Button StockButton { get; }
             private readonly GameObject awayChoices;
             private readonly Text awayLabel;
+            // The sheet's own content sits in `main`; the helpers' row, when shown, lifts it and grows the sheet.
+            private const float Height = 378;
+            private const float HelpersHeight = 136;
+            private readonly RectTransform tray;
+            private readonly RectTransform main;
+            private readonly GameObject helpersRow;
+            private readonly Text helpersCopy;
+            private readonly Text helpersStock;
+            private readonly Text stockLabel;
 
-            public RoutinePanel(RectTransform content, Action close, Action<CareStyle> chooseStyle,
-                Action<TimeSpan> startAway, Action endAway)
+            public RoutinePanel(RectTransform outer, Action close, Action<CareStyle> chooseStyle,
+                Action<TimeSpan> startAway, Action endAway, Action stock)
             {
-                Root = content.parent.gameObject;
+                tray = (RectTransform)outer.parent;
+                Root = tray.gameObject;
+                main = Box("Routine Main", outer, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                var content = main;
                 SheetHeading("Routine Heading", content, "Routine", 378);
                 var done = ActionButton("Done", content, 0.73f, 1, 300, 366, close, Mist, Ink);
                 done.name = "Close routine";
@@ -419,7 +434,47 @@ namespace BAIby.Presentation
 
                 EndAwayButton = ActionButton("We're back", content, 0, 1, 8, 90, endAway, Fern, Color.white);
                 EndAwayButton.name = "End away";
+
+                // Helpers: a quiet line of copy, the feeder's stock and the hands-on stock control. No shop link.
+                var row = Box("Routine Helpers", outer, Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, HelpersHeight));
+                helpersRow = row.gameObject;
+                helpersCopy = Label("Routine Helpers Copy", row, "", 19, Muted, TextAnchor.MiddleLeft,
+                    new Vector2(0, 90), Vector2.right, new Vector2(0, HelpersHeight - 2));
+                FitText(helpersCopy, 14, 19);
+                helpersStock = Label("Routine Helpers Stock", row, "", 22, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 8), new Vector2(0.56f, 0), new Vector2(0, 90), FontStyle.Bold);
+                FitText(helpersStock, 15, 22);
+                StockButton = ActionButton("Stock feeder", row, 0.56f, 1, 8, 90, stock, Paper, Ink);
+                stockLabel = StockButton.GetComponentInChildren<Text>();
+                FitText(stockLabel, 15, 23);
+                helpersRow.SetActive(false);
                 Root.SetActive(false);
+            }
+
+            public void ShowHelpers(string copy, string stock, bool feeder, string action, bool canStock)
+            {
+                helpersRow.SetActive(true);
+                helpersCopy.text = copy;
+                helpersStock.text = stock;
+                StockButton.gameObject.SetActive(feeder);
+                StockButton.interactable = canStock;
+                stockLabel.text = action;
+                Resize(true);
+            }
+
+            public void HideHelpers()
+            {
+                helpersRow.SetActive(false);
+                Resize(false);
+            }
+
+            private void Resize(bool helpers)
+            {
+                var extra = helpers ? HelpersHeight : 0;
+                if (Mathf.Approximately(main.offsetMin.y, extra))
+                    return;
+                main.offsetMin = new Vector2(0, extra);
+                tray.offsetMax = new Vector2(tray.offsetMax.x, tray.offsetMin.y + Height + extra + SheetChrome);
             }
 
             public void UpdateDetails(BabyState state, string summary) => UpdateFor(state.Name, state.Care, summary);

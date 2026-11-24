@@ -221,6 +221,10 @@ namespace BAIby.Presentation
             UpdateRoutineSlots(session.Routine, care.Preset, true);
             routine.UpdateFor(state.Name, care, DescribePetCondition(state) ??
                 $"{state.Name} is settled. Two meals, playtime, a brush and the evening nap keep the routine.");
+            if (session.HasHelpers)
+                UpdateRoutineHelpers(state.Name, true, session.FeederStock, session.FeederCapacity);
+            else
+                routine.HideHelpers();
             var meals = Math.Min(GrowthTunables.Default.RecoveryMeals, RoutineCalendar.MealWindows(care.Routine));
             development.UpdatePet(state, age.text, petStatus.text, session.Growth, session.Bonding, session.Trust, meals);
             doctor.UpdateFor(state.Name, care, session.CanVisitVet, petVetText, session.MedicineCourse, true);
