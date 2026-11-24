@@ -37,24 +37,30 @@ namespace BAIby.Simulation
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
 
-            var windows = RoutineCalendar.Windows(record.Preset, record.WakeTime);
+            var windows = RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime);
             var slots = new List<RoutineSlot>(6);
             foreach (var window in windows)
             {
-                var kind = window.Core == CareTags.Bedtime ? RoutineSlotKind.Bedtime : (RoutineSlotKind)(int)window.Moment;
+                var kind = window.Core == CareTags.Bedtime ? RoutineSlotKind.Bedtime
+                    : window.Core == CareTags.Play ? RoutineSlotKind.Play : (RoutineSlotKind)(int)window.Moment;
                 slots.Add(Slot(record, kind, record.StatusOf(window.Moment), window.Open, window.Due, window.LateUntil));
             }
 
-            // Bedtime reads best last: Breakfast, Lunch, Dinner, Play, Bed, Wash.
+            // Bedtime reads best last: Breakfast, Lunch, Dinner, Play, Bed, Wash. A cat's play window keeps its place
+            // between the meals: Breakfast, Play, Dinner, Bed, Brush.
             var bedtime = slots[(int)CareMoment.Bedtime];
             slots.RemoveAt((int)CareMoment.Bedtime);
-            var morning = windows[(int)CareMoment.Morning];
-            var together = record.TogetherToday ? MomentStatus.OnTime : MomentStatus.Pending;
-            // Together time is due all day and counts whenever it happens.
-            slots.Add(Slot(record, RoutineSlotKind.Play, together, morning.Open, windows[(int)CareMoment.Bedtime].LateUntil,
-                windows[(int)CareMoment.Bedtime].LateUntil, anytime: true));
+            if (!RoutineCalendar.HasPlayWindow(record.Routine))
+            {
+                var morning = windows[(int)CareMoment.Morning];
+                var together = record.TogetherToday ? MomentStatus.OnTime : MomentStatus.Pending;
+                // Together time is due all day and counts whenever it happens.
+                slots.Add(Slot(record, RoutineSlotKind.Play, together, morning.Open, windows[(int)CareMoment.Bedtime].LateUntil,
+                    windows[(int)CareMoment.Bedtime].LateUntil, anytime: true));
+            }
+
             slots.Add(bedtime);
-            var wash = RoutineCalendar.WashWindow(record.Preset, record.WakeTime);
+            var wash = RoutineCalendar.WashWindow(record.Routine, record.Preset, record.WakeTime);
             slots.Add(Slot(record, RoutineSlotKind.Wash, record.Wash, wash.Open, wash.Due, wash.LateUntil));
             return slots.AsReadOnly();
         }

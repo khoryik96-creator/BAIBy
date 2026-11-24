@@ -39,6 +39,10 @@ namespace BAIby.Simulation
         WashOutsideWindow = 29,
         DoctorVisited = 30,
         MedicineDose = 31,
+        PlayOnTime = 32,
+        PlayLate = 33,
+        PlayExcused = 34,
+        PlayOutsideWindow = 35,
     }
 
     // Developer read-outs of the care ledger. Never shown to players.
@@ -80,6 +84,10 @@ namespace BAIby.Simulation
                 case CareReason.WashOutsideWindow: return "wash outside the window";
                 case CareReason.DoctorVisited: return "visited the doctor";
                 case CareReason.MedicineDose: return "medicine dose with a meal";
+                case CareReason.PlayOnTime: return "play on time";
+                case CareReason.PlayLate: return "play late";
+                case CareReason.PlayExcused: return "play in an excused window";
+                case CareReason.PlayOutsideWindow: return "play outside the window";
                 default: throw new ArgumentOutOfRangeException(nameof(reason));
             }
         }

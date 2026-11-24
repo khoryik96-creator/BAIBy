@@ -657,21 +657,8 @@ namespace BAIby.Simulation
 
         // What the condition at the start of a gap, and a clingy phase (which can begin or end when a care day closes
         // inside the gap), do to the needs over it.
-        private BabyNeeds.Effects HealthEffects(CareRecord care, BondStep bond)
-        {
-            var ceiling = care.IsUnwell ? careTunables.UnwellEnergyCap : 100;
-            var clingy = bond != null && bond.ClingyAtStart;
-            var comfort = clingy ? bondTunables.ClingyComfort : 1;
-            var switchAt = bond?.ClingyChangeAt ?? long.MaxValue;
-            var after = switchAt == long.MaxValue ? comfort : clingy ? 1 : bondTunables.ClingyComfort;
-            if (care.Condition != CareCondition.Recovering)
-                return new BabyNeeds.Effects(ceiling, 1, long.MinValue, comfort, after, switchAt);
-
-            var since = care.ConditionSince.UtcTicks;
-            var window = careTunables.RecoveryWindow.Ticks;
-            var until = since > long.MaxValue - window ? long.MaxValue : since + window;
-            return new BabyNeeds.Effects(ceiling, careTunables.RecoveryBoost, until, comfort, after, switchAt);
-        }
+        private BabyNeeds.Effects HealthEffects(CareRecord care, BondStep bond) =>
+            BabyNeeds.EffectsFor(care, bond, careTunables, bondTunables);
 
         private static NeedSnapshot Snapshot(BabyNeeds.Values needs) =>
             new NeedSnapshot(needs.Lowest, needs.Satiety, needs.Comfort);

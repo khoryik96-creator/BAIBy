@@ -21,21 +21,26 @@ namespace BAIby.Simulation
         // its nominal day (the real day is unknown), never after the checkpoint. A poorly spell that is under way begins
         // at its start. Weeks already lived get no page.
         public static JournalRecord Seed(DateTimeOffset checkpoint, TimeSpan age, bool sitting, bool crawling, bool walking,
-            TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareRecord care)
+            TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareRecord care) =>
+            Seed(checkpoint, age, walking ? 3 : crawling ? 2 : sitting ? 1 : 0,
+                new[] { MotorSkill.Sitting, MotorSkill.Crawling, MotorSkill.Walking },
+                new[] { sittingAge, crawlingAge, walkingAge }, care);
+
+        // The same for any species: the first `reached` of its milestones, at their nominal ages.
+        public static JournalRecord Seed(DateTimeOffset checkpoint, TimeSpan age, int reached, IReadOnlyList<MotorSkill> skills,
+            IReadOnlyList<TimeSpan> ages, CareRecord care)
         {
             if (care == null)
                 throw new ArgumentNullException(nameof(care));
+            if (skills == null || ages == null || skills.Count != ages.Count)
+                throw new ArgumentException("Each milestone needs its nominal age.", nameof(skills));
 
             var born = Before(checkpoint, age);
             var entries = new List<JournalEntry> { JournalEntry.Arrival(born) };
-            foreach (var (reached, skill, nominal) in new[]
+            for (var stage = 0; stage < skills.Count && stage < reached; stage++)
             {
-                (sitting, MotorSkill.Sitting, sittingAge), (crawling, MotorSkill.Crawling, crawlingAge),
-                (walking, MotorSkill.Walking, walkingAge),
-            })
-            {
-                if (!reached)
-                    continue;
+                var skill = skills[stage];
+                var nominal = ages[stage];
                 var at = nominal >= age ? checkpoint : Before(checkpoint, age - nominal);
                 if (at < entries[entries.Count - 1].At)
                     at = entries[entries.Count - 1].At;

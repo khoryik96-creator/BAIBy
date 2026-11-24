@@ -102,7 +102,11 @@
     "WashExcused": 28,
     "WashOutsideWindow": 29,
     "DoctorVisited": 30,
-    "MedicineDose": 31
+    "MedicineDose": 31,
+    "PlayOnTime": 32,
+    "PlayLate": 33,
+    "PlayExcused": 34,
+    "PlayOutsideWindow": 35
   },
   "CareStyle": {
     "Standard": 0,
@@ -117,7 +121,8 @@
     "Bedtime": 8,
     "Medicine": 16,
     "Tidy": 32,
-    "Comfort": 64
+    "Comfort": 64,
+    "Play": 256
   },
   "CompanionKind": {
     "Baby": 0,
@@ -150,7 +155,8 @@
     "Meal": 5,
     "Hygiene": 6,
     "ComfortSound": 7,
-    "ExploreSound": 8
+    "ExploreSound": 8,
+    "PlayWand": 9
   },
   "EntitlementSource": {
     "Store": 0,
@@ -206,7 +212,10 @@
     "None": 0,
     "Sitting": 1,
     "Crawling": 2,
-    "Walking": 3
+    "Walking": 3,
+    "Pounce": 4,
+    "Climb": 5,
+    "HighJump": 6
   },
   "NurseryTheme": {
     "Sage": 0,

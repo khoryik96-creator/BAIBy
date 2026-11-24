@@ -16,13 +16,16 @@ namespace BAIby.Simulation
         Tidy = 32,
         // Settling a distressed companion (soothing, cuddles). Calms the Upset rung.
         Comfort = 64,
+        // Play that answers a timed play window (a cat's wand play), with Together. 128 stays unused: the care checks
+        // keep it as an unknown tag.
+        Play = 256,
     }
 
     // A species' care data: its stable verb IDs and the tags each one carries.
     public sealed class CareProfile
     {
         private const CareTags AllTags = CareTags.Meal | CareTags.Together | CareTags.Hygiene |
-            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy | CareTags.Comfort;
+            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy | CareTags.Comfort | CareTags.Play;
         private readonly Dictionary<string, CareTags> verbs;
 
         public string Species { get; }
