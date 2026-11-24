@@ -33,7 +33,7 @@ Open port **8000** to play: the front page goes straight to `/nursery/`. To try 
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash menu, and both toys (Rattle and Plush), and use **Next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → Adopt**) to raise a cat with placeholder art; see the [cat playtest](docs/playtest.md#cats-p1).
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash menu, and both toys (Rattle and Plush), and use **Next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → Adopt**) to raise a cat or a hamster with placeholder art; see the [cat](docs/playtest.md#cats-p1) and [hamster](docs/playtest.md#hamsters-p2) playtests.
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 
