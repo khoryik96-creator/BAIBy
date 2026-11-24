@@ -14,7 +14,10 @@ namespace BAIby.Character
     //
     // The health axis (care slice 7) shows as a small bubble over the pet, drawn from soft shapes like the baby's: a
     // sniffle drop when it is under the weather, a thermometer when it is sick (it rests in its rest pose too), a capsule
-    // while it recovers. A shy skill (a setback) turns wand play into a quiet rest instead of the pounce.
+    // while it recovers. A shy skill (a setback) turns play (wand or wheel) into a quiet rest instead.
+    //
+    // A species whose layout has a habitat (the hamster's cage, P2) stands in it: one layer behind the pet and one in
+    // front, drawn at the baby's pose-pixel scale on the room's floor line. Its textures follow the shown species.
     public sealed class PetVisuals : MonoBehaviour
     {
         private const string Art = "BAIby/Pets/";
@@ -59,6 +62,10 @@ namespace BAIby.Character
         private SpriteRenderer thermometerBulb;
         private SpriteRenderer capsuleWarm;
         private SpriteRenderer capsuleLight;
+        private readonly List<Object> habitatAssets = new List<Object>();
+        private SpriteRenderer habitatBack;
+        private SpriteRenderer habitatFront;
+        private Species? habitatFor;
 
         // The pet stands in the nursery's room: on its floor line, drawn at the layout's runtime scale
         // relative to the baby's pose pixels, following the room as the screen changes shape.
@@ -87,6 +94,8 @@ namespace BAIby.Character
                 return;
 
             var next = Look.Of(appearance, catalog, stage);
+            if (habitatFor != next.Species)
+                ShowHabitat(next.Species);
             if (look == null || !look.Equals(next))
             {
                 var grewUp = look != null && look.SameLook(next) && look.Stage != next.Stage;
@@ -178,7 +187,84 @@ namespace BAIby.Character
             awake = AddLayer(rig, "Pet awake artwork", null, Color.white, 1);
             rest = AddLayer(rig, "Pet rest artwork", null, Color.white, 2);
             placeholder = SoftShape(false);
+            habitatBack = AddLayer(transform, "Pet habitat back", null, Color.white, -6);
+            habitatFront = AddLayer(transform, "Pet habitat front", null, Color.white, 3);
+            habitatBack.enabled = habitatFront.enabled = false;
             BuildBadge();
+        }
+
+        // Loads the species' habitat layers, or hides them for a species without one.
+        private void ShowHabitat(Species species)
+        {
+            DiscardHabitat();
+            habitatFor = species;
+            var habitat = LayoutFor(species)?.Habitat;
+            if (habitat == null)
+                return;
+
+            try
+            {
+                habitatBack.sprite = HabitatSprite(species, habitat.Back, habitat);
+                habitatFront.sprite = HabitatSprite(species, habitat.Front, habitat);
+                habitatBack.enabled = habitatFront.enabled = true;
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning("The " + species + " habitat could not be loaded, so the pet stands in the room: " + exception.Message);
+                DiscardHabitat();
+                habitatFor = species;
+            }
+        }
+
+        // One habitat layer: pivoted on its floor line, so it stands on the room's floor at any scale.
+        private Sprite HabitatSprite(Species species, string path, PetHabitat habitat)
+        {
+            var asset = Resources.Load<TextAsset>(Art + species + "/" + path);
+            if (asset == null)
+                throw new System.InvalidOperationException("Missing Resources/" + Art + species + "/" + path + ".bytes.");
+            try
+            {
+                var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                texture.name = species + " " + path;
+                if (!ImageConversion.LoadImage(texture, asset.bytes, true))
+                {
+                    Destroy(texture);
+                    throw new System.InvalidOperationException(path + " is not a readable PNG.");
+                }
+
+                texture.filterMode = FilterMode.Bilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
+                    new Vector2(.5f, (float)habitat.Floor / habitat.Height), PixelsPerUnit, 0, SpriteMeshType.FullRect, Vector4.zero, false);
+                sprite.name = texture.name;
+                habitatAssets.Add(texture);
+                habitatAssets.Add(sprite);
+                return sprite;
+            }
+            finally
+            {
+                Resources.UnloadAsset(asset);
+            }
+        }
+
+        private void DiscardHabitat()
+        {
+            if (habitatBack != null)
+            {
+                habitatBack.sprite = null;
+                habitatBack.enabled = false;
+            }
+
+            if (habitatFront != null)
+            {
+                habitatFront.sprite = null;
+                habitatFront.enabled = false;
+            }
+
+            foreach (var asset in habitatAssets)
+                Destroy(asset);
+            habitatAssets.Clear();
+            habitatFor = null;
         }
 
         // The health bubble, from soft discs: a white bubble with a sniffle drop, a thermometer or a capsule.
@@ -411,8 +497,9 @@ namespace BAIby.Character
 
             var now = Time.unscaledTime;
             var sinceCue = now - cueStarted;
-            // A shy pet answers wand play with a quiet rest instead of the pounce.
-            bool napping = (cue == PetVerb.Nap || (shy && cue == PetVerb.Wand)) && sinceCue < NapDuration;
+            // A shy pet answers play (the wand or the wheel) with a quiet rest instead.
+            bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel;
+            bool napping = (cue == PetVerb.Nap || (shy && play)) && sinceCue < NapDuration;
             float targetRest = wantsRest || napping ? 1 : 0;
             restBlend = Mathf.MoveTowards(restBlend, targetRest, Time.unscaledDeltaTime * 1.6f);
             if ((restBlend > 0 && restSprite == null && !restFailed) || (restBlend < 1 && awakeSprite == null && !awakeFailed))
@@ -429,10 +516,13 @@ namespace BAIby.Character
             SetAlpha(rest, resting);
 
             float active = sinceCue < CueDuration ? Mathf.Sin(Mathf.Clamp01(sinceCue / CueDuration) * Mathf.PI) : 0;
-            float hop = cue == PetVerb.Wand && !shy ? Mathf.Abs(Mathf.Sin(sinceCue * 7.5f)) * active : 0;
-            float purr = cue == PetVerb.Pet ? Mathf.Sin(now * 30f) * active : 0;
-            float eat = cue == PetVerb.Feed ? active : 0;
-            float groom = cue == PetVerb.Brush ? Mathf.Sin(sinceCue * 5f) * active : 0;
+            // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce.
+            float hop = play && !shy
+                ? Mathf.Abs(Mathf.Sin(sinceCue * (cue == PetVerb.Wheel ? 13f : 7.5f))) * active * (cue == PetVerb.Wheel ? .45f : 1f)
+                : 0;
+            float purr = cue == PetVerb.Pet || cue == PetVerb.GentleHold ? Mathf.Sin(now * 30f) * active : 0;
+            float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl ? active : 0;
+            float groom = cue == PetVerb.Brush || cue == PetVerb.FluffBedding ? Mathf.Sin(sinceCue * 5f) * active : 0;
             float pop = Mathf.Clamp01(1 - (now - arrived) / .45f);
             float breath = Mathf.Sin(now * 2.1f) * Mathf.Lerp(.010f, .005f, resting);
 
@@ -441,6 +531,16 @@ namespace BAIby.Character
             rig.localPosition = new Vector3(visibleWidth * -.02f, floorY + .32f * hop - .02f * eat, 0);
             rig.localRotation = Quaternion.Euler(0, 0, 3.5f * groom + .6f * purr);
             rig.localScale = new Vector3(scale * (1 + breath * .5f + .02f * eat), scale * (squash + breath), 1);
+
+            if (habitatBack.enabled)
+            {
+                var place = new Vector3(visibleWidth * -.02f, floorY, 0);
+                var size = new Vector3(pixelScale, pixelScale, 1);
+                habitatBack.transform.localPosition = place;
+                habitatBack.transform.localScale = size;
+                habitatFront.transform.localPosition = place;
+                habitatFront.transform.localScale = size;
+            }
 
             float shadeWidth = PoseWidth() * scale * Mathf.Lerp(.78f, .62f, hop);
             shade.transform.localPosition = new Vector3(visibleWidth * -.02f, floorY - .03f, 0);
@@ -595,6 +695,7 @@ namespace BAIby.Character
 
         private void OnDestroy()
         {
+            DiscardHabitat();
             DiscardLook();
             ReleasePortraits();
             ReleaseBuildScratch();

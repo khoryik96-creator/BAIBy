@@ -39,6 +39,12 @@ namespace BAIby.Tests.Appearance
         private static void Hamster(PetLayout layout, Action<bool, string> check)
         {
             check(layout.YoungScale > 0 && layout.YoungScale < layout.GrownScale, "a young hamster is drawn smaller than a grown one");
+            check(layout.Habitat != null && layout.Habitat.Floor > 0 && layout.Habitat.Floor < layout.Habitat.Height,
+                "the hamster lives in its habitat");
+            check(LoadLayout().Habitat == null, "the cat has no habitat");
+            foreach (var path in new[] { layout.Habitat.Back, layout.Habitat.Front })
+                check(Png.Read(Path.Combine(HamsterFolder, path + ".bytes"), layout.Habitat.Width, layout.Habitat.Height).Length > 0,
+                    "the habitat layer " + path + " is the declared size");
             var striped = new[] { PetBreed.WinterWhite, PetBreed.Sapphire, PetBreed.Campbells, PetBreed.Panda };
             foreach (var breed in PetCatalog.Default.BreedsOf(Species.Hamster))
             {

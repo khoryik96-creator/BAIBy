@@ -15,9 +15,10 @@ namespace BAIby.Presentation
     // premium, and only adoptable breeds can be chosen.
     public sealed partial class NurseryPreview
     {
-        // Species in the order they arrive (docs/pet-mode.md decision 5). Only shipped species can be chosen.
+        // Species in the order they arrive (docs/pet-mode.md decision 5). Only shipped species can be chosen: the cat (P1) and
+        // the hamster (P2).
         private static readonly Species[] SpeciesOrder = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish, Species.Rabbit };
-        private static readonly Species[] ShippedSpecies = { Species.Cat };
+        private static readonly Species[] ShippedSpecies = { Species.Cat, Species.Hamster };
 
         private PetVisuals petStage;
         private ChoicePanel choice;
@@ -98,6 +99,7 @@ namespace BAIby.Presentation
         {
             draftBreed = breed;
             draftCoat = household.PetCatalog.Get(breed).DefaultCoat;
+            shownSpecies = PetIds.SpeciesOf(breed);
             petStage.PlayArrival();
             RefreshPetAdoption();
         }
@@ -322,7 +324,9 @@ namespace BAIby.Presentation
             switch (breed.Goal)
             {
                 case EarnedGoal.FirstFullCareDay:
-                    return $"Earn it with a full care day for a {kind}: 2 meals, petting or play, and a nap.";
+                    return breed.Species == Species.Hamster
+                        ? $"Earn it with a full care day for a {kind}: dinner, and wheel time or a gentle hold."
+                        : $"Earn it with a full care day for a {kind}: 2 meals, petting or play, and a nap.";
                 case EarnedGoal.Bond40:
                     return $"Earn it by reaching Bond {PetUnlocks.BondGoal:0} with any {kind} (best so far {progress.HighestBond:0}).";
                 case EarnedGoal.RaisedToGrown:
@@ -408,7 +412,7 @@ namespace BAIby.Presentation
                 portrait.sprite = Resources.Load<Sprite>("BAIby/Baby/Newborn");
                 portrait.preserveAspect = true;
                 portrait.enabled = portrait.sprite != null;
-                Pet = Card("Adopt a pet", "A pet", "A kitten to love", content, 0.5f, 1, pet, Peach,
+                Pet = Card("Adopt a pet", "A pet", "A kitten or a hamster", content, 0.5f, 1, pet, Peach,
                     out petDetail, out var petIcon);
                 var paw = Box("Adopt a pet paw area", petIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(-30, -30), new Vector2(30, 30));
@@ -427,7 +431,7 @@ namespace BAIby.Presentation
                 Baby.interactable = canAdoptBaby;
                 Pet.interactable = canAdoptPet;
                 babyDetail.text = canAdoptBaby ? "Raise a little one" : "No free nursery";
-                petDetail.text = canAdoptPet ? "A kitten to love" : "No free pet room";
+                petDetail.text = canAdoptPet ? "A kitten or a hamster" : "No free pet room";
             }
 
             private static Button Card(string name, string title, string detail, RectTransform content, float left, float right,
@@ -499,7 +503,7 @@ namespace BAIby.Presentation
                 this.back.GetComponentInChildren<Text>().text = "Back";
                 PlaceFromTop((RectTransform)this.back.transform, 0.74f, 1, 0, 62, 3, 3);
 
-                // Rounded species tiles: the cat is here (peach), the others are dimmed with "Arriving soon".
+                // Rounded species tiles: the cat and the hamster are here (peach), the others are dimmed with "Arriving soon".
                 speciesGroup = Group("Pet species page", content);
                 for (var i = 0; i < SpeciesOrder.Length; i++)
                 {
@@ -537,7 +541,8 @@ namespace BAIby.Presentation
                     speciesTiles.Add(species, tile);
                 }
 
-                var speciesNote = Label("Pet species detail", speciesGroup, "Cats are here now. More friends are on their way.", 22,
+                var speciesNote = Label("Pet species detail", speciesGroup,
+                    "Cats and hamsters are here now. Hamsters nap all day and wake up in the evening. More friends are on their way.", 22,
                     Secondary, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
                 FitText(speciesNote, 15, 22);
                 PlaceFromTop(speciesNote.rectTransform, 0, 1, 262, 304);

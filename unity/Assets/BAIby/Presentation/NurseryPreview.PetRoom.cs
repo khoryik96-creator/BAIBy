@@ -125,6 +125,7 @@ namespace BAIby.Presentation
                 return;
 
             petSlot = companion.Slot;
+            shownSpecies = companion.PetState.Species;
             view = HouseholdView.PetRoom;
             activePanel = NurseryPanel.Care;
             petPanel = PetPanel.Care;
@@ -261,6 +262,7 @@ namespace BAIby.Presentation
             if (state == null)
                 return;
 
+            shownSpecies = state.Species;
             ApplyHouseholdView();
             // Every pet room shows the household's pet room theme (Decor in a pet's room), unless one is being previewed.
             if (!decorPreview)
@@ -400,13 +402,16 @@ namespace BAIby.Presentation
             }
         }
 
-        private static bool IsSleepy(PetState state) => state.HasMeter(PetMeter.Energy) && state.Meter(PetMeter.Energy) < SleepyEnergy;
+        // Low on Energy, or a hamster in its day nap (a cosy, normal sleep): the rest pose shows.
+        private static bool IsSleepy(PetState state) =>
+            (state.HasMeter(PetMeter.Energy) && state.Meter(PetMeter.Energy) < SleepyEnergy) || PetSimulation.IsNapping(state);
 
         private static string VerbTitle(PetVerb verb)
         {
             switch (verb)
             {
                 case PetVerb.Wand: return "Wand play";
+                case PetVerb.Bowl: return "Dinner";
                 case PetVerb.FluffBedding: return "Fluff bedding";
                 case PetVerb.GentleHold: return "Gentle hold";
                 case PetVerb.SprinkleFood: return "Sprinkle food";
@@ -434,6 +439,8 @@ namespace BAIby.Presentation
         {
             if (species == Species.Cat)
                 return stage == PetStage.Grown ? "Grown cat" : "Kitten";
+            if (species == Species.Hamster)
+                return stage == PetStage.Grown ? "Grown hamster" : "Hamster pup";
 
             var name = SpeciesName(species).ToLowerInvariant();
             return stage == PetStage.Grown ? "Grown " + name : "Young " + name;
@@ -463,11 +470,26 @@ namespace BAIby.Presentation
                         : $"{name} wiggles, pounces and bats the wand toy!";
                 case PetVerb.Brush:
                     return $"{name}'s coat is soft and shiny after a gentle brush.";
+                case PetVerb.Nap when state.Species == Species.Hamster:
+                    return PetSimulation.IsNapping(state)
+                        ? $"{name} is already snoozing in the nest. Peek quietly!"
+                        : $"{name} curls into a little ball for a quick snooze and wakes up bright-eyed.";
                 case PetVerb.Nap:
                 case PetVerb.Rest:
                     return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
                         ? $"{name} curls up for the evening nap, right on time."
                         : $"{name} curls up for a nap and wakes up rested.";
+                case PetVerb.Bowl:
+                    return $"{name} stuffs the cheek pouches full of seeds.";
+                case PetVerb.Wheel:
+                    return tier == BondTier.BestFriends ? $"{name} runs on the wheel, then pops out to say hello."
+                        : $"{name} hops on the wheel and runs, runs, runs!";
+                case PetVerb.FluffBedding:
+                    return $"{name} burrows into the fluffy bedding and rearranges the nest.";
+                case PetVerb.GentleHold:
+                    return tier == BondTier.BestFriends ? $"{name} climbs into your cupped hands and settles in for a cuddle."
+                        : tier == BondTier.Trusting ? $"{name} sniffs your fingers and scrambles from hand to hand."
+                        : $"{name} sniffs your hand curiously, whiskers twitching.";
                 default:
                     return $"{name} enjoys your company.";
             }
@@ -479,6 +501,20 @@ namespace BAIby.Presentation
             var name = state.Name;
             if (state.Health < low)
                 return $"{name} seems a little off and could use some gentle care.";
+            if (state.Species == Species.Hamster)
+            {
+                if (PetSimulation.IsNapping(state))
+                    return $"{name} is napping in the nest, as hamsters do all day. Peek quietly; the fun starts in the evening.";
+                if (IsSleepy(state))
+                    return $"{name} is yawning. A little snooze would help.";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return $"{name} is sniffing around the food bowl.";
+                if (state.Meter(PetMeter.Exercise) < low)
+                    return $"{name} is scrabbling to run. Wheel time or a gentle hold will help.";
+                if (state.Meter(PetMeter.Bedding) < low)
+                    return $"{name}'s nest could use some fresh, fluffy bedding.";
+                return state.IsGrown ? $"{name} is busy stashing seeds in a corner." : $"{name} is exploring the cage, nose twitching.";
+            }
             if (IsSleepy(state))
                 return $"{name} is curled up and sleepy. A nap would help.";
             if (state.HasMeter(PetMeter.Fullness) && state.Meter(PetMeter.Fullness) < low)
@@ -503,6 +539,24 @@ namespace BAIby.Presentation
 
             if (state.Health < low)
                 return "Feeling a little off";
+            if (state.Species == Species.Hamster)
+            {
+                needsCare = false;
+                if (PetSimulation.IsNapping(state))
+                    return "Napping in the nest";
+                needsCare = true;
+                if (IsSleepy(state))
+                    return "Ready for a snooze";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return "A little peckish";
+                if (state.Meter(PetMeter.Exercise) < low)
+                    return "Wants a run on the wheel";
+                if (state.Meter(PetMeter.Bedding) < low)
+                    return "Could use fresh bedding";
+                needsCare = false;
+                return state.IsGrown ? "Stashing seeds" : "Happy and curious";
+            }
+
             if (IsSleepy(state))
                 return "Ready for a catnap";
             if (state.HasMeter(PetMeter.Fullness) && state.Meter(PetMeter.Fullness) < low)
