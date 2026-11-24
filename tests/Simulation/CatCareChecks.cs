@@ -42,7 +42,8 @@ static class CatCareChecks
     {
         var cat = PetCareProfile.Cat;
         Equal(cat, PetCareProfile.For(Species.Cat), "the cat has a care profile");
-        foreach (var species in new[] { Species.Dog, Species.Fish, Species.Rabbit, Species.Hamster })
+        // The hamster has its own profile from P2 (HamsterCareChecks).
+        foreach (var species in new[] { Species.Dog, Species.Fish, Species.Rabbit })
             Equal<PetCareProfile>(null, PetCareProfile.For(species), $"{species} keeps the simple rules for now");
         Equal(CareTags.Meal, cat.TagsFor(PetVerb.Feed), "feeding is the meal");
         Equal(CareTags.Together | CareTags.Comfort, cat.TagsFor(PetVerb.Pet), "petting is together time that comforts");

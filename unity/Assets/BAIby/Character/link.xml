@@ -13,5 +13,6 @@
     <type fullname="BAIby.Character.PetPaletteData" preserve="all" />
     <type fullname="BAIby.Character.PetCoatColorData" preserve="all" />
     <type fullname="BAIby.Character.PetNamedColorData" preserve="all" />
+    <type fullname="BAIby.Character.PetHabitatData" preserve="all" />
   </assembly>
 </linker>

@@ -213,7 +213,12 @@ namespace BAIby.Simulation
         // A preview day passes no real time, so no window closes: it counts for the rhythm when the care since the last
         // day mark would make a care day, and freezes it otherwise. Temperament follows the day's tallies (nothing is
         // missed), and the day's caps and tallies start again.
-        public static BondStep PreviewDay(double bond, BondRecord record, long at, BondTunables tunables)
+        public static BondStep PreviewDay(double bond, BondRecord record, long at, BondTunables tunables) =>
+            PreviewDay(bond, record, at, tunables, 2, true);
+
+        // The same for a routine whose day asks `meals` meals and, unless it naps by day on its own, a bedtime.
+        public static BondStep PreviewDay(double bond, BondRecord record, long at, BondTunables tunables, int meals,
+            bool restWanted)
         {
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
@@ -226,7 +231,7 @@ namespace BAIby.Simulation
             var cared = r.Meals > 0 || r.Together || r.Rested || r.Kinds != 0;
             if (cared)
                 Drift(r, r.Answered, r.Kinds, 0, tunables);
-            Rhythm(r, r.Meals >= 2 && r.Together && r.Rested, true, r.TallyDay, at, tunables, step);
+            Rhythm(r, r.Meals >= meals && r.Together && (r.Rested || !restWanted), true, r.TallyDay, at, tunables, step);
             r.Meals = 0;
             r.Together = false;
             r.Rested = false;
@@ -253,7 +258,7 @@ namespace BAIby.Simulation
                 r.Security = Clamp(r.Security - tunables.HelperSecurity, BondRecord.AxisMin, BondRecord.AxisMax);
             }
 
-            var qualifies = day.MealsDone >= 2 && day.Together && day.Bedtime;
+            var qualifies = day.MealsDone >= day.MealsWanted && day.Together && day.Bedtime;
             var frozen = day.Away || day.HelperCovered || day.Excused;
             if (!frozen)
             {

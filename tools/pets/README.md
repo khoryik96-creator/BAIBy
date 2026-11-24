@@ -1,4 +1,4 @@
-# Pet art pipeline (PLACEHOLDER cat)
+# Pet art pipeline (PLACEHOLDER cat and hamster)
 
 > **Everything this tool produces is PLACEHOLDER art.** It exists so pet mode
 > (P1 Cat, `docs/pet-mode.md`) is playable before the commissioned cat
@@ -20,6 +20,34 @@ scale by the same factor. Where one coat part overlaps another (the jaw over the
 chest, forelegs over the chest, the chest over the haunches) the line drops to
 interior weight, so the body reads as one animal rather than stacked stickers.
 
+## Hamster (P2)
+
+`hamster.py` draws the hamster with the cat's helpers (`cat.py`: parts, cel shading, outlines, eyes, blush), and
+`habitat.py` its cage. Outputs go to `unity/Assets/Resources/BAIby/Pets/Hamster/` with the same contract and a
+`layout.json` saying `"placeholder": true`.
+
+| Path | What |
+| --- | --- |
+| `Base/{Pose}` (+`Regions`) | the Syrian golden: a round bun with no neck, puffy cheek pouches, small round ears, dark glossy eyes, tiny pink paws under the chin. Young (a pup with a bigger head) and Grown (chubbier), awake (sitting up) and rest (curled asleep, closed eyes, paws tucked under the chin). **The base carries G weight**: the light belly and muzzle are region G (`reference.markings` is cream), so the palette's `secondary` is the belly colour |
+| `Markings/{WinterWhite,Sapphire,Campbells}/{Pose}Dark` | the dorsal stripe (gTarget `dark`, recoloured on its own with the coat's `dark`) |
+| `Markings/Panda/{Pose}Dark` | the Panda's patches: ears, eye patches and a saddle band (gTarget `dark`) |
+| `Markings/Roborovski/{Pose}` | white brow spots (G) |
+| `Markings/TeddyBear/{Pose}` | the Teddy bear's long coat: pointed fur tufts in the **main coat (R weight)** on the cheeks, sides, crown and back. A feature overlay: it reaches past the base silhouette, so the pose crop is the union of the base and the coat |
+| `Accessories/Bow/{Pose}` | a tiny bow between the ears (A) |
+| `Habitat/Back`, `Habitat/Front` | the cage at the baby's pose-pixel scale (760 x 480, fixed colours, no region map): behind the hamster a wire dome on a pastel tray, a bedding mound, the exercise wheel and a play tunnel; in front the tray's lip with a spill of bedding and the seed bowl. `layout.json` `habitat` gives the paths, the size and `floor` (the floor line, 64 px above the bottom); `PetVisuals` draws them on the room's floor line |
+
+`runtimeScale` is `young` 0.48 and `grown` 0.56 (a young hamster is smaller than a kitten; `preview.py`'s
+`hamster-nursery.png` shows both beside the Sitter baby). Line weights follow that scale like the cat's. The palette
+(`palette.py` `HAMSTER_COATS`) has every catalog coat of the seven breeds, with `Dark` eyes by default and `Ruby`
+allowed for the Syrian golden, Winter white and Campbell's. `check.py` checks both species (the hamster's poses may be
+smaller than the baby's, its base may carry G, only the Teddy bear's coat may leave the silhouette, the habitat layers
+match the layout) and that each species' art stays under 2 MB (cat about 1.1 MB, hamster about 0.85 MB).
+`preview.py` writes `hamster-breeds.png`, `hamster-coats.png`, `hamster-rest.png`, `hamster-bow.png`,
+`hamster-nursery.png` and `hamster-detail.png` beside the cat's sheets.
+
+Known limitations: the Teddy bear's tufts are procedural and read a little spiky at small sizes; the Panda's saddle is
+a plain band; there is no head-anchor data; the habitat is a flat placeholder that does not follow the room theme.
+
 ## Requirements
 
 * Python 3.10+
@@ -34,7 +62,8 @@ pip install -r tools/pets/requirements.txt
 ## Usage
 
 ```
-python3 tools/pets/build.py     # regenerate every cat asset + layout.json + .meta files (~1.5 min, 4 processes)
+python3 tools/pets/build.py     # regenerate every cat and hamster asset + layout.json + .meta files (~4 min, 4 processes)
+python3 tools/pets/build.py --species Hamster   # one species
 python3 tools/pets/check.py     # self-check of the shipped files (exit code 1 on failure)
 python3 tools/pets/preview.py   # contact sheets (default: the session scratchpad; --out DIR)
 ```

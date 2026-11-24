@@ -5,7 +5,7 @@ namespace BAIby.Simulation
 {
     // The motor skills that readiness unlocks, in order. Saved as numbers: append, never renumber.
     // A cat's milestones follow the baby's: pounce, climb, high jump.
-    public enum MotorSkill { None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6 }
+    public enum MotorSkill { None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6, Wheel = 7, Tunnel = 8, HandTame = 9 }
 
     // The four development tracks (docs/care-and-growth.md). Saved as numbers: append, never renumber.
     public enum DevelopmentTrack { Motor = 0, Learning = 1, Social = 2, Physical = 3 }

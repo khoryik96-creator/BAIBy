@@ -236,7 +236,8 @@ namespace BAIby.Presentation
             }
         }
 
-        // A cat's bedtime is its evening nap and its wash is the daily brush.
+        // A cat's bedtime is its evening nap and its wash is the daily brush; a hamster's play is the wheel, its wash the
+        // bedding, and its day nap a slot of its own.
         private static string SlotName(RoutineSlotKind kind, RoutinePreset preset, bool pet = false)
         {
             switch (kind)
@@ -244,9 +245,10 @@ namespace BAIby.Presentation
                 case RoutineSlotKind.MorningMeal: return "Breakfast";
                 case RoutineSlotKind.AfternoonMeal: return preset == RoutinePreset.Home ? "Lunch" : "Snack";
                 case RoutineSlotKind.EveningMeal: return "Dinner";
-                case RoutineSlotKind.Play: return "Play";
+                case RoutineSlotKind.Play: return pet && HamsterShown ? "Wheel" : "Play";
                 case RoutineSlotKind.Bedtime: return pet ? "Nap" : "Bed";
-                default: return pet ? "Brush" : "Wash";
+                case RoutineSlotKind.Nap: return "Day nap";
+                default: return pet ? HamsterShown ? "Bedding" : "Brush" : "Wash";
             }
         }
 
@@ -335,7 +337,8 @@ namespace BAIby.Presentation
                     case RoutineSlotState.Missed: return "Missed";
                     case RoutineSlotState.Away: return "Away";
                     case RoutineSlotState.Helped: return "Helper";
-                    default: return "Free";
+                    case RoutineSlotState.Napping: return "Napping";
+                    default: return slot.Kind == RoutineSlotKind.Nap ? "Rested" : "Free";
                 }
             }
 
@@ -351,6 +354,7 @@ namespace BAIby.Presentation
                     case RoutineSlotState.Missed: return (Hex(0xD98C98), 18, false);
                     case RoutineSlotState.Away: return (Hex(0xCFC3EA), 18, false);
                     case RoutineSlotState.Helped: return (Hex(0xBDB6C2), 18, false);
+                    case RoutineSlotState.Napping: return (Hex(0xCFC3EA), 22, true);
                     case RoutineSlotState.Later: return (Divider, 18, false);
                     default: return (Divider, 18, true);
                 }

@@ -137,7 +137,10 @@
     "Pounce": 4,
     "Climb": 5,
     "HighJump": 6,
-    "FirstWords": 7
+    "FirstWords": 7,
+    "Wheel": 8,
+    "Tunnel": 9,
+    "HandTame": 10
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -243,7 +246,10 @@
     "Walking": 3,
     "Pounce": 4,
     "Climb": 5,
-    "HighJump": 6
+    "HighJump": 6,
+    "Wheel": 7,
+    "Tunnel": 8,
+    "HandTame": 9
   },
   "NurseryTheme": {
     "Sage": 0,
@@ -360,7 +366,8 @@
     "MedicineDone": 8,
     "VetVisited": 9,
     "VetAllClear": 10,
-    "SkillBack": 11
+    "SkillBack": 11,
+    "Napping": 12
   },
   "PetMeter": {
     "Fullness": 0,

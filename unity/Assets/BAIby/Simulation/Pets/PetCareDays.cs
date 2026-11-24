@@ -6,7 +6,8 @@ namespace BAIby.Simulation.Pets
     public enum PetCareKind { None, Meal, Together, Bedtime }
 
     // Household-wide care days for one species, the pet side of the care rhythm in
-    // docs/care-and-growth.md: a day counts with 2 meals, a Together action and a bedtime. A missed
+    // docs/care-and-growth.md: a day counts with 2 meals, a Together action and a bedtime (a hamster's day: its one
+    // dinner and a Together action; it naps by day on its own, so no bedtime is asked). A missed
     // day halves the rhythm instead of resetting it. Full care days and the best rhythm feed the
     // species' earned-breed goals (PetUnlocks). Days are local calendar day numbers; 0 means none yet.
     public sealed class PetCareDays : IEquatable<PetCareDays>
@@ -27,7 +28,18 @@ namespace BAIby.Simulation.Pets
         // Every day that counted, ever.
         public int FullDays { get; }
 
-        public bool IsDayComplete => Meals >= MealsPerDay && Together && Bedtime;
+        public bool IsDayComplete => IsComplete(MealsPerDay, true);
+
+        // Whether the day is complete for a species that asks `meals` meals and, when `bedtimeWanted`, a bedtime.
+        public bool IsComplete(int meals, bool bedtimeWanted) => Meals >= meals && Together && (Bedtime || !bedtimeWanted);
+
+        // What a species' care day asks: meals and whether a bedtime counts. A species with a care profile follows its
+        // routine (a cat 2 meals and a nap, a hamster its one dinner and no bedtime); others keep 2 meals and a bedtime.
+        public static (int Meals, bool Bedtime) RuleFor(Species species)
+        {
+            var profile = PetCareProfile.For(species);
+            return profile == null ? (MealsPerDay, true) : (Math.Min(MealsPerDay, profile.MealsPerDay), !profile.NapsByDay);
+        }
 
         public PetCareDays(int day, int meals, bool together, bool bedtime, int rhythm, int bestRhythm,
             int lastFullDay, int fullDays)
@@ -81,22 +93,27 @@ namespace BAIby.Simulation.Pets
         // Records one care action on the given local day. Completed is true when this action finished
         // the day's care; each day counts once. A day earlier than the tracked one (a clock set back)
         // is counted on the tracked day instead.
-        public (PetCareDays Days, bool Completed) Record(PetCareKind kind, int day)
+        public (PetCareDays Days, bool Completed) Record(PetCareKind kind, int day) => Record(kind, day, MealsPerDay, true);
+
+        // The same for a species whose day asks `mealsWanted` meals and, when `bedtimeWanted`, a bedtime (RuleFor).
+        public (PetCareDays Days, bool Completed) Record(PetCareKind kind, int day, int mealsWanted, bool bedtimeWanted)
         {
             if (day < 1)
                 throw new ArgumentOutOfRangeException(nameof(day));
+            if (mealsWanted < 1 || mealsWanted > MealsPerDay)
+                throw new ArgumentOutOfRangeException(nameof(mealsWanted));
 
             var current = day > Day ? new PetCareDays(day, 0, false, false, Rhythm, BestRhythm, LastFullDay, FullDays) : this;
             if (kind == PetCareKind.None)
                 return (current, false);
 
-            var wasComplete = current.IsDayComplete;
+            var wasComplete = current.IsComplete(mealsWanted, bedtimeWanted);
             var meals = kind == PetCareKind.Meal ? Math.Min(current.Meals + 1, MealsPerDay) : current.Meals;
             var together = current.Together || kind == PetCareKind.Together;
             var bedtime = current.Bedtime || kind == PetCareKind.Bedtime;
             var updated = new PetCareDays(current.Day, meals, together, bedtime, current.Rhythm, current.BestRhythm,
                 current.LastFullDay, current.FullDays);
-            if (wasComplete || !updated.IsDayComplete)
+            if (wasComplete || !updated.IsComplete(mealsWanted, bedtimeWanted))
                 return (updated, false);
 
             var rhythm = current.Rhythm;
