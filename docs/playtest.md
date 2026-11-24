@@ -66,7 +66,7 @@ Owned products are cached offline at `{key}.entitlements` (with a `.backup`, wri
 | --- | --- |
 | Open a build that already has a baby | The nursery opens straight to that baby with no new onboarding. Stats, look and decor are unchanged, and a **Home** chip appears in the top bar. |
 | Select **Home** | Home shows a rounded card with the baby's portrait for the current stage, name, stage and a mood line. Below the limit, a dashed **+ Adopt** card appears. |
-| Select **+ Adopt**, enter a name and select **Start raising** | The same naming flow adopts a second newborn. **Back to home** returns to Home without adopting. The first baby's save is untouched. |
+| Select **+ Adopt**, then **A baby**, enter a name and select **Start raising** | "Who's joining your home?" offers **A baby** and **A pet**. The baby's naming flow adopts a second newborn. **Back to home** returns to Home without adopting. The first baby's save is untouched. |
 | Look at the nursery after the second adoption | The room shows the new baby's own look, decor and stats. A **Switch to …** chip next to **Home** names the other baby. |
 | Select **Switch to …** | The nursery switches to the other baby's state, look and decor in one tap. Switching does not advance time or change needs. |
 | Open **Home** with two babies | Both cards fit side by side at phone width, the active baby has an outline, and a calm "Your home is full" card replaces **+ Adopt**, with a small **More rooms** link. No purchase prompt appears in any care flow. |
@@ -85,5 +85,24 @@ Owned products are cached offline at `{key}.entitlements` (with a `.backup`, wri
 | On Home, select **Say goodbye**, then **Continue** and **Say goodbye** | Two confirmations are needed. The slot is freed, **+ Adopt** returns, and a keepsake line keeps the name and dates. **Keep** at either step changes nothing. |
 | Corrupt one slot's save in storage and reopen | Home shows "Couldn't open this save" for that slot. The slot still counts toward the limit and is never reused or deleted. |
 | Open the Web build in two tabs | Each tab overwrites the other's saves. Test with one tab at a time. |
+
+## Cats (P1)
+
+A household holds babies and pets together, two for free (babies and pets combined). A pet never takes slot 1, the original baby key, so an older build never reads a pet. A cat is saved as a `<pet version="1">` record in `{key}.slot2` to `{key}.slot8`. The manifest records each companion's kind and, per species, the care days and the best Bond and growth any pet has reached, which unlock earned breeds for good. A household with no pet data still writes the same v1 manifest as before; once a pet exists it is v2, which older household builds leave untouched. The cat art is placeholder art (`tools/pets`).
+
+| Step | Expected result |
+| --- | --- |
+| Open a fresh install (or a new `?key`) | "Who's joining your home?" offers **A baby** and **A pet** cards. |
+| Select **A pet** | The cat appears in the room. Cat is the only species that can be chosen; Hamster, Dog, Fish and Rabbit are dimmed "Arriving soon" tiles with no lock or price. **Back** returns to the choice. |
+| Select **Cat** and try the breeds | Every breed tap updates the cat in the room. Domestic shorthair is free. Tabby, Tuxedo, Siamese and Calico say **Locked** and how to earn them; Bengal, British shorthair and Russian blue say **Premium** and that nothing is sold in this build. A locked breed can be previewed but **Choose a name** stays disabled. Coats and the collar color update the preview. |
+| Name the cat and select **Welcome home** | The cat's room opens: the top bar shows the name, "0 days old · Kitten", the Bond tier, the **Home** chip and the four cat meters (Fullness, Energy, Comfort, Cleanliness). Slot 1 stays empty. |
+| Try **Feed**, **Pet**, **Wand play**, **Brush** and **Nap** | Each changes the meters and shows a warm cue line; petting and wand play grow warmer as Bond grows (purring, slow blinks, kneading, bringing the toy back). **Nap** curls the cat into its rest pose for a moment; a sleepy cat (Energy below 30) rests until it has napped. |
+| Give the cat 2 meals, petting or play, and a nap in one day | The cue line says it was a full day of care and announces **Tabby** as a new breed to adopt. Reaching Bond 40 (about 14 pets) unlocks the **Tuxedo**, raising a cat to Grown unlocks the **Siamese**, and a 7-day care rhythm unlocks the **Calico**. Unlocks survive a goodbye and a reload. |
+| Select **Preview next day** seven times | The cat grows up: the age line says "Grown cat", the Grown poses replace the kitten's, and the room says the cat is all grown up, once. |
+| Open **Home** | The cat's card shows its portrait, a paw glyph for the species, its stage and a mood line. **+ Adopt** still offers a baby or a pet while a room is free; a baby and a cat fill the two free rooms. |
+| Adopt a baby beside the cat, then switch | **Switch to …** moves between the baby's nursery and the cat's room in one tap. Both advance on launch and resume, whichever is on screen. |
+| Remove the playtest rooms with a cat third in Home order | The cat rests like a baby: a quiet card, no decay, no writes, and a read-only pet journal. |
+| Say goodbye to the cat | The keepsake line names the species, for example "Pip (cat, Nov 24 – Nov 24)". |
+| Grant a premium breed with `?ent=breed.cat.bengal` | The Bengal tile says **Owned** and can be adopted. Ragdoll, Maine Coon and Sphynx are not listed until their art ships. |
 
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.

@@ -1,6 +1,6 @@
 # Pet mode and household
 
-**Status: decided proposal.** Phase H0 is built for babies only: Home, slot 1 migration, a second baby, switching, goodbye and per-companion time (see [the playtest](playtest.md#household)). Pets, entitlements and the store are not built yet. The decisions are listed at the end.
+**Status: decided proposal, being built.** Phase H0 (Home, slot 1 migration, a second companion, switching, goodbye and per-companion time) and the H1 scaffolding (entitlements, the parental gate and resting companions, with no store) are built. P1 Cat is playable with placeholder art: adoption of a baby or a pet, the cat's breeds and unlocks, its room, Home cards and keepsakes (see [the playtest](playtest.md#cats-p1)); P1 progress is listed under the slice plan. The decisions are listed at the end.
 
 It merges three proposals with a later user decision: 2 free companions, further slots paid.
 
@@ -213,6 +213,8 @@ One unit is roughly one baby pose. The total is about 33 to 42 units, against 8 
 | P2 Hamster | A second habitat, proving the model is not secretly a cat | Same batch as the cat |
 | P3 Dog | Walk, fetch, tricks, reunion | Commissioned during P1 |
 | P4 Fish, P5 Rabbit | Water and Calm meters, wipe glass; floor time and binkies | Procedural fish, rabbit batch |
+
+**P1 progress.** Built: `PetSession` on a shared `SavedRecord`; a household of babies and pets (kinds in the manifest, pets in slots 2 to 8, manifest v2 only once pet data exists); breed unlocks with household-wide species progress (care days, best Bond, raised to Grown) that outlives goodbyes; pet keepsakes with species, breed, look and stage; `PetLayout`, `PetComposer` and `PetVisuals` for the cat art; the adoption choice, species row and breed picker with a live preview; the cat room with care verbs, cue lines, the rest pose and the Grown swap; pet Home cards and a pet journal. Not built yet: consent petting with touch zones and the tail-flick cue, wand as a gesture, temperament-driven behavior, the Pet Journal's milestones and favorite toy, pronouns and an arrival animation, a premium breed store (premium breeds can only be granted by the playtest flag), and the final commissioned cat art. The species care-day rule is a first cut: a day counts with 2 meals, a Together action (any verb that builds Bond) and a bedtime (Nap or Rest); each missed day halves the rhythm, with no grace day yet.
 
 **Recommended first species: Cat.** It has broad appeal and maps closely onto the existing care loop. All four launch breeds share one silhouette and differ only by recolor and markings, so one commission covers them all. Fish are cheaper but would shape the pet model around an edge case.
 
