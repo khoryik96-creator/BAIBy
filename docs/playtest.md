@@ -54,6 +54,27 @@ The quickest way to see faster and slower milestones is a Web, Editor or Develop
 
 The developer read-out (`BabySession.CareSummary`) ends with the growth line: next skill, readiness, the projection in days, W and the four qualities, and any shy skill.
 
+## First words and Talk time
+
+[Care and growth](care-and-growth.md#first-words-and-talk-time). First words come between day 15 and day 18 with good
+care and always by day 23; Talk time opens with them. The quickest way there is a Web, Editor or Development build with
+**Developer mode** on (Grown-ups gear on Home, or `?dev=1`) and **Next day**: before each tap feed, change, soothe and
+read a story (**Growth → Read a story**), about 17 taps. Tapping **Next day** with no care at all also gets there, at
+the guarantee on day 23 (the baby is poorly on the way, which pauses readiness).
+
+| Step | Expected result |
+| --- | --- |
+| Walk, then open **Growth** | The projection card reads "Likely to say first words in about N days". |
+| Keep caring and selecting **Next day** | "Mia said their first words, and it's in the journal! Talk time is open: tap Talk to share how you feel." A lilac **Talk** tile joins the care sheet and the journal has **First words!** |
+| Tap **Talk**, then **Proud** | The sheet shows "Mia says" and one or two words ("Yay you!"); the bubble repeats them and Mia bounces. Sad or Lonely gets a cuddle, Worried, Angry or Tired a calm sit. There is no text field: typing is off by default. |
+| Tap more feelings the same day | Mia answers each time with a different line; Bond and the needs do not move after the first talk of the day. The journal keeps one line a day: "You told Mia you felt proud. Mia did a happy dance." |
+| **Grown-ups → Let children type in Talk time** (behind the parental gate) | The button reads "Children can type in Talk time · tap to turn off" and the note says the words are never saved. Back in Talk, a field "Tell Mia more…" sits above the chips. |
+| Type "I'm so excited for my birthday" and **Send** | Mia reads the feeling and topic ("Birthday! Yay!", or "Party time! Happy dance!" from day 21 or Bond 60). The field clears. |
+| Type a sentence about being hurt or not wanting to live | The chips give way to the calm message ("That sounds really hard, and it matters. Please tell a grown-up you trust right now…"); the bubble stays empty and nothing in the game changes. The journal says only "We talked about something big". |
+| Type "this test is killing me" | A normal, gentle reply about school (Worried), not the safety message. |
+| On a phone, focus the field | The keyboard opens and the sheet rises so the field stays above it; the baby stays visible above the sheet. |
+| Reopen a save from before this build at day 20 or later | First words arrive on the first visit, with the celebration. |
+
 ## Bond, the care rhythm and the journal
 
 Care slice 5 of [care and growth](care-and-growth.md). **Bond** (0 to 100, in **Growth** and the Baby report) grows with on-time meals, cuddles, stories and play, and most of all when fussing or crying is answered within half an hour; it falls a little with missed meals and long unanswered distress, never below 60% of the best it has been, and gains count double on the way back. A day's gains stop at +12. The **care rhythm** counts care days in a row: two meals, play or a story, and bedtime. The **journal** keeps the arrival, milestones, photos, stickers, the hard days you got through and a page for each week.

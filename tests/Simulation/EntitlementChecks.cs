@@ -286,7 +286,8 @@ static class EntitlementChecks
         Equal(TimeSpan.FromDays(60), woken.Age, "waking counts the whole rest as age, like any absence");
         Equal(BabyStage.Walker, HouseholdRules.StageOf(woken), "milestones reached during the rest are kept");
         Equal(true, household.HasCelebrations(3), "milestones reached during the rest wait as celebrations");
-        Equal(3, household.TakeCelebrations(3).Count, "each milestone is celebrated once on waking");
+        // Sitting, crawling, walking and (at 60 days) First words.
+        Equal(4, household.TakeCelebrations(3).Count, "each milestone is celebrated once on waking");
         var capped = game.Advance(frozen, frozen.TimeCheckpoint.AddHours(4)).State;
         Equal(capped.Satiety, woken.Satiety, "needs decay for no more than the cap, however long the rest");
     }

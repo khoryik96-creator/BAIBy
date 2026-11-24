@@ -97,6 +97,7 @@ namespace BAIby.Application
         private readonly HashSet<int> leaving = new HashSet<int>();
         // Helpers the household switched off; owned helpers are on otherwise.
         private readonly List<HelperKind> helpersOff = new List<HelperKind>();
+        private bool talkTyping;
         private int activeSlot;
         private string storedManifest;
         private string lastValidManifest;
@@ -185,6 +186,27 @@ namespace BAIby.Application
                     helpersOff.Add(kind);
                 else
                     helpersOff.Remove(kind);
+                throw;
+            }
+        }
+
+        // Whether children may type in Talk time (Grown-ups, behind the parental gate). Off by default; saved in the
+        // manifest only while on. The typed words themselves are never saved anywhere.
+        public bool TalkTyping => talkTyping;
+
+        public void SetTalkTyping(bool on)
+        {
+            if (on == talkTyping)
+                return;
+
+            talkTyping = on;
+            try
+            {
+                WriteManifest();
+            }
+            catch
+            {
+                talkTyping = !on;
                 throw;
             }
         }
@@ -666,7 +688,7 @@ namespace BAIby.Application
                     if (activeOnScreen && companion.Slot == shownSlot)
                         shown = unlocked;
                     else
-                        added |= AddCelebrations(companion.Slot, unlocked);
+                        added |= AddCelebrations(companion.Slot, unlocked) | AddFirstWords(companion);
                 }
                 catch (Exception error)
                 {
@@ -715,8 +737,14 @@ namespace BAIby.Application
                 return AddPetCelebrations(companion.Slot, companion.PetSession.Reached, grown);
             }
 
-            return companion.Session != null && AddCelebrations(companion.Slot, companion.Session.Refresh());
+            return companion.Session != null &&
+                (AddCelebrations(companion.Slot, companion.Session.Refresh()) | AddFirstWords(companion));
         }
+
+        // First words reached while a baby was off screen wait as a celebration.
+        private bool AddFirstWords(HouseholdCompanion companion) =>
+            companion.Session != null && companion.Session.TakeFirstWords() &&
+            AddCelebration(companion.Slot, CompanionMilestone.FirstWords);
 
         private Keepsake KeepsakeOf(HouseholdCompanion companion)
         {
@@ -790,6 +818,7 @@ namespace BAIby.Application
         private BabySession Wired(BabySession session)
         {
             session.Helpers = () => Helpers;
+            session.TalkTyping = () => talkTyping;
             return session;
         }
 
@@ -911,6 +940,7 @@ namespace BAIby.Application
 
             keepsakes.AddRange(manifest.Keepsakes);
             helpersOff.AddRange(manifest.HelpersOff);
+            talkTyping = manifest.TalkTyping;
             foreach (var record in manifest.SpeciesRecords)
                 speciesRecords[record.Species] = record;
             var active = Find(manifest.ActiveSlot);
@@ -1031,6 +1061,8 @@ namespace BAIby.Application
             var manifest = new HouseholdManifest(entries, activeSlot, celebrations, keepsakes, records);
             if (helpersOff.Count > 0)
                 manifest = manifest.WithHelpersOff(helpersOff);
+            if (talkTyping)
+                manifest = manifest.WithTalkTyping(true);
             var payload = HouseholdManifestCodec.Encode(manifest);
             if (payload != storedManifest)
             {

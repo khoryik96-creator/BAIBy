@@ -1039,6 +1039,82 @@ namespace BAIby.Tests
             Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(2), "the ball launcher and litter box show their floors");
         }
 
+        // Talk time: Next day previews until First words (by day 23 whatever happens), the Talk tile and its feeling chips,
+        // typing off by default and turned on in Grown-ups behind the gate, the calm safety message in the sheet with an
+        // empty bubble, the journal's lines, and nothing typed in any saved key.
+        [UnityTest]
+        public IEnumerator TalkTimeOpensWithFirstWordsAndKeepsNothingTyped()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Adopt(view.gameObject, "Mia");
+            Assert.That(Child<Button>(view.gameObject, "Talk").gameObject.activeInHierarchy, Is.False,
+                "no Talk tile before First words");
+            var announced = false;
+            for (var day = 0; day < 26 && !announced; day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Preview next day");
+                announced = Reaction(view.gameObject).Contains("said their first words");
+            }
+
+            Assert.That(announced, Is.True, "First words arrive by day 23 and are announced");
+            Tap(view.gameObject, "Talk");
+            Assert.That(Child<RectTransform>(view.gameObject, "Talk Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<InputField>(view.gameObject, "Talk Field").gameObject.activeInHierarchy, Is.False,
+                "typing is off by default");
+            Assert.That(Child<Text>(view.gameObject, "Talk Hint").text, Does.Contain("Tap a feeling"));
+            Tap(view.gameObject, "Feeling Proud");
+            Assert.That(Child<Text>(view.gameObject, "Talk Reply").text, Is.Not.Empty, "Mia answers in the sheet");
+            Assert.That(Reaction(view.gameObject), Does.Contain("Mia does a happy dance."), "and in the bubble");
+            Tap(view.gameObject, "Close talk");
+
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            PassGate(view.gameObject);
+            Assert.That(Child<Button>(view.gameObject, "Settings talk typing").GetComponentInChildren<Text>(true).text,
+                Does.Contain("Let children type in Talk time"));
+            Tap(view.gameObject, "Settings talk typing");
+            Assert.That(Child<Text>(view.gameObject, "Settings Feedback").text, Does.Contain("never saved"));
+            Tap(view.gameObject, "Close settings");
+            Tap(view.gameObject, "Close home");
+
+            Tap(view.gameObject, "Talk");
+            var field = Child<InputField>(view.gameObject, "Talk Field");
+            Assert.That(field.gameObject.activeInHierarchy, Is.True, "a grown-up turned typing on");
+            field.text = "I want to die zebraquokka";
+            Tap(view.gameObject, "Talk send");
+            Assert.That(Child<Text>(view.gameObject, "Talk Safety").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Talk Safety").text, Is.EqualTo(BAIby.Simulation.TalkReply.SafetyMessage));
+            Assert.That(Child<RectTransform>(view.gameObject, "Talk Chips").gameObject.activeInHierarchy, Is.False,
+                "no chips, no banter beside the message");
+            Assert.That(Reaction(view.gameObject), Is.Empty, "the bubble stays quiet");
+            Assert.That(field.text, Is.Empty, "the field is cleared");
+            Tap(view.gameObject, "Close talk");
+            Tap(view.gameObject, "Talk");
+            field.text = "zebraquokka school was fun";
+            Tap(view.gameObject, "Talk send");
+            Assert.That(Child<Text>(view.gameObject, "Talk Reply").text, Is.Not.Empty, "typed words can name the feeling");
+            Assert.That(field.text, Is.Empty);
+            foreach (var key in HouseholdKeys(saveKey))
+                Assert.That(PlayerPrefs.GetString(key, string.Empty), Does.Not.Contain("zebraquokka"), key);
+            Tap(view.gameObject, "Close talk");
+
+            Tap(view.gameObject, "Development");
+            Tap(view.gameObject, "Journal");
+            Assert.That(JournalRow(view.gameObject, 1), Does.Contain("We talked about something big"));
+            Assert.That(Enumerable.Range(1, 4).Any(row => JournalRow(view.gameObject, row).Contains("First words")), Is.True);
+            Tap(view.gameObject, "Close journal");
+        }
+
         // Ring markers shown for active helpers.
         private static int ActiveFloors(GameObject view) =>
             view.GetComponentsInChildren<RectTransform>(true).Count(rect => rect.name == "Helper floor" && rect.gameObject.activeInHierarchy);

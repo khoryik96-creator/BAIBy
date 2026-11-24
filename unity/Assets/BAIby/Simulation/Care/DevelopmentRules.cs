@@ -19,7 +19,7 @@ namespace BAIby.Simulation
     {
         public const double FastestPace = 0.8;
         public const double SlowestPace = 1.3;
-        private const int KindCount = 10;
+        private const int KindCount = 11;
 
         // The multiple of a stage's length that readiness takes at a steady quality.
         public static double Pace(double quality) => SlowestPace - (SlowestPace - FastestPace) * Clamp01(quality);
@@ -72,7 +72,8 @@ namespace BAIby.Simulation
 
         // Points an action of this kind earns a track before repeats, wellbeing and novelty.
         // Play feeds Motor; stories and new sounds feed Learning; blocks feed both; soothing feeds Social; on-time
-        // meals and hygiene (a cat's brush too) give Social a little. A cat's wand play feeds Motor.
+        // meals and hygiene (a cat's brush too) give Social a little. A cat's wand play feeds Motor. The day's first
+        // Talk time feeds Learning and Social.
         public static double BasePoints(EngagementKind kind, DevelopmentTrack track)
         {
             switch (kind)
@@ -94,6 +95,8 @@ namespace BAIby.Simulation
                     return track == DevelopmentTrack.Learning ? 3 : track == DevelopmentTrack.Social ? 2 : 0;
                 case EngagementKind.ExploreSound:
                     return track == DevelopmentTrack.Learning ? 4 : 0;
+                case EngagementKind.Talk:
+                    return track == DevelopmentTrack.Learning ? 3 : track == DevelopmentTrack.Social ? 3 : 0;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind));
             }

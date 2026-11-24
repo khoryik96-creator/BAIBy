@@ -136,7 +136,8 @@
     "Grown": 3,
     "Pounce": 4,
     "Climb": 5,
-    "HighJump": 6
+    "HighJump": 6,
+    "FirstWords": 7
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -160,11 +161,22 @@
     "Hygiene": 6,
     "ComfortSound": 7,
     "ExploreSound": 8,
-    "PlayWand": 9
+    "PlayWand": 9,
+    "Talk": 10
   },
   "EntitlementSource": {
     "Store": 0,
     "Playtest": 1
+  },
+  "Feeling": {
+    "Happy": 0,
+    "Sad": 1,
+    "Worried": 2,
+    "Angry": 3,
+    "Tired": 4,
+    "Proud": 5,
+    "Lonely": 6,
+    "Excited": 7
   },
   "Food": {
     "Milk": 0,
@@ -208,7 +220,10 @@
     "Sticker": 3,
     "HardDay": 4,
     "Week": 5,
-    "Helper": 6
+    "Helper": 6,
+    "FirstWords": 7,
+    "Talk": 8,
+    "BigTalk": 9
   },
   "MomentStatus": {
     "Pending": 0,
@@ -415,5 +430,21 @@
     "Fish": 2,
     "Rabbit": 3,
     "Hamster": 4
+  },
+  "TalkTier": {
+    "FirstWords": 1,
+    "Toddler": 2,
+    "Child": 3
+  },
+  "TalkTopic": {
+    "None": 0,
+    "School": 1,
+    "Friend": 2,
+    "Family": 3,
+    "Sleep": 4,
+    "Sick": 5,
+    "Pet": 6,
+    "Birthday": 7,
+    "Game": 8
   }
 }

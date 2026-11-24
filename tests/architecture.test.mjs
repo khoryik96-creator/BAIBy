@@ -44,3 +44,28 @@ test('the startup scene is enabled with its committed asset GUID', () => {
   assert.ok(guid, 'Nursery scene has a valid GUID');
   assert.match(settings, new RegExp(`enabled: 1\\s+path: Assets/Scenes/Nursery\\.unity\\s+guid: ${guid}`));
 });
+
+// The offline compile checks build every source file into one project, so they cannot see a missing assembly
+// reference. Each BAIby namespace a source file names must belong to its own assembly or one it references.
+test('every BAIby namespace a file uses is an assembly it references', () => {
+  const assets = new URL('../unity/Assets/', import.meta.url);
+  const asmdefs = readdirSync(assets, { recursive: true }).filter(path => path.endsWith('.asmdef'));
+  const namespaceOf = name => name === 'BAIby.PlayModeTests' ? null : name;
+  for (const asmdef of asmdefs) {
+    const definition = JSON.parse(readFileSync(new URL(asmdef, assets), 'utf8'));
+    const own = namespaceOf(definition.name);
+    const visible = new Set([own, ...(definition.references ?? [])].filter(Boolean));
+    const folder = asmdef.slice(0, asmdef.lastIndexOf('/') + 1);
+    const sources = readdirSync(new URL(folder, assets), { recursive: true })
+      .filter(path => path.endsWith('.cs'))
+      .filter(path => !asmdefs.some(other => other !== asmdef && other.startsWith(folder) &&
+        (folder + path).startsWith(other.slice(0, other.lastIndexOf('/') + 1))));
+    for (const source of sources) {
+      const code = readFileSync(new URL(folder + source, assets), 'utf8').replace(/\/\/.*$/gm, '');
+      for (const match of code.matchAll(/\bBAIby\.(Simulation|Application|Infrastructure|Character|Presentation|Bootstrap)\b/g)) {
+        const used = `BAIby.${match[1]}`;
+        assert.ok(visible.has(used), `${folder}${source} uses ${used}, which ${definition.name} does not reference`);
+      }
+    }
+  }
+});

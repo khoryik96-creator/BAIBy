@@ -1,6 +1,6 @@
 # Care and growth
 
-**Status: decided proposal.** Slices 1 (the shadow ledger), 2 (routine strip, need retune, Fussy and Upset, mess, overfeeding, Away mode and care styles), 3 (Under the weather, Sick, the doctor, medicine and Recovering, for babies), 4 (development tracks, readiness timing, the setback, projection and the Report, for babies), 5 (Bond, temperament, the care rhythm, the journal and earned looks, for babies) and 7 (pet profiles, the cat first) are built; the absence helper's needs floor is not (its Bond and Security costs are). Paid Helpers ([monetization](monetization.md#helpers-built-in-m4) M4) are built on these rules for babies and cats: see Absence. Numbers are starting tunables for playtests, and the open decisions are listed at the end.
+**Status: decided proposal.** Slices 1 (the shadow ledger), 2 (routine strip, need retune, Fussy and Upset, mess, overfeeding, Away mode and care styles), 3 (Under the weather, Sick, the doctor, medicine and Recovering, for babies), 4 (development tracks, readiness timing, the setback, projection and the Report, for babies), 5 (Bond, temperament, the care rhythm, the journal and earned looks, for babies) and 7 (pet profiles, the cat first) are built, and so are First words and Talk time for babies; the absence helper's needs floor is not (its Bond and Security costs are). Paid Helpers ([monetization](monetization.md#helpers-built-in-m4) M4) are built on these rules for babies and cats: see Absence. Numbers are starting tunables for playtests, and the open decisions are listed at the end.
 
 It merges three proposals (care-to-growth, return loops, systems and tuning) with the user's request: care on time, every action affects growth, and real consequences for late, missed or poor care. It follows [pet mode](pet-mode.md) and [monetization](monetization.md) and names where it changes them.
 
@@ -64,6 +64,9 @@ The offline decay cap rises from 4 h to **8 h**, so a missed day is felt without
 | Social | 0.30 W + 0.10 meals + 0.35 Bond + 0.25 E | Smile 2, Peekaboo 8, Waves 15 |
 | Physical | 0.30 W + 0.50 meals + 0.20 Health | First tooth 6, growth checks 7 and 14 |
 
+First words is built (see [First words and Talk time](#first-words-and-talk-time)); the other Learning, Social and
+Physical milestones are not yet.
+
 Engagement E per track comes from actions. Play and floor time feed Motor (3 to 4), Story, talk and New sound feed Learning (3 to 5), Soothe feeds Social (3), Blocks feeds Motor and Learning, and on-time meals and hygiene give Social 1.
 
 `points = base x 1/(1 + 0.5n) x (0.4 + 0.6 W)`, where n is repeats of the same action in 6 hours. `E = min(1, 24-hour points / 10)`, with one action supplying at most 0.6. Grinding stops paying fast and shows a Bored reaction. Four or more categories in a day gives Bond +2. A new toy's first use in a stage gives x1.5.
@@ -84,6 +87,92 @@ unlock at p >= 1, and always by 1.4 x D
 | Neglect | 0.10 | 3.8 | 8.8 | 17.5 |
 
 A cumulative-points model was rejected: average players either hit the earliest date or slid to the cap.
+
+## First words and Talk time
+
+Built for babies (pets come later, with non-verbal comfort). The product owner asked that, after a certain maturity, a
+child can tell the little one how they feel and hear supportive words back.
+
+**First words** is the Learning track's milestone, nominal day 16. Babbles (4) and Favourite story (9) are not
+milestones in the game yet, so First words' stage starts at day 9 and D is 7 days. Readiness follows Milestone timing
+with the **Learning** quality: `cond / (7 x (1.30 - 0.50 Q))` a day from day 9, x1.25 past day 16 with W 0.6 or more,
+paused while sick, reached at readiness 1 and always by 1.4x the nominal age (day 22.4). It never re-locks, and the
+setback leaves it alone. At a steady quality it lands between day 14.6 (Q 1) and day 18.1 (Q 0): inside 0.8x to 1.4x,
+though the earliest is 0.91x rather than 0.8x because the stage before it is not in the game. Away mode keeps the
+nominal pace and a helper past the absence ceiling holds Q 0.3. Stories (5), new sounds (3 or 4), blocks (3) and Talk
+time (3) feed Learning. Within a session one long advance equals many short ones, as for the motor milestones.
+
+- On screen: a celebration ("Mia said their first words, and it's in the journal! Talk time is open: tap Talk to share
+  how you feel."), a journal entry **First words!** and, once walking is reached, Growth's projection card ("Likely to
+  say first words in about 3 days", then "Sitting, crawling, first steps and first words reached"). Reached while the
+  baby is off screen, they wait as a celebration in the manifest's own `<talk-celebrations>` element, which a build
+  without Talk time ignores.
+- Next day previews with care and a story every day reach them about day 18; with no care at all (sick, so paused)
+  they wait for the guarantee, day 23.
+
+**Talk time** opens with First words. A **Talk** tile joins the care sheet (a speech-bubble icon from
+`tools/ui/render_icons.py`) and opens the Talk sheet: eight feeling chips (Happy, Sad, Worried, Angry, Tired, Proud,
+Lonely, Excited) and, when a grown-up allows it, a field **Tell Mia more…** (140 characters) with **Send** at the top of
+the sheet, above the chips, so it stays clear of an on-screen keyboard; on a phone the sheet rises while the field is
+focused, and the stage keeps the baby above the sheet as for any sheet.
+
+- **Typing** is off by default. A parent turns on **Let children type in Talk time** in Grown-ups, behind the parental
+  gate; the manifest keeps `<talk typing="true"/>` only while it is on. Without it the chips work alone and any typed
+  words are ignored by the session.
+- **On-device matcher** (`TalkMatcher`, deterministic): words are compared in a canonical form (lower case,
+  apostrophes dropped, look-alike digits read as letters, "2" alone as "to", repeated letters squeezed, common
+  misspellings mapped, "my self" joined) and phrases match whole words in order. It returns only whether the safety net
+  applies, a feeling and a topic tag (School, Friend, Family, Sleep, Sick, Pet, Birthday, Game). Feeling words infer a
+  chip when none was tapped (the earliest wins; "not happy" reads as Sad, "not sad" is skipped); a tapped chip always
+  wins. With neither, the little one waits for a feeling and nothing changes.
+- **Replies** (`TalkLines`): curated lines keyed by feeling x topic x tier, three to five each, picked by the little
+  one's day plus the talks so far, never at random. A topic without its own lines uses the feeling's. Tier 1, right
+  after First words: one or two words and a gesture ("Hug?", "Mia here.", "Love you."). Tier 2, from day 21 or Bond 60:
+  short toddler sentences ("Sad is okay. I sit with you."). Tier 3 (Child) is reserved for a future Child or Teen stage
+  with its own art: a tier without lines uses the one below, so it is data alone. House rules, checked for every line:
+  the little one comforts, celebrates or keeps company; never advice, a diagnosis or blame; no question about the
+  child's life or details (an offer such as "Hug?" is fine); nothing a child could take as a promise or an
+  instruction. The baby mirrors the feeling with existing motion: a cuddle (the soothe sway) for sad and lonely, a
+  bounce for happy, proud and excited, and a calm sit for worried, angry and tired.
+- **Safety net.** When typed words are about self-harm, suicide, wanting to die, being hurt, hit, bullied or abused, or
+  being unsafe, the reply is replaced by a fixed message, shown in the sheet in place of the chips, with the speech
+  bubble left empty: "That sounds really hard, and it matters. Please tell a grown-up you trust right now, like a
+  parent, teacher or carer. If you might be in danger, call your local emergency number." No game effect at all (not
+  even the talk count); the journal gets only a neutral "We talked about something big" with no feeling, topic or text,
+  in place of that day's talk line. The list (`TalkMatcher.SafetyList`) and its misspellings are tested. Choices for
+  near misses: hyperbole without those words stays safe and reads as stress ("this test is killing me" is Worried about
+  School; "I'm dying to see it" is Excited; "I want to dye my hair" is safe); game phrases are taken out first ("mom beat
+  me at chess", "hit me up"); and physical hurt is caught even when it may be an accident ("I hurt myself", "the ball
+  hit me"), because telling a grown-up is the right answer to both and a gentle check-in is better than missing a child
+  who is being hurt.
+- **Effects, small and not grindable.** The first talk of each care day counts once as together time on the ledger
+  (which, like any care, ends Away mode), gives Learning and Social engagement (`EngagementKind.Talk`, 3 points each,
+  one kind with the usual diminishing returns and Bored rules) and Bond +2 within the daily gain cap, and counts as a
+  story kind for the day's variety. Later talks that day only move the reply on. A Next day preview starts the day again,
+  as it does Bond's caps. Feelings never change needs, Health or the ladder (a fussy baby stays fussy: talking is not
+  care for the needs axis), and every feeling counts the same: no feeling costs anything.
+- **Journal:** one talk line a day at most, the first feeling shared: "You told Mia you felt proud. Mia did a happy
+  dance." The feeling only, never the words.
+- **Privacy:** typed words go from the field to the matcher and nowhere else. They are never saved, logged or sent;
+  the field is cleared when they are sent. Only the chosen or inferred feeling is stored (in the journal line); the
+  topic tag is used for the reply and not stored.
+
+**Saves.** The development element becomes v2 once First words' stage starts (day 9): readiness in `words`,
+`first-words`, the talks so far and the care day whose first talk counted. The journal becomes v3 once it holds First
+words or a talk line (`fe` is the feeling). A younger baby, and any journal without them, saves v1 or v2 byte for byte as
+before, so the golden household (four days and 40 hours, under day 8) is unchanged. A v1 record past day 9 is seeded
+from age at the nominal pace, as slice 4 seeded Motor readiness, so a baby already past day 22.4 says first words on the
+next visit with a celebration. Newer versions are unsupported, not corrupt. `Feeling`, `TalkTopic`, `TalkTier`,
+`EngagementKind.Talk`, `JournalKind.FirstWords`, `Talk` and `BigTalk` and `CompanionMilestone.FirstWords` are appended
+content IDs.
+
+**Tests.** `tests/Simulation/TalkChecks.cs` covers First words' timing, bounds, catch-up, split advances and migration;
+gating and tiers; every feeling x topic x tier having three to five lines that keep the house rules, with a deterministic
+pick that reaches every line; keyword matching and inference; every safety phrase and misspelling caught and the near
+misses left safe; once-a-day effects within the caps and no change to needs, Health or the ladder; the journal; the save
+versions; the household typing setting; and that typed words never reach an encoded save, a household slot or the
+manifest. The Play Mode smoke test reaches First words with Next day, talks with a chip, turns typing on behind the
+gate, sees the safety message and checks every saved key.
 
 ## Bond and temperament
 
@@ -190,6 +279,7 @@ Injected-clock checks cover window boundaries, DST and travel, clock rewinds, a 
 6. Opt-in reminders.
 7. **Pet profiles, cat first (built):** a species brings a `PetCareProfile` (`Simulation/Pets`): its care verbs and their tags in a `CareProfile` (feed: Meal; pet: Together and Comfort; wand: Together and **Play**, a new tag; brush: Hygiene; nap: Bedtime; medicine: Medicine), its `CareRoutine`, its three milestones at their nominal ages, and its night rates. Only the cat has one; dog, fish, rabbit and hamster keep `PetSimulation`'s simple rules until their slice. `PetCare` runs a profiled pet on the baby's species-agnostic rules, generalised rather than copied: `CareRules` keeps the ledger by the record's `CareRoutine` (`RoutineCalendar` gives the cat Morning and Evening meals, a play window in the Afternoon slot and the evening nap, in both presets; the wake time moves only the morning); a play window keeps the together ring itself (on time, late or missed, never owed) while any together care still counts for the day; `BabyNeeds` takes a species' `NeedRates`; `BabyGrowth` takes any three milestones through a `Subject` instead of a `BabyState`; `JournalRules.Seed` and the new `JournalRules.Chronicle` serve any species; `BondRules`, `CareConsequences` and `DevelopmentRules` were already generic. **Cat:** the daily brush is the wash window and a missed brush leaves a scratched rug (mess, at most three, each cutting comfort gains 5%, cleared by brushing); the needs axis is the baby's (Content, Fussy, Upset, shown as Restless and Grumpy), with overfeeding at Fullness 90, Away mode and the absence ceiling; the health axis is the baby's with the vet (Dr. Rosa) for the doctor and medicine with breakfast and dinner; a sick cat refuses wand play and brushing, a grumpy one swats the wand away. The species table was retuned for two meals a day: awake needs fall at half the earlier rates (the same ratio for every meter, so the breeds stay balanced; quiet hours are the same for every breed) and a meal gives Fullness 35. **Development:** wand play is `EngagementKind.PlayWand` (Motor 4), petting is Soothe (Social 3), brushing is Hygiene and an on-time meal is Meal (Social 1); Learning has no cat verb yet (tricks come with the dog). Milestones Pounce (nominal day 2), Climb (3.5) and High jump (5) follow Milestone timing exactly, so they land between 0.8x and 1.3x and always by 1.4x: the last guarantee is day 7, when the kitten grows up. **Grown stays age-based** (day 7), so the earned-breed goal "raise a cat to Grown" is unchanged. One kind of play caps Motor engagement at 0.6, so a cat's fastest steady pace is about 0.88x (pounce about day 1.7). The setback is the baby's; its good day asks for every meal of a routine with fewer than three (two for the cat) and two pets, and a shy cat rests instead of pouncing. **Bond and temperament:** `BondRules` with the baby's caps and floor (an on-time meal +1, a pet +3, wand play and a brush +2 from the species table, answering restlessness in time +5); temperament's Security is **Trust**; the care rhythm and stickers are the baby's (pets earn stickers, not outfits); `PetState.HighestBond` follows Bond, so the Tuxedo's Bond 40 goal now takes a few days of care. The household's earned-breed care days (`PetCareDays`: two meals, together time and a nap on a local calendar day) are kept as they were, so saved progress keeps counting; a refused care counts for nothing. **Journal:** the arrival, each milestone, photos (three a day, drawn from the pet's poses when read: the rest pose for a nap or a poorly day, Grown from day 8), stickers, week pages and hard days. **Save:** `<pet version="2">`: a profiled pet's `<unlocks>` names its milestones, and it carries `<care>` (the routine comes from the species), `<development>`, `<bonding>` (Bond's record; the pet's own `<bond>` keeps Bond and its highest value) and `<journal>`. A v1 pet keeps its stage, Bond, look and meters, the milestones its age passed stay reached (all of them once grown), Bond's high-water mark is its highest Bond, and its ledger waits for an anchor, so its first advance excuses the whole gap, as the baby's migration did. Newer elements are unsupported, not corrupt. Celebrations gain Pounce, Climb and High jump (kept in their own `<pet-celebrations>` element of the v2 manifest, so a build that cannot read them loses only the announcement), and a pet with a missed meal unanswered, grumpy or sick lights the Home dot. **On screen:** the cat's room gets the routine strip, the condition chip, Photo and Vet or Medicine tiles, Growth (projection, rhythm, Bond, Trust, Journal), the Routine sheet (care style and Away mode) and the journal with pages, all the baby's sheets in a pet mode, and a small bubble over the cat (sniffle, thermometer, capsule) drawn from soft shapes. `tests/Simulation/CatCareChecks.cs` covers the windows, moods, overfeeding, Away, the health axis, milestone bounds and the play-style ordering, the setback, Bond, Trust, rhythm, journal, preview days, split advances and the v1 to v2 migration; the Play Mode smoke test walks a cat through breakfast on time, sickness, the vet, two doses, its first pounce and its journal.
 8. The flagged option, only after the decision and a store review.
+9. **First words and Talk time (built, babies only):** see [First words and Talk time](#first-words-and-talk-time).
 
 ## Risks
 

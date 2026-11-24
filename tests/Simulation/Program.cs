@@ -16,6 +16,12 @@ if (args.Length > 0 && args[0] == "golden")
     return;
 }
 
+if (args.Length > 0 && args[0] == "talk")
+{
+    TalkChecks.Run();
+    return;
+}
+
 if (args.Length > 0 && args[0] == "bond")
 {
     BondChecks.Run();
@@ -950,6 +956,7 @@ GrowthChecks.Run();
 BondChecks.Run();
 CatCareChecks.Run();
 HelperChecks.Run();
+TalkChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 // Ordinary care until the baby is content: meals first, then soothing, rest and a bath.

@@ -5,6 +5,7 @@
     "BAIby.Bootstrap",
     "BAIby.Character",
     "BAIby.Presentation",
+    "BAIby.Simulation",
     "UnityEngine.UI"
   ],
   "optionalUnityReferences": [

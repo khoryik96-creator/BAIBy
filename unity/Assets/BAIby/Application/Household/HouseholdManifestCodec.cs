@@ -19,6 +19,9 @@ namespace BAIby.Application
         // announcement is lost, and the journal keeps the milestone).
         // Helpers the household switched off sit in a <helpers off="0 2"> element, written only when one is off, so a
         // household that never touches the setting keeps its manifest byte for byte; a build without helpers ignores it.
+        // Talk time's typing, when a grown-up turned it on, is a <talk typing="true"/> element in the same way (absent
+        // means off, the default). First words waiting as a celebration sit in their own <talk-celebrations> element,
+        // which a build without Talk time ignores (and drops: only the announcement is lost, the journal keeps them).
         private const int Version = 2;
         private const int VersionBeforePets = 1;
 
@@ -42,8 +45,10 @@ namespace BAIby.Application
 
             var celebrations = new XElement("celebrations");
             var petCelebrations = new XElement("pet-celebrations");
+            var talkCelebrations = new XElement("talk-celebrations");
             foreach (var celebration in manifest.Celebrations)
-                (celebration.Milestone >= CompanionMilestone.Pounce ? petCelebrations : celebrations).Add(new XElement("celebration",
+                (celebration.Milestone == CompanionMilestone.FirstWords ? talkCelebrations
+                    : celebration.Milestone >= CompanionMilestone.Pounce ? petCelebrations : celebrations).Add(new XElement("celebration",
                     new XAttribute("slot", celebration.Slot),
                     new XAttribute("milestone", (int)celebration.Milestone)));
 
@@ -66,6 +71,8 @@ namespace BAIby.Application
 
             if (petCelebrations.HasElements)
                 root.Add(petCelebrations);
+            if (talkCelebrations.HasElements)
+                root.Add(talkCelebrations);
 
             if (manifest.HelpersOff.Count > 0)
             {
@@ -74,6 +81,9 @@ namespace BAIby.Application
                     off.Add(((int)kind).ToString(System.Globalization.CultureInfo.InvariantCulture));
                 root.Add(new XElement("helpers", new XAttribute("off", string.Join(" ", off))));
             }
+
+            if (manifest.TalkTyping)
+                root.Add(new XElement("talk", new XAttribute("typing", true)));
 
             return root.ToString(SaveOptions.DisableFormatting);
         }
@@ -102,11 +112,16 @@ namespace BAIby.Application
                 var petCelebrations = root.Element("pet-celebrations")?.Elements("celebration") ?? new XElement[0];
                 // A kitten's milestones always come before it grows up, so they are read first.
                 foreach (var element in petCelebrations)
-                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"),
-                        (CompanionMilestone)(int)Attribute(element, "milestone")));
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), Milestone(element)));
                 foreach (var element in Field(root, "celebrations").Elements("celebration"))
-                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"),
-                        (CompanionMilestone)(int)Attribute(element, "milestone")));
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), Milestone(element)));
+                foreach (var element in root.Element("talk-celebrations")?.Elements("celebration") ?? new XElement[0])
+                {
+                    var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
+                    if (milestone != CompanionMilestone.FirstWords)
+                        throw new InvalidDataException("Only First words wait in talk-celebrations.");
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), milestone));
+                }
 
                 var keepsakes = new List<Keepsake>();
                 foreach (var element in Field(root, "keepsakes").Elements("keepsake"))
@@ -121,6 +136,9 @@ namespace BAIby.Application
                 }
 
                 var manifest = new HouseholdManifest(companions, (int)Attribute(root, "active"), celebrations, keepsakes, species);
+                var talk = root.Element("talk");
+                if (talk != null && (bool)Attribute(talk, "typing"))
+                    manifest = manifest.WithTalkTyping(true);
                 var helpers = root.Element("helpers");
                 if (helpers == null)
                     return manifest;
@@ -256,6 +274,15 @@ namespace BAIby.Application
         }
 
         private static DateTimeOffset Instant(XAttribute ticks) => new DateTimeOffset((long)ticks, TimeSpan.Zero);
+
+        // A milestone of <celebrations> or <pet-celebrations>; First words wait only in <talk-celebrations>.
+        private static CompanionMilestone Milestone(XElement element)
+        {
+            var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
+            if (milestone == CompanionMilestone.FirstWords)
+                throw new InvalidDataException("First words wait in talk-celebrations.");
+            return milestone;
+        }
 
         private static XAttribute Attribute(XElement element, string name) =>
             element.Attribute(name) ?? throw new InvalidDataException($"The household manifest is missing {element.Name} {name}.");

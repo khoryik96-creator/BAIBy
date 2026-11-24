@@ -202,6 +202,8 @@ namespace BAIby.Simulation
             var effects = HealthEffects(state.Care, null);
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
             var step = growth.Preview(state, elapsed, maxNeedDecay, boost, comfort);
+            // A new day: the next talk counts again, as Bond's daily caps start again.
+            step.Draft.TalkCounted = false;
             var run = HelperAdvance.Active(state.Care, helpers)
                 ? HelperRun.BeginPreview(state.Care, helpers, helperRules, careTunables.DayStart)
                 : null;
@@ -303,8 +305,11 @@ namespace BAIby.Simulation
                     milestones.Add(((MotorSkill)(stage + 1), step.UnlockAges[stage]));
             }
 
-            return JournalRules.Chronicle(before.Journal, before.TimeCheckpoint, before.Age, before.Care.Condition,
+            var journal = JournalRules.Chronicle(before.Journal, before.TimeCheckpoint, before.Age, before.Care.Condition,
                 after.TimeCheckpoint, after.Age, after.Care.Condition, milestones, bond, real, before.Bonding.TotalCareDays);
+            return step.UnlockedWords
+                ? JournalRules.FirstWords(journal, before.TimeCheckpoint, before.Age, TimeSpan.FromTicks(step.WordsAge), real)
+                : journal;
         }
 
         // The baby's development for the Growth panel and the report: track qualities, the growth chart band, and
@@ -315,6 +320,74 @@ namespace BAIby.Simulation
                 throw new ArgumentNullException(nameof(state));
 
             return growth.Report(state);
+        }
+
+        // Talk time, once First words is reached (docs/care-and-growth.md, First words and Talk time). The child taps a
+        // feeling and, when a grown-up allows typing, may type a few words; the words are read on the device and never kept.
+        // - Words about self-harm, wanting to die, being hurt or abused, or being unsafe get the fixed safety message and
+        //   nothing else: no game effect, only a neutral journal line "We talked about something big".
+        // - Without a tapped feeling the words may name one; with neither, the little one waits for a feeling.
+        // - Otherwise the little one answers with a curated line for the feeling, the topic and the tier. The day's first
+        //   talk counts once as together time: the ledger's Together, Learning and Social engagement (one kind, with the
+        //   usual diminishing returns) and Bond +2 within the daily cap. Needs, Health and the ladder never move, and no
+        //   feeling costs anything. The journal keeps one talk line a day: the feeling, never the words.
+        // Advance to the current instant first.
+        public (BabyState State, TalkReply Reply) Talk(BabyState state, Feeling? feeling, string typed = null)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (!state.HasFirstWords)
+                throw new InvalidOperationException("Talk time opens with First words.");
+            if (feeling.HasValue && !Enum.IsDefined(typeof(Feeling), feeling.Value))
+                throw new ArgumentOutOfRangeException(nameof(feeling));
+
+            state = Seeded(state);
+            var tier = TalkRules.TierOf(state.Age, state.Bond);
+            var reading = TalkMatcher.Read(typed);
+            if (reading.SafetyNet)
+                return (state.With(journal: JournalRules.BigTalk(state.Journal, state.TimeCheckpoint, state.Age)),
+                    TalkReply.SafetyNet(tier));
+
+            var shared = feeling ?? reading.Feeling;
+            if (!shared.HasValue)
+                return (state, TalkReply.NeedsFeeling(tier, reading.Topic));
+
+            var dev = state.Development;
+            var careDay = state.Care.CareDay;
+            var counted = !(dev.TalkCounted && dev.TalkDay == careDay);
+            var day = JournalRules.DayOf(state.Age);
+            var words = TalkRules.Line(state.Name, shared.Value, reading.Topic, tier, day, dev.Talks);
+            var reply = new TalkReply(TalkOutcome.Reply, shared, reading.Topic, tier, words,
+                TalkRules.GestureOf(shared.Value), counted);
+            var journal = JournalRules.Talk(state.Journal, state.TimeCheckpoint, state.Age, shared.Value);
+            if (!counted)
+            {
+                var draft = dev.ToBuilder();
+                draft.Talks = dev.Talks == int.MaxValue ? dev.Talks : dev.Talks + 1;
+                return (state.With(development: draft.Build(), journal: journal), reply);
+            }
+
+            // The day's first talk: together time on the ledger (it ends Away mode, like any care), never the ladder.
+            var care = CareRules.ApplyCare(state.Care, CareTags.Together, double.NaN, careTunables);
+            careDay = care.CareDay;
+            var bonded = BondRules.Gain(state.Bond, state.Bonding, careDay, TalkRules.TalkBond, bondTunables);
+            var needs = BabyNeeds.From(state);
+            var developed = growth.AfterCare(BabyGrowth.Of(state),
+                new BabyGrowth.CareKind(EngagementKind.Talk, CareCategories.Story, false, false, false), care, needs,
+                BondRules.RhythmBonus(state.Bonding, bondTunables), BondRules.CuriosityOf(state.Bonding, bondTunables),
+                bondTunables.TemperamentEngagement, bonus =>
+                {
+                    if (bonus > 0)
+                        bonded = BondRules.Gain(bonded.Bond, bonded.Record, careDay, bonus, bondTunables);
+                    return bonded.Bond;
+                });
+            var talked = developed.Record.ToBuilder();
+            talked.Talks = dev.Talks == int.MaxValue ? dev.Talks : dev.Talks + 1;
+            talked.TalkDay = careDay;
+            talked.TalkCounted = true;
+            var bonding = BondRules.Tally(bonded.Record, careDay, false, true, false, false, null);
+            return (state.With(bond: bonded.Bond, care: care, development: talked.Build(), bonding: bonding, journal: journal),
+                reply);
         }
 
         // Whether the doctor's visit is offered: the baby is under the weather or sick.
@@ -368,10 +441,22 @@ namespace BAIby.Simulation
                 " | growth {0} {1:0.00} in {2:0.0}d | W {3:0.00} Q motor {4:0.00} learning {5:0.00} social {6:0.00} physical {7:0.00}{8}{9}",
                 report.Next, report.Readiness, report.ExpectedIn.TotalDays, sample.Wellbeing, sample.Motor, sample.Learning,
                 sample.Social, sample.Physical, sample.Mode == SampleMode.Normal ? "" : " " + sample.Mode,
-                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy) + string.Format(CultureInfo.InvariantCulture,
+                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy) + WordsSummary(report.Words) +
+                string.Format(CultureInfo.InvariantCulture,
                 " | bond {0:0.0} high {1:0.0} today +{2:0}/-{3:0} | security {4:0} curiosity {5:0} | rhythm {6} best {7} days {8}",
                 state.Bond, bonding.HighWater, bonding.Gained, bonding.Lost, bonding.Security, bonding.Curiosity, bonding.Rhythm,
                 bonding.LongestRhythm, bonding.TotalCareDays);
+        }
+
+        // " | first words 0.42 in 3.1d", or " | first words" once reached (a baby only).
+        private static string WordsSummary(WordsReport words)
+        {
+            if (words == null)
+                return string.Empty;
+            if (words.Reached)
+                return " | first words";
+            return string.Format(CultureInfo.InvariantCulture, " | first words {0:0.00} in {1:0.0}d", words.Readiness,
+                words.ExpectedIn.TotalDays);
         }
 
         // Today's routine windows at the state's checkpoint.

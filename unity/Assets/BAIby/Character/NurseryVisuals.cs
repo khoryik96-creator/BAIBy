@@ -912,6 +912,10 @@ namespace BAIby.Character
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             float bath = reaction == Reaction.FreshBath ? Window(elapsed, 0, .36f, 1.90f, BathCueDuration) : 0;
             float blocks = reaction == Reaction.StackedBlocks ? Window(elapsed, 0, .30f, 1.75f, BlocksCueDuration) : 0;
+            // Talk time: a happy bounce, or a calm sit close by (a cuddle is the soothe sway).
+            float bounce = reaction == Reaction.HappyBounce ? response : 0;
+            float hop = Mathf.Abs(Mathf.Sin(elapsed * 8.5f)) * bounce;
+            float calm = reaction == Reaction.SitsCalmly ? response : 0;
             // A bored baby gives the same small head shake, without pushing anything away.
             bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull || reaction == Reaction.TooPoorly ||
                 reaction == Reaction.Bored;
@@ -949,13 +953,14 @@ namespace BAIby.Character
             float lift = Mathf.Abs(stride) * .055f + Mathf.Abs(step) * .075f;
             baby.localPosition = new Vector3(.08f * play + .10f * reach + travel - .05f * pushAway,
                 stageGround - .024f * Mathf.Min(1, resting + soundComfort) - .018f * bath + .022f * feed + lift - .03f * upset
-                - .02f * unwellLook, 0);
+                - .02f * unwellLook + .032f * hop - .012f * calm, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
                 Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * resting - 4 * reach - stride * 1.65f
                 - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step
-                - 2.8f * blocks + fidget + refuseShake + 3.5f * upset * (1 - resting) + 2.4f * unwellLook * (1 - resting));
+                - 2.8f * blocks + fidget + refuseShake + 3.5f * upset * (1 - resting) + 2.4f * unwellLook * (1 - resting)
+                + Mathf.Sin(elapsed * 4.2f) * 2.2f * bounce + 1.6f * calm);
             baby.localScale = new Vector3(1 + breath * .5f,
-                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks
+                1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks + .014f * hop
                 - .025f * upset - .018f * unwellLook, 1);
             shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);

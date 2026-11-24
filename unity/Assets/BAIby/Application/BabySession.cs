@@ -10,9 +10,19 @@ namespace BAIby.Application
         private readonly SavedRecord<BabyState> record;
         private readonly Func<DateTimeOffset> now;
         private readonly List<HelperEvent> helperEvents = new List<HelperEvent>();
+        private bool firstWordsHeard;
 
         // The household's helpers (owned and switched on), read at every advance; null means none.
         public Func<HelperSettings> Helpers { get; set; }
+
+        // Whether a grown-up let children type in Talk time (the household setting); null means no. Without it typed
+        // words are ignored and only the feeling chips count.
+        public Func<bool> TalkTyping { get; set; }
+
+        public bool CanType => TalkTyping?.Invoke() ?? false;
+
+        // Whether Talk time is open (First words reached), as of the last refresh.
+        public bool CanTalk => State != null && TalkRules.IsOpen(State);
 
         // Feeder portions left (the Sitter's bottles); 0 before adoption.
         public int FeederStock => State?.Care.Helpers.Stock ?? 0;
@@ -126,6 +136,7 @@ namespace BAIby.Application
             var current = Advance(GetAdoptedBaby());
             var preview = simulation.AdvancePreview(current.State, elapsed, CurrentHelpers, helperEvents);
             Trim();
+            NoteFirstWords(current.State, preview.State);
             Commit(preview.State);
             return (current.UnlockedSitting || preview.UnlockedSitting,
                 current.UnlockedCrawling || preview.UnlockedCrawling,
@@ -177,6 +188,26 @@ namespace BAIby.Application
                 Commit(updated);
         }
 
+        // Talk time at the current instant: a feeling chip and, when typing is allowed, a few typed words (read on the
+        // device, never saved, logged or sent). Returns the little one's reply and any milestones the advance reached.
+        public (TalkReply Reply, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Talk(Feeling? feeling,
+            string typed = null)
+        {
+            var current = Advance(GetAdoptedBaby());
+            var talked = simulation.Talk(current.State, feeling, CanType ? typed : null);
+            if (talked.State != State)
+                Commit(talked.State);
+            return (talked.Reply, current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        // Whether First words came since the last call (an advance or a preview day reached them). Returns true once.
+        public bool TakeFirstWords()
+        {
+            var heard = firstWordsHeard;
+            firstWordsHeard = false;
+            return heard;
+        }
+
         // What the helpers did since the last call, oldest first, for the return summary. Each event is returned once.
         public IReadOnlyList<HelperEvent> TakeHelperEvents()
         {
@@ -201,7 +232,14 @@ namespace BAIby.Application
         {
             var update = simulation.Advance(state, now(), CurrentHelpers, helperEvents);
             Trim();
+            NoteFirstWords(state, update.State);
             return update;
+        }
+
+        private void NoteFirstWords(BabyState before, BabyState after)
+        {
+            if (!before.HasFirstWords && after.HasFirstWords)
+                firstWordsHeard = true;
         }
 
         // Unread events are kept for a while, newest last.
