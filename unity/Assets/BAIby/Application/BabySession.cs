@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using BAIby.Simulation;
 
 namespace BAIby.Application
@@ -8,12 +7,11 @@ namespace BAIby.Application
     public sealed class BabySession
     {
         private readonly BabySimulation simulation;
-        private readonly IBabySaveStore saves;
+        private readonly SavedRecord<BabyState> record;
         private readonly Func<DateTimeOffset> now;
-        private string lastSavedPayload;
 
         // Null until the player adopts a baby or a saved baby is restored.
-        public BabyState State { get; private set; }
+        public BabyState State => record.Value;
 
         // Developer read-out of the care ledger; empty before adoption.
         public string CareSummary => State == null ? string.Empty : simulation.DescribeCare(State);
@@ -28,31 +26,10 @@ namespace BAIby.Application
         public BabySession(BabySimulation simulation, IBabySaveStore saves, Func<DateTimeOffset> now)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
-            this.saves = saves ?? throw new ArgumentNullException(nameof(saves));
+            if (saves == null)
+                throw new ArgumentNullException(nameof(saves));
             this.now = now ?? throw new ArgumentNullException(nameof(now));
-
-            var primary = saves.Read();
-            if (primary != null)
-            {
-                try
-                {
-                    Restore(primary);
-                    return;
-                }
-                catch (InvalidDataException)
-                {
-                    var fallback = saves.ReadBackup();
-                    if (fallback == null)
-                        throw;
-
-                    Restore(fallback);
-                    return;
-                }
-            }
-
-            var backup = saves.ReadBackup();
-            if (backup != null)
-                Restore(backup);
+            record = new SavedRecord<BabyState>(saves, BabySaveCodec.Decode, BabySaveCodec.Encode);
         }
 
         public void Adopt(string name)
@@ -136,18 +113,6 @@ namespace BAIby.Application
         private BabyState GetAdoptedBaby() =>
             State ?? throw new InvalidOperationException("Adopt a baby first.");
 
-        private void Restore(string payload)
-        {
-            State = BabySaveCodec.Decode(payload);
-            lastSavedPayload = payload;
-        }
-
-        private void Commit(BabyState updated)
-        {
-            var payload = BabySaveCodec.Encode(updated);
-            saves.Write(payload, lastSavedPayload);
-            lastSavedPayload = payload;
-            State = updated;
-        }
+        private void Commit(BabyState updated) => record.Commit(updated);
     }
 }

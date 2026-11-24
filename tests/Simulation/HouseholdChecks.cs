@@ -74,7 +74,7 @@ static class HouseholdChecks
             "celebrations for unlisted slots are rejected");
         try
         {
-            HouseholdManifestCodec.Decode("<household version=\"2\" active=\"0\" />");
+            HouseholdManifestCodec.Decode("<household version=\"3\" active=\"0\" />");
             throw new InvalidOperationException("A future manifest version should be unsupported.");
         }
         catch (NotSupportedException)
@@ -431,7 +431,7 @@ static class HouseholdChecks
 
     private static void CheckNewerManifestIsKept(BabySimulation game)
     {
-        const string newer = "<household version=\"2\" active=\"1\" />";
+        const string newer = "<household version=\"3\" active=\"1\" />";
         var store = TwoBabies(game, out var household);
         household.SayGoodbye(2);
         household.Adopt("Leo");

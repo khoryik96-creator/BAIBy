@@ -99,7 +99,8 @@
   "CompanionMilestone": {
     "Sitting": 0,
     "Crawling": 1,
-    "Walking": 2
+    "Walking": 2,
+    "Grown": 3
   },
   "EarnedGoal": {
     "FirstFullCareDay": 0,
