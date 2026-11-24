@@ -9,6 +9,14 @@ namespace BAIby.Application
         private readonly BabySimulation simulation;
         private readonly SavedRecord<BabyState> record;
         private readonly Func<DateTimeOffset> now;
+        private readonly List<HelperEvent> helperEvents = new List<HelperEvent>();
+
+        // The household's helpers (owned and switched on), read at every advance; null means none.
+        public Func<HelperSettings> Helpers { get; set; }
+
+        // Feeder portions left (the Sitter's bottles); 0 before adoption.
+        public int FeederStock => State?.Care.Helpers.Stock ?? 0;
+        public int FeederCapacity => simulation.HelperRules.MaxStock;
 
         // Null until the player adopts a baby or a saved baby is restored.
         public BabyState State => record.Value;
@@ -67,7 +75,7 @@ namespace BAIby.Application
             if (State == null)
                 return (false, false, false);
 
-            var update = simulation.Advance(State, now());
+            var update = Advance(State);
             if (update.State != State)
                 Commit(update.State);
 
@@ -77,7 +85,7 @@ namespace BAIby.Application
         public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) ApplyCare(
             CareAction action, Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
-            var elapsed = simulation.Advance(GetAdoptedBaby(), now());
+            var elapsed = Advance(GetAdoptedBaby());
             var caredFor = simulation.ApplyCare(elapsed.State, action, toy, food);
             Commit(caredFor.State);
             return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
@@ -95,7 +103,7 @@ namespace BAIby.Application
         // The free doctor's visit, at the current instant.
         public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) VisitDoctor()
         {
-            var elapsed = simulation.Advance(GetAdoptedBaby(), now());
+            var elapsed = Advance(GetAdoptedBaby());
             var visit = simulation.VisitDoctor(elapsed.State);
             if (visit.State != State)
                 Commit(visit.State);
@@ -106,7 +114,7 @@ namespace BAIby.Application
         // photos are taken.
         public (bool Taken, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) TakePhoto(PhotoMoment moment)
         {
-            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var current = Advance(GetAdoptedBaby());
             var photo = simulation.TakePhoto(current.State, moment);
             if (photo.State != State)
                 Commit(photo.State);
@@ -115,8 +123,9 @@ namespace BAIby.Application
 
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(TimeSpan elapsed)
         {
-            var current = simulation.Advance(GetAdoptedBaby(), now());
-            var preview = simulation.AdvancePreview(current.State, elapsed);
+            var current = Advance(GetAdoptedBaby());
+            var preview = simulation.AdvancePreview(current.State, elapsed, CurrentHelpers, helperEvents);
+            Trim();
             Commit(preview.State);
             return (current.UnlockedSitting || preview.UnlockedSitting,
                 current.UnlockedCrawling || preview.UnlockedCrawling,
@@ -126,14 +135,14 @@ namespace BAIby.Application
         // Starts Away mode now, for up to 14 days. Any care, or EndAway, brings the baby back to normal.
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) StartAway(TimeSpan duration)
         {
-            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var current = Advance(GetAdoptedBaby());
             Commit(simulation.StartAway(current.State, duration));
             return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
         }
 
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) EndAway()
         {
-            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var current = Advance(GetAdoptedBaby());
             var back = simulation.EndAway(current.State);
             if (back != State)
                 Commit(back);
@@ -166,6 +175,41 @@ namespace BAIby.Application
             var updated = GetAdoptedBaby().WithAppearance(appearance);
             if (updated != State)
                 Commit(updated);
+        }
+
+        // What the helpers did since the last call, oldest first, for the return summary. Each event is returned once.
+        public IReadOnlyList<HelperEvent> TakeHelperEvents()
+        {
+            var taken = helperEvents.ToArray();
+            helperEvents.Clear();
+            return taken;
+        }
+
+        // Fills the Sitter's bottles (the feeder) at the current instant. Free; it is not care.
+        public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) StockFeeder()
+        {
+            var current = Advance(GetAdoptedBaby());
+            var stocked = simulation.StockFeeder(current.State);
+            if (stocked != State)
+                Commit(stocked);
+            return (current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
+        private HelperSettings CurrentHelpers => Helpers?.Invoke() ?? HelperSettings.None;
+
+        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state)
+        {
+            var update = simulation.Advance(state, now(), CurrentHelpers, helperEvents);
+            Trim();
+            return update;
+        }
+
+        // Unread events are kept for a while, newest last.
+        private void Trim()
+        {
+            const int kept = 64;
+            if (helperEvents.Count > kept)
+                helperEvents.RemoveRange(0, helperEvents.Count - kept);
         }
 
         private BabyState GetAdoptedBaby() =>

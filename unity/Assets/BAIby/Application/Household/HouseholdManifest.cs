@@ -153,6 +153,30 @@ namespace BAIby.Application
         // Pet progress per species, at most one record each.
         public IReadOnlyList<SpeciesRecord> SpeciesRecords { get; private set; } = Array.Empty<SpeciesRecord>();
 
+        // Helpers the household switched off (owned helpers are on otherwise), in HelperKind order.
+        public IReadOnlyList<HelperKind> HelpersOff { get; private set; } = Array.Empty<HelperKind>();
+
+        // The same manifest with the helpers switched off replaced.
+        public HouseholdManifest WithHelpersOff(IEnumerable<HelperKind> off)
+        {
+            if (off == null)
+                throw new ArgumentNullException(nameof(off));
+
+            var kinds = new List<HelperKind>();
+            foreach (var kind in off)
+            {
+                if (!Enum.IsDefined(typeof(HelperKind), kind))
+                    throw new ArgumentOutOfRangeException(nameof(off));
+                if (!kinds.Contains(kind))
+                    kinds.Add(kind);
+            }
+
+            kinds.Sort();
+            var copy = new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords);
+            copy.HelpersOff = kinds.AsReadOnly();
+            return copy;
+        }
+
         // Pet data (a pet companion, a pet keepsake or species progress) needs a build that knows pets.
         public bool HasPetData
         {

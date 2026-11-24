@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // What a journal entry records. Saved as numbers: append, never renumber.
-    public enum JournalKind { Arrival = 0, Milestone = 1, Photo = 2, Sticker = 3, HardDay = 4, Week = 5 }
+    public enum JournalKind { Arrival = 0, Milestone = 1, Photo = 2, Sticker = 3, HardDay = 4, Week = 5, Helper = 6 }
 
     // The moment a photo caught, which picks the pose drawn for it. Saved as numbers: append, never renumber.
     public enum PhotoMoment { Calm = 0, Playing = 1, Napping = 2, Story = 3, Cuddle = 4, Meal = 5, Bath = 6, Poorly = 7, Blocks = 8 }
@@ -20,6 +20,8 @@ namespace BAIby.Simulation
     // - Sticker: Count is the rhythm in days.
     // - HardDay: Spell, Since and SinceDay (when it began), and Skill for a shy skill.
     // - Week: Count is the week number and CareDays the care days counted in it.
+    // - Helper: what the helpers did on one day of the little one's life: Count feeder portions (the Sitter's bottles),
+    //   CareDays play top-ups and Tidies tidy-ups. At is the last of them. One entry a day; the journal shows it muted.
     public sealed class JournalEntry : IEquatable<JournalEntry>
     {
         public JournalKind Kind { get; }
@@ -34,10 +36,14 @@ namespace BAIby.Simulation
         public int SinceDay { get; }
         public int Count { get; }
         public int CareDays { get; }
+        public int Tidies { get; }
+        // A helper entry's counts.
+        public int Feeds => Kind == JournalKind.Helper ? Count : 0;
+        public int Plays => Kind == JournalKind.Helper ? CareDays : 0;
 
         private JournalEntry(JournalKind kind, DateTimeOffset at, int day, MotorSkill skill = MotorSkill.None,
             PhotoMoment moment = PhotoMoment.Calm, BabyAppearance look = null, HardSpell spell = HardSpell.Poorly,
-            DateTimeOffset? since = null, int sinceDay = 0, int count = 0, int careDays = 0)
+            DateTimeOffset? since = null, int sinceDay = 0, int count = 0, int careDays = 0, int tidies = 0)
         {
             if (!Enum.IsDefined(typeof(JournalKind), kind))
                 throw new ArgumentOutOfRangeException(nameof(kind));
@@ -53,8 +59,10 @@ namespace BAIby.Simulation
                 throw new ArgumentException("A milestone entry names its skill.", nameof(skill));
             if (kind == JournalKind.Photo && look == null)
                 throw new ArgumentException("A photo keeps the look it caught.", nameof(look));
-            if (count < 0 || careDays < 0 || sinceDay < 0)
+            if (count < 0 || careDays < 0 || sinceDay < 0 || tidies < 0 || (kind != JournalKind.Helper && tidies != 0))
                 throw new ArgumentOutOfRangeException(nameof(count));
+            if (kind == JournalKind.Helper && count + careDays + tidies == 0)
+                throw new ArgumentException("A helper entry says what the helpers did.", nameof(count));
             var start = since ?? at;
             if (start > at || (kind == JournalKind.HardDay && (sinceDay < 1 || sinceDay > day)))
                 throw new ArgumentException("A hard spell begins before it ends.", nameof(since));
@@ -70,6 +78,7 @@ namespace BAIby.Simulation
             SinceDay = sinceDay;
             Count = count;
             CareDays = careDays;
+            Tidies = tidies;
         }
 
         public static JournalEntry Arrival(DateTimeOffset at) => new JournalEntry(JournalKind.Arrival, at, 1);
@@ -90,24 +99,27 @@ namespace BAIby.Simulation
         public static JournalEntry Week(DateTimeOffset at, int day, int week, int careDays) =>
             new JournalEntry(JournalKind.Week, at, day, count: week, careDays: careDays);
 
+        public static JournalEntry Helper(DateTimeOffset at, int day, int feeds, int plays, int tidies) =>
+            new JournalEntry(JournalKind.Helper, at, day, count: feeds, careDays: plays, tidies: tidies);
+
         // Any entry, from saved fields; validates like the factories.
         public static JournalEntry Restore(JournalKind kind, DateTimeOffset at, int day, MotorSkill skill, PhotoMoment moment,
-            BabyAppearance look, HardSpell spell, DateTimeOffset since, int sinceDay, int count, int careDays) =>
-            new JournalEntry(kind, at, day, skill, moment, look, spell, since, sinceDay, count, careDays);
+            BabyAppearance look, HardSpell spell, DateTimeOffset since, int sinceDay, int count, int careDays, int tidies = 0) =>
+            new JournalEntry(kind, at, day, skill, moment, look, spell, since, sinceDay, count, careDays, tidies);
 
         public bool Equals(JournalEntry other) =>
             other != null && Kind == other.Kind && At.UtcTicks == other.At.UtcTicks && Day == other.Day &&
             Skill == other.Skill && Moment == other.Moment && Equals(Look, other.Look) && Spell == other.Spell &&
             Since.UtcTicks == other.Since.UtcTicks && SinceDay == other.SinceDay && Count == other.Count &&
-            CareDays == other.CareDays;
+            CareDays == other.CareDays && Tidies == other.Tidies;
 
         public override bool Equals(object obj) => Equals(obj as JournalEntry);
         public override int GetHashCode() => (int)Kind ^ At.UtcTicks.GetHashCode() ^ Day << 4;
     }
 
     // The little one's journal: milestones, up to three photos a day, rhythm stickers, hard days they got through and
-    // a page for each week, oldest first. Bounded so saves stay small: past MaxEntries the oldest photo goes first,
-    // then the oldest week page, sticker or hard day; arrival and milestones always stay. Immutable.
+    // a page for each week, oldest first. Bounded so saves stay small: past MaxEntries the oldest helper day goes first,
+    // then the oldest photo, week page, sticker or hard day; arrival and milestones always stay. Immutable.
     public sealed class JournalRecord : IEquatable<JournalRecord>
     {
         public const int MaxEntries = 200;
@@ -152,6 +164,36 @@ namespace BAIby.Simulation
 
         public bool InSpell => SpellDay > 0;
 
+        public bool HasHelperEntries
+        {
+            get
+            {
+                foreach (var entry in entries)
+                {
+                    if (entry.Kind == JournalKind.Helper)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        // The journal with one entry replaced (same kind and day) by a later one, kept in time order.
+        public JournalRecord Replace(JournalEntry old, JournalEntry entry)
+        {
+            if (old == null)
+                throw new ArgumentNullException(nameof(old));
+            if (entry == null)
+                throw new ArgumentNullException(nameof(entry));
+
+            var list = new List<JournalEntry>(entries);
+            var index = list.IndexOf(old);
+            if (index < 0)
+                throw new ArgumentException("The entry is not in this journal.", nameof(old));
+            list.RemoveAt(index);
+            return new JournalRecord(list, SpellSince, SpellDay, Weeks, WeekStartCareDays).With(entry);
+        }
+
         // Photos taken on a day of the little one's life.
         public int PhotosOn(int day)
         {
@@ -192,7 +234,7 @@ namespace BAIby.Simulation
 
         private static int Evictable(List<JournalEntry> list)
         {
-            foreach (var kind in new[] { JournalKind.Photo, JournalKind.Week, JournalKind.Sticker, JournalKind.HardDay })
+            foreach (var kind in new[] { JournalKind.Helper, JournalKind.Photo, JournalKind.Week, JournalKind.Sticker, JournalKind.HardDay })
             {
                 for (var i = 0; i < list.Count; i++)
                 {

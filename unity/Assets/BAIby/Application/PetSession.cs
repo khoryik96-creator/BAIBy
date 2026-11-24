@@ -15,6 +15,18 @@ namespace BAIby.Application
         private readonly PetSimulation simulation;
         private readonly SavedRecord<PetState> record;
         private readonly Func<DateTimeOffset> now;
+        private readonly List<HelperEvent> helperEvents = new List<HelperEvent>();
+
+        // The household's helpers (owned and switched on), read at every advance; null means none. Only a species with a
+        // care profile (the cat) has helpers.
+        public Func<HelperSettings> Helpers { get; set; }
+
+        // Whether the pet can have helpers (its species has a care profile).
+        public bool HasHelpers => PetSimulation.HasHelpers(State);
+
+        // Portions left in the auto-feeder; 0 before adoption or without a care profile.
+        public int FeederStock => HasHelpers ? State.Care?.Helpers.Stock ?? 0 : 0;
+        public int FeederCapacity => simulation.HelperRules.MaxStock;
 
         // Null until a pet is adopted or a saved pet is restored.
         public PetState State => record.Value;
@@ -68,7 +80,7 @@ namespace BAIby.Application
             if (State == null)
                 return false;
 
-            var update = simulation.Step(State, now());
+            var update = Step(State);
             Reached = update.Reached;
             if (update.State != State)
                 record.Commit(update.State);
@@ -137,7 +149,8 @@ namespace BAIby.Application
         public bool AdvancePreview(TimeSpan elapsed)
         {
             var current = Elapse();
-            var preview = simulation.PreviewStep(current.State, elapsed);
+            var preview = simulation.PreviewStep(current.State, elapsed, CurrentHelpers, helperEvents);
+            Trim();
             Reached = Join(Reached, preview.Reached);
             record.Commit(preview.State);
             return current.BecameGrown || preview.BecameGrown;
@@ -158,12 +171,49 @@ namespace BAIby.Application
                 record.Commit(updated);
         }
 
+        // What the helpers did since the last call, oldest first, for the return summary. Each event is returned once.
+        public IReadOnlyList<HelperEvent> TakeHelperEvents()
+        {
+            var taken = helperEvents.ToArray();
+            helperEvents.Clear();
+            return taken;
+        }
+
+        // Fills the auto-feeder at the current instant. Free; it is not care.
+        public bool StockFeeder()
+        {
+            var elapsed = Elapse();
+            if (!HasHelpers)
+                return elapsed.BecameGrown;
+            var stocked = simulation.StockFeeder(elapsed.State);
+            if (stocked != State)
+                record.Commit(stocked);
+            return elapsed.BecameGrown;
+        }
+
+        private HelperSettings CurrentHelpers => Helpers?.Invoke() ?? HelperSettings.None;
+
         // Advances to now without a write; the caller commits with what it does next.
         private PetStep Elapse()
         {
-            var step = simulation.Step(GetAdoptedPet(), now());
+            var step = Step(GetAdoptedPet());
             Reached = step.Reached;
             return step;
+        }
+
+        private PetStep Step(PetState state)
+        {
+            var step = simulation.Step(state, now(), CurrentHelpers, helperEvents);
+            Trim();
+            return step;
+        }
+
+        // Unread events are kept for a while, newest last.
+        private void Trim()
+        {
+            const int kept = 64;
+            if (helperEvents.Count > kept)
+                helperEvents.RemoveRange(0, helperEvents.Count - kept);
         }
 
         private static IReadOnlyList<MotorSkill> Join(IReadOnlyList<MotorSkill> first, IReadOnlyList<MotorSkill> second)

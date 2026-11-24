@@ -53,6 +53,42 @@ namespace BAIby.Simulation
             return new JournalRecord(entries, spellSince, spellDay, (int)Math.Min(int.MaxValue, age.Ticks / TimeSpan.TicksPerDay / DaysPerWeek), 0);
         }
 
+        // What the helpers did, one entry a day of the little one's life: each event adds to its day's counts, so one
+        // long advance and many short ones write the same entries. `startAge` is the age at the start of the advance (or
+        // the preview day) the events came from.
+        public static JournalRecord Helpers(JournalRecord journal, IReadOnlyList<HelperEvent> events, TimeSpan startAge)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+            if (events == null || events.Count == 0)
+                return journal;
+
+            foreach (var helped in events)
+            {
+                var day = DayOf(startAge + helped.Elapsed);
+                JournalEntry old = null;
+                var entries = journal.Entries;
+                for (var i = entries.Count - 1; i >= 0; i--)
+                {
+                    if (entries[i].Kind == JournalKind.Helper && entries[i].Day == day)
+                    {
+                        old = entries[i];
+                        break;
+                    }
+                }
+
+                var feeds = (old?.Feeds ?? 0) + (helped.Kind == HelperKind.Feeder ? 1 : 0);
+                var plays = (old?.Plays ?? 0) + (helped.Kind == HelperKind.Play ? 1 : 0);
+                var tidies = (old?.Tidies ?? 0) + (helped.Kind == HelperKind.Tidy ? 1 : 0);
+                var at = old != null && old.At > helped.At ? old.At : helped.At;
+                var entry = JournalEntry.Helper(at, day, Math.Min(HelperRecord.CountLimit, feeds),
+                    Math.Min(HelperRecord.CountLimit, plays), Math.Min(HelperRecord.CountLimit, tidies));
+                journal = old == null ? journal.With(entry) : journal.Replace(old, entry);
+            }
+
+            return journal;
+        }
+
         // A new little one's journal: the arrival.
         public static JournalRecord Start(DateTimeOffset at) =>
             new JournalRecord(new[] { JournalEntry.Arrival(at) }, DateTimeOffset.MinValue, 0, 0, 0);

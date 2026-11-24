@@ -41,6 +41,8 @@ static class EntitlementChecks
         Equal(true, products.Contains(ProductIds.HomeRooms2), "developer mode grants the extra rooms");
         Equal(true, products.Contains("breed.dog.corgi"), "developer mode grants premium breeds such as the Corgi");
         Equal(true, products.Contains("breed.cat.bengal"), "developer mode grants the premium cats");
+        foreach (var helper in new[] { "helper.feeder", "helper.play", "helper.tidy", "helper.set" })
+            Equal(true, products.Contains(helper), $"developer mode grants {helper}");
         Equal(products.Count, products.Distinct().Count(), "each product is granted once");
         foreach (var product in products)
             Equal(true, ProductIds.IsKnownFamily(product), $"{product} is a catalogue product");
@@ -66,6 +68,7 @@ static class EntitlementChecks
         Equal(true, household.CanAdoptBreed(PetBreed.Tabby), "developer mode opens earned breeds");
         Equal(true, household.CanAdoptBreed(PetBreed.Bengal), "developer mode opens premium breeds");
         Equal(HouseholdRules.FreeCompanions + 2, household.Capacity, "developer mode opens the extra rooms");
+        Equal(HelperSettings.All, household.Helpers, "developer mode turns every helper on");
         Equal(progress.FullCareDays, household.ProgressFor(Species.Cat).FullCareDays, "real progress is untouched");
         Equal(progress.HighestBond, household.ProgressFor(Species.Cat).HighestBond, "real Bond progress is untouched");
 
@@ -75,6 +78,7 @@ static class EntitlementChecks
         Equal(false, household.CanAdoptBreed(PetBreed.Tabby), "turning developer mode off locks earned breeds again");
         Equal(false, household.CanAdoptBreed(PetBreed.Bengal), "turning developer mode off locks premium breeds again");
         Equal(HouseholdRules.FreeCompanions, household.Capacity, "turning developer mode off returns to the free rooms");
+        Equal(HelperSettings.None, household.Helpers, "turning developer mode off stops the helpers");
     }
 
     private static void CheckProductIds()

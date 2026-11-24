@@ -10,11 +10,15 @@ namespace BAIby.Application
     // One <journal v="1"> element with an <j> per entry, oldest first. Attributes a kind does not use are left out so
     // a full journal (200 entries) stays small. Invalid data throws InvalidDataException; a newer version throws
     // NotSupportedException so the session leaves that save untouched.
+    //
+    // v2 adds helper days (kind 6, with feeder portions in n, play top-ups in c and tidy-ups in x). A journal without
+    // them is still written as v1 byte for byte; an older build leaves a v2 journal alone.
     internal static class JournalRecordCodec
     {
         public const string ElementName = "journal";
         private const string EntryName = "j";
-        private const int Version = 1;
+        private const int Version = 2;
+        private const int VersionBeforeHelpers = 1;
 
         public static XElement Encode(JournalRecord journal)
         {
@@ -22,7 +26,7 @@ namespace BAIby.Application
                 throw new ArgumentNullException(nameof(journal));
 
             var element = new XElement(ElementName,
-                new XAttribute("v", Version),
+                new XAttribute("v", journal.HasHelperEntries ? Version : VersionBeforeHelpers),
                 new XAttribute("spell", journal.InSpell ? journal.SpellSince.UtcTicks : 0),
                 new XAttribute("spell-day", journal.SpellDay),
                 new XAttribute("weeks", journal.Weeks),
@@ -52,6 +56,10 @@ namespace BAIby.Application
                     case JournalKind.Week:
                         item.Add(new XAttribute("n", entry.Count), new XAttribute("c", entry.CareDays));
                         break;
+                    case JournalKind.Helper:
+                        item.Add(new XAttribute("n", entry.Feeds), new XAttribute("c", entry.Plays),
+                            new XAttribute("x", entry.Tidies));
+                        break;
                 }
 
                 element.Add(item);
@@ -79,6 +87,8 @@ namespace BAIby.Application
                 foreach (var item in element.Elements(EntryName))
                 {
                     var kind = (JournalKind)(int)Attribute(item, "k");
+                    if (kind == JournalKind.Helper && version < Version)
+                        throw new InvalidDataException("A journal before helpers cannot hold a helper day.");
                     var at = Instant(Attribute(item, "t"));
                     var skill = item.Attribute("s") == null ? MotorSkill.None : (MotorSkill)(int)item.Attribute("s");
                     var moment = PhotoMoment.Calm;
@@ -100,8 +110,9 @@ namespace BAIby.Application
 
                     var count = item.Attribute("n") == null ? 0 : (int)item.Attribute("n");
                     var careDays = item.Attribute("c") == null ? 0 : (int)item.Attribute("c");
+                    var tidies = item.Attribute("x") == null ? 0 : (int)item.Attribute("x");
                     entries.Add(JournalEntry.Restore(kind, at, (int)Attribute(item, "d"), skill, moment, look, spell, since,
-                        sinceDay, count, careDays));
+                        sinceDay, count, careDays, tidies));
                 }
 
                 var spellTicks = (long)Attribute(element, "spell");

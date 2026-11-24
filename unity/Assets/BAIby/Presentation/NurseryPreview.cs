@@ -76,6 +76,9 @@ namespace BAIby.Presentation
                 case HouseholdView.Wake:
                     ShowHome();
                     break;
+                case HouseholdView.Helpers:
+                    ShowSettings();
+                    break;
                 case HouseholdView.Gate:
                     CancelGate();
                     break;
@@ -296,8 +299,18 @@ namespace BAIby.Presentation
             energy.Set(state.Energy);
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
+            ApplyBabyFloors(state);
             var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeGrowthReaction(state, reaction) ??
                 DescribeReaction(state.Name, reaction, visibleToy, food);
+            // What the helpers did comes first; the return summary waits in the bubble until the player cares.
+            var slot = household?.Active?.Slot ?? 0;
+            var helperLine = TakeHelperLine(slot, state.Name, false);
+            if (reaction != Reaction.None)
+            {
+                ClearHelperNote();
+                if (helperLine != null)
+                    reactionText = helperLine + " " + reactionText;
+            }
             // Milestones are celebrated as before, and each has a page in the journal now. A new sticker waits for a
             // refresh without a milestone to celebrate.
             var milestone = unlocked.UnlockedSitting || unlocked.UnlockedCrawling || unlocked.UnlockedWalking;
@@ -315,12 +328,14 @@ namespace BAIby.Presentation
                 status.text = sticker;
             else
                 status.text = reaction == Reaction.None
-                    ? DescribeCondition(state) ?? DescribeNeeds(state, TemperamentMoment(state))
+                    ? HelperNoteFor(slot, DescribeCondition(state)) ?? DescribeCondition(state) ??
+                      DescribeNeeds(state, TemperamentMoment(state))
                     : reactionText;
 
             UpdateRoutineSlots(session.Routine, state.Care.Preset);
             routine.UpdateDetails(state, DescribeCondition(state) ??
                 $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
+            UpdateRoutineHelpers(state.Name, false, session.FeederStock, session.FeederCapacity);
             var growth = session.Growth;
             development.UpdateDetails(state, age.text, status.text, growth, session.Bonding);
             report.UpdateDetails(BabyReport.From(state), growth,
@@ -736,6 +751,38 @@ namespace BAIby.Presentation
             public Text Label { get; }
 
             public void Tint(Color color) => fill.color = color;
+
+            private Image floor;
+
+            // A small dot on the ring at a helper's floor while that helper is active; null hides it.
+            public void SetFloor(double? value)
+            {
+                if (value == null)
+                {
+                    if (floor != null)
+                        floor.gameObject.SetActive(false);
+                    return;
+                }
+
+                if (floor == null)
+                {
+                    floor = Surface(Box("Helper floor", bar, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero),
+                        WithAlpha(Ink, 0.55f));
+                    SoftShapes.Disc(floor);
+                    floor.raycastTarget = false;
+                }
+
+                // The ring sweeps clockwise from the top; the dot sits on the middle of its stroke.
+                const float stroke = 0.86f;
+                var angle = Mathf.Clamp01((float)(value.Value / 100)) * 2 * Mathf.PI;
+                var at = new Vector2(0.5f + 0.5f * stroke * Mathf.Sin(angle), 0.5f + 0.5f * stroke * Mathf.Cos(angle));
+                var rect = floor.rectTransform;
+                rect.anchorMin = at;
+                rect.anchorMax = at;
+                rect.offsetMin = new Vector2(-5, -5);
+                rect.offsetMax = new Vector2(5, 5);
+                floor.gameObject.SetActive(true);
+            }
 
             public void Set(double amount)
             {

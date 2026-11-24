@@ -283,6 +283,7 @@ namespace BAIby.Presentation
                 petMeters[i].Label.text = MeterName(meter);
                 petMeters[i].Meter.Tint(MeterColor(meter));
                 petMeters[i].Set(state.Meter(meter));
+                petMeters[i].Meter.SetFloor(PetFloor(state, meter));
                 shownMeters.Add(petMeters[i].Meter);
             }
 
@@ -292,10 +293,15 @@ namespace BAIby.Presentation
                 button.interactable = !household.IsResting(petSlot);
 
             petStage.Show(state.Appearance, household.PetCatalog, state.Stage, IsSleepy(state) || IsPoorly(state));
+            // What the helpers did comes first; with nothing else to say, the return summary ends with the attention line.
+            var helperLine = TakeHelperLine(petSlot, state.Name, true);
+            if (helperLine != null)
+                message = message == null ? HelperNoteFor(petSlot, DescribePetCondition(state)) : helperLine + " " + message;
             if (message != null)
                 petStatus.text = message;
             else if (!keepStatus || string.IsNullOrEmpty(petStatus.text))
                 petStatus.text = DescribePetCondition(state) ?? DescribePetNeeds(state);
+            UpdateFeederChip(state);
             PaintPetCare(companion);
             LayoutTopStack();
             LayoutPetSheet();

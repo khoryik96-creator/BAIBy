@@ -12,7 +12,7 @@ namespace BAIby.Presentation
     public sealed partial class NurseryPreview
     {
         // Choose is "Who's joining your home?"; PetAdoption picks species, breed and name; PetRoom is a pet's room.
-        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom }
+        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom, Helpers }
 
         private HouseholdView view = HouseholdView.Adoption;
         private HouseholdSession household;

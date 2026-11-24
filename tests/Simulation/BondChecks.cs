@@ -663,7 +663,7 @@ static class BondChecks
         foreach (var (element, name) in new[] { ("bond", "bond record"), ("journal", "journal") })
         {
             var newer = XElement.Parse(payload);
-            newer.Element(element).SetAttributeValue("v", 2);
+            newer.Element(element).SetAttributeValue("v", element == "journal" ? 3 : 2);
             Expect<NotSupportedException>(() => BabySaveCodec.Decode(newer.ToString(SaveOptions.DisableFormatting)),
                 $"a newer {name} is unsupported, not corrupt");
         }

@@ -32,7 +32,8 @@ namespace BAIby.Presentation
             gate = new GatePanel(Tray("Parental Gate Panel", false, 420), CancelGate, SubmitGate);
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
             settings = new SettingsPanel(Tray("Household Settings Panel", false, 480), ShowHome, RestorePurchases, ShowMoreRooms,
-                ToggleDeveloperMode);
+                ToggleDeveloperMode, ShowHelpersPanel);
+            helpersPanel = new HelpersPanel(Tray("Helpers Panel", false, 500), ShowSettings, ToggleHelper, ToggleTestHelpers);
             journal = new JournalPanel(Tray("Journal Panel", false, JournalPanel.PetHeight), CloseJournal, nursery.PhotoSprite);
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
         }
@@ -42,6 +43,7 @@ namespace BAIby.Presentation
             gate.Root.SetActive(view == HouseholdView.Gate);
             moreRooms.Root.SetActive(view == HouseholdView.MoreRooms);
             settings.Root.SetActive(view == HouseholdView.Settings);
+            helpersPanel.Root.SetActive(view == HouseholdView.Helpers);
             journal.Root.SetActive(view == HouseholdView.Journal);
             wakePanel.Root.SetActive(view == HouseholdView.Wake);
         }
@@ -54,6 +56,7 @@ namespace BAIby.Presentation
                 case HouseholdView.Gate: return gate.Feedback;
                 case HouseholdView.MoreRooms: return moreRooms.Feedback;
                 case HouseholdView.Settings: return settings.Feedback;
+                case HouseholdView.Helpers: return helpersPanel.Feedback;
                 case HouseholdView.Journal: return journal.Feedback;
                 case HouseholdView.Wake: return wakePanel.Feedback;
                 case HouseholdView.Choose: return choice.Feedback;
@@ -108,6 +111,9 @@ namespace BAIby.Presentation
                     break;
                 case HouseholdView.Settings:
                     settings.Show(household, PlaytestOn, playtest);
+                    break;
+                case HouseholdView.Helpers:
+                    helpersPanel.Show(household, playtest, HelperCopyFor(household.Active?.Name));
                     break;
             }
         }
@@ -362,7 +368,8 @@ namespace BAIby.Presentation
             private readonly Button developer;
             private readonly Text developerLabel;
 
-            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper)
+            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper,
+                Action helpers)
             {
                 Root = content.parent.gameObject;
                 var heading = Label("Settings Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
@@ -380,12 +387,16 @@ namespace BAIby.Presentation
                 detail.resizeTextMaxSize = 23;
                 PlaceFromTop(detail.rectTransform, 0, 1, 88, 200);
 
-                var restoreButton = ActionButton("Restore purchases", content, 0, 0.5f, 0, 0, restore, Fern, Color.white);
-                PlaceFromTop((RectTransform)restoreButton.transform, 0, 0.5f, 212, 296, 3, 3);
-                var roomsButton = ActionButton("Settings more rooms", content, 0.5f, 1, 0, 0, moreRooms, Mist, Ink);
+                var restoreButton = ActionButton("Restore purchases", content, 0, 0.38f, 0, 0, restore, Fern, Color.white);
+                PlaceFromTop((RectTransform)restoreButton.transform, 0, 0.38f, 212, 296, 3, 3);
+                var roomsButton = ActionButton("Settings more rooms", content, 0.38f, 0.69f, 0, 0, moreRooms, Mist, Ink);
                 roomsButton.GetComponentInChildren<Text>().text = "More rooms";
-                PlaceFromTop((RectTransform)roomsButton.transform, 0.5f, 1, 212, 296, 3, 3);
-                foreach (var button in new[] { restoreButton, roomsButton })
+                PlaceFromTop((RectTransform)roomsButton.transform, 0.38f, 0.69f, 212, 296, 3, 3);
+                // Switch each owned helper on or off for the household; nothing here sells them.
+                var helpersButton = ActionButton("Settings helpers", content, 0.69f, 1, 0, 0, helpers, Mist, Ink);
+                helpersButton.GetComponentInChildren<Text>().text = "Helpers";
+                PlaceFromTop((RectTransform)helpersButton.transform, 0.69f, 1, 212, 296, 3, 3);
+                foreach (var button in new[] { restoreButton, roomsButton, helpersButton })
                 {
                     var label = button.GetComponentInChildren<Text>();
                     label.resizeTextForBestFit = true;
