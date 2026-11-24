@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace BAIby.Simulation
 {
@@ -24,17 +25,17 @@ namespace BAIby.Simulation
         // The offline decay cap from the care retune: a missed day is felt without needs collapsing.
         public static readonly TimeSpan DefaultMaxNeedDecay = TimeSpan.FromHours(8);
         private readonly CareTunables careTunables;
-        private readonly TimeSpan sittingAge;
+        private readonly BabyGrowth growth;
         private readonly TimeSpan maxNeedDecay;
-        private readonly TimeSpan crawlingAge;
-        private readonly TimeSpan walkingAge;
         private const double InitialEnergy = 80;
         private const double MilkFullness = 35;
         private const double BananaFullness = 28;
         private const double OatsFullness = 40;
 
+        // The three ages are each milestone's nominal age: readiness moves it to between 0.8x and 1.3x of it with care,
+        // and always unlocks it by GrowthTunables.Guarantee (1.4x).
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge,
-            CareTunables careTunables = null)
+            CareTunables careTunables = null, GrowthTunables growthTunables = null)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
@@ -47,12 +48,12 @@ namespace BAIby.Simulation
             if (walkingAge <= crawlingAge)
                 throw new ArgumentOutOfRangeException(nameof(walkingAge), "Walking follows crawling.");
 
-            this.sittingAge = sittingAge;
             this.maxNeedDecay = maxNeedDecay;
-            this.crawlingAge = crawlingAge;
-            this.walkingAge = walkingAge;
             this.careTunables = careTunables ?? CareTunables.Default;
             this.careTunables.Validate();
+            var growthRules = growthTunables ?? GrowthTunables.Default;
+            growthRules.Validate();
+            growth = new BabyGrowth(sittingAge, crawlingAge, walkingAge, this.careTunables, growthRules);
         }
 
         public BabyState Adopt(string name, DateTimeOffset now)
@@ -60,21 +61,41 @@ namespace BAIby.Simulation
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
-            return new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
+            var baby = new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
                 BabyAppearance.Default, CareRules.Start(now, careTunables));
+            return baby.With(development: growth.Seed(baby));
         }
 
         // Real time: needs follow the local day and night, the ledger evaluates windows, and the needs axis and
-        // the health axis each move at most one rung. Development keeps its nominal pace, Away mode included
-        // (CareConsequences.Readiness is the factor slice 4's readiness timing will apply).
+        // the health axis each move at most one rung. Readiness grows with the Motor track's quality, sampled every
+        // hour, and the condition at the start of the gap (BabyGrowth); a skill unlocks when it is ready, and always
+        // by 1.4x its nominal age. While the player is present, neglect can make the newest skill shy (a setback).
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
         {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
             if (now <= state.TimeCheckpoint)
-                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care);
+            {
+                var due = growth.Settle(state);
+                if (!due.AnyUnlocked)
+                    return (state, false, false, false);
+                return Develop(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care, due, due.Draft.Build());
+            }
 
             var care = CareRules.Advance(state.Care, now, careTunables);
-            var needs = BabyNeeds.Real(BabyNeeds.From(state), state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
-                careTunables.DayStart, HealthEffects(state.Care));
+            var start = BabyNeeds.From(state);
+            var effects = HealthEffects(state.Care);
+            var needs = BabyNeeds.Real(start, state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
+                careTunables.DayStart, effects);
+            // Each sample sees the ledger and needs a pure advance from this state would reach at its instant.
+            var step = growth.Real(state, now, at =>
+            {
+                if (at == now.UtcTicks)
+                    return (care, needs);
+                var ledger = CareRules.Advance(state.Care, new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset), careTunables);
+                return (ledger, BabyNeeds.Real(start, state.Care, ledger, maxNeedDecay, careTunables.AwayHoldLevel,
+                    careTunables.DayStart, effects));
+            });
             // The first advance of a migrated ledger excuses the whole gap and moves nobody on the ladder.
             if (!state.Care.AwaitingAnchor)
             {
@@ -82,7 +103,15 @@ namespace BAIby.Simulation
                 care = CareConsequences.SettleHealth(state.Care, care, needs.Health, careTunables);
             }
 
-            return AdvanceElapsed(state, now, now - state.TimeCheckpoint, needs, care);
+            if (step.ResampleAtEnd)
+                step.Draft.Sample = growth.SampleNow(needs, care, state.Connection, step.Draft.Engagement, now.UtcTicks);
+            var development = step.Draft.Build();
+            var advanced = Develop(state, now, now - state.TimeCheckpoint, needs, care, step, development);
+            var setback = growth.Setback(development, advanced.State, state.Care, care);
+            return ReferenceEquals(setback, development)
+                ? advanced
+                : (advanced.State.With(development: setback), advanced.UnlockedSitting, advanced.UnlockedCrawling,
+                    advanced.UnlockedWalking);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
@@ -93,10 +122,22 @@ namespace BAIby.Simulation
             // Preview days pass no real time, so no routine window passes: the ledger and the mood are
             // untouched (Covered), and the hours count as awake hours.
             // A recovering baby keeps its faster recovery while the visit's window is open at the checkpoint.
+            // Readiness follows the needs as they fall through the preview hours; engagement and the ledger hold.
             var effects = HealthEffects(state.Care);
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
-            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed,
-                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost), state.Care);
+            var step = growth.Preview(state, elapsed, maxNeedDecay, boost);
+            return Develop(state, state.TimeCheckpoint, elapsed,
+                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost), state.Care, step, step.Draft.Build());
+        }
+
+        // The baby's development for the Growth panel and the report: track qualities, the growth chart band, and
+        // when the next skill is likely at the current pace.
+        public GrowthReport Growth(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return growth.Report(state);
         }
 
         // Whether the doctor's visit is offered: the baby is under the weather or sick.
@@ -140,7 +181,13 @@ namespace BAIby.Simulation
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
 
-            return CareDiagnostics.Summary(state.Care, careTunables);
+            var report = growth.Report(state);
+            var sample = report.Sample;
+            return CareDiagnostics.Summary(state.Care, careTunables) + string.Format(CultureInfo.InvariantCulture,
+                " | growth {0} {1:0.00} in {2:0.0}d | W {3:0.00} Q motor {4:0.00} learning {5:0.00} social {6:0.00} physical {7:0.00}{8}{9}",
+                report.Next, report.Readiness, report.ExpectedIn.TotalDays, sample.Wellbeing, sample.Motor, sample.Learning,
+                sample.Social, sample.Physical, sample.Mode == SampleMode.Normal ? "" : " " + sample.Mode,
+                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy);
         }
 
         // Today's routine windows at the state's checkpoint.
@@ -189,25 +236,16 @@ namespace BAIby.Simulation
             return state.Satiety >= careTunables.FullMealThreshold;
         }
 
-        private (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvanceElapsed(
-            BabyState state, DateTimeOffset now, TimeSpan elapsed, BabyNeeds.Values needs, CareRecord care)
+        private static (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Develop(
+            BabyState state, DateTimeOffset now, TimeSpan elapsed, BabyNeeds.Values needs, CareRecord care,
+            BabyGrowth.Step step, DevelopmentRecord development)
         {
-            var age = state.Age + elapsed;
-            var canSit = state.CanSitAndReach || age >= sittingAge;
-            var canCrawl = state.CanCrawl || age >= crawlingAge;
-            var canWalk = state.CanWalk || age >= walkingAge;
-            var unlockedSitting = canSit && !state.CanSitAndReach;
-            var unlockedCrawling = canCrawl && !state.CanCrawl;
-            var unlockedWalking = canWalk && !state.CanWalk;
-            if (elapsed == TimeSpan.Zero && !unlockedSitting && !unlockedCrawling && !unlockedWalking)
-                return (state, false, false, false);
-
-            var updated = state.With(timeCheckpoint: now, age: age,
+            var updated = state.With(timeCheckpoint: now, age: state.Age + elapsed,
                 satiety: needs.Satiety, comfort: needs.Comfort, energy: needs.Energy,
-                canSitAndReach: canSit, canCrawl: canCrawl, canWalk: canWalk,
-                cleanliness: needs.Cleanliness, health: needs.Health, care: care);
+                canSitAndReach: step.CanSitAndReach, canCrawl: step.CanCrawl, canWalk: step.CanWalk,
+                cleanliness: needs.Cleanliness, health: needs.Health, care: care, development: development);
 
-            return (updated, unlockedSitting, unlockedCrawling, unlockedWalking);
+            return (updated, step.UnlockedSitting, step.UnlockedCrawling, step.UnlockedWalking);
         }
 
         public static bool CanFeed(BabyState state, Food food) =>
@@ -405,7 +443,8 @@ namespace BAIby.Simulation
 
             // The ledger records the routine (and ends Away mode); then the right care calms the needs axis.
             var care = CareRules.ApplyCare(state.Care, tags, state.Satiety, careTunables);
-            var cared = new BabyNeeds.Values { Satiety = satiety, Comfort = comfort, Energy = energy, Cleanliness = cleanliness };
+            var cared = new BabyNeeds.Values { Satiety = satiety, Comfort = comfort, Energy = energy, Cleanliness = cleanliness,
+                Health = state.Health };
             care = CareConsequences.AfterCare(care, tags, Snapshot(cared), careTunables);
             if (action == CareAction.Medicine && medicine == MedicineState.Ready)
             {
@@ -414,10 +453,18 @@ namespace BAIby.Simulation
                     reaction = Reaction.MedicineDone;
             }
 
+            // Engagement, the day's variety, the setback's good day and a fresh quality sample.
+            var developed = growth.AfterCare(state, action, toy, reaction, care, cared, Math.Min(100, connection));
+            if (developed.Recovered)
+                reaction = Reaction.SkillBack;
+            else if (developed.Bored)
+                reaction = Reaction.Bored;
+
             return (state.With(satiety: satiety, comfort: comfort, energy: energy,
                 toyFamiliarity: rattleFamiliarity, plushFamiliarity: plushFamiliarity,
-                connection: Math.Min(100, connection), storySessions: storySessions, cleanliness: cleanliness,
-                newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care), reaction);
+                connection: developed.Connection, storySessions: storySessions, cleanliness: cleanliness,
+                newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care,
+                development: developed.Record), reaction);
         }
 
         // Gains stop at the ceiling; a value already above it is kept.
@@ -441,14 +488,15 @@ namespace BAIby.Simulation
 
         private static Reaction ToyReaction(BabyState state, int familiarity)
         {
+            // A shy skill shows the stage before it: the walker crawls to the toy.
             if (familiarity < 2)
                 return Reaction.TracksToy;
-            if (state.CanWalk)
+            if (state.ShowsWalking)
                 return Reaction.WalksToToy;
-            if (state.CanCrawl)
+            if (state.ShowsCrawling)
                 return Reaction.CrawlsToToy;
 
-            return state.CanSitAndReach ? Reaction.ReachesForToy : Reaction.TracksToy;
+            return state.ShowsSitting ? Reaction.ReachesForToy : Reaction.TracksToy;
         }
 
         public static string CareVerbFor(CareAction action)

@@ -166,7 +166,7 @@ namespace BAIby.Simulation
             upsetDwell: TimeSpan.FromMinutes(30), escalation: TimeSpan.FromHours(4), missedMealsForUpset: 3,
             upsetCareScore: 0.4, overdueMealIsFussy: false, calmFullness: 40, calmComfort: 30, overfeedComfort: 5,
             overfeedCleanliness: 5, messComfortCut: 0.03, unwellHealth: 40, unwellCareScore: 0.35, sickHealth: 20,
-            sickUnwellTime: TimeSpan.FromHours(24), sickSessions: 3, sickDwell: TimeSpan.FromMinutes(30));
+            sickUnwellTime: TimeSpan.FromHours(24), sickSessions: 3, sickDwell: TimeSpan.FromMinutes(30), setbacks: false);
 
         // Content becomes Fussy when a need falls below this.
         public double FussyNeed { get; }
@@ -200,13 +200,15 @@ namespace BAIby.Simulation
         public TimeSpan SickUnwellTime { get; }
         public int SickSessions { get; }
         public TimeSpan SickDwell { get; }
+        // Whether the setback rung (the newest skill goes shy) exists. Gentle care has no setback loss.
+        public bool Setbacks { get; }
 
         public CareStyleRules(double fussyNeed = 35, double upsetNeed = 15, TimeSpan? upsetDwell = null,
             TimeSpan? escalation = null, int missedMealsForUpset = 2, double upsetCareScore = 0.6,
             bool overdueMealIsFussy = true, double calmFullness = 50, double calmComfort = 40,
             double overfeedComfort = 10, double overfeedCleanliness = 15, double messComfortCut = 0.05,
             double unwellHealth = 50, double unwellCareScore = 0.45, double sickHealth = 30, TimeSpan? sickUnwellTime = null,
-            int sickSessions = 2, TimeSpan? sickDwell = null)
+            int sickSessions = 2, TimeSpan? sickDwell = null, bool setbacks = true)
         {
             FussyNeed = fussyNeed;
             UpsetNeed = upsetNeed;
@@ -226,6 +228,7 @@ namespace BAIby.Simulation
             SickUnwellTime = sickUnwellTime ?? TimeSpan.FromHours(18);
             SickSessions = sickSessions;
             SickDwell = sickDwell ?? TimeSpan.FromMinutes(15);
+            Setbacks = setbacks;
         }
 
         internal void Validate(string name)
@@ -260,7 +263,8 @@ namespace BAIby.Simulation
             OverfeedComfort <= other.OverfeedComfort && OverfeedCleanliness <= other.OverfeedCleanliness &&
             MessComfortCut <= other.MessComfortCut && UnwellHealth <= other.UnwellHealth &&
             UnwellCareScore <= other.UnwellCareScore && SickHealth <= other.SickHealth &&
-            SickUnwellTime >= other.SickUnwellTime && SickSessions >= other.SickSessions && SickDwell >= other.SickDwell;
+            SickUnwellTime >= other.SickUnwellTime && SickSessions >= other.SickSessions && SickDwell >= other.SickDwell &&
+            (!Setbacks || other.Setbacks);
 
         private static bool IsNeed(double value) => !double.IsNaN(value) && value >= 0 && value <= 100;
     }

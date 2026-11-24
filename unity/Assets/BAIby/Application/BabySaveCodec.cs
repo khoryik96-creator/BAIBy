@@ -11,7 +11,10 @@ namespace BAIby.Application
         // v13: the care element carries the consequence state (care v2). The baby fields are unchanged, so a
         // v12 baby decodes as before and its care v1 record migrates (see CareRecordCodec).
         // v14: the care element carries the health axis (care v3); a v13 baby decodes as well.
-        private const int Version = 14;
+        // v15: a <development> element carries the development tracks, readiness and the setback. A v14 or older baby
+        // has none: the simulation seeds it from age, and its first advance keeps the nominal pace.
+        private const int Version = 15;
+        private const int VersionBeforeDevelopment = 14;
         private const int VersionBeforeCare = 11;
         private const int VersionBeforeAppearance = 10;
         private const int VersionBeforeBlockTowers = 9;
@@ -52,7 +55,8 @@ namespace BAIby.Application
                     new XAttribute("hair-style", (int)state.Appearance.HairStyle),
                     new XAttribute("outfit", (int)state.Appearance.Outfit),
                     new XAttribute("headwear", (int)state.Appearance.Headwear)),
-                CareRecordCodec.Encode(state.Care))
+                CareRecordCodec.Encode(state.Care),
+                state.Development == null ? null : DevelopmentRecordCodec.Encode(state.Development))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -87,7 +91,11 @@ namespace BAIby.Application
                     version > VersionBeforeBlockTowers ? (int)Field(root, "block-towers") : 0,
                     version > VersionBeforeAppearance ? DecodeAppearance(Field(root, "appearance")) : BabyAppearance.Default,
                     // Older babies get an unanchored ledger: their first advance excuses the whole gap.
-                    version > VersionBeforeCare ? CareRecordCodec.Decode(Field(root, CareRecordCodec.ElementName)) : null);
+                    version > VersionBeforeCare ? CareRecordCodec.Decode(Field(root, CareRecordCodec.ElementName)) : null,
+                    // A baby that was never advanced since its migration saves no development record yet.
+                    version > VersionBeforeDevelopment && root.Element(DevelopmentRecordCodec.ElementName) != null
+                        ? DevelopmentRecordCodec.Decode(root.Element(DevelopmentRecordCodec.ElementName))
+                        : null);
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)

@@ -188,7 +188,7 @@ static class CareChecks
         Equal("", session.CareSummary, "no read-out before adoption");
         session.Adopt("Mia");
         Equal(true, session.CareSummary.StartsWith("Care day 2026-02-28 UTC+01:00 | today EEEE"), "the read-out names the care day");
-        Equal(true, session.CareSummary.EndsWith("ledger started, first day excused"), "the read-out names the last reason");
+        Equal(true, session.CareSummary.Contains("| ledger started, first day excused | growth Sitting"), "the read-out names the last reason");
     }
 
     private static void DaylightSavingShifts()
@@ -426,7 +426,7 @@ static class CareChecks
         Equal(1.0, CareRules.Score(care, Tunables), "a migrated baby starts with a full CareScore");
         Equal(Day(2026, 3, 5), care.CareDay, "the care day follows the player's local date");
         Equal(summer, care.Offset, "the ledger takes the player's offset");
-        Equal(true, saves.Primary.Contains("version=\"14\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v14");
+        Equal(true, saves.Primary.Contains("version=\"15\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v15");
         Equal(care, new BabySession(game, saves, () => clock).State.Care, "the anchored ledger survives a reload");
 
         session.ApplyCare(CareAction.Feed);

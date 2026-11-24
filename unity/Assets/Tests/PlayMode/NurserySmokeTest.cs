@@ -161,9 +161,13 @@ namespace BAIby.Tests
             Assert.That(Child<Button>(view.gameObject, "Stack blocks").interactable, Is.False);
             Assert.That(Child<Text>(view.gameObject, "Blocks Availability").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("0"));
+            Assert.That(Child<Text>(view.gameObject, "Growth Projection Text").text, Does.StartWith("Likely to sit up"));
+            Assert.That(Child<Text>(view.gameObject, "Growth Pace Label").text, Is.Not.Empty);
             var saveBeforeReport = PlayerPrefs.GetString(saveKey);
             Tap(view.gameObject, "Baby report");
-            Assert.That(Child<Text>(view.gameObject, "Report Sitting").text, Is.EqualTo("Locked"));
+            Assert.That(Child<Text>(view.gameObject, "Report Sitting").text, Does.StartWith("Likely"));
+            Assert.That(Child<Text>(view.gameObject, "Report Moving").text, Does.StartWith("Moving · "));
+            Assert.That(Child<Text>(view.gameObject, "Report Growth Chart").text, Does.StartWith("Growth chart · "));
             Assert.That(Child<Text>(view.gameObject, "Report Crawling").text, Is.EqualTo("Locked"));
             Assert.That(Child<Text>(view.gameObject, "Report Walking").text, Is.EqualTo("Locked"));
             Assert.That(Child<Text>(view.gameObject, "Report Favorite Toy").text, Does.Contain("Plush"));
@@ -237,9 +241,8 @@ namespace BAIby.Tests
             Assert.That(diaper.enabled, Is.True);
             Assert.That(diaper.sprite, Is.Not.Null);
 
-            for (var day = 1; day < 3; day++)
-                Tap(view.gameObject, "Preview next day");
-
+            // Readiness sets the day: never before 0.8x the nominal day 3, always by 1.4x.
+            Assert.That(PreviewUntil(view.gameObject, "Early sitter", 4), Is.InRange(3, 5));
             Assert.That(Reaction(view.gameObject), Does.Contain("can sit up now"));
             Tap(view.gameObject, "A new sound");
             Assert.That(Child<Text>(view.gameObject, "New Sound Scene").text, Does.Contain("window"));
@@ -309,12 +312,7 @@ namespace BAIby.Tests
             Assert.That(Reaction(restored.gameObject), Does.Contain("explore the sound together"));
             Assert.That(Child<Button>(restored.gameObject, "A new sound").gameObject.activeInHierarchy, Is.False);
 
-            for (var day = 3; day < 6; day++)
-                Tap(restored.gameObject, "Preview next day");
-
-            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Day 7 · Early sitter"));
-            Tap(restored.gameObject, "Preview next day");
-            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Day 8 · Crawler"));
+            Assert.That(PreviewUntil(restored.gameObject, "Crawler", 8), Is.InRange(6, 10));
             Assert.That(Reaction(restored.gameObject), Does.Contain("can crawl now"));
             yield return new WaitForSecondsRealtime(0.95f);
             var crawling = Child<SpriteRenderer>(restored.gameObject, "Crawler artwork");
@@ -353,12 +351,7 @@ namespace BAIby.Tests
             Assert.That(Child<SpriteRenderer>(crawler.gameObject, "Nursery illustration peach").enabled, Is.False);
             Tap(crawler.gameObject, "Close decor");
 
-            for (var day = 7; day < 13; day++)
-                Tap(crawler.gameObject, "Preview next day");
-
-            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Day 14 · Crawler"));
-            Tap(crawler.gameObject, "Preview next day");
-            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Day 15 · Early walker"));
+            Assert.That(PreviewUntil(crawler.gameObject, "Early walker", 14), Is.InRange(12, 20));
             Assert.That(Reaction(crawler.gameObject), Does.Contain("can take a few steps now"));
             yield return new WaitForSecondsRealtime(0.55f);
             var walking = Child<SpriteRenderer>(crawler.gameObject, "Walker artwork");
@@ -879,6 +872,24 @@ namespace BAIby.Tests
             view.GetComponentsInChildren<T>(true).Single(component => component.name == name);
 
         private static string Reaction(GameObject view) => Child<Text>(view, "Reaction").text;
+
+        // Taps Next day until the header shows the stage and returns its day ("Day 7 · Crawler" is day 7).
+        private static int PreviewUntil(GameObject view, string stage, int maxTaps)
+        {
+            for (var tap = 0; tap < maxTaps; tap++)
+            {
+                Tap(view, "Preview next day");
+                var age = Child<Text>(view, "Age").text;
+                if (!age.Contains(stage))
+                    continue;
+
+                var start = age.IndexOf("Day ", StringComparison.Ordinal) + 4;
+                return int.Parse(age.Substring(start, age.IndexOf(' ', start) - start));
+            }
+
+            Assert.Fail($"{stage} did not arrive within {maxTaps} preview days.");
+            return -1;
+        }
 
         // A ring meter's fill: Bar is the track, Bar/Fill the radial fill (0 to 1).
         private static float NeedValue(GameObject view, string name) =>

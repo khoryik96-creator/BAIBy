@@ -307,7 +307,7 @@ static class HouseholdChecks
         Equal(Start, household.Active.State.TimeCheckpoint, "a switch does not advance time");
         household.Switch(2);
 
-        now = Start.AddDays(3);
+        now = Start.AddDays(4.2);
         var shown = household.AdvanceAll();
         Equal((true, false, false), shown, "the on-screen companion reports its own unlock");
         Equal(now, household.Companions[0].State.TimeCheckpoint, "an off-screen companion advances on resume");
@@ -328,14 +328,14 @@ static class HouseholdChecks
         Equal(0, reopened.TakeCelebrations(1).Count, "the celebration is shown once");
         Equal(false, new HouseholdSession(game, store, () => now).HasCelebrations(1), "a shown celebration stays shown");
 
-        now = Start.AddDays(7);
+        now = Start.AddDays(9.8);
         var hidden = reopened.AdvanceAll(activeOnScreen: false);
         Equal((false, false, false), hidden, "nothing is reported while Home is on screen");
         Equal(true, reopened.HasCelebrations(1), "the active companion's milestone waits while Home is shown");
         Equal(true, reopened.HasCelebrations(2), "every off-screen companion keeps its milestone");
         Equal("Crawling", string.Join(",", reopened.TakeCelebrations(2)), "each companion keeps its own celebrations");
 
-        var resting = Start.AddDays(7);
+        var resting = Start.AddDays(9.8);
         Equal(resting, reopened.Companions[0].State.TimeCheckpoint, "home advance still commits time");
         Equal(false, HouseholdRules.NeedsAttention(game.Adopt("New", Start)), "a new baby needs no attention");
         // Four capped awake hours take 28 Fullness.
@@ -352,7 +352,7 @@ static class HouseholdChecks
         household.Adopt("Mia");
         household.Adopt("Leo");
         store.SlotStore(1).FailWrites = true;
-        now = Start.AddDays(3);
+        now = Start.AddDays(4.2);
         ExpectIo(() => household.AdvanceAll(), "another companion's failed write is surfaced");
         Equal(true, household.Active.State.CanSitAndReach, "the on-screen companion's unlock is committed");
         Equal(true, household.HasCelebrations(2), "the on-screen unlock waits when the advance fails");
@@ -364,7 +364,7 @@ static class HouseholdChecks
         var celebrating = TwoBabies(game, out var twoBabies);
         var later = Start;
         var reopened = new HouseholdSession(game, celebrating, () => later);
-        later = Start.AddDays(3);
+        later = Start.AddDays(4.2);
         celebrating.FailManifestWrites = true;
         ExpectIo(() => reopened.AdvanceAll(), "a failed celebration write is surfaced");
         Equal(true, reopened.HasCelebrations(2), "the on-screen unlock waits when the manifest write fails");
@@ -420,7 +420,7 @@ static class HouseholdChecks
         var previewing = TwoBabies(game, out var preview);
         var records = previewing.RecordWrites;
         var manifests = previewing.ManifestWrites;
-        var ahead = new HouseholdSession(game, previewing, () => Start.AddDays(3));
+        var ahead = new HouseholdSession(game, previewing, () => Start.AddDays(4.2));
         var previewed = ahead.PreviewState(1);
         Equal(true, previewed.CanSitAndReach, "a preview shows time passing");
         Equal(Start, ahead.Companions[0].State.TimeCheckpoint, "a preview keeps the committed state");
