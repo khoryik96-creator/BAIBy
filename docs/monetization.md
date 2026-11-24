@@ -1,6 +1,6 @@
 # Premium and monetization
 
-**Status: decided proposal.** Nothing here is built. Prices are placeholders mapped to store tiers. The decisions are listed at the end.
+**Status: decided proposal.** M1's entitlements, parental gate, Restore Purchases, resting companions and Web flags, developer mode, and **M4 Helpers** (see [Helpers: built in M4](#helpers-built-in-m4)) are built; no store is (this build sells nothing). Prices are placeholders mapped to store tiers. The decisions are listed at the end.
 
 It merges an economy proposal and a policy review with the user's decisions: paid slots beyond the free 2, premium automation, cosmetics and rare skins. It follows `docs/pet-mode.md`. `docs/care-and-growth.md` did not exist yet, so its ladder, on-time windows and streaks come from its brief; recheck when it lands.
 
@@ -70,7 +70,23 @@ Helpers are a safety net, not a carer.
 - **Visibility.** Need bars show a floor marker for active helpers and a room prop shows stock. The return summary lists helper events first and attention lines last ("Mia missed you; a cuddle or story will help"), with no shop link. Journal entries use a muted gear or Sitter icon.
 - **Copy.** Convenience, never protection: "Helpers keep things steady while you're busy. Only you can help Mia grow."
 
-With today's 4-hour decay cap, helpers add little. Absence must not be made harsher to give them value.
+With the 8-hour decay cap, helpers add most to a busy day with the app open or checked now and then, and only a little to a long absence. Absence must not be made harsher to give them value, and it was not.
+
+### Helpers: built in M4
+
+What shipped, and where it differs from the plan above:
+
+- **Products.** `helper.feeder`, `helper.play`, `helper.tidy` and `helper.set` (all three) in `ProductIds`; `HelperOwnership` reads them from `IEntitlements`, and developer mode grants all four. Decision 3's household set is the product to show; the single helpers stay in the catalogue as the table lists them. No store, so they come from developer mode, `?ent=helper.set` or the playtest toggle in **Grown-ups → Helpers**.
+- **Who.** Babies (the Sitter) and cats (auto-feeder, ball launcher, self-cleaning litter box): every companion with a care record. Dogs, fish, rabbits and hamsters keep their simple rules and ignore helpers until their care slice; the Hay, Calm, Litter, Bedding and Water names in the table wait for them.
+- **Rules** (`HelperRules`, validated). Floors: Fullness 45, Comfort 40, Cleanliness 40 (above the low-need 30 and the Fussy 35, below the well-kept 60). The feeder serves one stocked portion up to 70 (below full and below overfeeding); the player fills it to 6 with a free, hands-on control in the Routine sheet ("Leave bottles", "Fill the feeder"), which is not care. Play tops Comfort up to 58 and tidy restores Cleanliness to 70, each at most 3 times a **local care day** (from 04:00, the ledger's day) rather than a rolling 24 hours, so the limit is the same in one advance or many. A need already below its floor (a helper just switched on, or out of uses until 04:00) is raised at the first instant it may act.
+- **Coverage.** Helpers act only within **24 hours of the last hands-on care**; after that the needs fall as without them, and an absence still counts at most 8 hours of decay. With 6 portions and 3 top-ups a day this gives about 12 to 24 hours of cover.
+- **Two axes.** A meal window the feeder served in, with no hands-on meal, is **Helped**: like Covered it stays out of the meal ring and CareScore and is not owed (so no fussing for it, and no push towards Upset or Under the weather), but Bond, temperament and the care rhythm count it as a **missed meal**, exactly as with no helper. Helpers therefore never change the attention axis: within one advance Bond, temperament and the rhythm are identical with and without them. Held needs do spare the companion the Bond cost of fussing from hunger, which is the needs axis doing its job.
+- **Development.** Helper events add no engagement, familiarity, counts, meal credit, milestones or on-time credit, and a helped meal never enters the ring. Held needs keep wellbeing from collapsing, the way Away mode holds needs for free, so development keeps the pace those needs give, with no extra credit. Fully "neutral" development would need a shadow simulation without helpers, which split advances cannot reproduce; this is the decision taken.
+- **Health.** Never raised directly: a helper changes only its own need at the instant it acts (Energy and Health are continuous across it), there is no Rest or Health helper, and a sick companion stays sick.
+- **Stepping.** `HelperRun` steps through `BabyNeeds` in closed form: a counted stretch ends where a need reaches its floor, the helper raises it, and the next stretch starts there. `Advance` and the preview day take plain `HelperSettings` and add `HelperEvent` records (kind, instant, before and after) to a list; nothing in the simulation knows about purchases. Repeated resume applies nothing twice, a backwards clock nothing, and one advance equals many short ones within the cap. A **Next day** preview passes no real time: inside the coverage window helpers act through its awake hours as on a new day, at the checkpoint.
+- **Saves.** Element versions, not record versions: the care element becomes v4 with a `<helpers>` child (stock, the day's counts, the last serve) and the Helped moment letter `H`, and the journal v2 with helper days (kind 6), both only once a helper has been stocked or has acted. Older builds leave such a save alone; older saves load with helpers off. The household's switches are a `<helpers off="…">` manifest element, written only while a helper is off. `GoldenScenario` replays four days of a baby and a cat and checks the bytes against the build before helpers.
+- **Presentation.** Need rings show a small dark floor dot for each active helper; the bubble's return summary lists helper events first and the attention line last ("While you were busy, the Sitter gave Mia 2 bottles and freshened them up. Mia missed you; a cuddle or story will help.") and stays until the player cares; the journal keeps one muted day per helper day (a Sitter or gear disc); the strip's meal chip reads **Helper**; the cat's room shows the feeder's stock as a small bowl chip. The copy everywhere is "Helpers keep things steady while you're busy. Only you can help Mia grow." Nothing in a care flow links to a shop. **Grown-ups → Helpers** (behind the parental gate) switches each owned helper on or off for the household.
+- **Not built.** A Sitter character on screen (the copy and the journal carry her for now), helper postcards beyond the journal days, the store, and notifications.
 
 ## Rare and seasonal cosmetics
 
@@ -118,7 +134,7 @@ This extends the entitlement design in `pet-mode.md`.
   - *Cosmetics:* the saved content ID is kept and the display falls back to the free default. Buying again restores the look.
 - **Family Sharing.** Enable on iOS. Google Play Family Library excludes in-app products; the shop says so.
 - **Web.** No shop and no `BAIby.Store`. `TestEntitlements` reads a developer toggle or URL flags (`?ent=home.rooms2,helper.set`), shows a "Playtest unlocks" badge, and compiles only into WebGL, Editor and Development builds. A `FakeStore` simulates success, cancel, pending, failure, restore and refund.
-- **Simulation.** `HelperRules` tunables and plain `HelperSettings` data. Advance steps through the capped window in closed form, since decay is linear, and returns `HelperEvent` records without knowing about purchases. Feeder stock and activations bump the baby record to v12 and the pet record to v2; older saves load with helpers off.
+- **Simulation.** `HelperRules` tunables and plain `HelperSettings` data. Advance steps through the capped window in closed form, since decay is linear, and returns `HelperEvent` records without knowing about purchases. Built with element versions instead of record versions: feeder stock and activations make the care element v4 and the journal v2 (the baby record stays v16 and the pet record v2); older saves load with helpers off.
 - **Content.** Catalog entries carry `Access: Free | Earned | Product | Seasonal`.
 
 ## Tests
@@ -136,7 +152,7 @@ This extends the entitlement design in `pet-mode.md`.
 | M1 Slots | Pet-mode H1: entitlements, Unity IAP, parental gate, restore, resting companions, Web flags, "More rooms" | Legal and store review of the purchase flow |
 | M2 Looks | Two look packs, earned looks, special coats with the cat, validator rule | Earned looks ship alongside |
 | M3 Free care tools | Away mode, tuned consequence ladder, notification rules | Playtested with no paid items |
-| M4 Helpers | Feeder, Play, Tidy, Sitter for babies | M3 shipped; legal review; parent and child playtests |
+| M4 Helpers (built, no store) | Feeder, Play, Tidy, Sitter for babies, objects for cats | M3 shipped; legal review; parent and child playtests |
 | M2b Rooms and wear | Two room themes, one furniture set, one cat accessory pack, the Founder pack | M2 shipped |
 | M4b Toys, sound and album | Premium toys, a lullaby pack, album frames and stickers | Variety rule tested so premium toys add no development credit |
 | M5 Seasonal | First seasonal free item and pack | Returning-season copy reviewed |
@@ -159,7 +175,7 @@ The product owner delegated these choices on 2026-11-23. Revisit them with playt
 
 1. **Paid automation:** ship it as Helpers in M4, behind every guardrail above. Helpers never build development, Bond, Connection, familiarity, streaks or Health.
 2. **Slots:** one "+2 rooms" pack at about US$2.99, matching [pet mode](pet-mode.md).
-3. **Helpers:** sold as one household set (Feeder, Play and Tidy together) to avoid many small purchases. Floors and ceilings follow the on-time threshold in [care and growth](care-and-growth.md).
+3. **Helpers:** sold as one household set (Feeder, Play and Tidy together) to avoid many small purchases. Floors and ceilings follow the on-time threshold in [care and growth](care-and-growth.md). (Built: `helper.set` is the product to show; the single helpers exist in the catalogue and work the same.)
 4. **Babies:** baby helpers appear as a Sitter character. Pets use the Feeder, Play and Tidy helpers.
 5. **Breeds:** each species has a free starter breed, earned breeds unlocked through visible care goals, and premium breeds sold directly (for example the Corgi). Premium breeds are never stronger.
 6. **Rare looks:** fantasy costumes for babies and special coat patterns for pets. Every real human feature (skin tone, hair, eyes) stays free. The rarest looks are earned through care and never sold.
