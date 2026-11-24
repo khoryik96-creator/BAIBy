@@ -158,6 +158,11 @@ static class BondChecks
         Equal(true, back.Bonding.Security < -10, "each helper day takes a little Security");
         Equal(0, back.Bonding.Rhythm, "an absence has no rhythm to keep");
 
+        // The Absence table (docs/care-and-growth.md): from 19:00 at Bond 55, fed and content when left.
+        var table = new[] { 1, 3, 14 }.Select(days => game.Advance(left, evening.AddDays(days)).State.Bond).ToArray();
+        Console.WriteLine($"  absence from 19:00 at Bond 55: 1 day {table[0]:0.#}, 3 days {table[1]:0.#}, 2 weeks {table[2]:0.#}");
+        Equal(true, table[0] > table[1] && table[1] >= table[2], "a longer absence costs more Bond, down to the floor");
+
         // Away mode costs nothing.
         var away = game.StartAway(Baby(evening, bond: 55, satiety: 90, comfort: 90, energy: 90), TimeSpan.FromDays(3));
         var home = game.Advance(away, evening.AddDays(3).AddMinutes(-1)).State;
