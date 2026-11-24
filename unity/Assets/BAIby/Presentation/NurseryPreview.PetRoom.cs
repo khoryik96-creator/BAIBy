@@ -16,36 +16,91 @@ namespace BAIby.Presentation
     {
         private const double SleepyEnergy = 30;
 
+        private static readonly Color[] TileTints = { Peach, Lilac, Sky, Mint, Butter, Blush };
+
         private readonly NeedMeterSlot[] petMeters = new NeedMeterSlot[PetCatalog.MaxVisibleMeters];
         private readonly List<Button> petVerbButtons = new List<Button>();
         private GameObject petCare;
+        private RectTransform petHead;
         private RectTransform petVerbArea;
+        private Text petTitle;
+        private Text petBond;
         private Text petStatus;
+        private Image petBubble;
+        private RectTransform petBubbleRect;
+        private string petBubbleText;
+        private Button petNextDay;
         private Species? petVerbsFor;
         private int petSlot;
 
+        // The pet's room follows the nursery's pattern: its rings in the needs card, and a care sheet with one
+        // pastel tile per care verb above Next day.
         private void BuildPetRoom()
         {
-            // The pet's meters live in the nursery's top bar, two to a row where the baby's sit.
-            var top = (RectTransform)header.transform.Find("Content");
-            petMeters[0] = new NeedMeterSlot(Meter("Pet need 1", top, 0, 0.5f, 61));
-            petMeters[1] = new NeedMeterSlot(Meter("Pet need 2", top, 0.5f, 1, 61));
-            petMeters[2] = new NeedMeterSlot(Meter("Pet need 3", top, 0, 0.5f, 12));
-            petMeters[3] = new NeedMeterSlot(Meter("Pet need 4", top, 0.5f, 1, 12));
-            foreach (var meter in petMeters)
-                meter.Root.gameObject.SetActive(false);
+            for (var i = 0; i < petMeters.Length; i++)
+            {
+                petMeters[i] = new NeedMeterSlot(Meter("Pet need " + (i + 1), needsCard, "", Fern));
+                petMeters[i].Root.gameObject.SetActive(false);
+            }
 
             var panel = Tray("Pet Care Panel", false, 378);
             petCare = panel.parent.gameObject;
-            petStatus = Label("Pet Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 283), Vector2.right, new Vector2(0, 365));
-            petStatus.resizeTextForBestFit = true;
-            petStatus.resizeTextMinSize = 18;
-            petStatus.resizeTextMaxSize = 25;
-            petVerbArea = Box("Pet care buttons", panel, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            ActionButton("Pet preview next day", panel, 0, 1, 7, 91, PreviewPetNextDay, Mist, Ink)
-                .GetComponentInChildren<Text>().text = "Preview next day";
+            petHead = Box("Pet Care Heading", panel, Vector2.zero, Vector2.right, Vector2.zero, Vector2.zero);
+            petTitle = Label("Pet Care Title", petHead, "", 36, Ink, TextAnchor.MiddleLeft,
+                Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+            FitText(petTitle, 26, 36);
+            petBond = Label("Pet Bond", petHead, "", 22, Secondary, TextAnchor.MiddleLeft,
+                Vector2.zero, Vector2.one, Vector2.zero);
+            FitText(petBond, 16, 22);
+            petVerbArea = Box("Pet care buttons", panel, Vector2.zero, Vector2.right, Vector2.zero, Vector2.zero);
+            petNextDay = ActionButton("Pet preview next day", panel, 0, 1, 0, 0, PreviewPetNextDay, Paper, Ink);
+            WithIcon(petNextDay, "Next day", "NextDay", Ink);
+
+            petBubbleRect = Box("Pet Speech Bubble", petCare.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                Vector2.zero, Vector2.zero);
+            petBubbleRect.pivot = Vector2.zero;
+            petBubble = Surface(petBubbleRect, Paper);
+            SoftShapes.Bubble(petBubble, true, Px(16));
+            SoftShapes.Lift(petBubble.gameObject);
+            petStatus = Label("Pet Reaction", petBubbleRect, "", 24, Ink, TextAnchor.MiddleLeft,
+                Vector2.zero, Vector2.one, Vector2.zero);
+            petStatus.rectTransform.offsetMin = new Vector2(Px(12), Px(8));
+            petStatus.rectTransform.offsetMax = new Vector2(-Px(12), -Px(8));
             petCare.SetActive(false);
+        }
+
+        // Lays out the pet's care sheet like the nursery's: heading, tiles in two rows, Next day.
+        private void LayoutPetSheet()
+        {
+            if (petVerbArea == null || safeArea == null)
+                return;
+
+            var metrics = Metrics();
+            PlaceRow(new[] { petNextDay }, metrics.Bottom, metrics.Row, metrics.Gap, StackWidth);
+            var y = metrics.Bottom + metrics.Row + metrics.Gap + 4;
+            var tiles = new List<(Button Button, float Weight)>();
+            foreach (var button in petVerbButtons)
+                tiles.Add((button, 1));
+            LayoutTiles(petVerbArea, tiles, y, metrics.Tile, metrics.Gap);
+            y += 2 * metrics.Tile + metrics.Gap * 2 + 6;
+            petHead.offsetMin = new Vector2(0, y);
+            petHead.offsetMax = new Vector2(0, y + metrics.Heading);
+            var right = 0f;
+            if (switchChip != null && switchChip.gameObject.activeSelf && switchChip.transform.parent == petHead)
+                right = PlacePill((RectTransform)switchChip.transform, switchLabel, right, metrics.Heading, 260, 0);
+            LayoutTitleBlock(petTitle, petBond, right, metrics.Heading);
+            var sheet = (RectTransform)petCare.transform;
+            sheet.offsetMax = new Vector2(sheet.offsetMax.x, y + metrics.Heading + SheetBottomPad + SheetTopPad);
+            LayoutBubble(petBubble, petBubbleRect, petStatus, sheet);
+            petBubbleText = petStatus.text;
+        }
+
+        private void UpdatePetBubble()
+        {
+            if (petStatus == null || petStatus.text == petBubbleText)
+                return;
+            LayoutBubble(petBubble, petBubbleRect, petStatus, (RectTransform)petCare.transform);
+            petBubbleText = petStatus.text;
         }
 
         private void ShowPetRoom(HouseholdCompanion companion) => ShowPetRoom(companion, null);
@@ -184,12 +239,13 @@ namespace BAIby.Presentation
             ApplyNurseryTheme(NurseryTheme.Sage);
             saveError.text = string.Empty;
             title.text = state.Name;
-            var days = (int)state.Age.TotalDays;
-            var stage = PetStageTitle(state.Species, state.Stage);
-            age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
-            favorite.text = "Bond: " + BondTierName(state.BondTier);
+            age.text = DayLine(state.Age, PetStageTitle(state.Species, state.Stage));
+            favorite.text = string.Empty;
+            petTitle.text = "Care for " + state.Name;
+            petBond.text = "Bond: " + BondTierName(state.BondTier);
 
             var species = household.PetCatalog.Get(state.Species);
+            var shownMeters = new List<NeedMeter>();
             for (var i = 0; i < petMeters.Length; i++)
             {
                 var shown = i < species.Meters.Count;
@@ -200,8 +256,12 @@ namespace BAIby.Presentation
 
                 var meter = species.Meters[i].Meter;
                 petMeters[i].Label.text = MeterName(meter);
+                petMeters[i].Meter.Tint(MeterColor(meter));
                 petMeters[i].Set(state.Meter(meter));
+                shownMeters.Add(petMeters[i].Meter);
             }
+
+            PlaceMeters(shownMeters);
 
             foreach (var button in petVerbButtons)
                 button.interactable = !household.IsResting(petSlot);
@@ -211,9 +271,11 @@ namespace BAIby.Presentation
                 petStatus.text = message;
             else if (!keepStatus || string.IsNullOrEmpty(petStatus.text))
                 petStatus.text = DescribePetNeeds(state);
+            LayoutTopStack();
+            LayoutPetSheet();
         }
 
-        // One button per care verb the species has, three to a row above Preview next day.
+        // One pastel tile per care verb the species has, in two rows above Next day.
         private void BuildPetVerbs(Species species)
         {
             if (petVerbsFor == species)
@@ -232,19 +294,73 @@ namespace BAIby.Presentation
             for (var i = 0; i < verbs.Count && i < 6; i++)
             {
                 var verb = verbs[i].Verb;
-                var column = i % 3;
-                var row = i / 3;
-                var button = ActionButton("Pet care " + verb, petVerbArea, column / 3f, (column + 1) / 3f,
-                    195 - row * 96, 283 - row * 96, () => CarePet(verb), Fern, Color.white);
-                var label = button.GetComponentInChildren<Text>();
-                label.text = VerbTitle(verb);
-                label.resizeTextForBestFit = true;
-                label.resizeTextMinSize = 17;
-                label.resizeTextMaxSize = 25;
+                var button = CareTile("Pet care " + verb, petVerbArea, VerbTitle(verb), VerbIcon(verb),
+                    TileTints[i % TileTints.Length], () => CarePet(verb));
                 petVerbButtons.Add(button);
             }
 
             petVerbsFor = species;
+            SettleText(petVerbArea);
+            LayoutPetSheet();
+        }
+
+        private static string VerbIcon(PetVerb verb)
+        {
+            switch (verb)
+            {
+                case PetVerb.Feed:
+                case PetVerb.Bowl:
+                case PetVerb.SprinkleFood:
+                case PetVerb.Hay:
+                    return "Bowl";
+                case PetVerb.Pet:
+                    return "Pet";
+                case PetVerb.Wand:
+                    return "Wand";
+                case PetVerb.Brush:
+                case PetVerb.Groom:
+                    return "Brush";
+                case PetVerb.Nap:
+                case PetVerb.Rest:
+                case PetVerb.FluffBedding:
+                    return "Rest";
+                case PetVerb.Fetch:
+                case PetVerb.Wheel:
+                    return "Play";
+                case PetVerb.GentleHold:
+                    return "Soothe";
+                case PetVerb.WipeGlass:
+                case PetVerb.WaterChange:
+                case PetVerb.Litter:
+                    return "Wash";
+                case PetVerb.Greens:
+                    return "Growth";
+                default:
+                    return "Paw";
+            }
+        }
+
+        private static Color MeterColor(PetMeter meter)
+        {
+            switch (meter)
+            {
+                case PetMeter.Fullness:
+                case PetMeter.Hay:
+                    return FullnessRing;
+                case PetMeter.Comfort:
+                case PetMeter.Calm:
+                case PetMeter.Bedding:
+                    return ComfortRing;
+                case PetMeter.Energy:
+                case PetMeter.Exercise:
+                    return EnergyRing;
+                case PetMeter.Cleanliness:
+                case PetMeter.Water:
+                case PetMeter.Litter:
+                    return CleanRing;
+                default:
+                    return HealthRing;
+            }
         }
 
         private static bool IsSleepy(PetState state) => state.HasMeter(PetMeter.Energy) && state.Meter(PetMeter.Energy) < SleepyEnergy;
@@ -264,7 +380,8 @@ namespace BAIby.Presentation
             }
         }
 
-        private static string MeterName(PetMeter meter) => meter.ToString();
+        // The ring's label; Cleanliness reads "Clean", as on the baby's card.
+        private static string MeterName(PetMeter meter) => meter == PetMeter.Cleanliness ? "Clean" : meter.ToString();
 
         private static string BondTierName(BondTier tier)
         {
@@ -355,19 +472,18 @@ namespace BAIby.Presentation
         // A header meter whose label follows the species.
         private sealed class NeedMeterSlot
         {
-            private readonly NeedMeter meter;
-
             public NeedMeterSlot(NeedMeter meter)
             {
-                this.meter = meter;
+                Meter = meter;
                 Label = meter.Root.Find("Label").GetComponent<Text>();
             }
 
-            public RectTransform Root => meter.Root;
+            public NeedMeter Meter { get; }
+            public RectTransform Root => Meter.Root;
             public Text Label { get; }
             public bool Shown { get; set; }
 
-            public void Set(double value) => meter.Set(value);
+            public void Set(double value) => Meter.Set(value);
         }
 
         private sealed partial class JournalPanel

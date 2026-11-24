@@ -42,19 +42,15 @@ namespace BAIby.Presentation
             public DecorPanel(RectTransform content, Action close, Action<NurseryTheme> choose)
             {
                 Root = content.parent.gameObject;
-                Label("Decor Heading", content, "Nursery decor", 38, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 265), new Vector2(0.72f, 0), new Vector2(0, 351), FontStyle.Bold);
-                var done = ActionButton("Done", content, 0.73f, 1, 265, 353, close, Mist, Ink);
-                done.name = "Close decor";
+                SheetHeading("Decor Heading", content, "Nursery decor", 360);
+                SheetClose("Close decor", "Done", content, 360, close);
                 sage = new ThemeChoice("Sage", new Color32(165, 181, 159, 255), content, 0, 0.5f,
                     () => choose(NurseryTheme.Sage));
                 peach = new ThemeChoice("Peach", new Color32(236, 188, 162, 255), content, 0.5f, 1,
                     () => choose(NurseryTheme.Peach));
-                Feedback = Label("Decor Feedback", content, "", 23, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 9), Vector2.right, new Vector2(0, 80));
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 18;
-                Feedback.resizeTextMaxSize = 23;
+                Feedback = Label("Decor Feedback", content, "", 23, Muted, TextAnchor.MiddleLeft,
+                    new Vector2(0, 4), Vector2.right, new Vector2(0, 70));
+                FitText(Feedback, 17, 23);
                 Root.SetActive(false);
             }
 
@@ -67,27 +63,41 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
             }
 
+            // A room theme card: a rounded colour preview, its name, and "Selected" with a sage outline when chosen.
             private sealed class ThemeChoice
             {
+                private const float Height = 196;
+
                 private readonly Text selected;
+                private readonly Image card;
                 public Button Button { get; }
 
                 public ThemeChoice(string name, Color swatch, Transform parent, float left, float right, Action choose)
                 {
-                    Button = ActionButton(name, parent, left, right, 81, 253, choose, Mist, Ink);
+                    Button = ActionButton(name, parent, left, right, 76, 76 + Height, choose, Mist, Ink);
+                    card = Button.image;
+                    var rect = (RectTransform)Button.transform;
+                    rect.offsetMin = new Vector2(left == 0 ? 0 : 9, rect.offsetMin.y);
+                    rect.offsetMax = new Vector2(right == 1 ? 0 : -9, rect.offsetMax.y);
+                    SoftShapes.Radius(card, Px(20));
                     var title = Button.GetComponentInChildren<Text>();
-                    title.rectTransform.offsetMin = new Vector2(0, 31);
-                    title.rectTransform.offsetMax = new Vector2(0, -102);
+                    title.alignment = TextAnchor.MiddleLeft;
+                    title.rectTransform.offsetMin = new Vector2(18, 8);
+                    title.rectTransform.offsetMax = new Vector2(-18, -(Height - 52));
                     var swatchArea = Box(name + " Color", Button.transform, Vector2.zero, Vector2.one,
-                        new Vector2(10, 74), new Vector2(-10, -10));
-                    Surface(swatchArea, swatch);
-                    selected = Label(name + " Selection", Button.transform, "Selected", 20, Fern, TextAnchor.MiddleCenter,
-                        Vector2.zero, Vector2.right, new Vector2(0, 31));
+                        new Vector2(12, 58), new Vector2(-12, -12));
+                    SoftShapes.Radius(Surface(swatchArea, swatch), Px(14));
+                    selected = Label(name + " Selection", Button.transform, "Selected", 20, FernDeep, TextAnchor.MiddleRight,
+                        new Vector2(18, 8), Vector2.right, new Vector2(-18, 52), FontStyle.Bold);
+                    var ring = Surface(Box(name + " Selected Ring", selected.transform, Vector2.zero, Vector2.right,
+                        new Vector2(-18, -8), new Vector2(18, Height - 8)), Fern);
+                    SoftShapes.Outline(ring, Px(20));
                 }
 
                 public void SetSelected(bool isSelected)
                 {
                     selected.gameObject.SetActive(isSelected);
+                    card.color = isSelected ? FernSoft : Mist;
                 }
             }
         }

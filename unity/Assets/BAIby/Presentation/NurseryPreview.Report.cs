@@ -25,10 +25,8 @@ namespace BAIby.Presentation
             public ReportPanel(RectTransform content, Action close)
             {
                 Root = content.parent.gameObject;
-                Label("Report Heading", content, "Baby report", 38, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 375), new Vector2(0.72f, 0), new Vector2(0, 463), FontStyle.Bold);
-                Done = ActionButton("Done", content, 0.73f, 1, 375, 463, close, Mist, Ink);
-                Done.name = "Close baby report";
+                SheetHeading("Report Heading", content, "Baby report", 470);
+                Done = SheetClose("Close baby report", "Done", content, 470, close);
 
                 Section("Milestones", content, 333, 370);
                 sitting = Milestone("Sitting and reaching", "Report Sitting", content, 299);
@@ -41,12 +39,13 @@ namespace BAIby.Presentation
                 blocks = Line("Report Blocks", content, 90, 122);
 
                 var bondCard = Box("Report Bond", content, Vector2.zero, Vector2.right,
-                    new Vector2(0, 12), new Vector2(0, 81));
-                Surface(bondCard, Mist);
-                Label("Bond Label", bondCard, "Connection", 27, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(16, 0), Vector2.one, new Vector2(-16, 0), FontStyle.Bold);
-                bond = Label("Report Bond Value", bondCard, "", 27, Fern, TextAnchor.MiddleRight,
-                    new Vector2(16, 0), Vector2.one, new Vector2(-16, 0), FontStyle.Bold);
+                    new Vector2(0, 8), new Vector2(0, 82));
+                SoftShapes.Radius(Surface(bondCard, FernSoft), Px(20));
+                IconAt("Bond Icon", bondCard, "Soothe", FernDeep, new Vector2(0, 0.5f), new Vector2(40, 0), Px(20));
+                Label("Bond Label", bondCard, "Connection", 26, FernDeep, TextAnchor.MiddleLeft,
+                    new Vector2(70, 0), Vector2.one, new Vector2(-20, 0), FontStyle.Bold);
+                bond = Label("Report Bond Value", bondCard, "", 32, FernDeep, TextAnchor.MiddleRight,
+                    new Vector2(20, 0), Vector2.one, new Vector2(-20, 0), FontStyle.Bold);
                 Root.SetActive(false);
             }
 
@@ -67,13 +66,13 @@ namespace BAIby.Presentation
 
             private static void Section(string name, Transform content, float bottom, float top)
             {
-                Label(name, content, name, 27, Ink, TextAnchor.MiddleLeft,
+                Label(name, content, name, 30, Ink, TextAnchor.MiddleLeft,
                     new Vector2(0, bottom), Vector2.right, new Vector2(0, top), FontStyle.Bold);
             }
 
             private static Text Line(string name, Transform content, float bottom, float top)
             {
-                return Label(name, content, "", 23, Ink, TextAnchor.MiddleLeft,
+                return Label(name, content, "", 23, Muted, TextAnchor.MiddleLeft,
                     new Vector2(0, bottom), Vector2.right, new Vector2(0, top));
             }
 
@@ -82,13 +81,13 @@ namespace BAIby.Presentation
                 Label(title, parent, title, 24, Ink, TextAnchor.MiddleLeft,
                     new Vector2(0, bottom), new Vector2(0.70f, 0), new Vector2(0, bottom + 34));
                 return Label(valueName, parent, "", 22, Secondary, TextAnchor.MiddleRight,
-                    new Vector2(0, bottom), Vector2.right, new Vector2(0, bottom + 34));
+                    new Vector2(0, bottom), Vector2.right, new Vector2(0, bottom + 34), FontStyle.Bold);
             }
 
             private static void SetMilestone(Text status, bool unlocked)
             {
                 status.text = unlocked ? "Unlocked" : "Locked";
-                status.color = unlocked ? Fern : Secondary;
+                status.color = unlocked ? FernDeep : Secondary;
             }
         }
     }
