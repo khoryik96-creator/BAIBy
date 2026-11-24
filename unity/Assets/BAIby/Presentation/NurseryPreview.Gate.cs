@@ -58,7 +58,7 @@ namespace BAIby.Presentation
             public GatePanel(RectTransform content, Action cancel, Action submit)
             {
                 Root = content.parent.gameObject;
-                Place(Label("Gate Heading", content, "For grown-ups", 34, Ink, TextAnchor.MiddleLeft,
+                Place(Label("Gate Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold).rectTransform, 14, 66);
                 Place(Label("Gate Instructions", content, "Type this number using digits.", 23, Secondary,
                     TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero).rectTransform, 70, 108);
@@ -72,15 +72,14 @@ namespace BAIby.Presentation
                 var field = Box("Gate Answer", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 Place(field, 180, 244);
                 answer = field.gameObject.AddComponent<InputField>();
-                answer.targetGraphic = Surface(field, Mist);
-                answer.targetGraphic.raycastTarget = true;
+                answer.targetGraphic = TextField(field);
                 answer.characterLimit = 4;
                 answer.contentType = InputField.ContentType.IntegerNumber;
                 answer.lineType = InputField.LineType.SingleLine;
                 answer.textComponent = Label("Gate Entered", field, "", 30, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
-                answer.placeholder = Label("Gate Placeholder", field, "Number", 28, Secondary,
-                    TextAnchor.MiddleLeft, new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
+                    new Vector2(26, 0), Vector2.one, new Vector2(-26, 0), FontStyle.Bold);
+                answer.placeholder = Label("Gate Placeholder", field, "Number", 30, Secondary,
+                    TextAnchor.MiddleLeft, new Vector2(26, 0), Vector2.one, new Vector2(-26, 0));
 
                 var back = ActionButton("Gate cancel", content, 0, 0.5f, 0, 0, cancel, Mist, Ink);
                 back.GetComponentInChildren<Text>().text = "Back";

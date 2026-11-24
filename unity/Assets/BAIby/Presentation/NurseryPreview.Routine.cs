@@ -17,9 +17,6 @@ namespace BAIby.Presentation
     // Care tray's status row that names the next window to look after.
     public sealed partial class NurseryPreview
     {
-        private static readonly Color Honey = new Color32(240, 214, 160, 255);
-        private static readonly Color Rose = new Color32(236, 207, 198, 255);
-        private static readonly Color Leaf = new Color32(208, 226, 202, 255);
         private RoutineStripView routineStrip;
         private RoutinePanel routine;
         private Button routineButton;
@@ -33,21 +30,18 @@ namespace BAIby.Presentation
 
         private void BuildRoutine()
         {
-            // A slim 52-unit tray just below the header. On a 390 x 844 screen it ends above the tallest pose's head;
-            // where it would not (FitRoutineStrip), the Routine button below stands in for it.
+            // A slim dot timeline under the needs card (LayoutTopStack places it). On a 390 x 844 screen it ends
+            // above the tallest pose's head; where it would not (FitRoutineStrip), the Routine button in the care
+            // sheet's bottom row stands in for it.
             var root = Box("Routine Strip", safeArea, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                new Vector2(-332, -314), new Vector2(332, -262));
+                new Vector2(-StackWidth / 2, -314), new Vector2(StackWidth / 2, -262));
             routineStrip = new RoutineStripView(root, () => ShowPanel(NurseryPanel.Routine));
-            routineButton = ActionButton("Routine", status.transform.parent, 0.73f, 1, 291, 361,
+            routineButton = ActionButton("Routine", previewDayButton.transform.parent, 0, 1, 0, 0,
                 () => ShowPanel(NurseryPanel.Routine), Mist, Ink);
             routineButton.name = "Open routine";
+            routineButton.transform.SetSiblingIndex(developmentButton.transform.GetSiblingIndex());
+            WithIcon(routineButton, "Routine", "Routine", Ink);
             routineButtonLabel = routineButton.GetComponentInChildren<Text>();
-            routineButtonLabel.rectTransform.offsetMin = new Vector2(8, 0);
-            routineButtonLabel.rectTransform.offsetMax = new Vector2(-8, 0);
-            routineButtonLabel.resizeTextForBestFit = true;
-            routineButtonLabel.resizeTextMinSize = 15;
-            routineButtonLabel.resizeTextMaxSize = 22;
-            SoftShapes.Round(routineButton.image, 0.7f);
             routineButton.gameObject.SetActive(false);
             routine = new RoutinePanel(Tray("Routine Panel", false, 378), () => ShowPanel(NurseryPanel.Care),
                 ChooseCareStyle, StartAway, EndAway);
@@ -73,14 +67,15 @@ namespace BAIby.Presentation
                 RoutineOpener.Select();
         }
 
-        // The strip, or the Routine button standing in for it. A pending new sound fills the status row for a
-        // moment, so the button waits for it.
+        // The strip, or the Routine button standing in for it between Next day and Growth.
         private void UpdateRoutineEntry()
         {
             routineStrip.Root.SetActive(routineStripWanted && routineStripFits);
-            var folded = !routineStripFits && !newSoundNotice.gameObject.activeSelf;
+            var folded = !routineStripFits;
+            if (routineButton.gameObject.activeSelf == folded)
+                return;
             routineButton.gameObject.SetActive(folded);
-            status.rectTransform.anchorMax = new Vector2(folded ? 0.72f : 1, 0);
+            LayoutCareSheet();
         }
 
         private void UpdateRoutineSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
@@ -200,39 +195,49 @@ namespace BAIby.Presentation
             }
         }
 
+        // Today's windows as a dot timeline: done is a filled dot, due now a peach ring, later a grey dot. The state
+        // words stay on the chips, hidden, for the tests; the dots carry them on screen.
         private sealed class RoutineStripView
         {
+            private const float DotRow = 26;
+
             public GameObject Root { get; }
             public Button Open { get; }
             private readonly Image[] chips = new Image[6];
+            private readonly Image[] dots = new Image[6];
+            private readonly Image[] centres = new Image[6];
             private readonly Text[] names = new Text[6];
             private readonly Text[] states = new Text[6];
 
             public RoutineStripView(RectTransform root, Action open)
             {
                 Root = root.gameObject;
-                var surface = Surface(root, Paper);
+                var surface = Surface(root, new Color(1, 1, 1, 0.8f));
+                SoftShapes.Radius(surface, Px(18));
                 surface.raycastTarget = true;
                 Open = Root.AddComponent<Button>();
                 Open.targetGraphic = surface;
+                Open.colors = Pressable();
                 Open.onClick.AddListener(() => open());
-                var content = Box("Routine Chips", root, Vector2.zero, Vector2.one, new Vector2(10, 5), new Vector2(-10, -5));
+                var content = Box("Routine Chips", root, Vector2.zero, Vector2.one, new Vector2(Px(8), 4), new Vector2(-Px(8), -4));
                 for (var i = 0; i < chips.Length; i++)
                 {
                     var chip = Box("Routine Chip " + (i + 1), content, new Vector2(i / 6f, 0), new Vector2((i + 1) / 6f, 1),
-                        new Vector2(3, 0), new Vector2(-3, 0));
-                    chips[i] = Surface(chip, Mist);
-                    SoftShapes.Round(chips[i], 1.6f);
-                    names[i] = Label("Routine Chip Name " + (i + 1), chip, "", 17, Ink, TextAnchor.MiddleCenter,
-                        new Vector2(2, 20), Vector2.one, new Vector2(-2, -1), FontStyle.Bold);
+                        Vector2.zero, Vector2.zero);
+                    chips[i] = Surface(chip, Color.clear);
+                    var dot = Box("Routine Dot " + (i + 1), chip, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                        Vector2.zero, Vector2.zero);
+                    dots[i] = Surface(dot, Divider);
+                    SoftShapes.Disc(dots[i]);
+                    centres[i] = Surface(Box("Routine Dot Centre " + (i + 1), dot, new Vector2(0.5f, 0.5f),
+                        new Vector2(0.5f, 0.5f), new Vector2(-6, -6), new Vector2(6, 6)), Paper);
+                    SoftShapes.Disc(centres[i]);
+                    names[i] = Label("Routine Chip Name " + (i + 1), chip, "", 20, Secondary, TextAnchor.MiddleCenter,
+                        new Vector2(0, 0), Vector2.one, new Vector2(0, -DotRow));
+                    FitText(names[i], 14, 20);
                     states[i] = Label("Routine Chip State " + (i + 1), chip, "", 16, Secondary, TextAnchor.MiddleCenter,
-                        new Vector2(2, 1), Vector2.right, new Vector2(-2, 21));
-                    foreach (var text in new[] { names[i], states[i] })
-                    {
-                        text.resizeTextForBestFit = true;
-                        text.resizeTextMinSize = 12;
-                        text.resizeTextMaxSize = text.fontSize;
-                    }
+                        Vector2.zero, Vector2.right, new Vector2(0, 20));
+                    states[i].gameObject.SetActive(false);
                 }
 
                 Root.SetActive(false);
@@ -250,10 +255,15 @@ namespace BAIby.Presentation
                     var slot = slots[i];
                     names[i].text = SlotName(slot.Kind, preset);
                     states[i].text = StateText(slot);
-                    var (background, foreground) = Colors(slot.State);
-                    chips[i].color = background;
-                    names[i].color = foreground == Color.white ? foreground : Ink;
-                    states[i].color = foreground;
+                    var (dot, size, ring) = Dot(slot.State);
+                    dots[i].color = dot;
+                    var rect = dots[i].rectTransform;
+                    rect.offsetMin = new Vector2(-size / 2, -DotRow / 2 - size / 2);
+                    rect.offsetMax = new Vector2(size / 2, -DotRow / 2 + size / 2);
+                    centres[i].gameObject.SetActive(ring);
+                    var current = slot.State == RoutineSlotState.Due || slot.State == RoutineSlotState.Overdue;
+                    names[i].color = current ? Ink : Secondary;
+                    SetRole(names[i], current ? TextRole.Strong : TextRole.Body);
                     chips[i].name = "Routine " + names[i].text;
                 }
             }
@@ -273,17 +283,19 @@ namespace BAIby.Presentation
                 }
             }
 
-            private static (Color Background, Color Foreground) Colors(RoutineSlotState state)
+            // The dot's colour and size, and whether it is a ring (a white centre).
+            private static (Color Color, float Size, bool Ring) Dot(RoutineSlotState state)
             {
                 switch (state)
                 {
-                    case RoutineSlotState.Due: return (Fern, Color.white);
-                    case RoutineSlotState.Overdue: return (Honey, Ink);
-                    case RoutineSlotState.Missed: return (Rose, Ink);
-                    case RoutineSlotState.OnTime:
-                    case RoutineSlotState.DoneLate: return (Leaf, Fern);
-                    case RoutineSlotState.Later: return (Mist, Secondary);
-                    default: return (Paper, Secondary);
+                    case RoutineSlotState.Due: return (FullnessRing, 26, true);
+                    case RoutineSlotState.Overdue: return (FullnessRing, 24, false);
+                    case RoutineSlotState.OnTime: return (HealthRing, 18, false);
+                    case RoutineSlotState.DoneLate: return (EnergyRing, 18, false);
+                    case RoutineSlotState.Missed: return (Hex(0xD98C98), 18, false);
+                    case RoutineSlotState.Away: return (Hex(0xCFC3EA), 18, false);
+                    case RoutineSlotState.Later: return (Divider, 18, false);
+                    default: return (Divider, 18, true);
                 }
             }
         }
@@ -308,44 +320,49 @@ namespace BAIby.Presentation
                 Action<TimeSpan> startAway, Action endAway)
             {
                 Root = content.parent.gameObject;
-                Label("Routine Heading", content, "Routine", 38, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 283), new Vector2(0.72f, 0), new Vector2(0, 369), FontStyle.Bold);
-                var done = ActionButton("Done", content, 0.73f, 1, 283, 371, close, Mist, Ink);
+                SheetHeading("Routine Heading", content, "Routine", 378);
+                var done = ActionButton("Done", content, 0.73f, 1, 300, 366, close, Mist, Ink);
                 done.name = "Close routine";
 
-                Summary = Label("Routine Summary", content, "", 22, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 228), Vector2.right, new Vector2(0, 281));
-                Summary.resizeTextForBestFit = true;
-                Summary.resizeTextMinSize = 17;
-                Summary.resizeTextMaxSize = 22;
+                Summary = Label("Routine Summary", content, "", 23, Muted, TextAnchor.MiddleLeft,
+                    new Vector2(0, 232), Vector2.right, new Vector2(0, 294));
+                FitText(Summary, 17, 23);
 
-                Label("Routine Style Label", content, "Care style", 21, Secondary, TextAnchor.MiddleLeft,
-                    new Vector2(0, 150), new Vector2(0.3f, 0), new Vector2(0, 222));
-                GentleButton = ActionButton("Gentle", content, 0.3f, 0.65f, 150, 222,
+                Label("Routine Style Label", content, "Care style", 22, Secondary, TextAnchor.MiddleLeft,
+                    new Vector2(0, 156), new Vector2(0.3f, 0), new Vector2(0, 220), FontStyle.Bold);
+                var segment = Box("Care style Segment", content, new Vector2(0.3f, 0), Vector2.right,
+                    new Vector2(0, 156), new Vector2(0, 220));
+                SoftShapes.Pill(Surface(segment, Mist));
+                GentleButton = ActionButton("Gentle", segment, 0, 0.5f, 6, 58,
                     () => chooseStyle(CareStyle.Gentle), Mist, Ink);
                 GentleButton.name = "Care style Gentle";
-                StandardButton = ActionButton("Standard", content, 0.65f, 1, 150, 222,
+                StandardButton = ActionButton("Standard", segment, 0.5f, 1, 6, 58,
                     () => chooseStyle(CareStyle.Standard), Mist, Ink);
                 StandardButton.name = "Care style Standard";
+                foreach (var button in new[] { GentleButton, StandardButton })
+                {
+                    SoftShapes.Pill(button.image);
+                    var rect = (RectTransform)button.transform;
+                    rect.offsetMin = new Vector2(6, rect.offsetMin.y);
+                    rect.offsetMax = new Vector2(-6, rect.offsetMax.y);
+                }
 
-                awayLabel = Label("Routine Away Label", content, "", 20, Secondary, TextAnchor.MiddleLeft,
-                    new Vector2(0, 100), Vector2.right, new Vector2(0, 146));
-                awayLabel.resizeTextForBestFit = true;
-                awayLabel.resizeTextMinSize = 16;
-                awayLabel.resizeTextMaxSize = 20;
-                var choices = Box("Away Choices", content, Vector2.zero, Vector2.right, new Vector2(0, 8), new Vector2(0, 94));
+                awayLabel = Label("Routine Away Label", content, "", 21, Secondary, TextAnchor.MiddleLeft,
+                    new Vector2(0, 98), Vector2.right, new Vector2(0, 148));
+                FitText(awayLabel, 16, 21);
+                var choices = Box("Away Choices", content, Vector2.zero, Vector2.right, new Vector2(0, 8), new Vector2(0, 90));
                 awayChoices = choices.gameObject;
                 for (var i = 0; i < AwayChoices.Length; i++)
                 {
                     var days = AwayChoices[i].Days;
-                    var choice = ActionButton(AwayChoices[i].Label, choices, i / 4f, (i + 1) / 4f, 0, 86,
-                        () => startAway(TimeSpan.FromDays(days)), Fern, Color.white);
+                    var choice = ActionButton(AwayChoices[i].Label, choices, i / 4f, (i + 1) / 4f, 0, 82,
+                        () => startAway(TimeSpan.FromDays(days)), Paper, Ink);
                     choice.name = "Away " + AwayChoices[i].Label;
                     if (i == 0)
                         FirstAwayChoice = choice;
                 }
 
-                EndAwayButton = ActionButton("We're back", content, 0, 1, 8, 94, endAway, Fern, Color.white);
+                EndAwayButton = ActionButton("We're back", content, 0, 1, 8, 90, endAway, Fern, Color.white);
                 EndAwayButton.name = "End away";
                 Root.SetActive(false);
             }
@@ -364,10 +381,15 @@ namespace BAIby.Presentation
                     : $"Going away? Away mode keeps {state.Name}'s needs steady for up to 2 weeks.";
             }
 
+            // The chosen segment is a white pill on the soft track.
             private static void Select(Button button, bool selected)
             {
-                button.image.color = selected ? Fern : Mist;
-                button.GetComponentInChildren<Text>().color = selected ? Color.white : Ink;
+                button.image.color = selected ? Paper : Mist;
+                button.GetComponentInChildren<Text>().color = selected ? Ink : Muted;
+                if (selected)
+                    SoftShapes.Lift(button.gameObject);
+                else if (button.GetComponent<UnityEngine.UI.Shadow>() is UnityEngine.UI.Shadow shade)
+                    shade.effectColor = Color.clear;
             }
         }
     }

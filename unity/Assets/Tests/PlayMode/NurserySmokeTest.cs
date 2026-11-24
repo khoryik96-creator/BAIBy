@@ -76,8 +76,9 @@ namespace BAIby.Tests
             }
             else
             {
-                Assert.That(Child<Text>(view.gameObject, "Reaction").rectTransform.anchorMax.x, Is.LessThan(1f),
-                    "the status makes room for the Routine button");
+                Assert.That(Child<Button>(view.gameObject, "Open routine").transform.parent,
+                    Is.EqualTo(Child<Button>(view.gameObject, "Preview next day").transform.parent),
+                    "the Routine button joins the care sheet's bottom row");
             }
 
             Tap(view.gameObject, routineOpener);
@@ -311,9 +312,9 @@ namespace BAIby.Tests
             for (var day = 3; day < 6; day++)
                 Tap(restored.gameObject, "Preview next day");
 
-            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("6 days old  ·  Early sitter"));
+            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Day 7 · Early sitter"));
             Tap(restored.gameObject, "Preview next day");
-            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("7 days old  ·  Crawler"));
+            Assert.That(Child<Text>(restored.gameObject, "Age").text, Does.Contain("Day 8 · Crawler"));
             Assert.That(Reaction(restored.gameObject), Does.Contain("can crawl now"));
             yield return new WaitForSecondsRealtime(0.95f);
             var crawling = Child<SpriteRenderer>(restored.gameObject, "Crawler artwork");
@@ -355,9 +356,9 @@ namespace BAIby.Tests
             for (var day = 7; day < 13; day++)
                 Tap(crawler.gameObject, "Preview next day");
 
-            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("13 days old  ·  Crawler"));
+            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Day 14 · Crawler"));
             Tap(crawler.gameObject, "Preview next day");
-            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("14 days old  ·  Early walker"));
+            Assert.That(Child<Text>(crawler.gameObject, "Age").text, Does.Contain("Day 15 · Early walker"));
             Assert.That(Reaction(crawler.gameObject), Does.Contain("can take a few steps now"));
             yield return new WaitForSecondsRealtime(0.55f);
             var walking = Child<SpriteRenderer>(crawler.gameObject, "Walker artwork");
@@ -445,8 +446,9 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").gameObject.activeInHierarchy, Is.False,
                 "the chip takes the favorite toy's place");
             Assert.That(Child<Text>(view.gameObject, "Health Action Caption").text, Is.EqualTo("Free visit"));
-            Assert.That(((RectTransform)Child<Button>(view.gameObject, "Preview next day").transform).anchorMax.x,
-                Is.EqualTo(1f / 3).Within(0.001f), "the bottom row makes room for the Doctor button");
+            Assert.That(Child<Button>(view.gameObject, "Doctor").transform.parent.name, Is.EqualTo("Care Actions"),
+                "a Doctor tile joins the care tiles");
+            Assert.That(CareTiles(view.gameObject), Is.EqualTo(7));
             yield return new WaitForSecondsRealtime(1f);
             Assert.That(Child<SpriteRenderer>(view.gameObject, "Sniffle drop").enabled, Is.True);
 
@@ -498,8 +500,7 @@ namespace BAIby.Tests
             Assert.That(Reaction(restored.gameObject), Does.Contain("Well again"));
             Assert.That(Child<Image>(restored.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.False);
             Assert.That(Child<Button>(restored.gameObject, "Medicine").gameObject.activeInHierarchy, Is.False);
-            Assert.That(((RectTransform)Child<Button>(restored.gameObject, "Preview next day").transform).anchorMax.x,
-                Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(CareTiles(restored.gameObject), Is.EqualTo(6), "well again, the care tiles are back to six");
         }
 
         [UnityTest]
@@ -537,7 +538,7 @@ namespace BAIby.Tests
             Assert.That(Child<RectTransform>(view.gameObject, "Home Panel").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<RectTransform>(view.gameObject, "Header").gameObject.activeInHierarchy, Is.False);
             Assert.That(Child<Image>(view.gameObject, "Home card Mia Portrait").sprite, Is.Not.Null);
-            Assert.That(Child<Text>(view.gameObject, "Home card Mia Stage").text, Is.EqualTo("Newborn"));
+            Assert.That(Child<Text>(view.gameObject, "Home card Mia Stage").text, Does.StartWith("Newborn"));
             Assert.That(Child<Image>(view.gameObject, "Home card Mia Selection").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<RectTransform>(view.gameObject, "Home full").gameObject.activeInHierarchy, Is.False);
             Tap(view.gameObject, "+ Adopt");
@@ -779,7 +780,7 @@ namespace BAIby.Tests
 
             // Home shows the cat with its species glyph and stage; a baby joins beside it.
             Tap(view.gameObject, "Home");
-            Assert.That(Child<Text>(view.gameObject, "Home card Pip Stage").text, Is.EqualTo("Kitten"));
+            Assert.That(Child<Text>(view.gameObject, "Home card Pip Stage").text, Does.StartWith("Kitten"));
             Assert.That(HasObject(view.gameObject, "Home card Pip Species"), Is.True);
             Assert.That(Child<Image>(view.gameObject, "Home card Pip Portrait").sprite, Is.Not.Null);
             Tap(view.gameObject, "+ Adopt");
@@ -879,8 +880,12 @@ namespace BAIby.Tests
 
         private static string Reaction(GameObject view) => Child<Text>(view, "Reaction").text;
 
+        // A ring meter's fill: Bar is the track, Bar/Fill the radial fill (0 to 1).
         private static float NeedValue(GameObject view, string name) =>
-            Child<RectTransform>(view, name).Find("Bar/Fill").GetComponent<RectTransform>().anchorMax.x;
+            Child<RectTransform>(view, name).Find("Bar/Fill").GetComponent<Image>().fillAmount;
+
+        private static int CareTiles(GameObject view) =>
+            Child<RectTransform>(view, "Care Actions").GetComponentsInChildren<Button>().Length;
 
         private static void Wipe(GameObject view, string from, string to)
         {

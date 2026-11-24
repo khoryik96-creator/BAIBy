@@ -6,59 +6,58 @@ using UnityEngine.UI;
 
 namespace BAIby.Presentation
 {
-    // The health axis on screen (care slice 3, docs/care-and-growth.md): a status chip on the header's age line, a
-    // Doctor or Medicine button that joins the Care tray's bottom row, and Dr. Lee's panel. The baby's own look
-    // (a paler tint, a droop, the bed and blanket, and a small bubble) comes from NurseryVisuals.SetCondition.
+    // The health axis on screen (care slice 3, docs/care-and-growth.md): a condition chip in the header card, a
+    // Doctor or Medicine tile in the care sheet, and Dr. Lee's sheet with the three recovery steps. The baby's own
+    // look (a paler tint, a droop, the bed and quilt, and a small bubble) comes from NurseryVisuals.SetCondition.
     // Copy stays calm: it says what helps, never blames, and never frightens.
     public sealed partial class NurseryPreview
     {
         private Image conditionChip;
         private Text conditionChipLabel;
+        private Image conditionIcon;
         private Button previewDayButton;
         private Button healthButton;
+        private Image healthIcon;
         private Text healthButtonTitle;
         private Text healthButtonCaption;
         private DoctorPanel doctor;
 
-        private void BuildHealth(RectTransform header, RectTransform careTray)
+        private void BuildHealth(RectTransform careSheet)
         {
-            // On the age line, right of "3 days old · Early sitter"; the favorite toy steps aside while it shows.
-            var chip = Box("Condition Chip", header, new Vector2(0.55f, 0), new Vector2(1, 0),
-                new Vector2(0, 105), new Vector2(0, 141));
+            // In the header card: on a second row under Style and Decor, or beside the name while another panel
+            // is open. The favourite toy steps aside while it shows.
+            var chip = Box("Condition Chip", headerCard, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
             conditionChip = Surface(chip, Honey);
-            SoftShapes.Round(conditionChip, 1.6f);
-            conditionChipLabel = Label("Condition Chip Label", chip, "", 19, Ink, TextAnchor.MiddleCenter,
-                new Vector2(12, 0), Vector2.one, new Vector2(-12, 0), FontStyle.Bold);
-            conditionChipLabel.resizeTextForBestFit = true;
-            conditionChipLabel.resizeTextMinSize = 13;
-            conditionChipLabel.resizeTextMaxSize = 19;
+            SoftShapes.Pill(conditionChip);
+            conditionIcon = IconAt("Condition Chip Icon", chip, "Thermometer", ButterInk, new Vector2(0, 0.5f),
+                new Vector2(16 + 15, 0), 30);
+            conditionChipLabel = Label("Condition Chip Label", chip, "", 24, Ink, TextAnchor.MiddleLeft,
+                new Vector2(56, 0), Vector2.one, new Vector2(-18, 0), FontStyle.Bold);
+            FitText(conditionChipLabel, 16, 24);
             chip.gameObject.SetActive(false);
 
-            var previewLabel = previewDayButton.GetComponentInChildren<Text>();
-            previewLabel.rectTransform.offsetMin = new Vector2(8, 0);
-            previewLabel.rectTransform.offsetMax = new Vector2(-8, 0);
-            previewLabel.resizeTextForBestFit = true;
-            previewLabel.resizeTextMinSize = 16;
-            previewLabel.resizeTextMaxSize = 25;
-
-            // The third button of the bottom row, shown only when there is something to do for the baby's health.
-            healthButton = ActionButton("Doctor", careTray, 2f / 3, 1, 7, 91, UseHealthAction, Honey, Ink);
-            SoftShapes.Round(healthButton.image, 0.7f);
-            var colors = healthButton.colors;
-            colors.disabledColor = new Color32(220, 220, 220, 255);
-            healthButton.colors = colors;
+            // A seventh tile, shown only when there is something to do for the baby's health; LayoutCareSheet puts
+            // it at the end of the second row, a little wider so its caption reads.
+            healthButton = CareTile("Doctor", careActions, "Doctor", "Doctor", FernSoft, UseHealthAction);
+            healthIcon = healthButton.transform.Find("Badge/Icon").GetComponent<Image>();
             healthButtonTitle = healthButton.GetComponentInChildren<Text>();
-            healthButtonTitle.rectTransform.offsetMin = new Vector2(8, 32);
-            healthButtonTitle.rectTransform.offsetMax = new Vector2(-8, -4);
-            healthButtonTitle.resizeTextForBestFit = true;
-            healthButtonTitle.resizeTextMinSize = 18;
-            healthButtonTitle.resizeTextMaxSize = 25;
-            healthButtonCaption = Label("Health Action Caption", healthButton.transform, "", 17, Ink, TextAnchor.MiddleCenter,
-                new Vector2(6, 5), Vector2.right, new Vector2(-6, 36));
-            healthButtonCaption.resizeTextForBestFit = true;
-            healthButtonCaption.resizeTextMinSize = 12;
-            healthButtonCaption.resizeTextMaxSize = 17;
+            // Fixed bands from the bottom so the caption reads on the compact (96-unit) tiles too.
+            healthButtonTitle.rectTransform.anchorMin = Vector2.zero;
+            healthButtonTitle.rectTransform.anchorMax = Vector2.right;
+            healthButtonTitle.rectTransform.offsetMin = new Vector2(6, 27);
+            healthButtonTitle.rectTransform.offsetMax = new Vector2(-6, 54);
+            FitText(healthButtonTitle, 17, 24);
+            var badge = (RectTransform)healthButton.transform.Find("Badge");
+            badge.anchorMin = new Vector2(0.5f, 1);
+            badge.anchorMax = new Vector2(0.5f, 1);
+            badge.offsetMin = new Vector2(-20, -44);
+            badge.offsetMax = new Vector2(20, -4);
+            healthIcon.rectTransform.sizeDelta = new Vector2(28, 28);
+            healthButtonCaption = Label("Health Action Caption", healthButton.transform, "", 19, Muted, TextAnchor.MiddleCenter,
+                new Vector2(6, 2), Vector2.right, new Vector2(-6, 28));
+            FitText(healthButtonCaption, 14, 19);
             healthButton.gameObject.SetActive(false);
+            careTiles.Add(healthButton);
 
             doctor = new DoctorPanel(Tray("Doctor Panel", false, 378), () => ShowPanel(NurseryPanel.Care), VisitDoctor);
         }
@@ -88,7 +87,7 @@ namespace BAIby.Presentation
             doctor.Done.Select();
         }
 
-        // The chip, the bottom row and the doctor's panel for the baby on screen.
+        // The chip, the health tile and the doctor's sheet for the baby on screen.
         private void UpdateHealthControls(BabyState state, Reaction reaction, string reactionText)
         {
             var care = state.Care;
@@ -98,23 +97,22 @@ namespace BAIby.Presentation
             if (chip.Text != null)
             {
                 conditionChipLabel.text = chip.Text;
-                conditionChip.color = chip.Color;
+                conditionChip.color = chip.Background;
+                conditionChipLabel.color = chip.Ink;
+                conditionIcon.color = chip.Ink;
             }
 
             var doctorOffered = session.CanVisitDoctor;
             var recovering = care.Condition == CareCondition.Recovering;
-            var offered = doctorOffered || recovering;
-            healthButton.gameObject.SetActive(offered);
-            var split = offered ? 1f / 3 : 0.5f;
-            PlaceInRow(previewDayButton, 0, split);
-            PlaceInRow(developmentButton, split, offered ? 2f / 3 : 1);
+            healthButton.gameObject.SetActive(doctorOffered || recovering);
             if (doctorOffered)
             {
                 healthButton.name = "Doctor";
                 healthButtonTitle.text = "Doctor";
                 healthButtonCaption.text = "Free visit";
                 healthButton.interactable = true;
-                healthButton.image.color = Honey;
+                healthButton.image.color = Sky;
+                healthIcon.sprite = Icon("Doctor");
             }
             else if (recovering)
             {
@@ -123,14 +121,15 @@ namespace BAIby.Presentation
                 healthButtonTitle.text = "Medicine";
                 healthButtonCaption.text = MedicineCaption(medicine, state);
                 healthButton.interactable = medicine == MedicineState.Ready;
-                healthButton.image.color = Leaf;
+                healthButton.image.color = FernSoft;
+                healthIcon.sprite = Icon("Medicine");
             }
 
             var doctorReaction = reaction == Reaction.DoctorVisited || reaction == Reaction.DoctorAllClear;
-            doctor.UpdateDetails(state, doctorOffered, doctorReaction ? reactionText : null);
+            doctor.UpdateDetails(state, doctorOffered, doctorReaction ? reactionText : null, session.MedicineCourse);
         }
 
-        // Other views share the header: the pet room shows its Bond where the chip would be.
+        // Other views share the header: the pet room shows its Bond in its own sheet.
         private void HideHealthChip()
         {
             if (conditionChip == null)
@@ -139,26 +138,19 @@ namespace BAIby.Presentation
             favorite.gameObject.SetActive(true);
         }
 
-        private static void PlaceInRow(Button button, float left, float right)
-        {
-            var rect = (RectTransform)button.transform;
-            rect.anchorMin = new Vector2(left, 0);
-            rect.anchorMax = new Vector2(right, 0);
-        }
-
-        private static (string Text, Color Color) ChipFor(CareRecord care, int course)
+        private static (string Text, Color Background, Color Ink) ChipFor(CareRecord care, int course)
         {
             switch (care.Condition)
             {
-                case CareCondition.UnderTheWeather: return ("Under the weather", Honey);
-                case CareCondition.Sick: return ("Sick — needs the doctor", Rose);
+                case CareCondition.UnderTheWeather: return ("Under the weather", Butter, ButterInk);
+                case CareCondition.Sick: return ("Sick — needs the doctor", Blush, BlushInk);
                 case CareCondition.Recovering:
-                    return ($"Recovering · medicine {Math.Min(care.MedicineDoses, course)} of {course}", Leaf);
-                default: return (null, Mist);
+                    return ($"Recovering · medicine {Math.Min(care.MedicineDoses, course)} of {course}", FernSoft, FernDeep);
+                default: return (null, Mist, Ink);
             }
         }
 
-        // Why the Medicine button can or can't be used right now.
+        // Why the Medicine tile can or can't be used right now.
         private static string MedicineCaption(MedicineState medicine, BabyState state)
         {
             switch (medicine)
@@ -218,8 +210,15 @@ namespace BAIby.Presentation
             }
         }
 
+        // Dr. Lee's sheet: who and what, the three steps to well again, and Visit Dr. Lee.
         private sealed class DoctorPanel
         {
+            private const float Height = 378;
+
+            private readonly Image[] steps = new Image[3];
+            private readonly Text[] stepLabels = new Text[3];
+            private readonly Text doneLabel;
+
             public GameObject Root { get; }
             public Button Visit { get; }
             public Button Done { get; }
@@ -229,52 +228,74 @@ namespace BAIby.Presentation
             public DoctorPanel(RectTransform content, Action close, Action visit)
             {
                 Root = content.parent.gameObject;
-                // A small clinic badge: a soft disc with a white cross, made of UI shapes.
-                var badge = Box("Doctor Badge", content, Vector2.zero, Vector2.zero, new Vector2(0, 296), new Vector2(60, 356));
-                SoftShapes.Disc(Surface(badge, Rose));
-                var across = Box("Doctor Badge Across", badge, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(-17, -6), new Vector2(17, 6));
-                SoftShapes.Round(Surface(across, Color.white), 4f);
-                var down = Box("Doctor Badge Down", badge, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                    new Vector2(-6, -17), new Vector2(6, 17));
-                SoftShapes.Round(Surface(down, Color.white), 4f);
-                Label("Doctor Heading", content, "Dr. Lee", 38, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(74, 283), new Vector2(0.72f, 0), new Vector2(0, 369), FontStyle.Bold);
-                Done = ActionButton("Done", content, 0.73f, 1, 283, 371, close, Mist, Ink);
-                Done.name = "Close doctor";
+                var badge = Box("Doctor Badge", content, Vector2.zero, Vector2.zero,
+                    new Vector2(0, Height - 96), new Vector2(96, Height));
+                SoftShapes.Radius(Surface(badge, Sky), Px(18));
+                IconAt("Doctor Badge Icon", badge, "Doctor", Ink, new Vector2(0.5f, 0.5f), Vector2.zero, Px(28));
+                var heading = Label("Doctor Heading", content, "Dr. Lee", 39, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(116, Height - 48), new Vector2(0.73f, 0), new Vector2(0, Height - 2), FontStyle.Bold);
+                FitText(heading, 28, 39);
+                Feedback = Label("Doctor Feedback", content, "", 24, Secondary, TextAnchor.UpperLeft,
+                    new Vector2(116, Height - 100), new Vector2(0.73f, 0), new Vector2(0, Height - 50));
+                FitText(Feedback, 15, 24);
 
-                Scene = Label("Doctor Scene", content, "", 23, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 186), Vector2.right, new Vector2(0, 279));
-                Scene.resizeTextForBestFit = true;
-                Scene.resizeTextMinSize = 17;
-                Scene.resizeTextMaxSize = 23;
+                Done = SheetClose("Close doctor", "Not now", content, Height, close);
+                doneLabel = Done.GetComponentInChildren<Text>();
 
-                Visit = ActionButton("Visit Dr. Lee", content, 0, 1, 92, 180, visit, Fern, Color.white);
+                Scene = Label("Doctor Scene", content, "", 27, Hex(0x3F3A45), TextAnchor.MiddleLeft,
+                    new Vector2(0, 190), Vector2.right, new Vector2(0, Height - 108));
+                FitText(Scene, 18, 27);
+
+                var row = Box("Doctor Steps", content, Vector2.zero, Vector2.right, new Vector2(0, 104), new Vector2(0, 182));
+                string[] labels = { "Visit Dr. Lee", "Medicine at a meal", "Medicine at the next" };
+                for (var i = 0; i < steps.Length; i++)
+                {
+                    var step = Box("Doctor Step " + (i + 1), row, new Vector2(i / 3f, 0), new Vector2((i + 1) / 3f, 1),
+                        new Vector2(i == 0 ? 0 : 8, 0), new Vector2(i == 2 ? 0 : -8, 0));
+                    steps[i] = Surface(step, Mist);
+                    SoftShapes.Radius(steps[i], Px(16));
+                    var number = Label("Number", step, (i + 1).ToString(CultureInfo.InvariantCulture), 28, Ink,
+                        TextAnchor.MiddleCenter, new Vector2(4, 40), Vector2.one, new Vector2(-4, -4), FontStyle.Bold);
+                    SetRole(number, TextRole.Heading);
+                    IconAt("Finished", step, "Check", FernDeep, new Vector2(0.5f, 1), new Vector2(0, -22), 30)
+                        .gameObject.SetActive(false);
+                    stepLabels[i] =Label("Doctor Step Label " + (i + 1), step, labels[i], 22, Muted, TextAnchor.MiddleCenter,
+                        new Vector2(6, 6), Vector2.right, new Vector2(-6, 44), FontStyle.Bold);
+                    FitText(stepLabels[i], 14, 22);
+                }
+
+                Visit = ActionButton("Visit Dr. Lee", content, 0, 1, 0, 94, visit, Fern, Color.white);
                 Visit.name = "Visit doctor";
-                SoftShapes.Round(Visit.image, 0.7f);
+                SoftShapes.Radius(Visit.image, Px(18));
                 var title = Visit.GetComponentInChildren<Text>();
+                title.fontSize = 30;
                 title.rectTransform.offsetMin = new Vector2(12, 34);
-                title.rectTransform.offsetMax = new Vector2(-12, -4);
-                title.alignment = TextAnchor.MiddleLeft;
+                title.rectTransform.offsetMax = new Vector2(-12, -6);
                 var details = Label("Visit Dr. Lee Effects", Visit.transform, "Free  ·  Health +15  ·  A gentle check-up",
-                    20, Color.white, TextAnchor.MiddleLeft, new Vector2(12, 6), Vector2.right, new Vector2(-12, 36));
-                details.resizeTextForBestFit = true;
-                details.resizeTextMinSize = 15;
-                details.resizeTextMaxSize = 20;
-
-                Feedback = Label("Doctor Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 8), Vector2.right, new Vector2(0, 86));
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 16;
-                Feedback.resizeTextMaxSize = 21;
+                    20, new Color(1, 1, 1, 0.86f), TextAnchor.MiddleCenter, new Vector2(12, 8), Vector2.right, new Vector2(-12, 38));
+                FitText(details, 15, 20);
                 Root.SetActive(false);
             }
 
-            // Before the visit the panel invites; after it, it keeps Dr. Lee's words until it closes.
-            public void UpdateDetails(BabyState state, bool offered, string outcome)
+            // Before the visit the sheet invites; after it, it keeps Dr. Lee's words until it closes. The steps
+            // follow the recovery: the current one is tinted sage, finished ones get a tick in their number.
+            public void UpdateDetails(BabyState state, bool offered, string outcome, int course)
             {
                 var name = state.Name;
                 Visit.gameObject.SetActive(offered);
+                var recovering = state.Care.Condition == CareCondition.Recovering;
+                var current = offered ? 0 : recovering ? 1 + Math.Min(state.Care.MedicineDoses, 1) : -1;
+                for (var i = 0; i < steps.Length; i++)
+                {
+                    var finished = !offered && recovering && i < current;
+                    steps[i].color = i == current ? FernSoft : Mist;
+                    stepLabels[i].color = i == current ? FernDeep : Muted;
+                    steps[i].transform.Find("Number").gameObject.SetActive(!finished);
+                    steps[i].transform.Find("Finished").gameObject.SetActive(finished);
+                }
+
+                stepLabels[2].text = course > 2 ? "More doses at meals" : "Medicine at the next";
+                PlaceDone(offered);
                 if (offered)
                 {
                     Scene.text = state.Care.Condition == CareCondition.Sick
@@ -288,9 +309,20 @@ namespace BAIby.Presentation
                     Scene.text = outcome;
                 else if (!Root.activeSelf)
                     Scene.text = $"{name} is well looked after. Dr. Lee is here whenever {name} feels poorly.";
-                Feedback.text = state.Care.Condition == CareCondition.Recovering
-                    ? "The Medicine button is in the care tray. Give it at mealtimes."
+                Feedback.text = recovering
+                    ? "The Medicine tile is in the care sheet. Give it at mealtimes."
                     : string.Empty;
+            }
+
+            // "Not now" sits at the top right while the visit is offered; afterwards "Done" fills the bottom row.
+            private void PlaceDone(bool offered)
+            {
+                var rect = (RectTransform)Done.transform;
+                doneLabel.text = offered ? "Not now" : "Done";
+                rect.anchorMin = new Vector2(offered ? 0.74f : 0, 0);
+                rect.anchorMax = new Vector2(1, 0);
+                rect.offsetMin = new Vector2(3, offered ? Height - 78 : 0);
+                rect.offsetMax = new Vector2(-3, offered ? Height - 12 : 94);
             }
         }
     }

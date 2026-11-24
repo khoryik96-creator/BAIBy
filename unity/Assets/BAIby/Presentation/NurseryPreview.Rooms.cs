@@ -294,7 +294,7 @@ namespace BAIby.Presentation
             public MoreRoomsPanel(RectTransform content, Action close, Action toggleRooms)
             {
                 Root = content.parent.gameObject;
-                heading = Label("More Rooms Heading", content, "More rooms", 34, Ink, TextAnchor.MiddleLeft,
+                heading = Label("More Rooms Heading", content, "More rooms", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 PlaceFromTop(heading.rectTransform, 0, 0.72f, 14, 76);
                 Close = ActionButton("Close more rooms", content, 0.73f, 1, 0, 0, close, Mist, Ink);
@@ -360,7 +360,7 @@ namespace BAIby.Presentation
             public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper)
             {
                 Root = content.parent.gameObject;
-                var heading = Label("Settings Heading", content, "For grown-ups", 34, Ink, TextAnchor.MiddleLeft,
+                var heading = Label("Settings Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 PlaceFromTop(heading.rectTransform, 0, 0.72f, 14, 76);
                 Close = ActionButton("Close settings", content, 0.73f, 1, 0, 0, close, Mist, Ink);
@@ -446,7 +446,7 @@ namespace BAIby.Presentation
             public JournalPanel(RectTransform content, Action close)
             {
                 Root = content.parent.gameObject;
-                heading = Line("Journal Heading", content, 34, 0.72f, 8, 66, FontStyle.Bold);
+                heading = Line("Journal Heading", content, 38, 0.72f, 6, 66, FontStyle.Bold);
                 Close = ActionButton("Close journal", content, 0.73f, 1, 0, 0, close, Mist, Ink);
                 Close.GetComponentInChildren<Text>().text = "Done";
                 PlaceFromTop((RectTransform)Close.transform, 0.73f, 1, 10, 66, 3, 3);
@@ -455,16 +455,16 @@ namespace BAIby.Presentation
                 state = Line("Journal Status", content, 21, 1, 70, 110);
                 state.color = Secondary;
                 age = Line("Journal Age", content, 23, 1, 112, 146);
-                Line("Journal Milestones", content, 26, 1, 152, 186, FontStyle.Bold).text = "Milestones";
+                Line("Journal Milestones", content, 30, 1, 150, 186, FontStyle.Bold).text = "Milestones";
                 sitting = Line("Journal Sitting", content, 22, 1, 188, 218);
                 crawling = Line("Journal Crawling", content, 22, 1, 218, 248);
                 walking = Line("Journal Walking", content, 22, 1, 248, 278);
-                Line("Journal Interests", content, 26, 1, 284, 318, FontStyle.Bold).text = "Interests";
+                Line("Journal Interests", content, 30, 1, 282, 318, FontStyle.Bold).text = "Interests";
                 favoriteToy = Line("Journal Favorite Toy", content, 22, 1, 320, 350);
                 stories = Line("Journal Stories", content, 22, 1, 350, 380);
                 blocks = Line("Journal Blocks", content, 22, 1, 380, 410);
                 connection = Line("Journal Connection", content, 23, 1, 414, 448, FontStyle.Bold);
-                connection.color = Fern;
+                connection.color = FernDeep;
                 Feedback = Line("Journal Feedback", content, 19, 1, 448, 468);
                 Root.SetActive(false);
             }
@@ -522,11 +522,11 @@ namespace BAIby.Presentation
                 this.choose = choose;
                 tray = (RectTransform)content.parent;
                 Root = tray.gameObject;
-                heading = Label("Wake Heading", content, "", 32, Ink, TextAnchor.MiddleLeft,
+                heading = Label("Wake Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 heading.resizeTextForBestFit = true;
-                heading.resizeTextMinSize = 22;
-                heading.resizeTextMaxSize = 32;
+                heading.resizeTextMinSize = 24;
+                heading.resizeTextMaxSize = 38;
                 PlaceFromTop(heading.rectTransform, 0, 1, 12, 66);
                 detail = Label("Wake Detail", content, "", 22, Ink, TextAnchor.UpperLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
@@ -573,23 +573,24 @@ namespace BAIby.Presentation
                     var label = companion.Name;
                     var slot = companion.Slot;
                     var button = ActionButton(label == null ? $"Rest slot {slot} instead" : $"Rest {label} instead",
-                        choices, 0, 1, 0, 0, () => choose(slot), Fern, Color.white);
+                        choices, 0, 1, 0, 0, () => choose(slot), Lilac, Ink);
                     var text = button.GetComponentInChildren<Text>();
                     text.text = label == null ? "The unopened save rests" : $"{label} rests";
                     text.resizeTextForBestFit = true;
                     text.resizeTextMinSize = 15;
                     text.resizeTextMaxSize = 24;
                     PlaceFromTop((RectTransform)button.transform, column * 0.5f, (column + 1) * 0.5f, top, top + RowHeight - 8, 3, 3);
-                    SoftShapes.Round(button.image, 1f);
+                    SoftShapes.Radius(button.image, Px(20));
                 }
 
+                SettleText(choices);
                 var rows = (awake.Count + 1) / 2;
                 var y = ChoicesTop + rows * RowHeight;
                 PlaceFromTop((RectTransform)keepResting.transform, 0, 1, y, y + 76, 3, 3);
                 y += 84;
                 PlaceFromTop(Feedback.rectTransform, 0, 1, y, y + 44);
                 y += 52;
-                tray.offsetMax = new Vector2(tray.offsetMax.x, tray.offsetMin.y + y);
+                tray.offsetMax = new Vector2(tray.offsetMax.x, tray.offsetMin.y + y + SheetChrome);
                 return keepResting;
             }
         }
