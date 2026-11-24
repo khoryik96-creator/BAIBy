@@ -14,7 +14,11 @@ namespace BAIby.Simulation
     // - Away mode holds needs: they fall at awake rates but never below the hold level, or below where they
     //   were if that was lower. Health holds too.
     // - Outside Away mode at most `cap` hours count, from the start of the gap.
-    // - Health recovers 6/h while every need is at 60 or more and falls 5/h while any is below 30.
+    // - Health recovers 6/h while every need is at 60 or more and falls 5/h while any is below 30, never below
+    //   CareConsequences.HealthFloor (a save from before the floor keeps a lower Health but never loses more).
+    // - The health condition at the start of the gap holds for the whole gap (the ladder only moves at an
+    //   advance): under the weather or sick, Energy cannot rise past the unwell cap; recovering, Health recovers
+    //   faster until a fixed instant after the doctor's visit, so the boost is the same in one advance or many.
     internal static class BabyNeeds
     {
         public const double AwakeFullness = 7;
@@ -54,15 +58,33 @@ namespace BAIby.Simulation
         };
 
         // Preview days pass no real clock time, so they count as awake hours.
-        public static Values Awake(Values start, TimeSpan elapsed, TimeSpan cap) =>
-            Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0);
+        public static Values Awake(Values start, TimeSpan elapsed, TimeSpan cap, double recoveryBoost = 1) =>
+            Segment(start, Math.Min(elapsed.TotalHours, cap.TotalHours), false, 0, recoveryBoost);
+
+        // What the health condition does to the needs over a gap.
+        public readonly struct Effects
+        {
+            public static readonly Effects None = new Effects(100, 1, long.MinValue);
+            // Energy cannot rise past this.
+            public readonly double EnergyCeiling;
+            // Health recovers this many times faster before BoostUntil (UTC ticks).
+            public readonly double RecoveryBoost;
+            public readonly long BoostUntil;
+
+            public Effects(double energyCeiling, double recoveryBoost, long boostUntil)
+            {
+                EnergyCeiling = energyCeiling;
+                RecoveryBoost = recoveryBoost;
+                BoostUntil = boostUntil;
+            }
+        }
 
         // Real time from `before.Checkpoint` to `after.Checkpoint`. `before` is the ledger at the start of the gap
         // (its away period); `after` is the ledger CareRules.Advance produced and holds the bedtime rest. Until the
         // first care-day boundary the gap is placed on `before`'s offset and routine, after it on `after`'s, as
         // CareRules.BeginDay switches them, so one advance and many short ones agree.
         public static Values Real(Values start, CareRecord before, CareRecord after, TimeSpan cap, double holdLevel,
-            TimeSpan dayStart)
+            TimeSpan dayStart, Effects effects)
         {
             var from = before.Checkpoint.UtcTicks;
             var to = after.Checkpoint.UtcTicks;
@@ -77,7 +99,7 @@ namespace BAIby.Simulation
                 boundary = Math.Max(from, Math.Min(to, boundary));
             }
 
-            var placing = new Placement(before, after, boundary);
+            var placing = new Placement(before, after, boundary, effects);
             var awayFrom = Math.Max(from, before.AwayFrom.UtcTicks);
             var awayUntil = Math.Min(to, before.AwayUntil.UtcTicks);
             var budget = cap.Ticks;
@@ -97,12 +119,14 @@ namespace BAIby.Simulation
             public readonly CareRecord Before;
             public readonly CareRecord After;
             public readonly long Boundary;
+            public readonly Effects Effects;
 
-            public Placement(CareRecord before, CareRecord after, long boundary)
+            public Placement(CareRecord before, CareRecord after, long boundary, Effects effects)
             {
                 Before = before;
                 After = after;
                 Boundary = boundary;
+                Effects = effects;
             }
         }
 
@@ -113,7 +137,7 @@ namespace BAIby.Simulation
                 var split = Math.Min(to, placing.Boundary);
                 var before = placing.Before;
                 values = Counted(values, from, split, before.Offset, RoutineCalendar.Night(before.Preset, before.WakeTime),
-                    placing.After, ref budget);
+                    placing.After, placing.Effects, ref budget);
                 from = split;
             }
 
@@ -122,7 +146,7 @@ namespace BAIby.Simulation
 
             var after = placing.After;
             return Counted(values, from, to, after.Offset, RoutineCalendar.Night(after.Preset, after.WakeTime), after,
-                ref budget);
+                placing.Effects, ref budget);
         }
 
         // A night belongs to the care day whose evening it follows; only that day's bedtime rest counts.
@@ -141,7 +165,7 @@ namespace BAIby.Simulation
 
         // `rest` holds the bedtime rest; `offset` and `night` place the stretch on the local clock.
         private static Values Counted(Values values, long from, long to, TimeSpan offset, (TimeSpan Start, TimeSpan End) night,
-            CareRecord rest, ref long budget)
+            CareRecord rest, Effects effects, ref long budget)
         {
             var at = from;
             while (at < to && budget > 0)
@@ -156,10 +180,15 @@ namespace BAIby.Simulation
                 else
                     boundary = night.End.Ticks - timeOfDay;
 
+                // The recovery boost ends at a fixed instant, so a stretch never straddles it.
+                var boosted = at < effects.BoostUntil;
+                if (boosted)
+                    boundary = Math.Min(boundary, effects.BoostUntil - at);
                 var length = Math.Min(Math.Min(to - at, boundary), budget);
                 // The morning part of a night belongs to the previous evening's care day.
                 var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (timeOfDay < night.End.Ticks ? 1 : 0);
-                values = Segment(values, Hours(length), isNight, isNight ? NightEnergyCap(rest, nightDay) : 0);
+                var energyCap = isNight ? Math.Min(NightEnergyCap(rest, nightDay), effects.EnergyCeiling) : 0;
+                values = Segment(values, Hours(length), isNight, energyCap, boosted ? effects.RecoveryBoost : 1);
                 budget -= length;
                 at += length;
             }
@@ -183,7 +212,7 @@ namespace BAIby.Simulation
             Math.Max(Math.Min(value, hold), value - rate * hours);
 
         // One stretch of constant rates. Energy rises at night (rate below zero) and never passes energyCap.
-        private static Values Segment(Values start, double hours, bool night, double energyCap)
+        private static Values Segment(Values start, double hours, bool night, double energyCap, double recoveryBoost)
         {
             if (hours <= 0)
                 return start;
@@ -200,9 +229,10 @@ namespace BAIby.Simulation
             // Applying them in order keeps one long advance equal to many short ones.
             var safe = WindowAtOrAbove(values, rates, energyCap, LowNeedThreshold, hours);
             var recovery = WindowAtOrAbove(values, rates, energyCap, RecoveryThreshold, hours);
-            var health = Math.Max(0, start.Health - safe.Low * HealthLossPerHour);
-            health = Math.Min(100, health + (recovery.High - recovery.Low) * RecoveryPerHour);
-            health = Math.Max(0, health - (hours - safe.High) * HealthLossPerHour);
+            var floor = Math.Min(start.Health, CareConsequences.HealthFloor);
+            var health = Math.Max(floor, start.Health - safe.Low * HealthLossPerHour);
+            health = Math.Min(100, health + (recovery.High - recovery.Low) * RecoveryPerHour * recoveryBoost);
+            health = Math.Max(floor, health - (hours - safe.High) * HealthLossPerHour);
             return new Values
             {
                 Satiety = Math.Max(0, start.Satiety - fullness * hours),

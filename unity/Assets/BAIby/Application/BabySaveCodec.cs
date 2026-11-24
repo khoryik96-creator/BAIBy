@@ -10,7 +10,8 @@ namespace BAIby.Application
     {
         // v13: the care element carries the consequence state (care v2). The baby fields are unchanged, so a
         // v12 baby decodes as before and its care v1 record migrates (see CareRecordCodec).
-        private const int Version = 13;
+        // v14: the care element carries the health axis (care v3); a v13 baby decodes as well.
+        private const int Version = 14;
         private const int VersionBeforeCare = 11;
         private const int VersionBeforeAppearance = 10;
         private const int VersionBeforeBlockTowers = 9;

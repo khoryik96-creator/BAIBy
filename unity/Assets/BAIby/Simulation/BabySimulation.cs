@@ -18,6 +18,7 @@ namespace BAIby.Simulation
             ["explore-new-sound"] = CareTags.Together,
             ["bath"] = CareTags.Hygiene,
             ["stack-blocks"] = CareTags.Together,
+            ["medicine"] = CareTags.Medicine,
         });
 
         // The offline decay cap from the care retune: a missed day is felt without needs collapsing.
@@ -63,8 +64,9 @@ namespace BAIby.Simulation
                 BabyAppearance.Default, CareRules.Start(now, careTunables));
         }
 
-        // Real time: needs follow the local day and night, the ledger evaluates windows, and the needs axis
-        // moves at most one rung. Development keeps its nominal pace, Away mode included.
+        // Real time: needs follow the local day and night, the ledger evaluates windows, and the needs axis and
+        // the health axis each move at most one rung. Development keeps its nominal pace, Away mode included
+        // (CareConsequences.Readiness is the factor slice 4's readiness timing will apply).
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
         {
             if (now <= state.TimeCheckpoint)
@@ -72,10 +74,13 @@ namespace BAIby.Simulation
 
             var care = CareRules.Advance(state.Care, now, careTunables);
             var needs = BabyNeeds.Real(BabyNeeds.From(state), state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
-                careTunables.DayStart);
+                careTunables.DayStart, HealthEffects(state.Care));
             // The first advance of a migrated ledger excuses the whole gap and moves nobody on the ladder.
             if (!state.Care.AwaitingAnchor)
+            {
                 care = CareConsequences.Settle(care, Snapshot(needs), careTunables);
+                care = CareConsequences.SettleHealth(state.Care, care, needs.Health, careTunables);
+            }
 
             return AdvanceElapsed(state, now, now - state.TimeCheckpoint, needs, care);
         }
@@ -87,8 +92,43 @@ namespace BAIby.Simulation
 
             // Preview days pass no real time, so no routine window passes: the ledger and the mood are
             // untouched (Covered), and the hours count as awake hours.
+            // A recovering baby keeps its faster recovery while the visit's window is open at the checkpoint.
+            var effects = HealthEffects(state.Care);
+            var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
             return AdvanceElapsed(state, state.TimeCheckpoint, elapsed,
-                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay), state.Care);
+                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost), state.Care);
+        }
+
+        // Whether the doctor's visit is offered: the baby is under the weather or sick.
+        public static bool CanVisitDoctor(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return state.Care.IsUnwell;
+        }
+
+        // The free doctor's visit (Dr. Lee): Health +15 at once, then Recovering with medicine to take, or home
+        // well when the baby was only a little under the weather. Advance to the current instant first.
+        public (BabyState State, Reaction Reaction) VisitDoctor(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (!CanVisitDoctor(state))
+                return (state, Reaction.DoctorAllClear);
+
+            var visit = CareConsequences.VisitDoctor(state.Care, state.Health, Snapshot(BabyNeeds.From(state)), careTunables);
+            var reaction = visit.Record.Condition == CareCondition.Recovering ? Reaction.DoctorVisited : Reaction.DoctorAllClear;
+            return (state.With(health: visit.Health, care: visit.Record), reaction);
+        }
+
+        // Whether a medicine dose would count now: only while recovering, one per meal window.
+        public static MedicineState Medicine(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return CareConsequences.Medicine(state.Care);
         }
 
         // Read-only ledger summary for the Development panel.
@@ -188,6 +228,11 @@ namespace BAIby.Simulation
             var comfortGain = 1 - rules.MessComfortCut * state.Care.Mess;
             // An upset baby pushes toys away: play, stories and blocks give nothing.
             var refusesPlay = CareConsequences.RefusesPlay(state.Care);
+            // A sick baby stays in bed: only food, comfort, rest and changes are accepted.
+            var tooPoorly = CareConsequences.FeelsTooPoorly(state.Care);
+            // Under the weather or sick, Energy cannot rise past the unwell cap.
+            var energyCeiling = state.Care.IsUnwell ? careTunables.UnwellEnergyCap : 100;
+            var medicine = CareConsequences.Medicine(state.Care);
             var tags = BabyCareProfile.TagsFor(CareVerbFor(action));
             Reaction reaction;
 
@@ -201,7 +246,7 @@ namespace BAIby.Simulation
                     {
                         case Food.Milk:
                             satiety = Math.Min(100, satiety + MilkFullness);
-                            energy = Math.Min(100, energy + 5);
+                            energy = Gain(energy, 5, energyCeiling);
                             break;
                         case Food.Banana:
                             satiety = Math.Min(100, satiety + BananaFullness);
@@ -226,7 +271,7 @@ namespace BAIby.Simulation
                     reaction = Reaction.Calmed;
                     break;
                 case CareAction.Rest:
-                    energy = Math.Min(100, energy + 35);
+                    energy = Gain(energy, 35, energyCeiling);
                     reaction = Reaction.Rested;
                     break;
                 case CareAction.ChangeDiaper:
@@ -234,6 +279,13 @@ namespace BAIby.Simulation
                     reaction = Reaction.FreshDiaper;
                     break;
                 case CareAction.Bath:
+                    if (tooPoorly)
+                    {
+                        reaction = Reaction.TooPoorly;
+                        tags = CareTags.None;
+                        break;
+                    }
+
                     cleanliness = Math.Min(100, cleanliness + 45);
                     comfort = Math.Min(100, comfort + 30 * comfortGain);
                     energy = Math.Max(0, energy - 8);
@@ -242,6 +294,13 @@ namespace BAIby.Simulation
                 case CareAction.StackBlocks:
                     if (!state.CanWalk)
                         throw new InvalidOperationException("Stacking blocks is unavailable before the walking milestone.");
+                    if (tooPoorly)
+                    {
+                        reaction = Reaction.TooPoorly;
+                        tags = CareTags.None;
+                        break;
+                    }
+
                     if (refusesPlay)
                     {
                         reaction = Reaction.PushesToyAway;
@@ -255,6 +314,13 @@ namespace BAIby.Simulation
                     reaction = Reaction.StackedBlocks;
                     break;
                 case CareAction.ReadStory:
+                    if (tooPoorly)
+                    {
+                        reaction = Reaction.TooPoorly;
+                        tags = CareTags.None;
+                        break;
+                    }
+
                     if (refusesPlay)
                     {
                         reaction = Reaction.PushesToyAway;
@@ -271,6 +337,12 @@ namespace BAIby.Simulation
                 case CareAction.ExploreNewSound:
                     if (!state.HasPendingNewSound)
                         throw new InvalidOperationException("The new sound event is unavailable.");
+                    if (action == CareAction.ExploreNewSound && tooPoorly)
+                    {
+                        reaction = Reaction.TooPoorly;
+                        tags = CareTags.None;
+                        break;
+                    }
 
                     newSoundResolved = true;
                     if (action == CareAction.ComfortNewSound)
@@ -289,6 +361,13 @@ namespace BAIby.Simulation
                 case CareAction.Play:
                     if (toy != Toy.Rattle && toy != Toy.Plush)
                         throw new ArgumentOutOfRangeException(nameof(toy));
+                    if (tooPoorly)
+                    {
+                        reaction = Reaction.TooPoorly;
+                        tags = CareTags.None;
+                        break;
+                    }
+
                     if (refusesPlay)
                     {
                         reaction = Reaction.PushesToyAway;
@@ -306,6 +385,17 @@ namespace BAIby.Simulation
                     var familiarity = toy == Toy.Rattle ? rattleFamiliarity : plushFamiliarity;
                     reaction = ToyReaction(state, familiarity);
                     break;
+                case CareAction.Medicine:
+                    // One dose per meal window, only while recovering; otherwise nothing happens.
+                    if (medicine != MedicineState.Ready)
+                    {
+                        reaction = Reaction.MedicineNotNow;
+                        tags = CareTags.None;
+                        break;
+                    }
+
+                    reaction = Reaction.MedicineTaken;
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(action));
             }
@@ -314,10 +404,33 @@ namespace BAIby.Simulation
             var care = CareRules.ApplyCare(state.Care, tags, state.Satiety, careTunables);
             var cared = new BabyNeeds.Values { Satiety = satiety, Comfort = comfort, Energy = energy, Cleanliness = cleanliness };
             care = CareConsequences.AfterCare(care, tags, Snapshot(cared), careTunables);
+            if (action == CareAction.Medicine && medicine == MedicineState.Ready)
+            {
+                care = CareConsequences.GiveMedicine(care, careTunables);
+                if (care.Condition == CareCondition.Well)
+                    reaction = Reaction.MedicineDone;
+            }
+
             return (state.With(satiety: satiety, comfort: comfort, energy: energy,
                 toyFamiliarity: rattleFamiliarity, plushFamiliarity: plushFamiliarity,
                 connection: Math.Min(100, connection), storySessions: storySessions, cleanliness: cleanliness,
                 newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care), reaction);
+        }
+
+        // Gains stop at the ceiling; a value already above it is kept.
+        private static double Gain(double value, double amount, double ceiling) =>
+            Math.Max(value, Math.Min(ceiling, value + amount));
+
+        private BabyNeeds.Effects HealthEffects(CareRecord care)
+        {
+            var ceiling = care.IsUnwell ? careTunables.UnwellEnergyCap : 100;
+            if (care.Condition != CareCondition.Recovering)
+                return new BabyNeeds.Effects(ceiling, 1, long.MinValue);
+
+            var since = care.ConditionSince.UtcTicks;
+            var window = careTunables.RecoveryWindow.Ticks;
+            var until = since > long.MaxValue - window ? long.MaxValue : since + window;
+            return new BabyNeeds.Effects(ceiling, careTunables.RecoveryBoost, until);
         }
 
         private static NeedSnapshot Snapshot(BabyNeeds.Values needs) =>
@@ -349,6 +462,7 @@ namespace BAIby.Simulation
                 case CareAction.ExploreNewSound: return "explore-new-sound";
                 case CareAction.Bath: return "bath";
                 case CareAction.StackBlocks: return "stack-blocks";
+                case CareAction.Medicine: return "medicine";
                 default: throw new ArgumentOutOfRangeException(nameof(action));
             }
         }

@@ -499,7 +499,7 @@ static class ConsequenceChecks
         Equal(CareReason.GapExcused, migrated.LastReason, "the first advance excuses the whole gap");
         Equal(0, migrated.Mess, "a migrated baby starts with a tidy room");
         Equal(CareTags.None, migrated.Owed, "a migrated baby owes nothing");
-        Equal(true, saves.Primary.Contains("version=\"13\"") && saves.Primary.Contains("<care v=\"2\""), "the migration saves v13");
+        Equal(true, saves.Primary.Contains("version=\"14\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v14");
         Equal(migrated, new BabySession(game, saves, () => clock).State.Care, "the migrated ledger survives a reload");
 
         var round = BabyState.Restore("Sam", checkpoint, TimeSpan.FromDays(3), 20, 30, 40, 2, 3, true, false, 34, 8, 51, 74, true,
