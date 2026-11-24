@@ -185,6 +185,8 @@ namespace BAIby.Character
                 case Headwear.BearBeanie: return "BearBeanie";
                 case Headwear.BucketHat: return "BucketHat";
                 case Headwear.DaisyClip: return "DaisyClip";
+                case Headwear.PomBeanie: return "PomBeanie";
+                case Headwear.SunHat: return "SunHat";
                 default: throw new ArgumentOutOfRangeException(nameof(headwear));
             }
         }

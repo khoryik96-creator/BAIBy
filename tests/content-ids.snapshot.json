@@ -206,7 +206,9 @@
     "Bow": 1,
     "BearBeanie": 2,
     "BucketHat": 3,
-    "DaisyClip": 4
+    "DaisyClip": 4,
+    "PomBeanie": 5,
+    "SunHat": 6
   },
   "HelperKind": {
     "Feeder": 0,
@@ -245,7 +247,10 @@
   },
   "NurseryTheme": {
     "Sage": 0,
-    "Peach": 1
+    "Peach": 1,
+    "CloudNursery": 2,
+    "Starlight": 3,
+    "GoldenHour": 4
   },
   "Outfit": {
     "Sage": 0,
@@ -255,7 +260,16 @@
     "Butter": 4,
     "Lilac": 5,
     "Terracotta": 6,
-    "Midnight": 7
+    "Midnight": 7,
+    "OatmealKnit": 8,
+    "BerryKnit": 9,
+    "MossKnit": 10,
+    "FogKnit": 11,
+    "Rosebud": 12,
+    "Marigold": 13,
+    "GardenMint": 14,
+    "Bluebell": 15,
+    "FernGold": 16
   },
   "PetAccessory": {
     "None": 0,

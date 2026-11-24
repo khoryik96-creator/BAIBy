@@ -915,7 +915,7 @@ foreach (var oldSave in new[] { legacySave, energySave, oldCrawlerSave, preJourn
 
 var validStyled = XElement.Parse(BabySaveCodec.Encode(styledToddler));
 foreach (var (attribute, value) in new[] {
-    ("skin", "6"), ("skin", "-1"), ("hair-color", "6"), ("hair-style", "4"), ("outfit", "8"), ("headwear", "5"),
+    ("skin", "6"), ("skin", "-1"), ("hair-color", "6"), ("hair-style", "4"), ("outfit", "17"), ("headwear", "7"),
     ("headwear", "99"), ("skin", "Deep"), ("outfit", ""), ("hair-style", "99999999999") })
 {
     var badLook = new XElement(validStyled);
@@ -957,6 +957,7 @@ BondChecks.Run();
 CatCareChecks.Run();
 HelperChecks.Run();
 TalkChecks.Run();
+CosmeticChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 // Ordinary care until the baby is content: meals first, then soothing, rest and a bath.
