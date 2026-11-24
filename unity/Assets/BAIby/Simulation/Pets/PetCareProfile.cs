@@ -33,7 +33,7 @@ namespace BAIby.Simulation.Pets
             },
             new[] { MotorSkill.Pounce, MotorSkill.Climb, MotorSkill.HighJump },
             new[] { TimeSpan.FromDays(2), TimeSpan.FromDays(3.5), TimeSpan.FromDays(5) },
-            nightFullness: 2.5, nightComfort: 1, nightEnergy: 9, nightCleanliness: 1.5);
+            nightFullness: 1.5, nightComfort: 0.5, nightEnergy: 9, nightCleanliness: 0.5);
 
         private readonly Dictionary<PetVerb, string> verbs;
         private readonly MotorSkill[] skills;

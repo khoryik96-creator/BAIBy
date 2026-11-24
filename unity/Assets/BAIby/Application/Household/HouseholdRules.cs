@@ -70,11 +70,15 @@ namespace BAIby.Application
                 state.Health < LowNeedThreshold || state.Care.Condition == CareCondition.Sick;
         }
 
-        // A pet needs attention when Health or any meter its room shows is below the threshold.
+        // A pet needs attention when Health or any meter its room shows is below the threshold, or (with a care
+        // profile) when a missed meal is still unanswered, it is grumpy or it is sick.
         public static bool NeedsAttention(PetState state)
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
+            if (state.Care != null && ((state.Care.Owed & CareTags.Meal) != 0 || state.Care.Mood == CareMood.Upset ||
+                state.Care.Condition == CareCondition.Sick))
+                return true;
 
             foreach (var meter in state.Meters)
             {

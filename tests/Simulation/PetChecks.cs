@@ -76,7 +76,7 @@ static class PetChecks
             cat.Verbs.Concat(new[] { new VerbDefinition(PetVerb.Walk, 1, 0, 0, new MeterEffect(PetMeter.Exercise, 10)) }).ToArray(),
             cat.Moments.ToArray(), cat.Accessories.ToArray())), "which the species does not show", "verb on missing meter");
         ExpectProblem(ReplaceSpecies(new SpeciesDefinition(Species.Cat, cat.GrownAge, cat.Meters.ToArray(),
-            cat.Verbs.Concat(new[] { new VerbDefinition(PetVerb.Walk, 1, 0, 0, new MeterEffect(PetMeter.Fullness, 30)) }).ToArray(),
+            cat.Verbs.Concat(new[] { new VerbDefinition(PetVerb.Walk, 1, 0, 0, new MeterEffect(PetMeter.Fullness, 35)) }).ToArray(),
             cat.Moments.ToArray(), cat.Accessories.ToArray())), "same effect as another verb", "verbs must differ");
 
         ExpectThrows<InvalidOperationException>(
@@ -516,10 +516,10 @@ static class PetChecks
         // Domestic shorthair: Energy drifts 10% faster and Comfort 15% slower, the same need per hour.
         var cat = sim.Adopt("Pip", PetAppearance.Default(Catalog, PetBreed.DomesticShorthair), Start);
         var twoHours = sim.Advance(cat, Start.AddHours(2)).State;
-        Close(56, twoHours.Meter(PetMeter.Fullness), "cat fullness decays 7 per hour");
-        Close(80 - 2 * 6 * 1.10, twoHours.Meter(PetMeter.Energy), "breed tendency speeds energy");
-        Close(70 - 2 * 4 * 0.85, twoHours.Meter(PetMeter.Comfort), "breed tendency slows comfort");
-        Close(84, twoHours.Meter(PetMeter.Cleanliness), "cat cleanliness decays slowly");
+        Close(63, twoHours.Meter(PetMeter.Fullness), "cat fullness decays 3.5 per hour while awake (two meals a day)");
+        Close(80 - 2 * 3 * 1.10, twoHours.Meter(PetMeter.Energy), "breed tendency speeds energy");
+        Close(70 - 2 * 2 * 0.85, twoHours.Meter(PetMeter.Comfort), "breed tendency slows comfort");
+        Close(87, twoHours.Meter(PetMeter.Cleanliness), "cat cleanliness decays slowly");
         Equal(Start.AddHours(2), twoHours.TimeCheckpoint, "advance moves the checkpoint");
 
         var preview = sim.AdvancePreview(cat, TimeSpan.FromDays(7));

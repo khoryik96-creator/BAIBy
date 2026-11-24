@@ -60,7 +60,8 @@ namespace BAIby.Simulation
     // - A companion saved before tracks existed (no record) is seeded with readiness from its age, and its first advance
     //   runs at the nominal pace, so migration never moves a milestone.
     // - Setback, only while the player is present, never re-locks: the newest skill goes shy and readiness drops by
-    //   0.15. One good day (three on-time meals and two comforting actions) brings it back.
+    //   0.15. One good day (three on-time meals, or every meal of a routine with fewer, and two comforting actions)
+    //   brings it back.
     internal sealed class BabyGrowth
     {
         private const int Stages = 3;
@@ -401,7 +402,9 @@ namespace BAIby.Simulation
                     draft.RecoveryMeals++;
                 if (action.Comforting)
                     draft.RecoverySoothes++;
-                if (draft.RecoveryMeals >= tunables.RecoveryMeals && draft.RecoverySoothes >= tunables.RecoverySoothes)
+                // A routine with fewer meal windows (a cat eats twice) asks for all of them on time.
+                var meals = Math.Min(tunables.RecoveryMeals, RoutineCalendar.MealWindows(record.Routine));
+                if (draft.RecoveryMeals >= meals && draft.RecoverySoothes >= tunables.RecoverySoothes)
                 {
                     draft.Shy = MotorSkill.None;
                     recovered = true;

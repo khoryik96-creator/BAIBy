@@ -123,6 +123,19 @@ namespace BAIby.Simulation
         public static (TimeSpan Start, TimeSpan End) Night(CareRoutine routine, RoutinePreset preset, TimeSpan wakeTime) =>
             (Windows(routine, preset, wakeTime)[(int)CareMoment.Bedtime].Due, wakeTime);
 
+        // How many meal windows a care day of the routine has (three for a baby, two for a cat).
+        public static int MealWindows(CareRoutine routine)
+        {
+            var meals = 0;
+            foreach (var window in Windows(routine, RoutinePreset.SchoolDay, DefaultWakeTime))
+            {
+                if (window.Core == CareTags.Meal)
+                    meals++;
+            }
+
+            return meals;
+        }
+
         // Whether the routine has a timed play window. Its together ring then follows that window, not the whole day.
         public static bool HasPlayWindow(CareRoutine routine) => routine == CareRoutine.Cat;
 

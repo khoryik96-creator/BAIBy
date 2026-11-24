@@ -46,16 +46,16 @@ static class PetHouseholdChecks
         ExpectThrows<InvalidOperationException>(() => session.ApplyCare(PetVerb.Walk), "a verb the species lacks is refused");
         Equal(1, saves.Writes, "a refused verb writes nothing");
 
-        now = now.AddHours(1);
+        now = now.AddHours(6);
         var fed = session.ApplyCare(PetVerb.Feed);
         Equal(PetCue.Content, fed.Cue, "feeding is a content cue");
-        Equal(93.0, session.State.Meter(PetMeter.Fullness), "an hour's decay and a meal commit together");
+        Equal(84.0, session.State.Meter(PetMeter.Fullness), "six hours' decay and a meal commit together");
         Equal(2, saves.Writes, "care writes once");
 
         var reopened = new PetSession(pets, saves, () => now);
         Equal("Pip & Co", reopened.State.Name, "the name survives the record");
         Equal(Ginger, reopened.State.Appearance, "the look survives the record");
-        Equal(93.0, reopened.State.Meter(PetMeter.Fullness), "meters survive the record");
+        Equal(84.0, reopened.State.Meter(PetMeter.Fullness), "meters survive the record");
         Equal(false, reopened.Refresh(), "a same-time refresh reports nothing");
         Equal(2, saves.Writes, "a same-time refresh writes nothing");
 
@@ -255,13 +255,13 @@ static class PetHouseholdChecks
         household.Switch(1);
         Equal(Start, household.Companions[1].PetState.TimeCheckpoint, "a switch does not advance the cat");
         var preview = household.PreviewPetState(2);
-        Equal(56.0, preview.Meter(PetMeter.Fullness), "Home previews the cat's decay");
+        Equal(63.0, preview.Meter(PetMeter.Fullness), "Home previews the cat's decay");
         Equal(Start, household.Companions[1].PetState.TimeCheckpoint, "a preview writes nothing");
 
         household.AdvanceAll();
         Equal(now, household.Companions[0].State.TimeCheckpoint, "the baby advances on resume");
         Equal(now, household.Companions[1].PetState.TimeCheckpoint, "the cat advances on resume too");
-        Equal(56.0, household.Companions[1].PetState.Meter(PetMeter.Fullness), "the cat decays with time");
+        Equal(63.0, household.Companions[1].PetState.Meter(PetMeter.Fullness), "the cat decays with time");
         Equal(true, household.Companions[1].PetState.Meter(PetMeter.Fullness) < 70, "the cat's need is lower after two hours");
 
         now = Start.AddDays(7);
@@ -271,7 +271,11 @@ static class PetHouseholdChecks
         var reopened = new HouseholdSession(game, pets, store, () => now, null);
         Equal("Pounce,Climb,HighJump,Grown", string.Join(",", reopened.TakeCelebrations(2)),
             "the kitten's milestones and growing up survive reload");
-        Equal(true, reopened.Companions[1].NeedsAttention, "a week alone leaves the cat needing care");
+        // A cat's needs fall at half the earlier rates (two meals a day) and at most eight hours count, so a week alone
+        // leaves it peckish rather than below the Home dot's threshold; breakfast is due.
+        Equal(true, reopened.Companions[1].PetState.Meter(PetMeter.Fullness) < 45, "a week alone leaves the cat peckish");
+        Equal(true, reopened.Companions[1].PetSession.Routine.Any(slot => slot.Kind == RoutineSlotKind.MorningMeal &&
+            slot.State == RoutineSlotState.Due), "and breakfast is due");
         Equal(true, reopened.ProgressFor(Species.Cat).RaisedToGrown, "a grown cat counts toward the species goal");
     }
 
