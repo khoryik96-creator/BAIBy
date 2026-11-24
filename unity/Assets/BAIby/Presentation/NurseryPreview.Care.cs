@@ -110,9 +110,12 @@ namespace BAIby.Presentation
             washUpButton = CareTile("Wash up", careActions, "Wash", "Wash", Mint, () => ShowPanel(NurseryPanel.Hygiene));
             CareTile("Play with rattle", careActions, "Rattle", "Rattle", Butter, () => Care(CareAction.Play, Toy.Rattle));
             CareTile("Play with plush", careActions, "Plush", "Plush", Blush, () => Care(CareAction.Play, Toy.Plush));
+            // Talk time, once First words are reached.
+            talkButton = CareTile("Talk", careActions, "Talk", "Talk", Lilac, OpenTalk);
             // Not care: a journal photo of the moment, three a day.
             photoButton = CareTile("Take a photo", careActions, "Photo", "Photo", Mist, TakePhoto);
             careTiles.AddRange(careActions.GetComponentsInChildren<Button>(true));
+            talkButton.gameObject.SetActive(false);
 
             previewDayButton = ActionButton("Preview next day", panel, 0, 0.5f, 0, 0, NextPreviewDay, Paper, Ink);
             WithIcon(previewDayButton, "Next day", "NextDay", Ink);

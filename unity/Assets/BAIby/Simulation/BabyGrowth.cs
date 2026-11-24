@@ -44,6 +44,33 @@ namespace BAIby.Simulation
         }
 
         public double Quality(DevelopmentTrack track) => Sample.Quality(track);
+
+        // First words for a baby (null for a species without them).
+        public WordsReport Words { get; }
+
+        internal GrowthReport(TrackSample sample, GrowthBand band, MotorSkill next, double readiness, TimeSpan expectedIn,
+            GrowthPace pace, bool paused, MotorSkill shy, int recoveryMeals, int recoverySoothes, WordsReport words)
+            : this(sample, band, next, readiness, expectedIn, pace, paused, shy, recoveryMeals, recoverySoothes)
+        {
+            Words = words;
+        }
+    }
+
+    // First words for the Growth panel: reached, or readiness and when they are likely at the current pace.
+    public sealed class WordsReport
+    {
+        public bool Reached { get; }
+        public double Readiness { get; }
+        public TimeSpan ExpectedIn { get; }
+        public GrowthPace Pace { get; }
+
+        internal WordsReport(bool reached, double readiness, TimeSpan expectedIn, GrowthPace pace)
+        {
+            Reached = reached;
+            Readiness = readiness;
+            ExpectedIn = expectedIn;
+            Pace = pace;
+        }
     }
 
     // Development (docs/care-and-growth.md, Development tracks, Milestone timing and the Setback rung), for the baby and,
@@ -62,9 +89,19 @@ namespace BAIby.Simulation
     // - Setback, only while the player is present, never re-locks: the newest skill goes shy and readiness drops by
     //   0.15. One good day (three on-time meals, or every meal of a routine with fewer, and two comforting actions)
     //   brings it back.
+    // - A baby's Learning track has one milestone in the game, First words (nominal day 16). Babbles (4) and Favourite
+    //   story (9) have no milestone yet, so First words' stage starts at day 9 (D = 7 days) and its readiness follows
+    //   the same rules with the Learning quality: cond, catch-up, at most 1.4x its nominal age, never re-locking, paused
+    //   while sick. Before day 9 nothing is counted or saved. A record from before First words (LearningStarted false)
+    //   past day 9 is seeded from age at the nominal pace, as slice 4 seeded Motor readiness.
     internal sealed class BabyGrowth
     {
         private const int Stages = 3;
+        private readonly bool hasWords;
+        private readonly long wordsStart;
+        private readonly long wordsNominal;
+        private readonly long wordsLength;
+        private readonly long wordsGuarantee;
         private readonly long[] nominal = new long[Stages];
         private readonly long[] length = new long[Stages];
         private readonly long[] guarantee = new long[Stages];
@@ -76,14 +113,31 @@ namespace BAIby.Simulation
         public BabyGrowth(TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareTunables care,
             GrowthTunables tunables)
             : this(new[] { sittingAge, crawlingAge, walkingAge },
-                new[] { MotorSkill.Sitting, MotorSkill.Crawling, MotorSkill.Walking }, care, tunables, BabyNeeds.NeedRates.Baby)
+                new[] { MotorSkill.Sitting, MotorSkill.Crawling, MotorSkill.Walking }, care, tunables, BabyNeeds.NeedRates.Baby,
+                (LearningStart, FirstWordsAge))
         {
         }
 
-        // Three milestones at their nominal ages, in order, and the needs' rates for preview days.
+        // First words' nominal age, and the start of its stage (Favourite story's nominal day, not a milestone yet).
+        public static readonly TimeSpan FirstWordsAge = TimeSpan.FromDays(16);
+        public static readonly TimeSpan LearningStart = TimeSpan.FromDays(9);
+
+        // Three milestones at their nominal ages, in order, and the needs' rates for preview days. `words` gives a
+        // Learning milestone's stage start and nominal age (the baby's First words); null for none.
         public BabyGrowth(TimeSpan[] ages, MotorSkill[] skills, CareTunables care, GrowthTunables tunables,
-            BabyNeeds.NeedRates rates)
+            BabyNeeds.NeedRates rates, (TimeSpan Start, TimeSpan Nominal)? words = null)
         {
+            if (words.HasValue)
+            {
+                if (words.Value.Start < TimeSpan.Zero || words.Value.Nominal <= words.Value.Start)
+                    throw new ArgumentOutOfRangeException(nameof(words), "First words follow the start of their stage.");
+                hasWords = true;
+                wordsStart = words.Value.Start.Ticks;
+                wordsNominal = words.Value.Nominal.Ticks;
+                wordsLength = wordsNominal - wordsStart;
+                wordsGuarantee = (long)Math.Ceiling(wordsNominal * tunables.Guarantee);
+            }
+
             if (ages == null || ages.Length != Stages || skills == null || skills.Length != Stages)
                 throw new ArgumentException("Growth needs three milestones.", nameof(ages));
             this.care = care;
@@ -171,14 +225,28 @@ namespace BAIby.Simulation
             }
 
             var empty = new List<EngagementEntry>();
-            return new DevelopmentRecord.Builder
+            var draft = new DevelopmentRecord.Builder
             {
                 Readiness = readiness,
                 Sample = SampleOf(SampleMode.Normal, state.Needs, state.Care, state.Bond, empty, state.Checkpoint.UtcTicks),
                 Engagement = empty,
                 CategoryDay = state.Care.CareDay,
                 RecoveryDay = state.Care.CareDay,
-            }.Build();
+            };
+            SeedWords(draft, state.Age);
+            return draft.Build();
+        }
+
+        // Whether this species has First words (the baby).
+        public bool HasWords => hasWords;
+
+        // First words' readiness from age at the nominal pace, once its stage has started and when not already counted.
+        private void SeedWords(DevelopmentRecord.Builder draft, long age)
+        {
+            if (!hasWords || draft.LearningStarted || draft.FirstWords || age < wordsStart)
+                return;
+            draft.LearningStarted = true;
+            draft.Words = DevelopmentRules.Clamp01((double)(age - wordsStart) / wordsLength);
         }
 
         // Unlocks that are already due without time passing (readiness 1, or the guarantee age).
@@ -207,6 +275,7 @@ namespace BAIby.Simulation
             if (seeded || state.Care.AwaitingAnchor)
             {
                 // Migration excuses the whole gap at the nominal pace; the caller samples the end.
+                run.AdvanceWords(to - from, DevelopmentRules.NominalQuality, 0, 1, false, pace: 1);
                 run.Advance(to - from, DevelopmentRules.NominalQuality, 0, 1, false, pace: 1);
                 var step = run.Finish();
                 step.ResampleAtEnd = true;
@@ -426,13 +495,14 @@ namespace BAIby.Simulation
             var sample = dev.Sample;
             var physical = sample.Physical;
             var band = physical >= 0.75 ? GrowthBand.Thriving : physical >= 0.5 ? GrowthBand.Steady : GrowthBand.NeedsRegularMeals;
+            var cond = CareConsequences.Readiness(state.Care);
+            var words = WordsReport(state, dev, sample, cond);
             var run = new Run(this, state, dev);
             run.Check();
             var stage = run.Stage;
-            var cond = CareConsequences.Readiness(state.Care);
             if (stage >= Stages)
                 return new GrowthReport(sample, band, MotorSkill.None, 0, TimeSpan.Zero, GrowthPace.OnTrack, false, dev.Shy,
-                    dev.RecoveryMeals, dev.RecoverySoothes);
+                    dev.RecoveryMeals, dev.RecoverySoothes, words);
 
             // The current pace held until the skill unlocks, never past its guarantee.
             var readiness = run.Draft.Readiness;
@@ -443,7 +513,24 @@ namespace BAIby.Simulation
             var pace = ratio < 0.95 ? GrowthPace.Ahead : ratio <= 1.05 ? GrowthPace.OnTrack : GrowthPace.TakingTime;
             return new GrowthReport(sample, band, skills[stage], readiness,
                 TimeSpan.FromTicks(Math.Max(0, unlockAge - state.Age)), pace, cond <= 0, dev.Shy,
-                dev.RecoveryMeals, dev.RecoverySoothes);
+                dev.RecoveryMeals, dev.RecoverySoothes, words);
+        }
+
+        // First words for the report: reached, or readiness and when they are likely at the current pace (null for a
+        // species without them).
+        private WordsReport WordsReport(Subject state, DevelopmentRecord dev, TrackSample sample, double cond)
+        {
+            if (!hasWords)
+                return null;
+            var run = new Run(this, state, dev);
+            run.Check();
+            if (run.Draft.FirstWords)
+                return new WordsReport(true, 0, TimeSpan.Zero, GrowthPace.OnTrack);
+            var readiness = run.Draft.Words;
+            var unlockAge = run.ProjectWords(sample, cond, wordsGuarantee - run.WordsAge + 1) ?? wordsGuarantee;
+            var ratio = (double)unlockAge / wordsNominal;
+            var pace = ratio < 0.95 ? GrowthPace.Ahead : ratio <= 1.05 ? GrowthPace.OnTrack : GrowthPace.TakingTime;
+            return new WordsReport(false, readiness, TimeSpan.FromTicks(Math.Max(0, unlockAge - state.Age)), pace);
         }
 
         // The age at which each skill unlocks from birth at a steady sample and condition, advanced in steps of `step`
@@ -461,6 +548,17 @@ namespace BAIby.Simulation
             }
 
             return ages;
+        }
+
+        // The age at which First words arrive from birth at a steady sample and condition, in steps of `step`.
+        public TimeSpan WordsSchedule(TrackSample sample, double cond, TimeSpan step)
+        {
+            if (!hasWords)
+                throw new InvalidOperationException("This species has no First words.");
+            var run = new Run(this, 0, 0, new DevelopmentRecord.Builder { Sample = sample });
+            while (!run.Draft.FirstWords)
+                run.Cell(step.Ticks, sample, cond, 0);
+            return TimeSpan.FromTicks(run.WordsUnlockAge);
         }
 
         // The skill a setback makes shy: the newest one reached.
@@ -608,7 +706,7 @@ namespace BAIby.Simulation
             // The caller samples the advanced state at the end (a migrated advance).
             public bool ResampleAtEnd { get; set; }
 
-            public bool AnyUnlocked => UnlockedSitting || UnlockedCrawling || UnlockedWalking;
+            public bool AnyUnlocked => UnlockedSitting || UnlockedCrawling || UnlockedWalking || UnlockedWords;
 
             // Milestones reached after the step.
             public int Stage => can[2] ? 3 : can[1] ? 2 : can[0] ? 1 : 0;
@@ -618,9 +716,16 @@ namespace BAIby.Simulation
 
             public bool Unlocked(int stage) => unlocked[stage];
 
-            public Step(DevelopmentRecord.Builder draft, bool[] can, bool[] unlocked, long[] unlockAges)
+            // First words were reached during the step, at this age (ticks).
+            public bool UnlockedWords { get; }
+            public long WordsAge { get; }
+
+            public Step(DevelopmentRecord.Builder draft, bool[] can, bool[] unlocked, long[] unlockAges,
+                bool unlockedWords = false, long wordsAge = 0)
             {
                 Draft = draft;
+                UnlockedWords = unlockedWords;
+                WordsAge = wordsAge;
                 UnlockAges = (long[])unlockAges.Clone();
                 this.can = (bool[])can.Clone();
                 this.unlocked = (bool[])unlocked.Clone();
@@ -658,6 +763,10 @@ namespace BAIby.Simulation
             public int Stage { get; private set; }
             public long? UnlockAge { get; set; }
             public long[] UnlockAges { get; } = new long[Stages];
+            // First words' own clock (the same age, advanced before the motor stages), and when they were reached.
+            public long WordsAge { get; private set; }
+            public bool UnlockedWords { get; private set; }
+            public long WordsUnlockAge { get; private set; }
 
             public Run(BabyGrowth growth, Subject state, DevelopmentRecord dev)
                 : this(growth, state.Age, state.Stage, dev.ToBuilder())
@@ -669,9 +778,12 @@ namespace BAIby.Simulation
                 this.growth = growth;
                 Draft = draft;
                 Age = age;
+                WordsAge = age;
                 Stage = Math.Max(0, Math.Min(Stages, stage));
                 for (var i = 0; i < Stage; i++)
                     can[i] = true;
+                // A record from before First words is seeded from age once its stage has started.
+                growth.SeedWords(draft, age);
             }
 
             // One stretch of `ticks` paced by `sample`; `low` ticks of it count towards low Wellbeing.
@@ -681,18 +793,112 @@ namespace BAIby.Simulation
                 switch (sample.Mode)
                 {
                     case SampleMode.Away:
+                        AdvanceWords(ticks, tunables.AwayQuality, sample.Wellbeing, 1, false);
                         Advance(ticks, tunables.AwayQuality, sample.Wellbeing, 1, false, stopAtUnlock);
                         break;
                     case SampleMode.Helper:
+                        AdvanceWords(ticks, tunables.HelperQuality, sample.Wellbeing, cond, false);
                         Advance(ticks, tunables.HelperQuality, sample.Wellbeing, cond, false, stopAtUnlock);
                         break;
                     default:
+                        AdvanceWords(ticks, sample.Learning, sample.Wellbeing, cond, true);
                         Advance(ticks, sample.Motor, sample.Wellbeing, cond, true, stopAtUnlock);
                         break;
                 }
 
                 if (low > 0)
                     Draft.LowWellbeingTime += TimeSpan.FromTicks(low);
+            }
+
+            // First words' readiness over `ticks` at the Learning quality, as Advance does for the motor stages: nothing
+            // before the stage starts, x1.25 past the nominal age with Wellbeing 0.6 or more, reached at readiness 1
+            // and always by the guarantee.
+            public void AdvanceWords(long ticks, double quality, double wellbeing, double cond, bool catchUp,
+                double? pace = null)
+            {
+                if (!growth.hasWords || ticks <= 0)
+                    return;
+
+                var tunables = growth.tunables;
+                var boosted = catchUp && wellbeing >= tunables.CatchUpWellbeing;
+                while (ticks > 0 && !Draft.FirstWords)
+                {
+                    if (CheckWords())
+                        break;
+                    if (WordsAge < growth.wordsStart)
+                    {
+                        var wait = Math.Min(ticks, growth.wordsStart - WordsAge);
+                        WordsAge += wait;
+                        ticks -= wait;
+                        continue;
+                    }
+
+                    var segment = Math.Min(ticks, growth.wordsGuarantee - WordsAge);
+                    if (boosted && WordsAge < growth.wordsNominal)
+                        segment = Math.Min(segment, growth.wordsNominal - WordsAge);
+                    var rate = Math.Max(0, cond) / (growth.wordsLength * (pace ?? DevelopmentRules.Pace(quality)));
+                    if (boosted && WordsAge >= growth.wordsNominal)
+                        rate *= tunables.CatchUp;
+
+                    if (rate > 0)
+                    {
+                        var need = (1 - Draft.Words) / rate;
+                        if (need <= segment)
+                        {
+                            // A thousandth of a tick absorbs rounding, as for the motor stages.
+                            var step = Math.Min(segment, Math.Max(0, (long)Math.Ceiling(need - 0.001)));
+                            WordsAge += step;
+                            ticks -= step;
+                            UnlockWords();
+                            break;
+                        }
+
+                        Draft.Words = Math.Min(1, Draft.Words + rate * segment);
+                    }
+
+                    WordsAge += segment;
+                    ticks -= segment;
+                }
+
+                if (ticks > 0)
+                    WordsAge += ticks;
+                CheckWords();
+            }
+
+            // The age First words would arrive at the current pace within `limit` ticks, or null.
+            public long? ProjectWords(TrackSample sample, double cond, long limit)
+            {
+                var tunables = growth.tunables;
+                switch (sample.Mode)
+                {
+                    case SampleMode.Away: AdvanceWords(limit, tunables.AwayQuality, sample.Wellbeing, 1, false); break;
+                    case SampleMode.Helper: AdvanceWords(limit, tunables.HelperQuality, sample.Wellbeing, cond, false); break;
+                    default: AdvanceWords(limit, sample.Learning, sample.Wellbeing, cond, true); break;
+                }
+
+                return UnlockedWords ? WordsUnlockAge : (long?)null;
+            }
+
+            // Marks the stage started once its age is reached, and reaches First words when they are due (readiness 1,
+            // or the guarantee age). Returns whether they were reached now.
+            private bool CheckWords()
+            {
+                if (!growth.hasWords || Draft.FirstWords || WordsAge < growth.wordsStart)
+                    return false;
+                Draft.LearningStarted = true;
+                if (Draft.Words < 1 && WordsAge < growth.wordsGuarantee)
+                    return false;
+                UnlockWords();
+                return true;
+            }
+
+            private void UnlockWords()
+            {
+                Draft.LearningStarted = true;
+                Draft.FirstWords = true;
+                Draft.Words = 0;
+                UnlockedWords = true;
+                WordsUnlockAge = WordsAge;
             }
 
             public void Advance(long ticks, double quality, double wellbeing, double cond, bool catchUp,
@@ -742,9 +948,10 @@ namespace BAIby.Simulation
                 Check();
             }
 
-            // Unlocks every skill already due. Returns whether any unlocked.
+            // Unlocks every skill already due (and First words). Returns whether any motor skill unlocked.
             public bool Check()
             {
+                CheckWords();
                 var any = false;
                 while (Stage < Stages && (Draft.Readiness >= 1 || Age >= growth.guarantee[Stage]))
                 {
@@ -755,7 +962,7 @@ namespace BAIby.Simulation
                 return any;
             }
 
-            public Step Finish() => new Step(Draft, can, unlocked, UnlockAges);
+            public Step Finish() => new Step(Draft, can, unlocked, UnlockAges, UnlockedWords, WordsUnlockAge);
 
             private void Unlock()
             {

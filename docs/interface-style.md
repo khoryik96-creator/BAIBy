@@ -66,7 +66,9 @@ no hard outlines on interface surfaces. The only dark outline is the quilt's, wh
   would reach the tallest pose (`FitRoutineStrip`).
 - The care sheet sizes its tiles to the screen height (`Metrics`) so the baby's face stays clear in short desktop
   windows; on wide screens the speech bubble moves beside the baby.
-- Care tiles fill two rows, at most four on top (seven with Photo, eight with the Doctor tile). A cat's sheet has its five
+- Care tiles fill two rows, at most four on top (seven with Photo, eight with the Doctor tile, and one more, Talk, once
+  First words are reached). The Talk sheet keeps its optional text field at the top, above the feeling chips, and rises
+  over the on-screen keyboard while the field is focused on a phone. A cat's sheet has its five
   verbs, Photo and, when needed, Vet or Medicine; its bottom row is Next day and Growth (and Routine when the strip folds). Tall sheets stay at the
   Report's height (600 units): the journal shows four rows a page (a round picture or icon disc, a title and a quiet
   line) under segmented tabs, with 82-unit arrows to turn the pages.

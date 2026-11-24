@@ -33,6 +33,8 @@ namespace BAIby.Presentation
         private NeedMeter health;
         private NeedMeter cleanliness;
         private float refreshIn;
+        // First words waiting as a celebration, announced by the next Paint.
+        private bool firstWordsWaiting;
         private NurseryPanel activePanel;
         private Button washUpButton;
 
@@ -56,6 +58,7 @@ namespace BAIby.Presentation
             FitSafeArea();
             FitInterface();
             FitRoutineStrip();
+            FitTalkSheet();
             FrameStage();
             if (Input.GetKeyDown(KeyCode.Escape))
                 GoBack();
@@ -331,6 +334,15 @@ namespace BAIby.Presentation
                     ? HelperNoteFor(slot, DescribeCondition(state)) ?? DescribeCondition(state) ??
                       DescribeNeeds(state, TemperamentMoment(state))
                     : reactionText;
+            // First words, reached on screen or waiting as a celebration: Talk time opens.
+            var firstWords = session.TakeFirstWords() | firstWordsWaiting;
+            firstWordsWaiting = false;
+            if (firstWords)
+            {
+                var words = $"{state.Name} said their first words, and it's in the journal! Talk time is open: tap Talk " +
+                    "to share how you feel.";
+                status.text = milestone ? status.text + " " + words : words;
+            }
 
             UpdateRoutineSlots(session.Routine, state.Care.Preset);
             routine.UpdateDetails(state, DescribeCondition(state) ??
@@ -341,6 +353,7 @@ namespace BAIby.Presentation
             report.UpdateDetails(BabyReport.From(state), growth,
                 TemperamentLine(session.Security, session.Curiosity, state.Bond));
             UpdatePhotoTile();
+            UpdateTalkTile(state);
             feeding.UpdateDetails(state, status.text);
             UpdateHealthControls(state, reaction, reactionText);
             UpdateMood(state.Care.Mood);
@@ -438,6 +451,8 @@ namespace BAIby.Presentation
                 journal.Feedback.text = message;
             else if (doctor.Root.activeSelf)
                 doctor.Feedback.text = message;
+            else if (talk.Root.activeSelf)
+                talk.ShowNote(message);
             else if (controls.activeSelf)
                 status.text = message;
             else
@@ -509,6 +524,7 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
             BuildHealth(panel);
+            BuildTalk();
             BuildRoutine();
             BuildHome();
             controls.SetActive(false);
@@ -522,7 +538,7 @@ namespace BAIby.Presentation
             LayoutCareSheet();
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor, Journal }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor, Journal, Talk }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -572,6 +588,9 @@ namespace BAIby.Presentation
                 case NurseryPanel.Doctor:
                     (doctor.Visit.gameObject.activeSelf ? doctor.Visit : doctor.Done).Select();
                     break;
+                case NurseryPanel.Talk:
+                    talk.FirstChip.Select();
+                    break;
                 case NurseryPanel.Style:
                     style.Open(session.State.Appearance);
                     // Shows the failure note again if the saved look's art could not be built.
@@ -587,6 +606,9 @@ namespace BAIby.Presentation
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.Style: styleButton.Select(); break;
                         case NurseryPanel.Routine: RoutineOpener.Select(); break;
+                        case NurseryPanel.Talk:
+                            (talkButton.gameObject.activeSelf ? talkButton : developmentButton).Select();
+                            break;
                         case NurseryPanel.Doctor:
                             (healthButton.gameObject.activeSelf && healthButton.interactable ? healthButton : developmentButton).Select();
                             break;
@@ -611,6 +633,7 @@ namespace BAIby.Presentation
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
             doctor.Root.SetActive(adopted && activePanel == NurseryPanel.Doctor);
+            talk.Root.SetActive(adopted && activePanel == NurseryPanel.Talk);
             // The journal opens from Growth here, or from Home for any companion.
             journal.Root.SetActive(view == HouseholdView.Journal || (adopted && activePanel == NurseryPanel.Journal));
             routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);

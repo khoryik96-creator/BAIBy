@@ -635,7 +635,7 @@ static class GrowthChecks
         Equal(true, game.Advance(walkerV8, at.AddHours(1)).State.CanWalk, "a migrated walker never re-locks");
 
         var newer = XElement.Parse(payload);
-        newer.Element("development").SetAttributeValue("v", 2);
+        newer.Element("development").SetAttributeValue("v", 3);
         Expect<NotSupportedException>(() => BabySaveCodec.Decode(newer.ToString(SaveOptions.DisableFormatting)),
             "a newer development record is unsupported, not corrupt");
         var future = XElement.Parse(payload);

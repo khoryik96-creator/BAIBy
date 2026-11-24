@@ -4,7 +4,13 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // What a journal entry records. Saved as numbers: append, never renumber.
-    public enum JournalKind { Arrival = 0, Milestone = 1, Photo = 2, Sticker = 3, HardDay = 4, Week = 5, Helper = 6 }
+    public enum JournalKind
+    {
+        Arrival = 0, Milestone = 1, Photo = 2, Sticker = 3, HardDay = 4, Week = 5, Helper = 6,
+        // A baby's First words (the Learning track's milestone), a day's Talk time (the feeling only, never what was
+        // typed) and a talk about something big (no feeling, no topic, no text).
+        FirstWords = 7, Talk = 8, BigTalk = 9,
+    }
 
     // The moment a photo caught, which picks the pose drawn for it. Saved as numbers: append, never renumber.
     public enum PhotoMoment { Calm = 0, Playing = 1, Napping = 2, Story = 3, Cuddle = 4, Meal = 5, Bath = 6, Poorly = 7, Blocks = 8 }
@@ -22,6 +28,9 @@ namespace BAIby.Simulation
     // - Week: Count is the week number and CareDays the care days counted in it.
     // - Helper: what the helpers did on one day of the little one's life: Count feeder portions (the Sitter's bottles),
     //   CareDays play top-ups and Tidies tidy-ups. At is the last of them. One entry a day; the journal shows it muted.
+    // - FirstWords: the day First words came. Kept like a milestone.
+    // - Talk: Feeling is the feeling the child shared. One talk line a day at most.
+    // - BigTalk: "We talked about something big". Nothing else is kept; it takes the place of that day's talk line.
     public sealed class JournalEntry : IEquatable<JournalEntry>
     {
         public JournalKind Kind { get; }
@@ -37,13 +46,16 @@ namespace BAIby.Simulation
         public int Count { get; }
         public int CareDays { get; }
         public int Tidies { get; }
+        // A talk line's feeling (Happy for other kinds).
+        public Feeling Feeling { get; }
         // A helper entry's counts.
         public int Feeds => Kind == JournalKind.Helper ? Count : 0;
         public int Plays => Kind == JournalKind.Helper ? CareDays : 0;
 
         private JournalEntry(JournalKind kind, DateTimeOffset at, int day, MotorSkill skill = MotorSkill.None,
             PhotoMoment moment = PhotoMoment.Calm, BabyAppearance look = null, HardSpell spell = HardSpell.Poorly,
-            DateTimeOffset? since = null, int sinceDay = 0, int count = 0, int careDays = 0, int tidies = 0)
+            DateTimeOffset? since = null, int sinceDay = 0, int count = 0, int careDays = 0, int tidies = 0,
+            Feeling feeling = Feeling.Happy)
         {
             if (!Enum.IsDefined(typeof(JournalKind), kind))
                 throw new ArgumentOutOfRangeException(nameof(kind));
@@ -55,6 +67,8 @@ namespace BAIby.Simulation
                 throw new ArgumentOutOfRangeException(nameof(moment));
             if (!Enum.IsDefined(typeof(HardSpell), spell))
                 throw new ArgumentOutOfRangeException(nameof(spell));
+            if (!Enum.IsDefined(typeof(Feeling), feeling) || (kind != JournalKind.Talk && feeling != Feeling.Happy))
+                throw new ArgumentOutOfRangeException(nameof(feeling));
             if (kind == JournalKind.Milestone && skill == MotorSkill.None)
                 throw new ArgumentException("A milestone entry names its skill.", nameof(skill));
             if (kind == JournalKind.Photo && look == null)
@@ -79,6 +93,7 @@ namespace BAIby.Simulation
             Count = count;
             CareDays = careDays;
             Tidies = tidies;
+            Feeling = feeling;
         }
 
         public static JournalEntry Arrival(DateTimeOffset at) => new JournalEntry(JournalKind.Arrival, at, 1);
@@ -102,16 +117,26 @@ namespace BAIby.Simulation
         public static JournalEntry Helper(DateTimeOffset at, int day, int feeds, int plays, int tidies) =>
             new JournalEntry(JournalKind.Helper, at, day, count: feeds, careDays: plays, tidies: tidies);
 
+        public static JournalEntry FirstWords(DateTimeOffset at, int day) => new JournalEntry(JournalKind.FirstWords, at, day);
+
+        public static JournalEntry Talk(DateTimeOffset at, int day, Feeling feeling) =>
+            new JournalEntry(JournalKind.Talk, at, day, feeling: feeling);
+
+        public static JournalEntry BigTalk(DateTimeOffset at, int day) => new JournalEntry(JournalKind.BigTalk, at, day);
+
         // Any entry, from saved fields; validates like the factories.
         public static JournalEntry Restore(JournalKind kind, DateTimeOffset at, int day, MotorSkill skill, PhotoMoment moment,
-            BabyAppearance look, HardSpell spell, DateTimeOffset since, int sinceDay, int count, int careDays, int tidies = 0) =>
-            new JournalEntry(kind, at, day, skill, moment, look, spell, since, sinceDay, count, careDays, tidies);
+            BabyAppearance look, HardSpell spell, DateTimeOffset since, int sinceDay, int count, int careDays, int tidies = 0,
+            Feeling feeling = Feeling.Happy) =>
+            new JournalEntry(kind, at, day, skill, moment, look, spell, since, sinceDay, count, careDays, tidies, feeling);
+
+        public bool IsTalk => Kind == JournalKind.Talk || Kind == JournalKind.BigTalk;
 
         public bool Equals(JournalEntry other) =>
             other != null && Kind == other.Kind && At.UtcTicks == other.At.UtcTicks && Day == other.Day &&
             Skill == other.Skill && Moment == other.Moment && Equals(Look, other.Look) && Spell == other.Spell &&
             Since.UtcTicks == other.Since.UtcTicks && SinceDay == other.SinceDay && Count == other.Count &&
-            CareDays == other.CareDays && Tidies == other.Tidies;
+            CareDays == other.CareDays && Tidies == other.Tidies && Feeling == other.Feeling;
 
         public override bool Equals(object obj) => Equals(obj as JournalEntry);
         public override int GetHashCode() => (int)Kind ^ At.UtcTicks.GetHashCode() ^ Day << 4;
@@ -119,7 +144,8 @@ namespace BAIby.Simulation
 
     // The little one's journal: milestones, up to three photos a day, rhythm stickers, hard days they got through and
     // a page for each week, oldest first. Bounded so saves stay small: past MaxEntries the oldest helper day goes first,
-    // then the oldest photo, week page, sticker or hard day; arrival and milestones always stay. Immutable.
+    // then the oldest talk line, photo, week page, sticker or hard day; arrival, milestones and First words always stay.
+    // Immutable.
     public sealed class JournalRecord : IEquatable<JournalRecord>
     {
         public const int MaxEntries = 200;
@@ -178,6 +204,33 @@ namespace BAIby.Simulation
             }
         }
 
+        // Entries only a build with Talk time can read: First words and talk lines.
+        public bool HasTalkEntries
+        {
+            get
+            {
+                foreach (var entry in entries)
+                {
+                    if (entry.Kind == JournalKind.FirstWords || entry.IsTalk)
+                        return true;
+                }
+
+                return false;
+            }
+        }
+
+        // The talk line written on a day of the little one's life, or null.
+        public JournalEntry TalkOn(int day)
+        {
+            foreach (var entry in entries)
+            {
+                if (entry.IsTalk && entry.Day == day)
+                    return entry;
+            }
+
+            return null;
+        }
+
         // The journal with one entry replaced (same kind and day) by a later one, kept in time order.
         public JournalRecord Replace(JournalEntry old, JournalEntry entry)
         {
@@ -234,7 +287,8 @@ namespace BAIby.Simulation
 
         private static int Evictable(List<JournalEntry> list)
         {
-            foreach (var kind in new[] { JournalKind.Helper, JournalKind.Photo, JournalKind.Week, JournalKind.Sticker, JournalKind.HardDay })
+            foreach (var kind in new[] { JournalKind.Helper, JournalKind.Talk, JournalKind.BigTalk, JournalKind.Photo,
+                JournalKind.Week, JournalKind.Sticker, JournalKind.HardDay })
             {
                 for (var i = 0; i < list.Count; i++)
                 {
