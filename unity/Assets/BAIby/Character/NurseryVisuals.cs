@@ -31,11 +31,17 @@ namespace BAIby.Character
         private static readonly float[] MessY = { -1.40f, -1.56f, -1.52f };
         private static readonly float[] MessAngle = { -12f, 9f, 16f };
         // The health axis uses simple shapes over the existing art: under the weather a paler tint, a droop and a
-        // sniffle bubble; sick the nap pose tucked under a blanket with a thermometer bubble; recovering a blanket
+        // sniffle bubble; sick the nap pose tucked under a quilt with a thermometer bubble; recovering the quilt
         // and a medicine bubble.
         private static readonly Color PoorlyTint = new Color(.96f, .89f, .85f, 1);
-        private static readonly Color BlanketColor = new Color32(204, 194, 228, 255);
         private static readonly Color BlanketTrimColor = new Color32(241, 236, 249, 255);
+        // The quilt: lilac with lighter diagonal checks, a light fold along the top, a stitch line, and the baby
+        // art's dark-brown outline.
+        private static readonly Color32 QuiltFill = new Color32(217, 204, 240, 255);
+        private static readonly Color32 QuiltOutline = new Color32(77, 41, 23, 255);
+        private const int QuiltTexture = 128;
+        private const float QuiltBorder = 48;
+        private const float QuiltPixelsPerUnit = 180;
         private static readonly Color BubbleColor = new Color(1, 1, 1, .94f);
         private static readonly Color SniffleColor = new Color32(146, 194, 228, 255);
         private static readonly Color TubeColor = new Color32(228, 232, 238, 255);
@@ -684,7 +690,10 @@ namespace BAIby.Character
         {
             var disc = Shape(.5f, false);
             var soft = Shape(.22f, false);
-            blanket = AddLayer(baby, "Health blanket", soft, BlanketColor, 8);
+            blanket = AddLayer(baby, "Health blanket", Quilt(), Color.white, 8);
+            blanket.drawMode = SpriteDrawMode.Tiled;
+            blanket.tileMode = SpriteTileMode.Adaptive;
+            blanket.adaptiveModeThreshold = 0.5f;
             blanketTrim = AddLayer(baby, "Health blanket trim", soft, BlanketTrimColor, 9);
 
             healthBadge = new GameObject("Health badge").transform;
@@ -738,8 +747,9 @@ namespace BAIby.Character
             SetShade(capsuleWarm, CapsuleWarm, recoveringLook);
             SetShade(capsuleLight, CapsuleLight, recoveringLook);
             float cover = Mathf.Max(sickLook, recoveringLook * .9f);
-            SetShade(blanket, BlanketColor, cover);
-            SetShade(blanketTrim, BlanketTrimColor, cover);
+            SetShade(blanket, Color.white, cover);
+            // The quilt draws its own fold; the old trim strip stays hidden.
+            SetShade(blanketTrim, BlanketTrimColor, 0);
 
             var pose = ShownPose(resting > .5f);
             if (pose == null || (badge <= 0 && cover <= 0))
@@ -749,10 +759,12 @@ namespace BAIby.Character
             float width = size.x * pose.transform.localScale.x;
             float height = size.y * pose.transform.localScale.y;
             bool napping = resting > .5f;
-            var blanketCenter = napping ? new Vector2(-.12f * width, .20f * height) : new Vector2(0, .14f * height);
-            var blanketSize = napping ? new Vector2(.64f * width, .36f * height) : new Vector2(.72f * width, .28f * height);
+            var blanketCenter = napping ? new Vector2(-.10f * width, .19f * height) : new Vector2(0, .14f * height);
+            var blanketSize = napping ? new Vector2(.70f * width, .38f * height) : new Vector2(.76f * width, .30f * height);
             blanket.transform.localPosition = new Vector3(blanketCenter.x, blanketCenter.y, 0);
-            blanket.transform.localScale = new Vector3(blanketSize.x, blanketSize.y, 1);
+            blanket.transform.localScale = Vector3.one;
+            // Tiled, so the outline and checks keep their size whatever the quilt's shape.
+            blanket.size = blanketSize;
             float trim = Mathf.Min(.12f, blanketSize.y * .24f);
             blanketTrim.transform.localPosition = new Vector3(blanketCenter.x, blanketCenter.y + (blanketSize.y - trim) * .5f, 0);
             blanketTrim.transform.localScale = new Vector3(blanketSize.x * .98f, trim, 1);
@@ -1228,6 +1240,62 @@ namespace BAIby.Character
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             var sprite = SpriteFrom(texture, size);
+            generatedAssets.Add(sprite);
+            generatedAssets.Add(texture);
+            return sprite;
+        }
+
+        // A nine-slice quilt tile: rounded top corners, softer bottom ones, a 4 px outline, diagonal checks whose
+        // period matches the tiled centre, a light fold along the top and a dashed stitch inside the edge.
+        private Sprite Quilt()
+        {
+            const int size = QuiltTexture;
+            const float outline = 4;
+            const float topRadius = 44;
+            const float bottomRadius = 30;
+            const float check = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "Quilt",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+            var pixels = new Color32[size * size];
+            var half = size / 2f;
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    float px = x + .5f - half;
+                    float py = y + .5f - half;
+                    float radius = py > 0 ? topRadius : bottomRadius;
+                    float qx = Mathf.Abs(px) - (half - radius);
+                    float qy = Mathf.Abs(py) - (half - radius);
+                    float distance = new Vector2(Mathf.Max(qx, 0), Mathf.Max(qy, 0)).magnitude +
+                        Mathf.Min(Mathf.Max(qx, qy), 0) - radius;
+                    float coverage = Mathf.Clamp01(.5f - distance);
+                    var fill = (Color)QuiltFill;
+                    bool light = (Mathf.FloorToInt((x + y) / check) + Mathf.FloorToInt((x - y + size) / check)) % 2 == 0;
+                    if (light)
+                        fill = Color.Lerp(fill, Color.white, .35f);
+                    float fromTop = size - y;
+                    if (fromTop > outline && fromTop < outline + 11)
+                        fill = Color.Lerp(fill, Color.white, .45f);
+                    float inside = -distance;
+                    if (inside > 11 && inside < 13.5f && (x + y) % 16 < 7)
+                        fill = Color.Lerp(fill, Color.white, .6f);
+                    float edge = Mathf.Clamp01(outline + .5f - inside);
+                    var color = Color.Lerp(fill, (Color)QuiltOutline, edge);
+                    color.a = coverage;
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), QuiltPixelsPerUnit, 0,
+                SpriteMeshType.FullRect, new Vector4(QuiltBorder, QuiltBorder, QuiltBorder, QuiltBorder), false);
+            sprite.name = "Quilt";
             generatedAssets.Add(sprite);
             generatedAssets.Add(texture);
             return sprite;
