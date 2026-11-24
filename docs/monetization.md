@@ -1,6 +1,6 @@
 # Premium and monetization
 
-**Status: decided proposal.** M1's entitlements, parental gate, Restore Purchases, resting companions and Web flags, developer mode, and **M4 Helpers** (see [Helpers: built in M4](#helpers-built-in-m4)) are built; no store is (this build sells nothing). Prices are placeholders mapped to store tiers. The decisions are listed at the end.
+**Status: decided proposal.** M1's entitlements, parental gate, Restore Purchases, resting companions and Web flags, developer mode, **M4 Helpers** (see [Helpers: built in M4](#helpers-built-in-m4)) and the first cosmetics, **M2b Looks and rooms** (see [Looks and rooms: built in M2b](#looks-and-rooms-built-in-m2b)), are built; no store is (this build sells nothing). Prices are placeholders mapped to store tiers. The decisions are listed at the end.
 
 It merges an economy proposal and a policy review with the user's decisions: paid slots beyond the free 2, premium automation, cosmetics and rare skins. It follows `docs/pet-mode.md`. `docs/care-and-growth.md` did not exist yet, so its ladder, on-time windows and streaks come from its brief; recheck when it lands.
 
@@ -34,7 +34,7 @@ It merges an economy proposal and a policy review with the user's decisions: pai
 | `helper.play` | When Comfort (Calm for fish) reaches its floor, a small top-up, at most 3 times per 24 h | Change familiarity, Connection, Bond, favorites, development counts or tricks | $2.99 |
 | `helper.tidy` | When Cleanliness (Litter, Bedding, Water) reaches its floor, restores it to 70, at most 3 times per 24 h | Reach 100 (a full change, bath or water change stays hands-on), hygiene development | $2.99 |
 | `helper.set` | All three helpers | Anything beyond the three | $5.99 |
-| Look pack (Rainy Day, Little Explorer, Bedtime) | 6 to 10 named outfits, headwear or decor, previewed on the player's own companion | Affect any stat or reaction | $1.99 to $2.99 |
+| Look pack `look.<pack>` (built: Cozy knits, Garden party; later Rainy Day, Little Explorer, Bedtime) | 6 to 10 named outfits, headwear or decor, previewed on the player's own companion | Affect any stat or reaction | $1.99 to $2.99 |
 | Special coat | One named pattern on an existing breed (merle, tortoiseshell, aurora fins) | Change care, tendencies or Bond; it is not a breed | $0.99 to $1.99 |
 | Baby special costume | Fantasy costume (dino onesie, bunny suit, star pajamas) | Change a skin tone, hair or any human feature | Inside look packs |
 
@@ -44,19 +44,39 @@ These widen what players can buy without touching growth speed, development or c
 
 | Product | Does | Does not | Placeholder |
 | --- | --- | --- | --- |
-| `room.<theme>` room theme (Cloud nursery, Treehouse, Beach cottage, Starlight) | A full room illustration with matching rug and lighting, for the nursery or any pet room | Change needs, decay or any care effect | $1.99 |
+| `room.<theme>` room theme (built: Cloud nursery, Starlight; later Treehouse, Beach cottage) | A full room illustration with matching rug and lighting, for the nursery or any pet room | Change needs, decay or any care effect | $1.99 |
 | `habitat.<species>.<theme>` habitat theme (Castle tank, Coral reef, Cozy burrow, Hamster maze) | A themed tank, burrow or cage with its own idle animation | Change Water, Calm, Bedding or any meter | $1.99 |
 | `furniture.<set>` furniture set (Scandi, Rattan, Pastel play) | Crib or bed, shelf, lamp and wall decor placed in the room | Add a care action | $1.99 |
-| `petwear.<pack>` pet accessory pack (collars, bandanas, sweaters, bows, a fish-tank castle) | Wearables and ornaments for every pet of the matching species | Change Bond, tendencies or care | $1.99 |
+| `petwear.<pack>` pet accessory pack (built: `petwear.cat.bandanas-bows`; later collars, sweaters, a fish-tank castle) | Wearables and ornaments for every pet of the matching species | Change Bond, tendencies or care | $1.99 |
 | `toy.<id>` premium toy (music box, plush dino, ball launcher, crinkle tunnel) | A new toy with its own look, sound and reaction. It counts as the same toy kind as a free one, so it adds no extra familiarity, variety or development credit | Raise familiarity faster or count as extra variety | $0.99 |
 | `sound.<pack>` lullaby and music pack | Extra lullabies, music-box songs and ambient room sounds | Change Comfort or sleep rules | $0.99 |
 | `album.<pack>` photo frames and stickers | Frames, stickers and backgrounds for the growth journal and shareable keepsake cards | Add new journal moments | $0.99 |
 | `species.<pack>` extra species pack (later: Birds, Guinea pig, Turtle) | A new species with its own care loop and a free starter breed inside the pack | Lock any species from the five launch species | $3.99 |
-| `supporter.founder` Founder pack | A small set of exclusive looks, a room theme and a Founder badge on the household card, for players who want to support the game | Give gameplay advantages | $4.99 |
+| `supporter.founder` Founder pack (built) | A small set of exclusive looks, a room theme and a Founder badge on the household card, for players who want to support the game | Give gameplay advantages | $4.99 |
 
 Declined lines. These would undermine the care loop or the audience rules: paid growth or milestone skips, paid later life stages for an existing baby, paid consequence removal beyond Helpers, energy or wait timers, season passes, daily login rewards tied to spending, randomized bundles, and ads (including rewarded ads).
 
 Helpers are household-wide one-time unlocks, so larger families do not pay more. There is no Rest or Health helper; sleep and Health recovery stay free.
+
+### Looks and rooms: built in M2b
+
+The first premium cosmetics, made from the existing art with the offline tools (no new illustration). They change only how things look: care, growth, Bond, development and every meter are untouched.
+
+| Product | What is inside |
+| --- | --- |
+| `look.cozy-knits` Cozy knits | Four knit outfits (Oatmeal, Berry, Moss, Fog: `Outfit` 8 to 11) and the Pom-pom beanie (`Headwear.PomBeanie`, a knit beanie with a fold-up cuff, a main-colour stripe and a pom-pom) |
+| `look.garden-party` Garden party | Four garden outfits (Rosebud, Marigold, Garden mint, Bluebell: `Outfit` 12 to 15) and the straw Sun hat (`Headwear.SunHat`, an accent ribbon and a small rose) |
+| `room.cloud-nursery` Cloud nursery | A sky-blue room with soft painted clouds and a cloud-white rug (`NurseryTheme.CloudNursery`), for the nursery and pet rooms |
+| `room.starlight` Starlight | A twilight room with softened moonlight, a sprinkle of golden stars and a lavender rug (`NurseryTheme.Starlight`) |
+| `petwear.cat.bandanas-bows` Cat bandanas & bows | A bandana and a neck bow for every cat pose (`PetAccessory.Bandana`, `Bow`), and three more colours for collars, bandanas and bows (Butter, Lilac, Terracotta) |
+| `supporter.founder` Founder pack | The Fern & gold outfit (`Outfit.FernGold`), the Golden hour room (`NurseryTheme.GoldenHour`, a honey wall and a fern rug) and a **Founder** badge on the household card |
+
+- **Catalogue.** `CosmeticCatalog` (Application, engine-free) maps each product to content IDs (`outfit.moss-knit`, `headwear.sun-hat`, `room-theme.starlight`, `wear.cat.bandana`, `wear-color.butter`, `badge.founder`) and answers `IsCosmeticUnlocked(contentId)` (also as an `IEntitlements` extension and on `HouseholdSession`). Free and earned looks are in no pack; the Daisy clip, Midnight and the Bucket hat stay earned-only and no product unlocks them. `DeveloperUnlocks.Products` grants every cosmetics product, and `?ent=` flags work as for every product family.
+- **Saves.** Cosmetics are the content IDs the records already hold (appearance, nursery theme, a pet's accessory and colour): new enum members only, so a save without them is byte for byte the same and `GoldenScenario` is unchanged. The pet rooms share one theme, a `<rooms pet-theme="N"/>` manifest element written only while it is not Sage.
+- **Refunds.** As decided: the saved content ID is kept and the display falls back to the free default (Sage outfit, no hat, the Sage room, a Sage collar for a cat's bandana or bow); owning the pack again restores the look. A part saved before a refund may stay while another part changes. While ownership is unknown (a damaged cache) saved looks keep showing.
+- **Presentation.** Style (a **More** tab for the pack outfits, the new hats under **Hat**), Decor (five room cards, in the nursery and in a pet's room, where a cat also picks what it wears and its colour) and the cat adoption page show locked items with a small butter **Special** chip; tapping one previews it on the companion or in the room with "Part of the Cozy knits pack — a grown-up can get it in Grown-ups." Nothing is saved, and no care flow links to a shop or names a price. **Grown-ups → Looks & rooms** (behind the parental gate) lists the packs and what is inside, with **Add test pack** / **Remove** in test builds.
+- **Art.** `tools/appearance/headwear.py` draws the two hats (`build.py --only-hats` adds hats without touching the rest); `tools/pets` draws the bandana and bow overlays; `tools/rooms/build.py` recolours the Sage backdrop's wall and rug (masked by where the artist's Peach version differs) into ~0.3 MB JPEGs. About 1.4 MB of new art in all.
+- **Not built.** A store, a furniture set (`furniture.<set>`), special coats, and look packs for other species.
 
 ## Automation, care and consequences
 
@@ -153,7 +173,7 @@ This extends the entitlement design in `pet-mode.md`.
 | M2 Looks | Two look packs, earned looks, special coats with the cat, validator rule | Earned looks ship alongside |
 | M3 Free care tools | Away mode, tuned consequence ladder, notification rules | Playtested with no paid items |
 | M4 Helpers (built, no store) | Feeder, Play, Tidy, Sitter for babies, objects for cats | M3 shipped; legal review; parent and child playtests |
-| M2b Rooms and wear | Two room themes, one furniture set, one cat accessory pack, the Founder pack | M2 shipped |
+| M2b Rooms and wear (built without the furniture set, no store) | Two room themes, one furniture set, one cat accessory pack, the Founder pack, and the first two baby look packs | M2 shipped |
 | M4b Toys, sound and album | Premium toys, a lullaby pack, album frames and stickers | Variety rule tested so premium toys add no development credit |
 | M5 Seasonal | First seasonal free item and pack | Returning-season copy reviewed |
 | M6 Species packs | First extra species pack after all five launch species ship | Art commissioned |
