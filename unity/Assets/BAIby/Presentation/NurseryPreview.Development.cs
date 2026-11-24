@@ -10,11 +10,11 @@ namespace BAIby.Presentation
         private DevelopmentPanel development;
         private Button developmentButton;
 
-        // Growth: the day and stage, three pastel metric cards, the last moment, and tiles for a story, blocks and
-        // the report.
+        // Growth: the day and stage, a projection card for the next skill, three pastel metric cards, the last
+        // moment, and tiles for a story, blocks and the report.
         private sealed class DevelopmentPanel
         {
-            private const float Height = 360;
+            public const float Height = 446;
 
             public GameObject Root { get; }
             public Text Feedback { get; }
@@ -28,6 +28,9 @@ namespace BAIby.Presentation
             private readonly Text blockTowers;
             private readonly Text blockAvailability;
             private readonly Text stackTitle;
+            private readonly Text projection;
+            private readonly Text projectionHint;
+            private readonly (Image Pill, Text Label, Image Mark) pace;
 
             public DevelopmentPanel(RectTransform content, Action close, Action readStory, Action openBlocks,
                 Action openReport)
@@ -40,6 +43,19 @@ namespace BAIby.Presentation
                 age = Label("Development Age", content, "", 22, Secondary, TextAnchor.MiddleLeft,
                     new Vector2(0, Height - 96), new Vector2(0.72f, 0), new Vector2(0, Height - 64));
                 FitText(age, 16, 22);
+
+                // The next skill and when it is likely, with a gentle hint when the baby is taking their time.
+                var card = Box("Growth Projection", content, Vector2.zero, Vector2.right,
+                    new Vector2(0, Height - 184), new Vector2(0, Height - 104));
+                SoftShapes.Radius(Surface(card, Mint), Px(20));
+                IconAt("Growth Projection Icon", card, "Growth", FernDeep, new Vector2(0, 0.5f), new Vector2(38, 0), Px(18));
+                projection = Label("Growth Projection Text", card, "", 24, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(70, 38), Vector2.one, new Vector2(-170, -6), FontStyle.Bold);
+                FitText(projection, 16, 24);
+                projectionHint = Label("Growth Projection Hint", card, "", 19, Muted, TextAnchor.MiddleLeft,
+                    new Vector2(70, 6), Vector2.right, new Vector2(-16, 40));
+                FitText(projectionHint, 14, 19);
+                pace = Pill("Growth Pace", card, "", Color.white, FernDeep, Fern);
                 storySessions = MetricCard("Story sessions", "Story Sessions Value", content, 0, 1f / 3, Lilac);
                 connection = MetricCard("Connection", "Connection Value", content, 1f / 3, 2f / 3, Blush);
                 blockTowers = MetricCard("Towers built", "Towers Value", content, 2f / 3, 1, Butter);
@@ -57,9 +73,19 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
-            public void UpdateDetails(BabyState state, string ageText, string feedback)
+            public void UpdateDetails(BabyState state, string ageText, string feedback, GrowthReport growth)
             {
                 age.text = ageText;
+                projection.text = ProjectionLine(state, growth);
+                projectionHint.text = ProjectionHint(state, growth);
+                var paceText = growth == null || growth.Next == MotorSkill.None || growth.Paused ? string.Empty
+                    : PaceName(growth.Pace);
+                pace.Label.text = paceText;
+                pace.Pill.gameObject.SetActive(paceText.Length > 0);
+                var pill = (RectTransform)pace.Pill.transform;
+                var width = PillWidth(pace.Label, Px(24));
+                Place(pill, new Vector2(1, 1), new Vector2(-14, -10), new Vector2(width, 32));
+                projection.rectTransform.offsetMax = new Vector2(-(paceText.Length > 0 ? width + 24 : 16), -6);
                 storySessions.text = state.StorySessions.ToString();
                 connection.text = $"{Mathf.RoundToInt((float)state.Connection)} / 100";
                 blockTowers.text = state.BlockTowers.ToString();
@@ -89,7 +115,7 @@ namespace BAIby.Presentation
             private static Text MetricCard(string label, string valueName, Transform parent, float left, float right, Color tint)
             {
                 var card = Box(label, parent, new Vector2(left, 0), new Vector2(right, 0),
-                    new Vector2(left == 0 ? 0 : 8, 166), new Vector2(right == 1 ? 0 : -8, Height - 106));
+                    new Vector2(left == 0 ? 0 : 8, 166), new Vector2(right == 1 ? 0 : -8, Height - 192));
                 SoftShapes.Radius(Surface(card, tint), Px(20));
                 var name = Label("Metric Label", card, label, 20, Muted, TextAnchor.MiddleLeft,
                     new Vector2(16, 44), Vector2.one, new Vector2(-12, -6), FontStyle.Bold);
