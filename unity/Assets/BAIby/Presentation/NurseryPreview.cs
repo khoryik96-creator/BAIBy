@@ -46,6 +46,7 @@ namespace BAIby.Presentation
             nursery = NurseryVisuals.Create();
             nursery.transform.SetParent(transform, true);
             nursery.Present(false, false, Reaction.None);
+            petStage = PetVisuals.Create(nursery);
             BuildInterface();
         }
 
@@ -85,8 +86,17 @@ namespace BAIby.Presentation
                     ShowActiveCompanion();
                     break;
                 case HouseholdView.Adoption:
-                    if (backToHome.gameObject.activeSelf)
+                    // The baby's name step goes back to the choice of a baby or a pet.
+                    StartAdoption();
+                    break;
+                case HouseholdView.Choose:
+                    if (household != null && household.Companions.Count > 0)
                         ShowHome();
+                    break;
+                case HouseholdView.PetAdoption:
+                    PetAdoptionBack();
+                    break;
+                case HouseholdView.PetRoom:
                     break;
                 default:
                     if (activePanel != NurseryPanel.Care)
@@ -124,6 +134,12 @@ namespace BAIby.Presentation
             if (view == HouseholdView.Home && !resumed)
             {
                 home.Refresh(household);
+                return;
+            }
+
+            if (view == HouseholdView.PetRoom)
+            {
+                RefreshPetRoom();
                 return;
             }
 

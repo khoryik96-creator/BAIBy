@@ -25,6 +25,7 @@ namespace BAIby.Tests.Appearance
             TransparentEdgesTakeNeighborColors();
             LayoutValidatesAndNamesResources();
             CommittedLayoutParsesWhenPresent();
+            PetArtChecks.Run(Check);
 
             Console.WriteLine(failures == 0
                 ? "Appearance checks passed (" + checks + " checks)."

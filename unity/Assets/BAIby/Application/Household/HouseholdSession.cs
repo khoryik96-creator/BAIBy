@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.ExceptionServices;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 
 namespace BAIby.Application
 {
@@ -10,22 +12,64 @@ namespace BAIby.Application
     {
         public int Slot { get; }
         public DateTimeOffset AdoptedAt { get; }
+        public CompanionKind Kind { get; }
 
-        // Null when the slot's save couldn't be opened. The slot still counts toward capacity and its
-        // bytes are kept, so it is never reused.
+        // A baby's session; null for a pet, or when the slot's save couldn't be opened. An unreadable slot
+        // still counts toward capacity and its bytes are kept, so it is never reused.
         public BabySession Session { get; }
-        public bool IsReadable => Session != null;
+        // A pet's session; null for a baby, or when the slot's save couldn't be opened.
+        public PetSession PetSession { get; }
+        public bool IsReadable => Session != null || PetSession != null;
+        public bool IsPet => Kind == CompanionKind.Pet;
+        // The baby's state; null for a pet.
         public BabyState State => Session?.State;
+        // The pet's state; null for a baby.
+        public PetState PetState => PetSession?.State;
+        public string Name => Session?.State?.Name ?? PetSession?.State?.Name;
+
+        // Whether Health or a shown need is below the household threshold, as committed.
+        public bool NeedsAttention =>
+            State != null ? HouseholdRules.NeedsAttention(State) : PetState != null && HouseholdRules.NeedsAttention(PetState);
 
         internal HouseholdCompanion(int slot, DateTimeOffset adoptedAt, BabySession session)
+            : this(slot, adoptedAt, CompanionKind.Baby, session, null)
+        {
+        }
+
+        internal HouseholdCompanion(int slot, DateTimeOffset adoptedAt, CompanionKind kind, BabySession session, PetSession petSession)
         {
             Slot = slot;
             AdoptedAt = adoptedAt;
+            Kind = kind;
             Session = session;
+            PetSession = petSession;
         }
     }
 
-    // The single writer of household slots and the manifest. It caches one BabySession per companion.
+    // What a pet care action did: the cue to show, whether the pet grew up on the way, whether it
+    // finished the species' care day, and any earned breeds that unlocked.
+    public readonly struct PetCareOutcome
+    {
+        public PetCareOutcome(PetCue cue, bool becameGrown, bool completedCareDay, IReadOnlyList<PetBreed> unlockedBreeds)
+        {
+            Cue = cue;
+            BecameGrown = becameGrown;
+            CompletedCareDay = completedCareDay;
+            breeds = unlockedBreeds;
+        }
+
+        private readonly IReadOnlyList<PetBreed> breeds;
+
+        public PetCue Cue { get; }
+        public bool BecameGrown { get; }
+        public bool CompletedCareDay { get; }
+        // Never null, even for a default outcome.
+        public IReadOnlyList<PetBreed> UnlockedBreeds => breeds ?? Array.Empty<PetBreed>();
+    }
+
+    // The single writer of household slots and the manifest. It caches one BabySession or PetSession per
+    // companion. Slot 1 is the original single-baby key and only ever holds a baby, so a build from before
+    // the household never reads a pet; pets take slots 2 and up.
     // Every awake companion advances on launch, resume and the session tick, never on a switch, so need
     // decay does not depend on which companion is on screen.
     //
@@ -39,12 +83,14 @@ namespace BAIby.Application
     public sealed class HouseholdSession
     {
         private readonly BabySimulation simulation;
+        private readonly PetSimulation pets;
         private readonly IHouseholdStore store;
         private readonly Func<DateTimeOffset> now;
         private readonly IEntitlements entitlements;
         private readonly List<HouseholdCompanion> companions = new List<HouseholdCompanion>();
         private readonly List<PendingCelebration> celebrations = new List<PendingCelebration>();
         private readonly List<Keepsake> keepsakes = new List<Keepsake>();
+        private readonly Dictionary<Species, SpeciesRecord> speciesRecords = new Dictionary<Species, SpeciesRecord>();
         // Slots with any stored bytes, readable or not. These are never offered for adoption.
         private readonly HashSet<int> occupied = new HashSet<int>();
         // Slots whose goodbye has started but whose final manifest is not yet written.
@@ -64,8 +110,16 @@ namespace BAIby.Application
         // entitlements decides capacity. Null means the free game.
         public HouseholdSession(BabySimulation simulation, IHouseholdStore store, Func<DateTimeOffset> now,
             IEntitlements entitlements)
+            : this(simulation, new PetSimulation(), store, now, entitlements)
+        {
+        }
+
+        // entitlements decides capacity and which premium breeds are owned. Null means the free game.
+        public HouseholdSession(BabySimulation simulation, PetSimulation pets, IHouseholdStore store, Func<DateTimeOffset> now,
+            IEntitlements entitlements)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
+            this.pets = pets ?? throw new ArgumentNullException(nameof(pets));
             this.store = store ?? throw new ArgumentNullException(nameof(store));
             this.now = now ?? throw new ArgumentNullException(nameof(now));
             this.entitlements = entitlements ?? NoEntitlements.Instance;
@@ -129,7 +183,11 @@ namespace BAIby.Application
         }
 
         public bool IsFull => companions.Count >= Capacity;
-        public bool CanAdopt => !IsFull && FindFreeSlot() != 0;
+        // A baby can take any free slot, slot 1 first.
+        public bool CanAdopt => !IsFull && FindFreeSlot(1) != 0;
+        // A pet never takes slot 1.
+        public bool CanAdoptPet => !IsFull && FindFreeSlot(FirstPetSlot) != 0;
+        public PetCatalog PetCatalog => pets.Catalog;
         // A goodbye needs its keepsake written, which a manifest from a newer build does not allow.
         public bool CanSayGoodbye => !manifestFromNewerBuild;
 
@@ -140,7 +198,7 @@ namespace BAIby.Application
             if (IsFull)
                 throw new InvalidOperationException("The household is full.");
 
-            var slot = FindFreeSlot();
+            var slot = FindFreeSlot(1);
             if (slot == 0)
                 throw new InvalidOperationException("No free household slot is available.");
 
@@ -148,12 +206,140 @@ namespace BAIby.Application
             // the record by probing and lists it again.
             var session = new BabySession(simulation, store.Slot(slot), now);
             session.Adopt(name);
-            var companion = new HouseholdCompanion(slot, session.State.TimeCheckpoint, session);
+            return Welcome(new HouseholdCompanion(slot, session.State.TimeCheckpoint, session));
+        }
+
+        // Adopts a pet with a name and look. The breed must be adoptable now: a free starter, an earned
+        // breed whose goal the household has met, or a premium breed it owns, with its art shipped.
+        public HouseholdCompanion AdoptPet(string name, PetAppearance appearance)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Enter a name for the pet.", nameof(name));
+            if (appearance == null)
+                throw new ArgumentNullException(nameof(appearance));
+            if (!CanAdoptBreed(appearance.Breed))
+                throw new InvalidOperationException($"The {appearance.Breed} breed is not unlocked yet.");
+            pets.Catalog.ValidateChoice(appearance);
+            if (IsFull)
+                throw new InvalidOperationException("The household is full.");
+
+            var slot = FindFreeSlot(FirstPetSlot);
+            if (slot == 0)
+                throw new InvalidOperationException("No free household slot is available for a pet.");
+
+            var session = new PetSession(pets, store.Slot(slot), now);
+            session.Adopt(name, appearance);
+            return Welcome(new HouseholdCompanion(slot, session.State.TimeCheckpoint, CompanionKind.Pet, null, session));
+        }
+
+        // Household-wide progress toward a species' earned breeds: the saved record plus what every
+        // current pet of the species shows.
+        public SpeciesGoalProgress ProgressFor(Species species) => RecordFor(species).Progress;
+
+        // Owned or earned, whether or not the art has shipped.
+        public bool IsBreedUnlocked(PetBreed breed) =>
+            PetUnlocks.IsUnlocked(pets.Catalog, breed, ProgressFor(PetIds.SpeciesOf(breed)), OwnedProducts());
+
+        // Unlocked and its art is available now.
+        public bool CanAdoptBreed(PetBreed breed) =>
+            PetIds.IsDefined(breed) && pets.Catalog.TryGet(breed, out _) &&
+            PetUnlocks.CanAdopt(pets.Catalog, breed, ProgressFor(PetIds.SpeciesOf(breed)), OwnedProducts());
+
+        // Cares for a pet: time and care commit in one record write. Care that counts toward the species'
+        // care day is saved in the manifest, and earned breeds unlocked by it are returned once.
+        public PetCareOutcome ApplyPetCare(int slot, PetVerb verb)
+        {
+            var companion = AwakePet(slot);
+            var species = companion.PetState.Species;
+            var before = RecordFor(species);
+            var care = companion.PetSession.ApplyCare(verb);
+            var kind = PetCareDays.KindOf(pets.Catalog.Get(species), verb);
+            var day = before.CareDays.Record(kind, PetCareDays.DayNumber(now()));
+            var completed = day.Completed;
+            if (care.BecameGrown)
+                AddCelebration(slot, CompanionMilestone.Grown);
+            SaveProgress(species, before.WithCareDays(day.Days));
+            return new PetCareOutcome(care.Cue, care.BecameGrown, completed, NewlyUnlocked(species, before));
+        }
+
+        // Playtest shortcut, like the nursery's Preview next day.
+        public PetCareOutcome AdvancePetPreview(int slot, TimeSpan elapsed)
+        {
+            var companion = AwakePet(slot);
+            var species = companion.PetState.Species;
+            var before = RecordFor(species);
+            var grown = companion.PetSession.AdvancePreview(elapsed);
+            if (grown)
+                AddCelebration(slot, CompanionMilestone.Grown);
+            SaveProgress(species, before);
+            return new PetCareOutcome(PetCue.Content, grown, false, NewlyUnlocked(species, before));
+        }
+
+        // The pet's state advanced to now without any write, for Home's minute tick.
+        public PetState PreviewPetState(int slot)
+        {
+            var state = Find(slot)?.PetState;
+            if (state == null || IsResting(slot))
+                return state;
+
+            return pets.Advance(state, now()).State;
+        }
+
+        private HouseholdCompanion Welcome(HouseholdCompanion companion)
+        {
             companions.Add(companion);
-            occupied.Add(slot);
-            activeSlot = slot;
+            occupied.Add(companion.Slot);
+            activeSlot = companion.Slot;
             WriteManifest();
             return companion;
+        }
+
+        private HouseholdCompanion AwakePet(int slot)
+        {
+            var companion = Find(slot) ?? throw new ArgumentException($"Slot {slot} has no companion.", nameof(slot));
+            if (companion.PetSession?.State == null)
+                throw new InvalidOperationException("This companion is not a pet that can be cared for.");
+            if (IsResting(slot))
+                throw new InvalidOperationException("This companion is resting.");
+            return companion;
+        }
+
+        // Saves the species' progress and any new celebration. The pet's record is already saved, so a failed
+        // manifest write keeps both in memory for the next write, which is retried with the next change. An
+        // unchanged manifest is not rewritten.
+        private void SaveProgress(Species species, SpeciesRecord updated)
+        {
+            speciesRecords[species] = updated;
+            WriteManifest();
+        }
+
+        private IReadOnlyList<PetBreed> NewlyUnlocked(Species species, SpeciesRecord before)
+        {
+            var after = RecordFor(species).Progress;
+            var unlocked = new List<PetBreed>();
+            foreach (var breed in pets.Catalog.BreedsOf(species))
+            {
+                if (breed.Unlock == BreedUnlock.Earned && breed.Goal.HasValue &&
+                    !PetUnlocks.IsGoalMet(breed.Goal.Value, before.Progress) && PetUnlocks.IsGoalMet(breed.Goal.Value, after))
+                    unlocked.Add(breed.Breed);
+            }
+
+            return unlocked.AsReadOnly();
+        }
+
+        // The stored record merged with every readable pet of the species.
+        private SpeciesRecord RecordFor(Species species)
+        {
+            var record = speciesRecords.TryGetValue(species, out var stored) ? stored : SpeciesRecord.Empty(species);
+            foreach (var companion in companions)
+                record = record.WithPet(companion.PetState);
+            return record;
+        }
+
+        private ICollection<string> OwnedProducts()
+        {
+            var owned = entitlements.Owned;
+            return owned == null ? (ICollection<string>)Array.Empty<string>() : owned.ToList();
         }
 
         // Makes another companion active. It does not advance time.
@@ -209,7 +395,7 @@ namespace BAIby.Application
 
             // Commit the awake time first. If this write fails nothing has moved.
             if (resting.IsReadable)
-                AddCelebrations(restSlot, resting.Session.Refresh());
+                Refresh(resting);
 
             var wakeIndex = companions.IndexOf(waking);
             var restIndex = companions.IndexOf(resting);
@@ -231,7 +417,7 @@ namespace BAIby.Application
             }
 
             // The woken companion's one capped advance. If it fails it is retried with the next advance.
-            if (AddCelebrations(wakeSlot, waking.Session.Refresh()))
+            if (Refresh(waking))
                 WriteManifest();
         }
 
@@ -290,9 +476,13 @@ namespace BAIby.Application
 
             if (!leaving.Contains(slot))
             {
-                var state = companion.State;
-                var keepsake = new Keepsake(state.Name, companion.AdoptedAt, now(), state.Age,
-                    HouseholdRules.StageOf(state), state.Appearance);
+                var keepsake = KeepsakeOf(companion);
+                // A pet's Bond and growth stay with its species, so earned breeds outlive the goodbye.
+                var pet = companion.PetState;
+                SpeciesRecord stored = null;
+                var hadRecord = pet != null && speciesRecords.TryGetValue(pet.Species, out stored);
+                if (pet != null)
+                    speciesRecords[pet.Species] = RecordFor(pet.Species);
                 keepsakes.Add(keepsake);
                 leaving.Add(slot);
                 try
@@ -303,6 +493,10 @@ namespace BAIby.Application
                 {
                     keepsakes.Remove(keepsake);
                     leaving.Remove(slot);
+                    if (hadRecord)
+                        speciesRecords[pet.Species] = stored;
+                    else if (pet != null)
+                        speciesRecords.Remove(pet.Species);
                     throw;
                 }
             }
@@ -336,6 +530,13 @@ namespace BAIby.Application
 
                 try
                 {
+                    if (companion.PetSession != null)
+                    {
+                        // A pet's growth always waits as a celebration; its room plays it.
+                        added |= Refresh(companion);
+                        continue;
+                    }
+
                     var unlocked = companion.Session.Refresh();
                     if (activeOnScreen && companion.Slot == shownSlot)
                         shown = unlocked;
@@ -380,6 +581,25 @@ namespace BAIby.Application
             return shown;
         }
 
+        // Advances one companion to now and keeps what it reached as pending celebrations.
+        private bool Refresh(HouseholdCompanion companion)
+        {
+            if (companion.PetSession != null)
+                return companion.PetSession.Refresh() && AddCelebration(companion.Slot, CompanionMilestone.Grown);
+
+            return companion.Session != null && AddCelebrations(companion.Slot, companion.Session.Refresh());
+        }
+
+        private Keepsake KeepsakeOf(HouseholdCompanion companion)
+        {
+            var pet = companion.PetState;
+            if (pet != null)
+                return new Keepsake(pet.Name, companion.AdoptedAt, now(), pet.Age, pet.Stage, pet.Appearance);
+
+            var state = companion.State;
+            return new Keepsake(state.Name, companion.AdoptedAt, now(), state.Age, HouseholdRules.StageOf(state), state.Appearance);
+        }
+
         private bool AddCelebrations(int slot, (bool Sitting, bool Crawling, bool Walking) unlocked)
         {
             var added = false;
@@ -401,32 +621,58 @@ namespace BAIby.Application
             return true;
         }
 
-        private Dictionary<int, BabySession> ProbeSlots()
+        private Dictionary<int, HouseholdCompanion> ProbeSlots()
         {
-            // PlayerPrefs cannot list keys, so every physical slot is probed.
-            var sessions = new Dictionary<int, BabySession>();
+            // PlayerPrefs cannot list keys, so every physical slot is probed. Each record says what it
+            // holds by its root element, so a slot opens as a baby or a pet whatever the manifest says.
+            var probed = new Dictionary<int, HouseholdCompanion>();
             for (var slot = 1; slot <= HouseholdRules.PhysicalSlots; slot++)
             {
                 var saves = store.Slot(slot);
-                if (saves.Read() == null && saves.ReadBackup() == null)
+                var primary = saves.Read();
+                var backup = saves.ReadBackup();
+                if (primary == null && backup == null)
                     continue;
 
                 occupied.Add(slot);
+                var kind = KindOf(primary) ?? KindOf(backup);
                 try
                 {
-                    sessions.Add(slot, new BabySession(simulation, saves, now));
+                    probed.Add(slot, kind == CompanionKind.Pet
+                        ? new HouseholdCompanion(slot, default, CompanionKind.Pet, null, new PetSession(pets, saves, now))
+                        : new HouseholdCompanion(slot, default, CompanionKind.Baby, new BabySession(simulation, saves, now), null));
                 }
                 catch (InvalidDataException)
                 {
                     // Unreadable: kept as an occupied slot without a session.
+                    probed.Add(slot, Unreadable(slot, kind));
                 }
                 catch (NotSupportedException)
                 {
                     // Written by a newer build: kept as an occupied slot without a session.
+                    probed.Add(slot, Unreadable(slot, kind));
                 }
             }
 
-            return sessions;
+            return probed;
+        }
+
+        private static HouseholdCompanion Unreadable(int slot, CompanionKind? kind) =>
+            new HouseholdCompanion(slot, default, kind ?? CompanionKind.Baby, null, null);
+
+        // A record's kind from its root element: <pet ...> or <baby ...>. Null when the payload is missing
+        // or too damaged to tell.
+        private static CompanionKind? KindOf(string payload)
+        {
+            if (payload == null)
+                return null;
+
+            var text = payload.TrimStart();
+            if (text.StartsWith("<pet", StringComparison.Ordinal))
+                return CompanionKind.Pet;
+            if (text.StartsWith("<baby", StringComparison.Ordinal))
+                return CompanionKind.Baby;
+            return null;
         }
 
         private HouseholdManifest ReadManifest(out bool trusted)
@@ -471,18 +717,18 @@ namespace BAIby.Application
             }
         }
 
-        private void Rebuild(Dictionary<int, BabySession> sessions)
+        private void Rebuild(Dictionary<int, HouseholdCompanion> sessions)
         {
             for (var slot = 1; slot <= HouseholdRules.PhysicalSlots; slot++)
             {
                 if (occupied.Contains(slot))
-                    AddProbed(slot, sessions, null);
+                    AddProbed(slot, sessions, null, null);
             }
 
             activeSlot = FirstReadableSlot();
         }
 
-        private void Reconcile(HouseholdManifest manifest, bool trusted, Dictionary<int, BabySession> sessions)
+        private void Reconcile(HouseholdManifest manifest, bool trusted, Dictionary<int, HouseholdCompanion> sessions)
         {
             foreach (var entry in manifest.Companions)
             {
@@ -504,14 +750,14 @@ namespace BAIby.Application
 
                 // A listed slot without a record has nothing left to show.
                 if (occupied.Contains(entry.Slot))
-                    AddProbed(entry.Slot, sessions, entry.AdoptedAt);
+                    AddProbed(entry.Slot, sessions, entry.AdoptedAt, entry.Kind);
             }
 
             // Records the manifest does not list, for example after an interrupted adoption.
             for (var slot = 1; slot <= HouseholdRules.PhysicalSlots; slot++)
             {
                 if (occupied.Contains(slot) && Find(slot) == null)
-                    AddProbed(slot, sessions, null);
+                    AddProbed(slot, sessions, null, null);
             }
 
             foreach (var celebration in manifest.Celebrations)
@@ -522,30 +768,53 @@ namespace BAIby.Application
             }
 
             keepsakes.AddRange(manifest.Keepsakes);
+            foreach (var record in manifest.SpeciesRecords)
+                speciesRecords[record.Species] = record;
             var active = Find(manifest.ActiveSlot);
             activeSlot = active != null && active.IsReadable ? active.Slot : FirstReadableSlot();
         }
 
-        private void AddProbed(int slot, Dictionary<int, BabySession> sessions, DateTimeOffset? adoptedAt)
+        // knownKind is the manifest's word for the slot. It only names an unreadable slot's kind: a
+        // readable record's own root element wins.
+        private void AddProbed(int slot, Dictionary<int, HouseholdCompanion> sessions, DateTimeOffset? adoptedAt,
+            CompanionKind? knownKind)
         {
-            sessions.TryGetValue(slot, out var session);
-            companions.Add(new HouseholdCompanion(slot, adoptedAt ?? EstimateAdoption(session), session));
+            sessions.TryGetValue(slot, out var probed);
+            var kind = probed != null && probed.IsReadable ? probed.Kind : knownKind ?? probed?.Kind ?? CompanionKind.Baby;
+            companions.Add(new HouseholdCompanion(slot, adoptedAt ?? EstimateAdoption(probed), kind,
+                probed?.Session, probed?.PetSession));
         }
 
         // Records do not store the adoption date, so a rebuilt entry estimates it from age.
-        private DateTimeOffset EstimateAdoption(BabySession session)
+        private DateTimeOffset EstimateAdoption(HouseholdCompanion probed)
         {
-            if (session?.State == null)
+            DateTimeOffset checkpoint;
+            TimeSpan age;
+            if (probed?.State != null)
+            {
+                checkpoint = probed.State.TimeCheckpoint;
+                age = probed.State.Age;
+            }
+            else if (probed?.PetState != null)
+            {
+                checkpoint = probed.PetState.TimeCheckpoint;
+                age = probed.PetState.Age;
+            }
+            else
+            {
                 return now();
+            }
 
-            var checkpoint = session.State.TimeCheckpoint.UtcDateTime.Ticks;
-            var age = session.State.Age.Ticks;
-            return new DateTimeOffset(checkpoint > age ? checkpoint - age : checkpoint, TimeSpan.Zero);
+            var ticks = checkpoint.UtcDateTime.Ticks;
+            return new DateTimeOffset(ticks > age.Ticks ? ticks - age.Ticks : ticks, TimeSpan.Zero);
         }
 
-        private int FindFreeSlot()
+        // Pets start at slot 2: slot 1 is the original baby key that older builds read.
+        private const int FirstPetSlot = 2;
+
+        private int FindFreeSlot(int firstSlot)
         {
-            for (var slot = 1; slot <= HouseholdRules.PhysicalSlots; slot++)
+            for (var slot = firstSlot; slot <= HouseholdRules.PhysicalSlots; slot++)
             {
                 if (occupied.Contains(slot) || leaving.Contains(slot))
                     continue;
@@ -577,6 +846,19 @@ namespace BAIby.Application
             return 0;
         }
 
+        // Species with a stored record or a readable pet, in ID order so the manifest encodes stably.
+        private IEnumerable<Species> SpeciesWithProgress()
+        {
+            var species = new SortedSet<Species>(speciesRecords.Keys);
+            foreach (var companion in companions)
+            {
+                if (companion.PetState != null)
+                    species.Add(companion.PetState.Species);
+            }
+
+            return species;
+        }
+
         private HouseholdCompanion Find(int slot)
         {
             foreach (var companion in companions)
@@ -595,9 +877,15 @@ namespace BAIby.Application
 
             var entries = new List<HouseholdEntry>();
             foreach (var companion in companions)
-                entries.Add(new HouseholdEntry(companion.Slot, companion.AdoptedAt, leaving.Contains(companion.Slot)));
+                entries.Add(new HouseholdEntry(companion.Slot, companion.AdoptedAt, leaving.Contains(companion.Slot),
+                    companion.Slot == 1 ? CompanionKind.Baby : companion.Kind));
 
-            var payload = HouseholdManifestCodec.Encode(new HouseholdManifest(entries, activeSlot, celebrations, keepsakes));
+            // Each species keeps the best Bond and growth its pets have shown, so a goodbye never loses them.
+            var records = new List<SpeciesRecord>();
+            foreach (var species in SpeciesWithProgress())
+                records.Add(RecordFor(species));
+
+            var payload = HouseholdManifestCodec.Encode(new HouseholdManifest(entries, activeSlot, celebrations, keepsakes, records));
             if (payload != storedManifest)
             {
                 store.WriteManifest(payload, lastValidManifest);

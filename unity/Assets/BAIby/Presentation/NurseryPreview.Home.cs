@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using BAIby.Application;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,7 +13,8 @@ namespace BAIby.Presentation
     {
         private static readonly Color Amber = new Color32(201, 132, 62, 255);
 
-        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake }
+        // Choose is "Who's joining your home?"; PetAdoption picks species, breed and name; PetRoom is a pet's room.
+        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom }
 
         private HouseholdView view = HouseholdView.Adoption;
         private HouseholdSession household;
@@ -101,13 +103,17 @@ namespace BAIby.Presentation
                 OpenJournal, AskWake, () => RequestGate(ShowMoreRooms), () => RequestGate(ShowSettings));
             goodbye = new GoodbyePanel(Tray("Goodbye Panel", false, 340), ShowHome, ContinueGoodbye, ConfirmGoodbye);
             BuildRoomPanels();
+            BuildAdoptionPanels();
+            BuildPetRoom();
+            home.PetPortrait = PetPortrait;
         }
 
         // Shows the chosen view's trays and hides the others. The nursery's own panels follow activePanel.
         private void ApplyHouseholdView()
         {
             var nurseryShown = view == HouseholdView.Nursery && session?.State != null;
-            header.SetActive(view == HouseholdView.Nursery || view == HouseholdView.Adoption);
+            header.SetActive(view == HouseholdView.Nursery || view == HouseholdView.Adoption || view == HouseholdView.Choose ||
+                view == HouseholdView.PetAdoption || view == HouseholdView.PetRoom);
             welcome.SetActive(view == HouseholdView.Adoption);
             backToHome.gameObject.SetActive(view == HouseholdView.Adoption && household != null &&
                 household.Companions.Count > 0);
@@ -115,6 +121,7 @@ namespace BAIby.Presentation
             goodbye.Root.SetActive(view == HouseholdView.Goodbye);
             ApplyRoomPanels();
             UpdatePanelVisibility(nurseryShown);
+            ApplyPetViews();
         }
 
         private void UpdateHouseholdChips(bool visible)
@@ -124,7 +131,7 @@ namespace BAIby.Presentation
             var next = visible ? NextCompanion() : null;
             switchChip.gameObject.SetActive(next != null);
             if (next != null)
-                switchLabel.text = "Switch to " + next.State.Name;
+                switchLabel.text = "Switch to " + next.Name;
             homeDot.gameObject.SetActive(visible && AnotherNeedsAttention());
         }
 
@@ -198,9 +205,16 @@ namespace BAIby.Presentation
 
         // Re-binds the nursery to a companion's session: its state, look and room theme. Switching never
         // advances time; milestones reached off screen are shown here, once. Returns what was announced.
+        // A pet opens its own room.
         private (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) ShowCompanion(
             HouseholdCompanion companion, (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) unlocked)
         {
+            if (companion.PetSession != null)
+            {
+                ShowPetRoom(companion);
+                return unlocked;
+            }
+
             session = companion.Session;
             view = HouseholdView.Nursery;
             activePanel = NurseryPanel.Care;
@@ -234,7 +248,7 @@ namespace BAIby.Presentation
             }
         }
 
-        private void StartAdoption()
+        private void StartBabyAdoption()
         {
             if (household == null || !household.CanAdopt)
                 return;
@@ -248,25 +262,25 @@ namespace BAIby.Presentation
         private void AskGoodbye(int slot)
         {
             var companion = FindCompanion(slot);
-            if (companion?.State == null)
+            if (companion == null || !companion.IsReadable)
                 return;
 
             goodbyeSlot = slot;
             view = HouseholdView.Goodbye;
             ApplyHouseholdView();
-            goodbye.Ask(companion.State.Name);
+            goodbye.Ask(companion.Name);
             goodbye.Keep.Select();
         }
 
         private void ContinueGoodbye()
         {
             var companion = FindCompanion(goodbyeSlot);
-            if (companion?.State == null)
+            if (companion == null || !companion.IsReadable)
                 return;
 
             // With companions resting, the freed room goes straight to the next one in Home order.
             var next = household.NextToWake;
-            goodbye.Confirm(companion.State.Name, next == null ? null : next.State?.Name ?? "a resting little one");
+            goodbye.Confirm(companion.Name, next == null ? null : next.Name ?? "a resting little one");
         }
 
         private void ConfirmGoodbye()
@@ -296,7 +310,7 @@ namespace BAIby.Presentation
         private void LeaveGoodbye()
         {
             goodbyeSlot = 0;
-            if (household.Companions.Count == 0 && household.CanAdopt)
+            if (household.Companions.Count == 0 && (household.CanAdopt || household.CanAdoptPet))
                 StartAdoption();
             else
                 ShowHome();
@@ -350,7 +364,7 @@ namespace BAIby.Presentation
             foreach (var companion in household.Companions)
             {
                 if (companion != active && companion.IsReadable && !household.IsResting(companion.Slot) &&
-                    HouseholdRules.NeedsAttention(companion.State))
+                    companion.NeedsAttention)
                     return true;
             }
 
@@ -400,7 +414,7 @@ namespace BAIby.Presentation
             rect.offsetMax = new Vector2(-insetRight, -top);
         }
 
-        private sealed class HomePanel
+        private sealed partial class HomePanel
         {
             private const float CardsTop = 112;
             private const float CardHeight = 360;
@@ -501,6 +515,8 @@ namespace BAIby.Presentation
                     var state = household.PreviewState(card.Slot);
                     if (state != null)
                         Describe(card, state);
+                    else if (household.PreviewPetState(card.Slot) is PetState pet)
+                        DescribePet(card, pet);
                     card.Badge.SetActive(!card.Resting && household.HasCelebrations(card.Slot));
                 }
             }
@@ -521,16 +537,19 @@ namespace BAIby.Presentation
                     var cell = Cell(i);
                     var companion = companions[i];
                     var resting = household.IsResting(companion.Slot);
-                    var card = companion.IsReadable
-                        ? CompanionCard(companion.Slot, household.PreviewState(companion.Slot), cell, companion == active,
-                            !resting && household.HasCelebrations(companion.Slot), household.CanSayGoodbye, resting)
-                        : UnreadableCard(companion.Slot, cell);
+                    var card = !companion.IsReadable
+                        ? UnreadableCard(companion.Slot, cell)
+                        : companion.IsPet
+                            ? PetCard(companion.Slot, household.PreviewPetState(companion.Slot), cell, companion == active,
+                                !resting && household.HasCelebrations(companion.Slot), household.CanSayGoodbye, resting)
+                            : CompanionCard(companion.Slot, household.PreviewState(companion.Slot), cell, companion == active,
+                                !resting && household.HasCelebrations(companion.Slot), household.CanSayGoodbye, resting);
                     if (first == null)
                         first = card;
                 }
 
                 var items = companions.Count;
-                if (household.CanAdopt)
+                if (household.CanAdopt || household.CanAdoptPet)
                 {
                     var card = AdoptCard(Cell(items));
                     if (first == null)
@@ -719,7 +738,7 @@ namespace BAIby.Presentation
                 title.fontSize = 34;
                 title.rectTransform.offsetMin = new Vector2(10, 170);
                 title.rectTransform.offsetMax = new Vector2(-10, -120);
-                Label("+ Adopt Detail", card.transform, "Welcome a new baby", 21, Secondary, TextAnchor.MiddleCenter,
+                Label("+ Adopt Detail", card.transform, "Welcome a baby or a pet", 21, Secondary, TextAnchor.MiddleCenter,
                     new Vector2(10, 124), Vector2.right, new Vector2(-10, 166));
                 return card;
             }
@@ -739,7 +758,10 @@ namespace BAIby.Presentation
 
                 var names = new List<string>();
                 foreach (var keepsake in kept)
-                    names.Add($"{keepsake.Name} ({Day(keepsake.AdoptedAt)} – {Day(keepsake.FarewellAt)})");
+                {
+                    var species = keepsake.Species is Species kind ? SpeciesName(kind).ToLowerInvariant() + ", " : string.Empty;
+                    names.Add($"{keepsake.Name} ({species}{Day(keepsake.AdoptedAt)} – {Day(keepsake.FarewellAt)})");
+                }
                 return "Keepsakes · " + string.Join(" · ", names);
             }
 
@@ -834,7 +856,7 @@ namespace BAIby.Presentation
             {
                 heading.text = "Are you sure?";
                 detail.text = wakes == null
-                    ? $"This can't be undone. {name}'s room will be free for a new baby."
+                    ? $"This can't be undone. {name}'s room will be free for someone new."
                     : $"This can't be undone. {name}'s room will go to {wakes}, who wakes up and moves in.";
                 proceed.gameObject.SetActive(false);
                 confirm.gameObject.SetActive(true);

@@ -907,6 +907,7 @@ PetChecks.Run();
 CareChecks.Run();
 ConsequenceChecks.Run();
 HouseholdChecks.Run();
+PetHouseholdChecks.Run();
 EntitlementChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 

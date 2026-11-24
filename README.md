@@ -32,7 +32,7 @@ Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Adopt a baby, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear.
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → + Adopt**) to raise a cat with placeholder art; see the [cat playtest](docs/playtest.md#cats-p1).
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 
@@ -43,7 +43,7 @@ Unity -batchmode -quit -projectPath "$PWD/unity" -buildTarget WebGL \
 
 You can also select **BAIby → Build Browser Preview** in the Editor. An activated Editor is required. The export goes to `build/Web`. Serve it through the preview route above.
 
-In the Editor, open **Window → General → Test Runner** and run the Play Mode smoke test. It adopts a baby through the nursery UI, exercises the care buttons, and reopens an isolated save to verify that the milestone and toy familiarity persist.
+In the Editor, open **Window → General → Test Runner** and run the Play Mode smoke test. It adopts a baby through the nursery UI, exercises the care buttons, and reopens an isolated save to verify that the milestone and toy familiarity persist. Other cases cover the household, resting companions, and a cat adopted beside a baby.
 
 The [simulation](unity/Assets/BAIby/Simulation) and [session](unity/Assets/BAIby/Application) compile as plain C#. Run their regression checks with the .NET 8 SDK.
 

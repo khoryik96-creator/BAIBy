@@ -1,11 +1,13 @@
 using System;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 
 namespace BAIby.Application
 {
     // Saved values are stable content IDs. Append new options; never renumber.
     public enum BabyStage { Newborn = 0, Sitter = 1, Crawler = 2, Walker = 3 }
-    public enum CompanionMilestone { Sitting = 0, Crawling = 1, Walking = 2 }
+    // Grown is a pet growing from Young to Grown.
+    public enum CompanionMilestone { Sitting = 0, Crawling = 1, Walking = 2, Grown = 3 }
 
     public static class HouseholdRules
     {
@@ -65,6 +67,21 @@ namespace BAIby.Application
             return state.Satiety < LowNeedThreshold || state.Comfort < LowNeedThreshold ||
                 state.Energy < LowNeedThreshold || state.Cleanliness < LowNeedThreshold ||
                 state.Health < LowNeedThreshold;
+        }
+
+        // A pet needs attention when Health or any meter its room shows is below the threshold.
+        public static bool NeedsAttention(PetState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            foreach (var meter in state.Meters)
+            {
+                if (meter.Value < LowNeedThreshold)
+                    return true;
+            }
+
+            return false;
         }
 
         internal static void ValidateSlot(int slot, string parameterName)
