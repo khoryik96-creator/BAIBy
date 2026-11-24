@@ -11,7 +11,8 @@ namespace BAIby.Presentation
     // A pet's room: the nursery's top bar (name, age, Bond, the Home and switch chips) with the species'
     // meters, the pet on the floor at its layout scale, and care buttons for the verbs the species has.
     // The cue line answers each care action; a nap, or a sleepy pet, shows the rest pose, and growing up
-    // swaps to the Grown poses with a celebration.
+    // swaps to the Grown poses with a celebration. A species with a care profile (the cat, care slice 7) adds the
+    // nursery's care systems: see NurseryPreview.PetCare.cs.
     public sealed partial class NurseryPreview
     {
         private const double SleepyEnergy = 30;
@@ -57,6 +58,7 @@ namespace BAIby.Presentation
             petVerbArea = Box("Pet care buttons", panel, Vector2.zero, Vector2.right, Vector2.zero, Vector2.zero);
             petNextDay = ActionButton("Pet preview next day", panel, 0, 1, 0, 0, PreviewPetNextDay, Paper, Ink);
             WithIcon(petNextDay, "Next day", "NextDay", Ink);
+            BuildPetCareControls(panel);
 
             petBubbleRect = Box("Pet Speech Bubble", petCare.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 Vector2.zero, Vector2.zero);
@@ -78,11 +80,20 @@ namespace BAIby.Presentation
                 return;
 
             var metrics = Metrics();
-            PlaceRow(new[] { petNextDay }, metrics.Bottom, metrics.Row, metrics.Gap, StackWidth);
+            var bottomRow = new List<Button> { petNextDay };
+            if (petRoutineButton != null && petRoutineButton.gameObject.activeSelf)
+                bottomRow.Add(petRoutineButton);
+            if (petGrowthButton != null && petGrowthButton.gameObject.activeSelf)
+                bottomRow.Add(petGrowthButton);
+            PlaceRow(bottomRow, metrics.Bottom, metrics.Row, metrics.Gap, StackWidth);
             var y = metrics.Bottom + metrics.Row + metrics.Gap + 4;
             var tiles = new List<(Button Button, float Weight)>();
             foreach (var button in petVerbButtons)
                 tiles.Add((button, 1));
+            if (petPhotoButton != null && petPhotoButton.gameObject.activeSelf)
+                tiles.Add((petPhotoButton, 1));
+            if (petHealthButton != null && petHealthButton.gameObject.activeSelf)
+                tiles.Add((petHealthButton, 1.6f));
             LayoutTiles(petVerbArea, tiles, y, metrics.Tile, metrics.Gap);
             y += 2 * metrics.Tile + metrics.Gap * 2 + 6;
             petHead.offsetMin = new Vector2(0, y);
@@ -116,6 +127,7 @@ namespace BAIby.Presentation
             petSlot = companion.Slot;
             view = HouseholdView.PetRoom;
             activePanel = NurseryPanel.Care;
+            petPanel = PetPanel.Care;
             nursery.ResetPresentation();
             BuildPetVerbs(companion.PetState.Species);
             var celebration = TakePetCelebrations(out var failure);
@@ -146,7 +158,7 @@ namespace BAIby.Presentation
                 return;
             }
 
-            var celebration = TakePetCelebrations(out var celebrationFailure);
+            var celebration = TakePetCelebrations(out var celebrationFailure) ?? PetStickerLine(FindCompanion(petSlot)?.PetState);
             PaintPetRoom(celebration, keepStatus: celebration == null);
             if (failure != null)
                 ReportFailure(failure, "Your progress couldn't be saved. Please try again.");
@@ -169,7 +181,10 @@ namespace BAIby.Presentation
                 return;
             }
 
-            petStage.PlayCue(verb);
+            // A refused care plays nothing; a shy pet answers play with a quiet rest (PetVisuals).
+            if (!RefusedCue(outcome.Cue))
+                petStage.PlayCue(verb);
+            RememberPetMoment(verb, outcome.Cue);
             var state = FindCompanion(petSlot)?.PetState;
             if (state == null)
                 return;
@@ -199,6 +214,9 @@ namespace BAIby.Presentation
 
             var state = FindCompanion(petSlot)?.PetState;
             var text = state == null ? null : $"A day later, {state.Name} is {(int)state.Age.TotalDays} days old.";
+            var sticker = state == null ? null : PetStickerLine(state);
+            if (sticker != null)
+                text += " " + sticker;
             foreach (var breed in outcome.UnlockedBreeds)
                 text += $" New breed to adopt: {BreedName(breed)}!";
             var grown = TakePetCelebrations(out _);
@@ -215,11 +233,16 @@ namespace BAIby.Presentation
 
             try
             {
+                var lines = new List<string>();
                 foreach (var milestone in household.TakeCelebrations(petSlot))
                 {
-                    if (milestone == CompanionMilestone.Grown)
-                        return $"{state.Name} is all grown up! Look how big they are.";
+                    var line = MilestoneLine(state, milestone);
+                    if (line != null)
+                        lines.Add(line);
                 }
+
+                if (lines.Count > 0)
+                    return string.Join(" ", lines);
             }
             catch (Exception error)
             {
@@ -244,7 +267,7 @@ namespace BAIby.Presentation
             age.text = DayLine(state.Age, PetStageTitle(state.Species, state.Stage));
             favorite.text = string.Empty;
             petTitle.text = "Care for " + state.Name;
-            petBond.text = "Bond: " + BondTierName(state.BondTier);
+            petBond.text = "Bond: " + BondTierName(state.BondTier) + MoodWord(state);
 
             var species = household.PetCatalog.Get(state.Species);
             var shownMeters = new List<NeedMeter>();
@@ -268,11 +291,12 @@ namespace BAIby.Presentation
             foreach (var button in petVerbButtons)
                 button.interactable = !household.IsResting(petSlot);
 
-            petStage.Show(state.Appearance, household.PetCatalog, state.Stage, IsSleepy(state));
+            petStage.Show(state.Appearance, household.PetCatalog, state.Stage, IsSleepy(state) || IsPoorly(state));
             if (message != null)
                 petStatus.text = message;
             else if (!keepStatus || string.IsNullOrEmpty(petStatus.text))
-                petStatus.text = DescribePetNeeds(state);
+                petStatus.text = DescribePetCondition(state) ?? DescribePetNeeds(state);
+            PaintPetCare(companion);
             LayoutTopStack();
             LayoutPetSheet();
         }
@@ -301,6 +325,7 @@ namespace BAIby.Presentation
                 petVerbButtons.Add(button);
             }
 
+            BuildPetCareTiles(species);
             petVerbsFor = species;
             SettleText(petVerbArea);
             LayoutPetSheet();
@@ -411,6 +436,8 @@ namespace BAIby.Presentation
             var name = state.Name;
             if (cue == PetCue.IgnoredFlakes)
                 return $"{name} is full and ignores the extra flakes. They cloud the water a little.";
+            if (CareCueText(state, verb, cue) is string care)
+                return care;
 
             var tier = state.BondTier;
             switch (verb)
@@ -428,7 +455,9 @@ namespace BAIby.Presentation
                     return $"{name}'s coat is soft and shiny after a gentle brush.";
                 case PetVerb.Nap:
                 case PetVerb.Rest:
-                    return $"{name} curls up for a nap and wakes up rested.";
+                    return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
+                        ? $"{name} curls up for the evening nap, right on time."
+                        : $"{name} curls up for a nap and wakes up rested.";
                 default:
                     return $"{name} enjoys your company.";
             }
@@ -456,6 +485,12 @@ namespace BAIby.Presentation
         {
             const double low = 45;
             needsCare = true;
+            if (CareMoodLine(state) is string care)
+            {
+                needsCare = state.Care.Condition != CareCondition.Well || state.Care.Mood != CareMood.Content;
+                return care;
+            }
+
             if (state.Health < low)
                 return "Feeling a little off";
             if (IsSleepy(state))

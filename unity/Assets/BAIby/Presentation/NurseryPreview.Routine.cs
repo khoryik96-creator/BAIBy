@@ -9,7 +9,8 @@ using UnityEngine.UI;
 namespace BAIby.Presentation
 {
     // The routine strip under the header (today's care windows) and the Routine panel it opens: the care
-    // style and Away mode. Copy stays calm: it names what helps, never blames.
+    // style and Away mode. Copy stays calm: it names what helps, never blames. A cat's room (care slice 7) shares the
+    // strip (breakfast, play, dinner, nap and brush) and the panel.
     //
     // The world baby keeps its size while the canvas follows the screen's aspect, so the strip shows only
     // while it ends above the tallest pose (NurseryVisuals.PoseCeilingScreenY). On shorter screens (a phone
@@ -35,7 +36,7 @@ namespace BAIby.Presentation
             // sheet's bottom row stands in for it.
             var root = Box("Routine Strip", safeArea, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 new Vector2(-StackWidth / 2, -314), new Vector2(StackWidth / 2, -262));
-            routineStrip = new RoutineStripView(root, () => ShowPanel(NurseryPanel.Routine));
+            routineStrip = new RoutineStripView(root, OpenRoutine);
             routineButton = ActionButton("Routine", previewDayButton.transform.parent, 0, 1, 0, 0,
                 () => ShowPanel(NurseryPanel.Routine), Mist, Ink);
             routineButton.name = "Open routine";
@@ -43,8 +44,25 @@ namespace BAIby.Presentation
             WithIcon(routineButton, "Routine", "Routine", Ink);
             routineButtonLabel = routineButton.GetComponentInChildren<Text>();
             routineButton.gameObject.SetActive(false);
-            routine = new RoutinePanel(Tray("Routine Panel", false, 378), () => ShowPanel(NurseryPanel.Care),
+            routine = new RoutinePanel(Tray("Routine Panel", false, 378), CloseRoutine,
                 ChooseCareStyle, StartAway, EndAway);
+        }
+
+        // The strip and the panel serve the baby in the nursery and the pet in its room.
+        private void OpenRoutine()
+        {
+            if (view == HouseholdView.PetRoom)
+                ShowPetPanel(PetPanel.Routine);
+            else
+                ShowPanel(NurseryPanel.Routine);
+        }
+
+        private void CloseRoutine()
+        {
+            if (view == HouseholdView.PetRoom)
+                ShowPetPanel(PetPanel.Care);
+            else
+                ShowPanel(NurseryPanel.Care);
         }
 
         // Checks every frame, since the safe area, the window and the browser's toolbars can all change.
@@ -72,27 +90,45 @@ namespace BAIby.Presentation
         {
             routineStrip.Root.SetActive(routineStripWanted && routineStripFits);
             var folded = !routineStripFits;
+            // A pet's room has its own Routine button in its sheet's bottom row.
+            var petFolded = folded && routineStripWanted && view == HouseholdView.PetRoom;
+            if (petRoutineButton != null && petRoutineButton.gameObject.activeSelf != petFolded)
+            {
+                petRoutineButton.gameObject.SetActive(petFolded);
+                LayoutPetSheet();
+            }
+
             if (routineButton.gameObject.activeSelf == folded)
                 return;
             routineButton.gameObject.SetActive(folded);
             LayoutCareSheet();
         }
 
-        private void UpdateRoutineSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
+        private void UpdateRoutineSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset, bool pet = false)
         {
-            routineStrip.UpdateSlots(slots, preset);
-            routineButtonLabel.text = FoldedLabel(slots, preset);
+            routineStrip.UpdateSlots(slots, preset, pet);
+            var label = FoldedLabel(slots, preset, pet);
+            if (pet)
+            {
+                if (petRoutineLabel != null)
+                    petRoutineLabel.text = label;
+            }
+            else
+            {
+                routineButtonLabel.text = label;
+            }
         }
 
-        // "Routine", or the first window that is late or due now, such as "Snack late" or "Breakfast now".
-        private static string FoldedLabel(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
+        // "Routine", or the first window that is late or due now, such as "Snack late" or "Breakfast now". A cat's
+        // timed play window counts too.
+        private static string FoldedLabel(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset, bool pet = false)
         {
             foreach (var wanted in new[] { RoutineSlotState.Overdue, RoutineSlotState.Due })
             {
                 foreach (var slot in slots)
                 {
-                    if (slot.State == wanted && slot.Kind != RoutineSlotKind.Play && slot.Kind != RoutineSlotKind.Wash)
-                        return SlotName(slot.Kind, preset) + (wanted == RoutineSlotState.Overdue ? " late" : " now");
+                    if (slot.State == wanted && (pet || slot.Kind != RoutineSlotKind.Play) && slot.Kind != RoutineSlotKind.Wash)
+                        return SlotName(slot.Kind, preset, pet) + (wanted == RoutineSlotState.Overdue ? " late" : " now");
                 }
             }
 
@@ -101,6 +137,12 @@ namespace BAIby.Presentation
 
         private void ChooseCareStyle(CareStyle choice)
         {
+            if (view == HouseholdView.PetRoom)
+            {
+                ChoosePetCareStyle(choice);
+                return;
+            }
+
             try
             {
                 session.SetCareStyle(choice);
@@ -116,6 +158,12 @@ namespace BAIby.Presentation
 
         private void StartAway(TimeSpan duration)
         {
+            if (view == HouseholdView.PetRoom)
+            {
+                StartPetAway(duration);
+                return;
+            }
+
             try
             {
                 Paint(Reaction.None, session.StartAway(duration));
@@ -131,6 +179,12 @@ namespace BAIby.Presentation
 
         private void EndAway()
         {
+            if (view == HouseholdView.PetRoom)
+            {
+                EndPetAway();
+                return;
+            }
+
             try
             {
                 Paint(Reaction.None, session.EndAway());
@@ -182,7 +236,8 @@ namespace BAIby.Presentation
             }
         }
 
-        private static string SlotName(RoutineSlotKind kind, RoutinePreset preset)
+        // A cat's bedtime is its evening nap and its wash is the daily brush.
+        private static string SlotName(RoutineSlotKind kind, RoutinePreset preset, bool pet = false)
         {
             switch (kind)
             {
@@ -190,8 +245,8 @@ namespace BAIby.Presentation
                 case RoutineSlotKind.AfternoonMeal: return preset == RoutinePreset.Home ? "Lunch" : "Snack";
                 case RoutineSlotKind.EveningMeal: return "Dinner";
                 case RoutineSlotKind.Play: return "Play";
-                case RoutineSlotKind.Bedtime: return "Bed";
-                default: return "Wash";
+                case RoutineSlotKind.Bedtime: return pet ? "Nap" : "Bed";
+                default: return pet ? "Brush" : "Wash";
             }
         }
 
@@ -243,7 +298,7 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
-            public void UpdateSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset)
+            public void UpdateSlots(IReadOnlyList<RoutineSlot> slots, RoutinePreset preset, bool pet = false)
             {
                 for (var i = 0; i < chips.Length; i++)
                 {
@@ -253,7 +308,7 @@ namespace BAIby.Presentation
                         continue;
 
                     var slot = slots[i];
-                    names[i].text = SlotName(slot.Kind, preset);
+                    names[i].text = SlotName(slot.Kind, preset, pet);
                     states[i].text = StateText(slot);
                     var (dot, size, ring) = Dot(slot.State);
                     dots[i].color = dot;
@@ -367,9 +422,11 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
-            public void UpdateDetails(BabyState state, string summary)
+            public void UpdateDetails(BabyState state, string summary) => UpdateFor(state.Name, state.Care, summary);
+
+            // The same panel for a pet: its care style and Away mode.
+            public void UpdateFor(string name, CareRecord care, string summary)
             {
-                var care = state.Care;
                 Summary.text = summary;
                 Select(GentleButton, care.Style == CareStyle.Gentle);
                 Select(StandardButton, care.Style != CareStyle.Gentle);
@@ -378,7 +435,7 @@ namespace BAIby.Presentation
                 awayLabel.text = care.IsAway
                     ? "Away until " + care.AwayUntil.ToOffset(care.Offset).ToString("ddd HH:mm", CultureInfo.InvariantCulture) +
                       ". Needs stay steady and nothing is missed."
-                    : $"Going away? Away mode keeps {state.Name}'s needs steady for up to 2 weeks.";
+                    : $"Going away? Away mode keeps {name}'s needs steady for up to 2 weeks.";
             }
 
             // The chosen segment is a white pill on the soft track.

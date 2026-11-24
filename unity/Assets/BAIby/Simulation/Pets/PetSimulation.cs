@@ -6,6 +6,11 @@ namespace BAIby.Simulation.Pets
     // One simulation for every species, driven by the catalog's species table. The time model
     // matches BabySimulation: negative elapsed time is ignored, need decay is capped, age is not,
     // and the Young to Grown unlock fires once. Nothing dies, leaves or is deleted.
+    //
+    // A species with a care profile (PetCareProfile; the cat) runs on the baby's care systems through PetCare: routine
+    // windows, the needs and health axes of the consequence ladder (the vet for the doctor), Away mode, development
+    // with readiness-timed milestones and the setback, Bond, Trust and the care rhythm, and the journal. Other species
+    // keep the simple rules below until their own slice.
     public sealed class PetSimulation
     {
         // care-and-growth decision 11: the offline decay cap is 8 hours.
@@ -24,6 +29,7 @@ namespace BAIby.Simulation.Pets
         private const double HealthLossPerHour = 5;
 
         private readonly TimeSpan maxNeedDecay;
+        private readonly PetCare care;
 
         public PetCatalog Catalog { get; }
 
@@ -31,7 +37,8 @@ namespace BAIby.Simulation.Pets
         {
         }
 
-        public PetSimulation(PetCatalog catalog, TimeSpan maxNeedDecay)
+        public PetSimulation(PetCatalog catalog, TimeSpan maxNeedDecay, CareTunables careTunables = null,
+            GrowthTunables growthTunables = null, BondTunables bondTunables = null)
         {
             if (catalog == null)
                 throw new ArgumentNullException(nameof(catalog));
@@ -41,7 +48,17 @@ namespace BAIby.Simulation.Pets
             catalog.Validate();
             Catalog = catalog;
             this.maxNeedDecay = maxNeedDecay;
+            var careRules = careTunables ?? CareTunables.Default;
+            careRules.Validate();
+            var growthRules = growthTunables ?? GrowthTunables.Default;
+            growthRules.Validate();
+            var bondRules = bondTunables ?? BondTunables.Default;
+            bondRules.Validate();
+            care = new PetCare(catalog, maxNeedDecay, careRules, growthRules, bondRules);
         }
+
+        // Whether the pet's species runs on the shared care systems.
+        public static bool HasCareProfile(PetState state) => state != null && PetCareProfile.For(state.Species) != null;
 
         // Breed unlocks are checked by the household (PetUnlocks); this checks the look is offered.
         public PetState Adopt(string name, PetAppearance appearance, DateTimeOffset now)
@@ -58,28 +75,48 @@ namespace BAIby.Simulation.Pets
             foreach (var meter in species.Meters)
                 meters[meter.Meter] = meter.Initial;
 
-            return new PetState(name.Trim(), appearance, now, TimeSpan.Zero, meters, 0, 0,
+            var fresh = new PetState(name.Trim(), appearance, now, TimeSpan.Zero, meters, 0, 0,
                 breed.LivelyBias, breed.BoldBias, false);
+            return PetCareProfile.For(appearance.Species) == null ? fresh : care.Adopt(fresh);
         }
 
         public (PetState State, bool BecameGrown) Advance(PetState state, DateTimeOffset now)
         {
+            var step = Step(state, now);
+            return (step.State, step.BecameGrown);
+        }
+
+        // Real time, with the milestones a species with a care profile reached on the way.
+        public PetStep Step(PetState state, DateTimeOffset now)
+        {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
-            if (now <= state.TimeCheckpoint)
-                return AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero);
-
-            return AdvanceElapsed(state, now, now - state.TimeCheckpoint);
+            if (HasCareProfile(state))
+                return care.Advance(state, now);
+            var legacy = now <= state.TimeCheckpoint
+                ? AdvanceElapsed(state, state.TimeCheckpoint, TimeSpan.Zero)
+                : AdvanceElapsed(state, now, now - state.TimeCheckpoint);
+            return new PetStep(legacy.State, legacy.BecameGrown);
         }
 
         public (PetState State, bool BecameGrown) AdvancePreview(PetState state, TimeSpan elapsed)
+        {
+            var step = PreviewStep(state, elapsed);
+            return (step.State, step.BecameGrown);
+        }
+
+        // A playtest day: the pet's own clock moves without real time passing (no routine window passes).
+        public PetStep PreviewStep(PetState state, TimeSpan elapsed)
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
+            if (HasCareProfile(state))
+                return care.Preview(state, elapsed);
 
-            return AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
+            var legacy = AdvanceElapsed(state, state.TimeCheckpoint, elapsed);
+            return new PetStep(legacy.State, legacy.BecameGrown);
         }
 
         public bool CanUse(PetState state, PetVerb verb) =>
@@ -87,8 +124,89 @@ namespace BAIby.Simulation.Pets
 
         public (PetState State, PetCue Cue) ApplyCare(PetState state, PetVerb verb)
         {
+            var step = Care(state, verb);
+            return (step.State, step.Cue);
+        }
+
+        // One care verb. Advance to the current instant first.
+        public PetStep Care(PetState state, PetVerb verb)
+        {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
+            if (HasCareProfile(state))
+            {
+                if (!CanUse(state, verb))
+                    throw new InvalidOperationException($"A {state.Species} has no {verb} care.");
+                return care.ApplyCare(state, verb);
+            }
+
+            var legacy = LegacyCare(state, verb);
+            return new PetStep(legacy.State, false, null, legacy.Cue);
+        }
+
+        // Whether the vet's visit is offered: the pet is under the weather or sick.
+        public static bool CanVisitVet(PetState state) => state?.Care != null && state.Care.IsUnwell;
+
+        // The free vet's visit (Health +15, then Recovering with medicine, or home well). Advance first.
+        public PetStep VisitVet(PetState state) => care.VisitVet(Profiled(state));
+
+        // Whether a medicine dose would count now: only while recovering, one per meal window.
+        public static MedicineState Medicine(PetState state) =>
+            state?.Care == null ? MedicineState.NotNeeded : CareConsequences.Medicine(state.Care);
+
+        // A medicine dose with a meal. Advance first.
+        public PetStep GiveMedicine(PetState state) => care.ApplyCare(Profiled(state), null);
+
+        public int RecoveryDoses => care.CareTunables.RecoveryDoses;
+
+        // Photos the pet can still have taken today (three a day), and one of the moment. Advance first.
+        public int PhotosLeft(PetState state) => care.PhotosLeft(Profiled(state));
+
+        public (PetState State, bool Taken) TakePhoto(PetState state, PhotoMoment moment) =>
+            care.TakePhoto(Profiled(state), moment);
+
+        // Development for the Growth panel: track qualities, the next milestone and when it is likely.
+        public GrowthReport Growth(PetState state) => care.Report(Profiled(state));
+
+        // Bond's high-water mark, temperament (Trust and Curiosity) and the care rhythm, seeded for an older save.
+        public BondRecord Bonding(PetState state) => care.Bonding(Profiled(state));
+
+        public SecurityPhase Trust(PetState state) => BondRules.SecurityOf(Bonding(state), care.BondTunables);
+
+        public CuriosityPhase Curiosity(PetState state) => BondRules.CuriosityOf(Bonding(state), care.BondTunables);
+
+        public JournalRecord Journal(PetState state) => care.Journal(Profiled(state));
+
+        // Today's routine windows at the state's checkpoint.
+        public IReadOnlyList<RoutineSlot> Routine(PetState state) => RoutineStrip.Today(care.Seeded(Profiled(state)).Care);
+
+        // Away mode, up to 14 days, free: windows are Covered, needs held, development at its nominal pace.
+        public PetState StartAway(PetState state, TimeSpan duration) => care.StartAway(Profiled(state), duration);
+
+        public PetState EndAway(PetState state) => care.EndAway(Profiled(state));
+
+        public PetState ChangeCareStyle(PetState state, CareStyle style) => care.ChangeStyle(Profiled(state), style);
+
+        public PetState ChangeRoutine(PetState state, RoutinePreset preset, TimeSpan wakeTime) =>
+            care.ChangeRoutine(Profiled(state), preset, wakeTime);
+
+        // Whether feeding now would overfeed (species with a care profile).
+        public bool IsFull(PetState state) => HasCareProfile(state) && care.IsFull(state);
+
+        // Developer read-out of the ledger, growth and Bond; empty for a species without a care profile.
+        public string DescribeCare(PetState state) => HasCareProfile(state) ? care.Describe(state) : string.Empty;
+
+        private static PetState Profiled(PetState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (!HasCareProfile(state))
+                throw new InvalidOperationException($"A {state.Species} has no care profile yet.");
+            return state;
+        }
+
+        private (PetState State, PetCue Cue) LegacyCare(PetState state, PetVerb verb)
+        {
 
             var definition = Catalog.Get(state.Species).FindVerb(verb)
                 ?? throw new InvalidOperationException($"A {state.Species} has no {verb} care.");

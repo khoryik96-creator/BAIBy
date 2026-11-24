@@ -215,6 +215,8 @@ namespace BAIby.Simulation
         public long LastDoseWindow { get; }
         // The last care day that closed as a good care day (0 for none).
         public long GoodDay { get; }
+        // Whose windows the ledger keeps (a baby's, or a species' routine). Never saved in the care element.
+        public CareRoutine Routine { get; }
         public bool IsAway => IsAwayAt(Checkpoint);
         public bool IsUnwell => Condition == CareCondition.UnderTheWeather || Condition == CareCondition.Sick;
         public bool IsMessy => Mess > 0;
@@ -303,6 +305,7 @@ namespace BAIby.Simulation
             MedicineDoses = source.MedicineDoses;
             LastDoseWindow = source.LastDoseWindow;
             GoodDay = source.GoodDay;
+            Routine = source.Routine;
         }
 
         public Builder ToBuilder() => new Builder
@@ -348,6 +351,7 @@ namespace BAIby.Simulation
             MedicineDoses = MedicineDoses,
             LastDoseWindow = LastDoseWindow,
             GoodDay = GoodDay,
+            Routine = Routine,
         };
 
         public bool Equals(CareRecord other)
@@ -379,7 +383,8 @@ namespace BAIby.Simulation
                 ConditionCause == other.ConditionCause && ConditionSince.UtcTicks == other.ConditionSince.UtcTicks &&
                 UnwellTime == other.UnwellTime && UnwellSessions == other.UnwellSessions &&
                 SessionStart.UtcTicks == other.SessionStart.UtcTicks && MissedSinceWell == other.MissedSinceWell &&
-                MedicineDoses == other.MedicineDoses && LastDoseWindow == other.LastDoseWindow && GoodDay == other.GoodDay;
+                MedicineDoses == other.MedicineDoses && LastDoseWindow == other.LastDoseWindow && GoodDay == other.GoodDay &&
+                Routine == other.Routine;
         }
 
         public override bool Equals(object obj) => Equals(obj as CareRecord);
@@ -431,6 +436,7 @@ namespace BAIby.Simulation
             public int MedicineDoses { get; set; }
             public long LastDoseWindow { get; set; }
             public long GoodDay { get; set; }
+            public CareRoutine Routine { get; set; }
 
             public CareRecord Build()
             {
@@ -501,6 +507,8 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(LastDoseWindow));
                 if (GoodDay < 0 || GoodDay > LastCareDay)
                     throw new ArgumentOutOfRangeException(nameof(GoodDay));
+                if (!Enum.IsDefined(typeof(CareRoutine), Routine))
+                    throw new ArgumentOutOfRangeException(nameof(Routine));
 
                 return new CareRecord(this);
             }

@@ -38,7 +38,7 @@ static class PetHouseholdChecks
         Equal(0, saves.Writes, "an empty session writes nothing");
         session.Adopt("Pip & Co", Ginger);
         Equal(1, saves.Writes, "adoption writes the record once");
-        Equal(true, saves.Primary.StartsWith("<pet version=\"1\"", StringComparison.Ordinal), "a pet record is <pet version=\"1\">");
+        Equal(true, saves.Primary.StartsWith("<pet version=\"2\"", StringComparison.Ordinal), "a pet record is <pet version=\"2\">");
         ExpectThrows<InvalidOperationException>(() => session.Adopt("Again", Ginger), "a session adopts once");
 
         Equal(true, session.CanUse(PetVerb.Wand), "a cat can play with the wand");
@@ -46,16 +46,16 @@ static class PetHouseholdChecks
         ExpectThrows<InvalidOperationException>(() => session.ApplyCare(PetVerb.Walk), "a verb the species lacks is refused");
         Equal(1, saves.Writes, "a refused verb writes nothing");
 
-        now = now.AddHours(1);
+        now = now.AddHours(6);
         var fed = session.ApplyCare(PetVerb.Feed);
         Equal(PetCue.Content, fed.Cue, "feeding is a content cue");
-        Equal(93.0, session.State.Meter(PetMeter.Fullness), "an hour's decay and a meal commit together");
+        Equal(84.0, session.State.Meter(PetMeter.Fullness), "six hours' decay and a meal commit together");
         Equal(2, saves.Writes, "care writes once");
 
         var reopened = new PetSession(pets, saves, () => now);
         Equal("Pip & Co", reopened.State.Name, "the name survives the record");
         Equal(Ginger, reopened.State.Appearance, "the look survives the record");
-        Equal(93.0, reopened.State.Meter(PetMeter.Fullness), "meters survive the record");
+        Equal(84.0, reopened.State.Meter(PetMeter.Fullness), "meters survive the record");
         Equal(false, reopened.Refresh(), "a same-time refresh reports nothing");
         Equal(2, saves.Writes, "a same-time refresh writes nothing");
 
@@ -210,12 +210,25 @@ static class PetHouseholdChecks
         Equal(true, reopened.CanAdoptBreed(PetBreed.Tabby), "an earned breed stays unlocked after reload");
         Equal(1, reopened.ProgressFor(Species.Cat).FullCareDays, "the care day is saved in the manifest");
 
+        // A cat's Bond follows the baby's rules (slice 7): gains are capped each day, so Bond 40 takes a few days of
+        // meals, a nap and petting.
         PetCareOutcome last = default;
         var announced = false;
-        for (var i = 0; i < 14; i++)
+        for (var day = 1; day <= 10 && !announced; day++)
         {
-            last = reopened.ApplyPetCare(2, PetVerb.Pet);
-            announced |= last.UnlockedBreeds.Contains(PetBreed.Tuxedo);
+            foreach (var (hour, verbs) in new[]
+            {
+                (0, new[] { PetVerb.Feed, PetVerb.Nap, PetVerb.Pet, PetVerb.Pet }),
+                (10, new[] { PetVerb.Feed, PetVerb.Pet, PetVerb.Pet }),
+            })
+            {
+                now = Start.AddDays(day).AddHours(hour);
+                foreach (var verb in verbs)
+                {
+                    last = reopened.ApplyPetCare(2, verb);
+                    announced |= last.UnlockedBreeds.Contains(PetBreed.Tuxedo);
+                }
+            }
         }
 
         Equal(true, announced, "reaching Bond 40 announces the Tuxedo");
@@ -224,7 +237,9 @@ static class PetHouseholdChecks
         Equal(true, grown.BecameGrown, "a week's preview grows the cat");
         Equal("Siamese", string.Join(",", grown.UnlockedBreeds), "raising a cat to Grown unlocks the Siamese");
         Equal(true, reopened.HasCelebrations(2), "growing up waits as a celebration");
-        Equal("Grown", string.Join(",", reopened.TakeCelebrations(2)), "the celebration is played once");
+        Equal("Pounce,Climb,HighJump,Grown", string.Join(",", reopened.TakeCelebrations(2)),
+            "the kitten's milestones and growing up are each played once, in order");
+        Equal(false, reopened.HasCelebrations(2), "nothing is played twice");
     }
 
     private static void CheckTimeAndGrowth(BabySimulation game, PetSimulation pets)
@@ -240,13 +255,13 @@ static class PetHouseholdChecks
         household.Switch(1);
         Equal(Start, household.Companions[1].PetState.TimeCheckpoint, "a switch does not advance the cat");
         var preview = household.PreviewPetState(2);
-        Equal(56.0, preview.Meter(PetMeter.Fullness), "Home previews the cat's decay");
+        Equal(63.0, preview.Meter(PetMeter.Fullness), "Home previews the cat's decay");
         Equal(Start, household.Companions[1].PetState.TimeCheckpoint, "a preview writes nothing");
 
         household.AdvanceAll();
         Equal(now, household.Companions[0].State.TimeCheckpoint, "the baby advances on resume");
         Equal(now, household.Companions[1].PetState.TimeCheckpoint, "the cat advances on resume too");
-        Equal(56.0, household.Companions[1].PetState.Meter(PetMeter.Fullness), "the cat decays with time");
+        Equal(63.0, household.Companions[1].PetState.Meter(PetMeter.Fullness), "the cat decays with time");
         Equal(true, household.Companions[1].PetState.Meter(PetMeter.Fullness) < 70, "the cat's need is lower after two hours");
 
         now = Start.AddDays(7);
@@ -254,8 +269,13 @@ static class PetHouseholdChecks
         Equal(PetStage.Grown, household.Companions[1].PetState.Stage, "the cat grows up after seven days");
         Equal(true, household.HasCelebrations(2), "growing up off screen waits as a celebration");
         var reopened = new HouseholdSession(game, pets, store, () => now, null);
-        Equal("Grown", string.Join(",", reopened.TakeCelebrations(2)), "the celebration survives reload");
-        Equal(true, reopened.Companions[1].NeedsAttention, "a week alone leaves the cat needing care");
+        Equal("Pounce,Climb,HighJump,Grown", string.Join(",", reopened.TakeCelebrations(2)),
+            "the kitten's milestones and growing up survive reload");
+        // A cat's needs fall at half the earlier rates (two meals a day) and at most eight hours count, so a week alone
+        // leaves it peckish rather than below the Home dot's threshold; breakfast is due.
+        Equal(true, reopened.Companions[1].PetState.Meter(PetMeter.Fullness) < 45, "a week alone leaves the cat peckish");
+        Equal(true, reopened.Companions[1].PetSession.Routine.Any(slot => slot.Kind == RoutineSlotKind.MorningMeal &&
+            slot.State == RoutineSlotState.Due), "and breakfast is due");
         Equal(true, reopened.ProgressFor(Species.Cat).RaisedToGrown, "a grown cat counts toward the species goal");
     }
 
@@ -266,8 +286,16 @@ static class PetHouseholdChecks
         var household = new HouseholdSession(game, pets, store, () => now, null);
         household.Adopt("Mia");
         household.AdoptPet("Pip", Ginger);
-        for (var i = 0; i < 14; i++)
-            household.ApplyPetCare(2, PetVerb.Pet);
+        // Bond gains are capped each day (slice 7), so meals, a nap and petting over a few days reach Bond 40.
+        for (var day = 0; day < 8 && !household.CanAdoptBreed(PetBreed.Tuxedo); day++)
+        {
+            now = Start.AddDays(day);
+            foreach (var verb in new[] { PetVerb.Feed, PetVerb.Nap, PetVerb.Pet, PetVerb.Pet, PetVerb.Pet, PetVerb.Pet })
+                household.ApplyPetCare(2, verb);
+            now = Start.AddDays(day).AddHours(10);
+            household.ApplyPetCare(2, PetVerb.Feed);
+        }
+
         Equal(true, household.CanAdoptBreed(PetBreed.Tuxedo), "the cat's Bond unlocks the Tuxedo");
 
         now = now.AddDays(2);

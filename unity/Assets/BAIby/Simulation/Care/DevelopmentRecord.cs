@@ -4,7 +4,8 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // The motor skills that readiness unlocks, in order. Saved as numbers: append, never renumber.
-    public enum MotorSkill { None = 0, Sitting = 1, Crawling = 2, Walking = 3 }
+    // A cat's milestones follow the baby's: pounce, climb, high jump.
+    public enum MotorSkill { None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6 }
 
     // The four development tracks (docs/care-and-growth.md). Saved as numbers: append, never renumber.
     public enum DevelopmentTrack { Motor = 0, Learning = 1, Social = 2, Physical = 3 }
@@ -21,6 +22,8 @@ namespace BAIby.Simulation
         Hygiene = 6,
         ComfortSound = 7,
         ExploreSound = 8,
+        // A cat's wand play (Motor). Petting counts as Soothe and brushing as Hygiene.
+        PlayWand = 9,
     }
 
     // How a quality sample paces readiness: with its own qualities, held by Away mode at the nominal pace, or by a

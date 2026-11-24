@@ -106,7 +106,13 @@ namespace BAIby.Simulation.Pets
     // The per-species goal ladder for earned breeds. The n-th earned breed of a species uses goal n.
     public enum EarnedGoal { FirstFullCareDay = 0, Bond40 = 1, RaisedToGrown = 2, SevenOnTimeCareDays = 3 }
 
-    public enum PetCue { Content = 0, IgnoredFlakes = 1 }
+    // How a pet answered care. A species with a care profile uses the ladder's answers too: too full, swatting the
+    // toy away when grumpy, too poorly to play, bored of the same game, medicine and the vet, and a shy skill back.
+    public enum PetCue
+    {
+        Content = 0, IgnoredFlakes = 1, TooFull = 2, PushesToyAway = 3, TooPoorly = 4, Bored = 5, MedicineTaken = 6,
+        MedicineNotNow = 7, MedicineDone = 8, VetVisited = 9, VetAllClear = 10, SkillBack = 11,
+    }
 
     public static class PetIds
     {

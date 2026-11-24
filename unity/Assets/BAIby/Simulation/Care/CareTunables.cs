@@ -130,16 +130,19 @@ namespace BAIby.Simulation
             if (!Gentle.IsNoHarsherThan(Standard))
                 throw new ArgumentException("Gentle care must be at least as gentle as Standard on every rule.");
 
-            // Every preset must place each window inside one care day at both wake-time limits.
+            // Every routine's presets must place each window inside one care day at both wake-time limits.
             var dayEnd = DayStart + TimeSpan.FromDays(1);
-            foreach (RoutinePreset preset in Enum.GetValues(typeof(RoutinePreset)))
+            foreach (CareRoutine routine in Enum.GetValues(typeof(CareRoutine)))
             {
-                foreach (var wake in new[] { RoutineCalendar.EarliestWakeTime, RoutineCalendar.LatestWakeTime })
+                foreach (RoutinePreset preset in Enum.GetValues(typeof(RoutinePreset)))
                 {
-                    foreach (var window in RoutineCalendar.Windows(preset, wake))
+                    foreach (var wake in new[] { RoutineCalendar.EarliestWakeTime, RoutineCalendar.LatestWakeTime })
                     {
-                        if (window.Open < DayStart || window.LateUntil > dayEnd)
-                            throw new ArgumentException($"The {preset} {window.Moment} window falls outside the care day.");
+                        foreach (var window in RoutineCalendar.Windows(routine, preset, wake))
+                        {
+                            if (window.Open < DayStart || window.LateUntil > dayEnd)
+                                throw new ArgumentException($"The {preset} {window.Moment} window falls outside the care day.");
+                        }
                     }
                 }
             }

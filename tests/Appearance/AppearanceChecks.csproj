@@ -7,7 +7,9 @@
     <LangVersion>9.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../../unity/Assets/BAIby/Simulation/BabyAppearance.cs" />
+    <!-- Pets keep the shared care records (care slice 7), so the whole simulation assembly is compiled. -->
+    <Compile Include="../../unity/Assets/BAIby/Simulation/*.cs" />
+    <Compile Include="../../unity/Assets/BAIby/Simulation/Care/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Simulation/Pets/*.cs" />
     <Compile Include="../../unity/Assets/BAIby/Character/Appearance/*.cs" />
   </ItemGroup>

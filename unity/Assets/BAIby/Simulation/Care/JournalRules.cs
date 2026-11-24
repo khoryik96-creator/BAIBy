@@ -21,21 +21,26 @@ namespace BAIby.Simulation
         // its nominal day (the real day is unknown), never after the checkpoint. A poorly spell that is under way begins
         // at its start. Weeks already lived get no page.
         public static JournalRecord Seed(DateTimeOffset checkpoint, TimeSpan age, bool sitting, bool crawling, bool walking,
-            TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareRecord care)
+            TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareRecord care) =>
+            Seed(checkpoint, age, walking ? 3 : crawling ? 2 : sitting ? 1 : 0,
+                new[] { MotorSkill.Sitting, MotorSkill.Crawling, MotorSkill.Walking },
+                new[] { sittingAge, crawlingAge, walkingAge }, care);
+
+        // The same for any species: the first `reached` of its milestones, at their nominal ages.
+        public static JournalRecord Seed(DateTimeOffset checkpoint, TimeSpan age, int reached, IReadOnlyList<MotorSkill> skills,
+            IReadOnlyList<TimeSpan> ages, CareRecord care)
         {
             if (care == null)
                 throw new ArgumentNullException(nameof(care));
+            if (skills == null || ages == null || skills.Count != ages.Count)
+                throw new ArgumentException("Each milestone needs its nominal age.", nameof(skills));
 
             var born = Before(checkpoint, age);
             var entries = new List<JournalEntry> { JournalEntry.Arrival(born) };
-            foreach (var (reached, skill, nominal) in new[]
+            for (var stage = 0; stage < skills.Count && stage < reached; stage++)
             {
-                (sitting, MotorSkill.Sitting, sittingAge), (crawling, MotorSkill.Crawling, crawlingAge),
-                (walking, MotorSkill.Walking, walkingAge),
-            })
-            {
-                if (!reached)
-                    continue;
+                var skill = skills[stage];
+                var nominal = ages[stage];
                 var at = nominal >= age ? checkpoint : Before(checkpoint, age - nominal);
                 if (at < entries[entries.Count - 1].At)
                     at = entries[entries.Count - 1].At;
@@ -140,6 +145,47 @@ namespace BAIby.Simulation
             }
 
             return journal.With(pages, journal.SpellSince, journal.SpellDay, reached, startCareDays);
+        }
+
+        // Journal entries for one step of any companion: milestones reached (on the day and at the instant they were
+        // reached, from `from` and the age before the step), rhythm stickers, a hard spell that ended, and week pages.
+        // `bond` is null when no care day closed; `real` is false for a preview day, which writes at `from`.
+        public static JournalRecord Chronicle(JournalRecord journal, DateTimeOffset from, TimeSpan ageBefore,
+            CareCondition conditionBefore, DateTimeOffset at, TimeSpan ageAfter, CareCondition conditionAfter,
+            IReadOnlyList<(MotorSkill Skill, long Age)> milestones, BondStep bond, bool real, int totalCareDays)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+
+            var entries = new List<JournalEntry>();
+            if (milestones != null)
+            {
+                foreach (var (skill, unlockAge) in milestones)
+                {
+                    var age = TimeSpan.FromTicks(unlockAge);
+                    entries.Add(JournalEntry.Milestone(real ? InstantAt(from, age - ageBefore) : from, DayOf(age), skill));
+                }
+            }
+
+            if (bond != null)
+            {
+                foreach (var (stuck, days) in bond.Stickers)
+                {
+                    var instant = new DateTimeOffset(stuck, TimeSpan.Zero);
+                    entries.Add(JournalEntry.Sticker(instant, DayOf(real ? ageBefore + (instant - from) : ageBefore), days));
+                }
+            }
+
+            if (entries.Count > 0)
+                journal = journal.With(entries, journal.SpellSince, journal.SpellDay, journal.Weeks, journal.WeekStartCareDays);
+            journal = AfterCondition(journal, conditionBefore, conditionAfter, at, ageAfter);
+            return Weeks(journal, ageBefore, ageAfter, from, real, totalCareDays, bond?.CountedDays);
+        }
+
+        private static DateTimeOffset InstantAt(DateTimeOffset from, TimeSpan after)
+        {
+            var ticks = from.UtcTicks + Math.Max(0, Math.Min(after.Ticks, DateTimeOffset.MaxValue.UtcTicks - from.UtcTicks));
+            return new DateTimeOffset(ticks, TimeSpan.Zero);
         }
 
         private static DateTimeOffset Before(DateTimeOffset at, TimeSpan span)
