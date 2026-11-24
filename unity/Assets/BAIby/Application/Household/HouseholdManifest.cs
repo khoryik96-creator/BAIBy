@@ -172,9 +172,8 @@ namespace BAIby.Application
             }
 
             kinds.Sort();
-            var copy = new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords);
+            var copy = Copy();
             copy.HelpersOff = kinds.AsReadOnly();
-            copy.TalkTyping = TalkTyping;
             return copy;
         }
 
@@ -183,11 +182,32 @@ namespace BAIby.Application
 
         public HouseholdManifest WithTalkTyping(bool on)
         {
-            var copy = new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords);
-            copy.HelpersOff = HelpersOff;
+            var copy = Copy();
             copy.TalkTyping = on;
             return copy;
         }
+
+        // The room theme every pet room shows (Decor in a pet's room). Sage by default; a premium theme is a content ID
+        // like the nursery's, shown only while its pack is owned (CosmeticCatalog).
+        public NurseryTheme PetRoomTheme { get; private set; }
+
+        public HouseholdManifest WithPetRoomTheme(NurseryTheme theme)
+        {
+            if (!Enum.IsDefined(typeof(NurseryTheme), theme))
+                throw new ArgumentOutOfRangeException(nameof(theme));
+
+            var copy = Copy();
+            copy.PetRoomTheme = theme;
+            return copy;
+        }
+
+        private HouseholdManifest Copy() =>
+            new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords)
+            {
+                HelpersOff = HelpersOff,
+                TalkTyping = TalkTyping,
+                PetRoomTheme = PetRoomTheme,
+            };
 
         // Pet data (a pet companion, a pet keepsake or species progress) needs a build that knows pets.
         public bool HasPetData

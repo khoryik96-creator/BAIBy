@@ -168,20 +168,30 @@ namespace BAIby.Application
                 Commit(updated);
         }
 
-        public void SetNurseryTheme(NurseryTheme theme)
+        // A premium room theme (CosmeticCatalog) needs its pack; entitlements null means the free game. A theme saved
+        // before a refund stays saved (and shows Sage) until another is chosen.
+        public void SetNurseryTheme(NurseryTheme theme, IEntitlements entitlements = null)
         {
-            var updated = GetAdoptedBaby().WithNurseryTheme(theme);
+            var current = GetAdoptedBaby();
+            if (theme != current.NurseryTheme && !CosmeticCatalog.IsUnlocked(entitlements, theme))
+                throw new InvalidOperationException("This room theme is part of a pack the household doesn't own.");
+
+            var updated = current.WithNurseryTheme(theme);
             if (updated != State)
                 Commit(updated);
         }
 
-        // Earned looks (a care rhythm's reward) can only be put on once earned, unless unlockEarned (developer mode).
-        public void SetAppearance(BabyAppearance appearance, bool unlockEarned = false)
+        // Earned looks (a care rhythm's reward) can only be put on once earned, unless unlockEarned (developer mode). A
+        // premium look (CosmeticCatalog) needs its pack; entitlements null means the free game. A part already worn may
+        // stay, so a look saved before a refund keeps its ID.
+        public void SetAppearance(BabyAppearance appearance, bool unlockEarned = false, IEntitlements entitlements = null)
         {
             if (appearance == null)
                 throw new ArgumentNullException(nameof(appearance));
             if (!simulation.CanWear(GetAdoptedBaby(), appearance, unlockEarned))
                 throw new InvalidOperationException("This look is earned with a longer care rhythm.");
+            if (!CosmeticCatalog.CanWear(GetAdoptedBaby().Appearance, appearance, entitlements))
+                throw new InvalidOperationException("This look is part of a pack the household doesn't own.");
 
             var updated = GetAdoptedBaby().WithAppearance(appearance);
             if (updated != State)
