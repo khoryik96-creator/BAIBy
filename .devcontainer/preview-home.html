@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BAIby preview</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f1e7; color: #2f3a33;
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 34rem; margin: 1rem; padding: 1.5rem; background: #fffdf8; border-radius: 18px;
+    box-shadow: 0 2px 12px rgba(47, 58, 51, .08); }
+  h1 { margin: 0 0 .5rem; font-size: 1.4rem; }
+  code, pre { background: #e4ece3; border-radius: 8px; }
+  code { padding: .1rem .35rem; }
+  pre { padding: .75rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  a { color: #3d5a48; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <p id="checking">Opening the BAIby nursery…</p>
+  <section id="missing" hidden>
+    <h1>No game build yet</h1>
+    <p>The Unity game is built by GitHub Actions and isn't stored in git. Download a build into
+      <code>build/Web</code> from the Codespace terminal, then reload this page:</p>
+    <pre>gh run download RUN_ID --name baiby-web --dir build/Web</pre>
+    <p>Use the run ID of a successful <strong>Build Unity Web preview</strong> run (the number in the run's
+      address on GitHub).</p>
+    <p>Looking for the original HTML prototype? It's at <a href="legacy/">/legacy/</a>.</p>
+  </section>
+</main>
+<script>
+  // Open the Unity build when one has been downloaded; otherwise explain how to get one.
+  fetch('nursery/index.html', { method: 'HEAD', cache: 'no-store' })
+    .then(response => response.ok)
+    .catch(() => false)
+    .then(found => {
+      if (found) {
+        location.replace('nursery/');
+        return;
+      }
+      document.getElementById('checking').hidden = true;
+      document.getElementById('missing').hidden = false;
+    });
+</script>
+</body>
+</html>

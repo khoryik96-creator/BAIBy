@@ -15,7 +15,7 @@ Run the browser baseline and assembly checks with Node.js 22 using `node --test 
 
 Open the branch in a Codespace. The preview starts on port **8000** and opens in the browser. If the tab does not open automatically, choose **Open in Browser** for port 8000 in the Codespaces **Ports** panel. Keep the forwarded port private for personal testing. The prototype stores progress in the browser, so use the same preview URL and browser profile to resume a save.
 
-The preview opens the archived HTML game at the root. After you export a Unity Web build into `build/Web`, open `/nursery/` on the same forwarded URL. You can also serve both versions locally with `bash .devcontainer/start-preview.sh`. Android and iOS device checks cover native lifecycle and graphics performance.
+The preview's front page opens the Unity game once a build is in `build/Web` (see below); until then it explains how to download one. The game itself lives at `/nursery/`, and the archived HTML prototype at `/legacy/`. You can also serve both locally with `bash .devcontainer/start-preview.sh`, which also replaces a preview server left running from an older layout. Android and iOS device checks cover native lifecycle and graphics performance.
 
 ### Play a GitHub build
 
@@ -28,7 +28,7 @@ gh run download RUN_ID --name baiby-web --dir build/Web
 python3 tools/check-web-build.py build/Web
 ```
 
-Open `/nursery/` on port **8000** to play. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
+Open port **8000** to play: the front page goes straight to `/nursery/`. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
 
 ## Mobile restart development
 
