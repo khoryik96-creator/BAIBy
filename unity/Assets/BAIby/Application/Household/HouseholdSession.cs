@@ -55,13 +55,16 @@ namespace BAIby.Application
             Cue = cue;
             BecameGrown = becameGrown;
             CompletedCareDay = completedCareDay;
-            UnlockedBreeds = unlockedBreeds ?? Array.Empty<PetBreed>();
+            breeds = unlockedBreeds;
         }
+
+        private readonly IReadOnlyList<PetBreed> breeds;
 
         public PetCue Cue { get; }
         public bool BecameGrown { get; }
         public bool CompletedCareDay { get; }
-        public IReadOnlyList<PetBreed> UnlockedBreeds { get; }
+        // Never null, even for a default outcome.
+        public IReadOnlyList<PetBreed> UnlockedBreeds => breeds ?? Array.Empty<PetBreed>();
     }
 
     // The single writer of household slots and the manifest. It caches one BabySession or PetSession per
