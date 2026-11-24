@@ -128,6 +128,7 @@ namespace BAIby.Presentation
             view = HouseholdView.PetRoom;
             activePanel = NurseryPanel.Care;
             petPanel = PetPanel.Care;
+            decorPreview = false;
             nursery.ResetPresentation();
             BuildPetVerbs(companion.PetState.Species);
             var celebration = TakePetCelebrations(out var failure);
@@ -261,7 +262,9 @@ namespace BAIby.Presentation
                 return;
 
             ApplyHouseholdView();
-            ApplyNurseryTheme(NurseryTheme.Sage);
+            // Every pet room shows the household's pet room theme (Decor in a pet's room), unless one is being previewed.
+            if (!decorPreview)
+                ApplyPetRoomTheme();
             saveError.text = string.Empty;
             title.text = state.Name;
             age.text = DayLine(state.Age, PetStageTitle(state.Species, state.Stage));
@@ -292,7 +295,8 @@ namespace BAIby.Presentation
             foreach (var button in petVerbButtons)
                 button.interactable = !household.IsResting(petSlot);
 
-            petStage.Show(state.Appearance, household.PetCatalog, state.Stage, IsSleepy(state) || IsPoorly(state));
+            petStage.Show(decorPreview && petWearDraft != null ? petWearDraft : ShownPet(state.Appearance), household.PetCatalog,
+                state.Stage, IsSleepy(state) || IsPoorly(state));
             // What the helpers did comes first; with nothing else to say, the return summary ends with the attention line.
             var helperLine = TakeHelperLine(petSlot, state.Name, true);
             if (helperLine != null)
@@ -549,7 +553,9 @@ namespace BAIby.Presentation
                 crawling.text = "Breed · " + BreedName(pet.Breed) + ", " + pet.Appearance.Coat.ToString().ToLowerInvariant() + " coat";
                 walking.text = "Bond · " + BondTierName(pet.BondTier);
                 favoriteToy.text = "Temperament · " + Temperament(pet);
-                stories.text = pet.Appearance.Accessory == PetAccessory.None ? "No collar" : "Wears a " + pet.Appearance.AccessoryAccent.ToString().ToLowerInvariant() + " collar";
+                stories.text = pet.Appearance.Accessory == PetAccessory.None ? "No collar"
+                    : "Wears a " + OutfitName(pet.Appearance.AccessoryAccent).ToLowerInvariant() + " " +
+                      WearName(pet.Appearance.Accessory).ToLowerInvariant();
                 blocks.text = string.Empty;
                 connection.text = $"Bond · {Mathf.RoundToInt((float)pet.Bond)} / 100";
             }

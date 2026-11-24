@@ -59,7 +59,7 @@ namespace BAIby.Presentation
             homeChip.gameObject.SetActive(false);
             styleButton = IconButton("Style", headerCard, "Style", () => ShowPanel(NurseryPanel.Style), Mist);
             styleButton.gameObject.SetActive(false);
-            decorButton = IconButton("Decor", headerCard, "Decor", () => ShowPanel(NurseryPanel.Decor), Mist);
+            decorButton = IconButton("Decor", headerCard, "Decor", OpenDecor, Mist);
             decorButton.gameObject.SetActive(false);
 
             title = Label("Baby Name", headerCard, "Your nursery", 41, Ink, TextAnchor.MiddleLeft,
