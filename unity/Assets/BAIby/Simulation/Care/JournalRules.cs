@@ -147,6 +147,47 @@ namespace BAIby.Simulation
             return journal.With(pages, journal.SpellSince, journal.SpellDay, reached, startCareDays);
         }
 
+        // Journal entries for one step of any companion: milestones reached (on the day and at the instant they were
+        // reached, from `from` and the age before the step), rhythm stickers, a hard spell that ended, and week pages.
+        // `bond` is null when no care day closed; `real` is false for a preview day, which writes at `from`.
+        public static JournalRecord Chronicle(JournalRecord journal, DateTimeOffset from, TimeSpan ageBefore,
+            CareCondition conditionBefore, DateTimeOffset at, TimeSpan ageAfter, CareCondition conditionAfter,
+            IReadOnlyList<(MotorSkill Skill, long Age)> milestones, BondStep bond, bool real, int totalCareDays)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+
+            var entries = new List<JournalEntry>();
+            if (milestones != null)
+            {
+                foreach (var (skill, unlockAge) in milestones)
+                {
+                    var age = TimeSpan.FromTicks(unlockAge);
+                    entries.Add(JournalEntry.Milestone(real ? InstantAt(from, age - ageBefore) : from, DayOf(age), skill));
+                }
+            }
+
+            if (bond != null)
+            {
+                foreach (var (stuck, days) in bond.Stickers)
+                {
+                    var instant = new DateTimeOffset(stuck, TimeSpan.Zero);
+                    entries.Add(JournalEntry.Sticker(instant, DayOf(real ? ageBefore + (instant - from) : ageBefore), days));
+                }
+            }
+
+            if (entries.Count > 0)
+                journal = journal.With(entries, journal.SpellSince, journal.SpellDay, journal.Weeks, journal.WeekStartCareDays);
+            journal = AfterCondition(journal, conditionBefore, conditionAfter, at, ageAfter);
+            return Weeks(journal, ageBefore, ageAfter, from, real, totalCareDays, bond?.CountedDays);
+        }
+
+        private static DateTimeOffset InstantAt(DateTimeOffset from, TimeSpan after)
+        {
+            var ticks = from.UtcTicks + Math.Max(0, Math.Min(after.Ticks, DateTimeOffset.MaxValue.UtcTicks - from.UtcTicks));
+            return new DateTimeOffset(ticks, TimeSpan.Zero);
+        }
+
         private static DateTimeOffset Before(DateTimeOffset at, TimeSpan span)
         {
             var ticks = at.UtcTicks - Math.Max(0, span.Ticks);

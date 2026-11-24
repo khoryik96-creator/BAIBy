@@ -7,7 +7,8 @@ namespace BAIby.Application
     // Saved values are stable content IDs. Append new options; never renumber.
     public enum BabyStage { Newborn = 0, Sitter = 1, Crawler = 2, Walker = 3 }
     // Grown is a pet growing from Young to Grown.
-    public enum CompanionMilestone { Sitting = 0, Crawling = 1, Walking = 2, Grown = 3 }
+    // A cat's milestones follow the baby's: pounce, climb and the high jump.
+    public enum CompanionMilestone { Sitting = 0, Crawling = 1, Walking = 2, Grown = 3, Pounce = 4, Climb = 5, HighJump = 6 }
 
     public static class HouseholdRules
     {

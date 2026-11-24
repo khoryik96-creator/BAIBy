@@ -72,7 +72,10 @@ namespace BAIby.Application
                 new XAttribute("good-day", care.GoodDay));
         }
 
-        public static CareRecord Decode(XElement element)
+        public static CareRecord Decode(XElement element) => Decode(element, CareRoutine.Baby);
+
+        // A pet's record keeps its species' routine, which the element never names.
+        public static CareRecord Decode(XElement element, CareRoutine routine)
         {
             if (element == null)
                 throw new InvalidDataException("The save is missing its care record.");
@@ -109,6 +112,7 @@ namespace BAIby.Application
                     ExcusedCount = (long)Attribute(element, "excused"),
                     CoveredCount = (long)Attribute(element, "covered"),
                     LastReason = (CareReason)(int)Attribute(element, "reason"),
+                    Routine = routine,
                 };
                 // Before the health axis every companion was well; its visit starts at the checkpoint.
                 draft.ConditionSince = draft.Checkpoint;

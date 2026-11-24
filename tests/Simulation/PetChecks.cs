@@ -289,8 +289,14 @@ static class PetChecks
 
         var sim = new PetSimulation();
         var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, PetBreed.DomesticShorthair), Start);
-        for (var index = 0; index < 14; index++)
-            pet = sim.ApplyCare(pet, PetVerb.Pet).State;
+        // A cat's Bond follows the baby's rules (slice 7): gains are capped each day, so Bond 40 takes a few days.
+        for (var day = 0; day < 5; day++)
+        {
+            pet = sim.Advance(pet, Start.AddDays(day).AddHours(9)).State;
+            for (var index = 0; index < 4; index++)
+                pet = sim.ApplyCare(pet, PetVerb.Pet).State;
+        }
+
         pet = sim.Advance(pet, Start.AddDays(7)).State;
         var fromPet = SpeciesGoalProgress.None.WithPet(pet);
         Equal(true, PetUnlocks.IsGoalMet(EarnedGoal.Bond40, fromPet), "a pet's Bond counts toward the goal");
@@ -389,13 +395,14 @@ static class PetChecks
         // Absolute rule, measured in play: every breed of a species loses the same total need over
         // the 8-hour cap, so no breed (premium or free) is easier or harder to keep.
         var sim = new PetSimulation();
+        var morning = Start.AddHours(8);
         foreach (var species in Catalog.AllSpecies)
         {
             var baseline = species.Meters.Sum(meter => Math.Min(meter.Initial, 8 * meter.DecayPerHour));
             foreach (var breed in Catalog.BreedsOf(species.Species))
             {
-                var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, breed.Breed), Start);
-                var later = sim.Advance(pet, Start.AddHours(8)).State;
+                var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, breed.Breed), morning);
+                var later = sim.Advance(pet, morning.AddHours(8)).State;
                 var lost = species.Meters.Sum(meter => pet.Meter(meter.Meter) - later.Meter(meter.Meter));
                 Close(baseline, lost, $"{breed.Breed} loses the same need in 8 hours as any {species.Species}");
             }
@@ -450,6 +457,9 @@ static class PetChecks
     private static void TimeModel()
     {
         var sim = new PetSimulation();
+        // A cat sleeps through quiet hours (slice 7), so the time model starts in the morning, when every species
+        // spends its first eight hours awake.
+        var Start = PetChecks.Start.AddHours(8);
         foreach (var species in Catalog.AllSpecies)
         {
             var starter = Catalog.BreedsOf(species.Species).Single(breed => breed.Unlock == BreedUnlock.Free);
@@ -610,9 +620,9 @@ static class PetChecks
         Equal(100.0, sim.ApplyCare(murky, PetVerb.WaterChange).State.Meter(PetMeter.Water), "water change clears the tank");
         Equal(murky.Meter(PetMeter.Water) + 15, sim.ApplyCare(murky, PetVerb.WipeGlass).State.Meter(PetMeter.Water), "wiping helps a little");
 
-        var friend = cat;
+        var friend = hamster;
         for (var index = 0; index < 40; index++)
-            friend = sim.ApplyCare(friend, PetVerb.Pet).State;
+            friend = sim.ApplyCare(friend, PetVerb.GentleHold).State;
         Equal(100.0, friend.Bond, "Bond is capped at 100");
         Equal(100.0, friend.HighestBond, "Bond high-water mark follows");
         Equal(BondTier.BestFriends, friend.BondTier, "best friends");
@@ -654,7 +664,8 @@ static class PetChecks
 
         var fullCat = PetState.Restore(Catalog, "Pip", PetAppearance.Default(Catalog, PetBreed.DomesticShorthair), Start, TimeSpan.Zero,
             Meters(Species.Cat, 100, 100), 0, 0, 0, 0, false);
-        Equal(PetCue.Content, sim.ApplyCare(fullCat, PetVerb.Feed).Cue, "the flake rule is fish-only");
+        Equal(PetCue.TooFull, sim.ApplyCare(fullCat, PetVerb.Feed).Cue, "the flake rule is fish-only; a full cat is gently overfed");
+        Equal(100.0, sim.ApplyCare(fullCat, PetVerb.Feed).State.Meter(PetMeter.Fullness), "a full cat stays full");
     }
 
     private static void SaveRoundTrips()
@@ -731,7 +742,10 @@ static class PetChecks
         Equal(12.0, pet.Liveliness, "golden liveliness");
         Equal(-3.5, pet.Boldness, "golden boldness");
         Equal(false, pet.IsGrown, "golden stage");
-        Equal(Golden, PetSaveCodec.Encode(pet), "golden payload re-encodes byte for byte");
+        Equal(true, PetSaveCodec.Encode(pet).StartsWith("<pet version=\"2\"", StringComparison.Ordinal),
+            "a v1 cat re-encodes as v2 with its care records (slice 7)");
+        Equal(PetSaveCodec.Encode(pet), PetSaveCodec.Encode(PetSaveCodec.Decode(PetSaveCodec.Encode(pet))),
+            "the migrated cat round-trips");
 
         var built = PetState.Restore(Catalog, "Mochi & Co", pet.Appearance, Start.ToOffset(TimeSpan.FromHours(-5)), TimeSpan.FromDays(3.5),
             new Dictionary<PetMeter, double>
@@ -740,7 +754,7 @@ static class PetChecks
                 [PetMeter.Cleanliness] = 84, [PetMeter.Health] = 97,
             },
             12, 15, 12, -3.5, false);
-        Equal(Golden, PetSaveCodec.Encode(built), "the encoder writes the golden payload");
+        Equal(PetSaveCodec.Encode(pet), PetSaveCodec.Encode(built), "the encoder writes what the golden payload decodes to");
     }
 
     private static void InvalidPayloads()
@@ -779,7 +793,7 @@ static class PetChecks
         ExpectInvalid(Golden.Replace("<pet version=\"1\">", "<baby version=\"1\">").Replace("</pet>", "</baby>"), "baby record in the pet codec");
         ExpectInvalid(Golden.Replace(" version=\"1\"", string.Empty), "missing version");
         ExpectInvalid("<pet", "malformed XML");
-        ExpectThrows<NotSupportedException>(() => PetSaveCodec.Decode(Golden.Replace("version=\"1\"", "version=\"2\"")), "future pet version");
+        ExpectThrows<NotSupportedException>(() => PetSaveCodec.Decode(Golden.Replace("version=\"1\"", "version=\"3\"")), "future pet version");
         ExpectThrows<NotSupportedException>(() => PetSaveCodec.Decode(Golden.Replace("version=\"1\"", "version=\"0\"")), "pet version 0");
     }
 

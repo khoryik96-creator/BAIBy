@@ -132,7 +132,10 @@
     "Sitting": 0,
     "Crawling": 1,
     "Walking": 2,
-    "Grown": 3
+    "Grown": 3,
+    "Pounce": 4,
+    "Climb": 5,
+    "HighJump": 6
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -310,7 +313,17 @@
   },
   "PetCue": {
     "Content": 0,
-    "IgnoredFlakes": 1
+    "IgnoredFlakes": 1,
+    "TooFull": 2,
+    "PushesToyAway": 3,
+    "TooPoorly": 4,
+    "Bored": 5,
+    "MedicineTaken": 6,
+    "MedicineNotNow": 7,
+    "MedicineDone": 8,
+    "VetVisited": 9,
+    "VetAllClear": 10,
+    "SkillBack": 11
   },
   "PetMeter": {
     "Fullness": 0,
