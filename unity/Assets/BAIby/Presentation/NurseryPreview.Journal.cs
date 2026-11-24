@@ -273,7 +273,6 @@ namespace BAIby.Presentation
             private Button older;
             private int tab;
             private int page;
-            private BabyState baby;
             private JournalRecord record;
             private BondRecord bonding;
             // Whose journal is shown, and for a pet (care slice 7) how its photos are drawn.
@@ -333,7 +332,6 @@ namespace BAIby.Presentation
             public void ShowBaby(BabyState state, JournalRecord journalRecord, BondRecord bondRecord, bool? resting)
             {
                 Feedback.text = string.Empty;
-                baby = state;
                 companion = state.Name;
                 petPages = false;
                 petPicture = null;
@@ -360,7 +358,6 @@ namespace BAIby.Presentation
                 Func<JournalEntry, Sprite> picture)
             {
                 Feedback.text = string.Empty;
-                baby = null;
                 companion = pet.Name;
                 petPages = true;
                 petPicture = picture;
