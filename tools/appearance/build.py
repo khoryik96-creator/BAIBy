@@ -15,7 +15,7 @@ import sys
 import numpy as np
 from scipy import ndimage as ndi
 
-from common import (HEADWEAR, OUT_DIR, POSES, STYLES, HeadFrame, ensure_meta,
+from common import (HEADWEAR, OUT_DIR, POSES, STYLES, HeadFrame, ensure_meta, read_bytes_png,
                     load_pose, write_bytes_png)
 from heads import HEADS
 from regions import (CLASSES, LUMA, PROTO, blush_soften, hair_skin_mix, line_multiply,
@@ -125,7 +125,68 @@ def finalize(rgba, wts):
     return out.astype(np.float32), q
 
 
+def build_only_hats(kinds, only=None):
+    """Draw only the named headwear against the *shipped* Base and hair overlays and
+    merge them into layout.json; every other file stays untouched.
+
+    A full rebuild is deterministic on one machine, but numpy/scipy/Pillow versions
+    shift a few anti-aliased pixels of the Base and hair; adding a hat must not
+    churn them. The hats are fitted to exactly the hair the game composites under them.
+    """
+    lp = OUT_DIR / "layout.json"
+    layout = json.loads(lp.read_text())
+    overlays = {o["path"]: o for o in layout["overlays"]}
+    poses = {p: normalized_pose(p) for p in POSES}
+    dark = []
+    for img in poses.values():
+        rgb, a = img[..., :3], img[..., 3]
+        solid = ndi.binary_erosion(a > 200, iterations=2)
+        dark.append(rgb[solid & ((rgb @ LUMA) < 62)])
+    r = layout["reference"]
+    qref = {"skin": np.array(r["skin"], float), "hair": np.array(r["hair"], float),
+            "main": np.array(r["outfitMain"], float), "accent": np.array(r["outfitAccent"], float),
+            "outline": np.median(np.concatenate(dark), axis=0)}
+    written = []
+    for p in POSES:
+        if only and p not in only:
+            continue
+        img = poses[p]
+        h, w = img.shape[:2]
+        base = read_bytes_png(OUT_DIR / f"Base/{p}.bytes")
+        union = np.zeros((h, w), bool)
+        for s in STYLES:
+            o = overlays[f"Hair/{s}/{p}"]
+            hair = read_bytes_png(OUT_DIR / f"Hair/{s}/{p}.bytes")
+            union[o["y"]:o["y"] + o["height"], o["x"]:o["x"] + o["width"]] |= hair[..., 3] > 8
+        ctx = dict(pose=p, frame=HeadFrame(HEADS[p]), head=HEADS[p], shape=(h, w), ref=qref,
+                   base=base, original=img, hair_zone=None, hair_union=union)
+        for kind in kinds:
+            rgba, wts = headwear.draw(kind, ctx)
+            o_rgba, o_w = finalize(rgba, wts)
+            o_rgba, o_w, x0, y0 = crop_overlay(o_rgba, o_w)
+            rel = f"Headwear/{kind}/{p}"
+            write_bytes_png(OUT_DIR / f"{rel}.bytes", o_rgba)
+            write_bytes_png(OUT_DIR / f"{rel}Regions.bytes", o_w)
+            overlays[rel] = dict(path=rel, pose=p, x=x0, y=y0, width=int(o_rgba.shape[1]), height=int(o_rgba.shape[0]))
+            written.append(rel)
+        print(f"{p}: {', '.join(kinds)}", flush=True)
+    layout["overlays"] = sorted(overlays.values(), key=lambda o: (
+        POSES.index(o["pose"]), (STYLES + HEADWEAR).index(o["path"].split("/")[1])))
+    text = json.dumps(layout, indent=1) + "\n"
+    if lp.read_text() != text:
+        lp.write_text(text)
+    for kind in kinds:
+        ensure_meta(OUT_DIR / "Headwear" / kind, folder=True)
+    for rel in written:
+        ensure_meta(OUT_DIR / f"{rel}.bytes", folder=False)
+        ensure_meta(OUT_DIR / f"{rel}Regions.bytes", folder=False)
+
+
 def main(argv):
+    if "--only-hats" in argv:
+        only = set(argv[argv.index("--poses") + 1].split(",")) if "--poses" in argv else None
+        build_only_hats(argv[argv.index("--only-hats") + 1].split(","), only)
+        return
     only = set(argv[argv.index("--poses") + 1].split(",")) if "--poses" in argv else set(POSES)
     skip_hats = "--no-hats" in argv
     poses = {p: normalized_pose(p) for p in POSES}
