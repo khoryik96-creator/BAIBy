@@ -9,12 +9,13 @@ using BAIby.Simulation.Pets;
 
 namespace BAIby.Tests.Appearance
 {
-    // The cat and hamster layouts, palettes and compositing (tools/pets/README.md), checked against the shipped art.
+    // The cat, hamster and dog layouts, palettes and compositing (tools/pets/README.md), checked against the shipped art.
     internal static class PetArtChecks
     {
         private static readonly string CatFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
             "unity", "Assets", "Resources", "BAIby", "Pets", "Cat"));
         private static readonly string HamsterFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Hamster"));
+        private static readonly string DogFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Dog"));
 
         public static void Run(Action<bool, string> check)
         {
@@ -25,6 +26,94 @@ namespace BAIby.Tests.Appearance
             CalicoDarkPatchesKeepTheirColor(layout, check);
             InvalidLayoutsAreRejected(check);
             Hamster(LoadLayout(HamsterFolder), check);
+            Dog(LoadLayout(DogFolder), check);
+        }
+
+        // P3: every dog breed but the Dachshund ships; each composes from the shipped art in every pose with its ears
+        // (its markings overlay) and a collar, the Corgi on its own short-legged base, and the Beagle's saddle and the
+        // Dalmatian's spots keep their own dark color.
+        private static void Dog(PetLayout layout, Action<bool, string> check)
+        {
+            check(layout.YoungScale > 0 && layout.YoungScale < layout.GrownScale, "a puppy is drawn smaller than a grown dog");
+            check(layout.Habitat == null, "a dog lives in the room as it is");
+            check(layout.HasOwnBase(PetBreed.Corgi), "the Corgi has its own base");
+            check(!layout.HasOwnBase(PetBreed.MixedBreed) && !LoadLayout().HasOwnBase(PetBreed.Tabby), "other breeds share the base");
+            check(layout.ShownPose(PetBreed.Corgi, "YoungAwake") == "CorgiYoungAwake", "the Corgi's pose");
+            layout.TryGetPoseSize("YoungAwake", out _, out var plainHeight);
+            layout.TryGetPoseSize("CorgiYoungAwake", out _, out var corgiHeight);
+            check(corgiHeight < plainHeight, "the Corgi sits lower on its short legs");
+            var dark = new[] { PetBreed.Beagle, PetBreed.Dalmatian };
+            var composer = new PetComposer(layout);
+            var loads = new List<string>();
+            PetArtSource source = (path, width, height) =>
+            {
+                loads.Add(path);
+                return Png.Read(Path.Combine(DogFolder, path + ".bytes"), width, height);
+            };
+            foreach (var breed in PetCatalog.Default.BreedsOf(Species.Dog))
+            {
+                var shipped = breed.Breed != PetBreed.Dachshund;
+                check(breed.AvailableNow == shipped, breed.Breed + (shipped ? " ships with the dog" : " is arriving soon"));
+                if (!shipped)
+                {
+                    check(!layout.TryGetOverlay(PetLayout.MarkingsPath(breed.Breed, "YoungAwake"), out _), "the Dachshund has no art yet");
+                    continue;
+                }
+
+                foreach (var coat in breed.Coats)
+                    check(layout.TryGetCoat(breed.Breed, coat, out _), "the dog palette lists " + breed.Breed + " " + coat);
+                foreach (PetStage stage in Enum.GetValues(typeof(PetStage)))
+                {
+                    foreach (var resting in new[] { false, true })
+                    {
+                        var pose = PetLayout.PoseName(stage, resting);
+                        var shown = layout.ShownPose(breed.Breed, pose);
+                        check(layout.TryGetOverlay(PetLayout.MarkingsPath(breed.Breed, pose), out var ears) && ears.Pose == shown,
+                            breed.Breed + " " + pose + " has its ears over its own base");
+                        loads.Clear();
+                        var pixels = composer.Compose(breed.Breed, breed.DefaultCoat, PetAccessory.Collar, Outfit.Sky, pose, source,
+                            PixelRowOrder.TopDown, out var width, out var height);
+                        var visible = 0;
+                        for (var i = 3; i < width * height * 4; i += 4)
+                            if (pixels[i] > 0)
+                                visible++;
+                        check(visible > width * height / 4, breed.Breed + " " + pose + " composes a visible dog");
+                        var marked = Array.IndexOf(dark, breed.Breed) >= 0 ? 4 : 2;
+                        check(loads.Count == 4 + marked, breed.Breed + " " + pose + " loads base, ears, markings and collar (" +
+                            string.Join(", ", loads) + ")");
+                        check(loads[0] == PetLayout.BasePath(shown), breed.Breed + " " + pose + " stands on " + shown);
+                        check(loads.Contains(PetLayout.AccessoryPath(PetAccessory.Collar, shown)), breed.Breed + " " + pose + " wears its collar");
+                    }
+                }
+            }
+
+            var dalmatian = (byte[])composer.Compose(PetBreed.Dalmatian, PetCoat.White, PetAccessory.None, Outfit.Sage, "YoungAwake",
+                source, PixelRowOrder.TopDown, out var w, out _).Clone();
+            layout.TryGetOverlay(PetLayout.DarkMarkingsPath(PetBreed.Dalmatian, "YoungAwake"), out var spots);
+            var spotPixels = Png.Read(Path.Combine(DogFolder, spots.Path + ".bytes"), spots.Width, spots.Height);
+            var spotRegions = Png.Read(Path.Combine(DogFolder, spots.Path + "Regions.bytes"), spots.Width, spots.Height);
+            AppearanceRecolor.Recolor(spotPixels, spotRegions, spots.Width * spots.Height, layout.Reference,
+                PetPalette.DarkTargets(layout, PetBreed.Dalmatian, PetCoat.White, Outfit.Sage));
+            var matched = 0;
+            var opaque = 0;
+            for (var y = 0; y < spots.Height; y++)
+            {
+                for (var x = 0; x < spots.Width; x++)
+                {
+                    var at = (y * spots.Width + x) * 4;
+                    if (spotPixels[at + 3] != 255)
+                        continue;
+                    opaque++;
+                    var target = ((spots.YFromTop + y) * w + spots.X + x) * 4;
+                    if (dalmatian[target] == spotPixels[at] && dalmatian[target + 1] == spotPixels[at + 1] &&
+                        dalmatian[target + 2] == spotPixels[at + 2])
+                        matched++;
+                }
+            }
+
+            check(opaque > 0 && matched > opaque * 9 / 10, "the Dalmatian's spots keep their own recolor (" + matched + "/" + opaque + ")");
+            var tan = PetPalette.Targets(layout, PetBreed.MixedBreed, PetCoat.Tan, Outfit.Sage);
+            check(tan.Region(0).Equals(layout.Reference.Region(0)), "the reference coat is the mixed breed's tan");
         }
 
         private static PetLayout LoadLayout(string folder = null)

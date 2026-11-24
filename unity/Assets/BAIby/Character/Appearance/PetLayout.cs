@@ -17,6 +17,8 @@ namespace BAIby.Character
         public PetPaletteData palette;
         // The hamster's cage (P2), drawn round the pet in the shared room; absent for the cat.
         public PetHabitatData habitat;
+        // Breeds drawn on their own base poses, named breed + pose (the dog's short-legged Corgi, P3); absent elsewhere.
+        public string[] breedBases;
     }
 
     [Serializable]
@@ -134,12 +136,14 @@ namespace BAIby.Character
         private readonly HashSet<string> darkOverlays;
         private readonly Dictionary<string, PetCoatColors> coats;
         private readonly Dictionary<string, AppearanceColor> eyes;
+        private readonly HashSet<string> breedBases;
 
         private PetLayout(AppearanceColors reference, double youngScale, double grownScale,
             Dictionary<string, AppearancePoseData> poses, Dictionary<string, AppearanceOverlay> overlays,
             HashSet<string> darkOverlays, Dictionary<string, PetCoatColors> coats, Dictionary<string, AppearanceColor> eyes,
-            PetHabitat habitat)
+            PetHabitat habitat, HashSet<string> breedBases)
         {
+            this.breedBases = breedBases;
             Habitat = habitat;
             Reference = reference;
             YoungScale = youngScale;
@@ -166,6 +170,14 @@ namespace BAIby.Character
             (stage == PetStage.Grown ? "Grown" : "Young") + (resting ? "Rest" : "Awake");
 
         public static string BasePath(string pose) => "Base/" + pose;
+
+        // The base pose a breed is drawn on: its own (breed + pose, the Corgi's short legs) when the layout lists the
+        // breed in breedBases, else the species' pose. Its markings keep the plain pose's path; the accessory follows
+        // the shown pose.
+        public string ShownPose(PetBreed breed, string pose) =>
+            breedBases.Contains(breed.ToString()) ? breed + pose : pose;
+
+        public bool HasOwnBase(PetBreed breed) => breedBases.Contains(breed.ToString());
 
         public static string MarkingsPath(PetBreed breed, string pose) => "Markings/" + breed + "/" + pose;
 
@@ -263,8 +275,24 @@ namespace BAIby.Character
                 habitat = new PetHabitat(h.back, h.front, h.width, h.height, h.floor);
             }
 
+            var bases = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var breedName in data.breedBases ?? Array.Empty<string>())
+            {
+                if (string.IsNullOrEmpty(breedName) || !Enum.TryParse<PetBreed>(breedName, false, out var breed) ||
+                    !Enum.IsDefined(typeof(PetBreed), breed) || !bases.Add(breedName))
+                    throw new FormatException("The pet layout names an unknown or repeated breed base " + breedName + ".");
+                foreach (var stage in new[] { PetStage.Young, PetStage.Grown })
+                {
+                    foreach (var resting in new[] { false, true })
+                    {
+                        if (!poses.ContainsKey(breedName + PoseName(stage, resting)))
+                            throw new FormatException("The " + breedName + " base needs every pose.");
+                    }
+                }
+            }
+
             return new PetLayout(reference, data.runtimeScale.young, data.runtimeScale.grown, poses, overlays, dark, coats, eyes,
-                habitat);
+                habitat, bases);
         }
 
         public bool TryGetPoseSize(string pose, out int width, out int height)
