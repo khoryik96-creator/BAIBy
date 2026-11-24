@@ -296,8 +296,10 @@ namespace BAIby.Presentation
             cleanliness.Set(state.Cleanliness);
             var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeGrowthReaction(state, reaction) ??
                 DescribeReaction(state.Name, reaction, visibleToy, food);
-            // Milestones are celebrated as before, and each has a page in the journal now.
-            var sticker = StickerLine(state);
+            // Milestones are celebrated as before, and each has a page in the journal now. A new sticker waits for a
+            // refresh without a milestone to celebrate.
+            var milestone = unlocked.UnlockedSitting || unlocked.UnlockedCrawling || unlocked.UnlockedWalking;
+            var sticker = milestone ? null : StickerLine(state);
             if (unlocked.UnlockedWalking)
                 status.text = $"{state.Name} can take a few steps now, and it's in the journal. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
