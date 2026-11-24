@@ -78,6 +78,8 @@ BREEDS = ["Tabby", "Tuxedo", "Siamese", "Calico"]
 # the Young cat should read as a kitten beside the seated baby, the Grown cat a bit bigger.
 RUNTIME_SCALE = {"Young": 0.55, "Grown": 0.70}
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
+# Neck wear overlays (PetAccessory names): the free collar, then the pet pack's bandana and bow.
+WEAR = ["Collar", "Bandana", "Bow"]
 
 
 def set_tier(tier: str) -> None:
@@ -157,6 +159,8 @@ class Ctx:
     marks_on: bool
     collar_on: bool
     covers: dict = field(default_factory=dict)
+    # the neck wear being captured: "Collar", "Bandana" or "Bow" (all region A, tagged with their own capture)
+    wear: str = "Collar"
 
 
 # ---------------------------------------------------------------- generic part
@@ -701,11 +705,16 @@ def tail_marks(c: Ctx, pts, width):
 
 
 def collar_band(c: Ctx, pts, width=17.0, bell_at=None, bell_r=12.0, occl=None):
-    """Accent-coloured collar (region A, tag collar) with an optional bell (fixed colour).
-    ``pts=None`` draws only the bell (for a bell in front of the head)."""
-    cv = c.cv
+    """Accent-coloured neck wear (region A) round ``pts`` with a front piece at ``bell_at``:
+    the collar's bell (fixed colour), the bandana's hanging triangle or the bow.
+    ``pts=None`` draws only the front piece (for one in front of the head)."""
     if not c.collar_on:
         return
+    if c.wear == "Bandana":
+        return bandana(c, pts, width, bell_at, bell_r, occl)
+    if c.wear == "Bow":
+        return neck_bow(c, pts, width, bell_at, bell_r, occl)
+    cv = c.cv
     lw = L.dw * 1.05
     if pts is not None:
         path = polyline(pts)
@@ -734,3 +743,83 @@ def collar_band(c: Ctx, pts, width=17.0, bell_at=None, bell_r=12.0, occl=None):
         if occl is not None:
             bl = bl * (1 - occl)
         cv.paint(bl, OUTLINE, W0, tag="collar")
+
+
+def _wear_band(c: Ctx, pts, width, occl, tag):
+    """The neck band under a bandana or a bow: a narrower accent band with its outline."""
+    cv = c.cv
+    lw = L.dw * 1.05
+    path = polyline(pts)
+    fill = cv.stroke_mask(path, width)
+    line = np.clip(cv.stroke_mask(path, width + lw) - cv.stroke_mask(path, max(width - lw, 1.0)), 0, 1)
+    if occl is not None:
+        fill = fill * (1 - occl)
+        line = line * (1 - occl)
+    F = cel(cv, fill, (2, 3), 0.84)
+    cv.paint(fill, np.asarray(REF_ACCENT, float)[None, None, :] * warm(F), WA, tag=tag)
+    cv.paint(line, OUTLINE, tag=tag)
+
+
+def _accent_part(c: Ctx, fill, tag, occl, factor=0.84, light=(2, 3), shade_k=1.0):
+    """Fill an accent part with one cel step and outline it (both clipped by ``occl``)."""
+    cv = c.cv
+    lw = L.dw * 1.05
+    line = outline(cv, fill, ow=lw * 1.2, lo=1.0, hi=1.0)
+    if occl is not None:
+        fill = fill * (1 - occl)
+        line = line * (1 - occl)
+    F = cel(cv, fill, light, factor)
+    cv.paint(fill, np.asarray(REF_ACCENT, float)[None, None, :] * warm(F * shade_k), WA, tag=tag)
+    cv.paint(line, OUTLINE, tag=tag)
+    return fill
+
+
+def bandana(c: Ctx, pts, width, front, size, occl):
+    """A neckerchief: a slim band round the neck and a soft triangle hanging over the chest, with two
+    fold lines; recolourable like the collar (region A, tag "bandana")."""
+    cv = c.cv
+    tag = "bandana"
+    if pts is not None:
+        _wear_band(c, pts, width * 0.62, occl, tag)
+    if front is None:
+        return
+    bx, by = front
+    s = size * 3.9
+    tri = [(bx - s, by - s * 0.42), (bx - s * 0.55, by - s * 0.30), (bx, by - s * 0.26), (bx + s * 0.55, by - s * 0.30),
+           (bx + s, by - s * 0.42), (bx + s * 0.62, by + s * 0.25), (bx + s * 0.12, by + s * 0.86),
+           (bx - s * 0.12, by + s * 0.86), (bx - s * 0.62, by + s * 0.25)]
+    fill = cv.fill_mask(catmull(tri, closed=True, tension=0.35))
+    shown = _accent_part(c, fill, tag, occl)
+    for a, b, k in (((bx - s * 0.52, by - s * 0.18), (bx - s * 0.10, by + s * 0.56), 0.7),
+                    ((bx + s * 0.50, by - s * 0.16), (bx + s * 0.18, by + s * 0.42), 0.6)):
+        fold = cv.stroke_mask(polyline([a, ((a[0] + b[0]) / 2 + s * 0.04, (a[1] + b[1]) / 2), b]), L.dw * k) * shown
+        cv.paint(fold, np.asarray(REF_ACCENT, float) * 0.74, WA, tag=tag)
+
+
+def neck_bow(c: Ctx, pts, width, front, size, occl):
+    """A ribbon round the neck tied in a bow at the front: two loops, a knot and two short tails
+    (region A, tag "bow")."""
+    cv = c.cv
+    tag = "bow"
+    if pts is not None:
+        _wear_band(c, pts, width * 0.55, occl, tag)
+    if front is None:
+        return
+    bx, by = front
+    s = size * 2.0
+    tails = np.zeros_like(cv.X)
+    for side in (-1, 1):
+        tail = [(bx + side * s * 0.15, by), (bx + side * s * 0.95, by + s * 1.55), (bx + side * s * 0.55, by + s * 1.45),
+                (bx + side * s * 0.30, by + s * 1.75), (bx + side * s * 0.05, by + s * 0.35)]
+        tails = np.maximum(tails, cv.fill_mask(poly(tail)))
+    _accent_part(c, tails, tag, occl, shade_k=0.9)
+    loops = np.zeros_like(cv.X)
+    for side in (-1, 1):
+        loop = ellipse(bx + side * s * 0.95, by - s * 0.05, s * 0.95, s * 0.62, rot=side * -0.25)
+        loops = np.maximum(loops, cv.fill_mask(loop))
+    shown = _accent_part(c, loops, tag, occl)
+    for side in (-1, 1):
+        inner = cv.fill_mask(ellipse(bx + side * s * 0.55, by - s * 0.02, s * 0.36, s * 0.26, rot=side * -0.25)) * shown
+        cv.paint(inner, np.asarray(REF_ACCENT, float) * 0.72, WA, tag=tag)
+    knot = cv.fill_mask(ellipse(bx, by, s * 0.36, s * 0.42))
+    _accent_part(c, knot, tag, occl, shade_k=0.95)

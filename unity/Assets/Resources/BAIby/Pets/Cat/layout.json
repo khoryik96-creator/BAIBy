@@ -105,6 +105,24 @@
    "gTarget": "secondary"
   },
   {
+   "path": "Accessories/Bandana/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 129,
+   "y": 318,
+   "width": 152,
+   "height": 103,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 129,
+   "y": 318,
+   "width": 152,
+   "height": 101,
+   "gTarget": "secondary"
+  },
+  {
    "path": "Markings/Tabby/YoungRest",
    "pose": "YoungRest",
    "x": 37,
@@ -156,6 +174,24 @@
    "y": 296,
    "width": 147,
    "height": 59,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/YoungRest",
+   "pose": "YoungRest",
+   "x": 146,
+   "y": 301,
+   "width": 136,
+   "height": 65,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungRest",
+   "pose": "YoungRest",
+   "x": 147,
+   "y": 302,
+   "width": 134,
+   "height": 63,
    "gTarget": "secondary"
   },
   {
@@ -213,6 +249,24 @@
    "gTarget": "secondary"
   },
   {
+   "path": "Accessories/Bandana/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 84,
+   "y": 305,
+   "width": 169,
+   "height": 110,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 85,
+   "y": 305,
+   "width": 168,
+   "height": 108,
+   "gTarget": "secondary"
+  },
+  {
    "path": "Markings/Tabby/GrownRest",
    "pose": "GrownRest",
    "x": 29,
@@ -264,6 +318,24 @@
    "y": 285,
    "width": 119,
    "height": 54,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/GrownRest",
+   "pose": "GrownRest",
+   "x": 140,
+   "y": 289,
+   "width": 107,
+   "height": 72,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownRest",
+   "pose": "GrownRest",
+   "x": 133,
+   "y": 290,
+   "width": 113,
+   "height": 73,
    "gTarget": "secondary"
   }
  ],
