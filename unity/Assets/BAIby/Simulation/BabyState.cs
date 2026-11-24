@@ -12,7 +12,10 @@ namespace BAIby.Simulation
         EnjoysStory, FreshDiaper, NewSoundComforted, NewSoundExplored, FreshBath, WalksToToy, StackedBlocks,
         PushesToyAway, TooFull,
         // The health axis: a sick baby gently refuses play, stories, blocks and baths; the doctor's visit; medicine.
-        TooPoorly, DoctorVisited, DoctorAllClear, MedicineTaken, MedicineDone, MedicineNotNow
+        TooPoorly, DoctorVisited, DoctorAllClear, MedicineTaken, MedicineDone, MedicineNotNow,
+        // Development: the same play over and over pays less and looks bored; a good day after a setback brings the
+        // shy skill back.
+        Bored, SkillBack
     }
 
     public sealed class BabyState
@@ -52,13 +55,22 @@ namespace BAIby.Simulation
         public BabyAppearance Appearance { get; }
         // The care ledger and consequence state (mood, mess, Away mode, care style). Never null.
         public CareRecord Care { get; }
+        // Development tracks, readiness and the setback. Null for a baby saved before tracks existed: the
+        // simulation seeds it from age on first use.
+        public DevelopmentRecord Development { get; }
         public bool HasPendingNewSound => CanSitAndReach && !NewSoundResolved;
+        // The skill a setback made shy, if any. It stays reached (skills never re-lock); the baby just shows the
+        // stage before it for a while, so the walker crawls to toys.
+        public MotorSkill ShySkill => Development?.Shy ?? MotorSkill.None;
+        public bool ShowsSitting => CanSitAndReach && ShySkill != MotorSkill.Sitting;
+        public bool ShowsCrawling => CanCrawl && ShySkill != MotorSkill.Crawling;
+        public bool ShowsWalking => CanWalk && ShySkill != MotorSkill.Walking;
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
             bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage, bool canWalk = false, int blockTowers = 0,
-            BabyAppearance appearance = null, CareRecord care = null)
+            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -104,17 +116,24 @@ namespace BAIby.Simulation
             care = care ?? CareRules.Unanchored(timeCheckpoint);
             if (care.Checkpoint.UtcTicks != timeCheckpoint.UtcTicks)
                 throw new ArgumentException("The care ledger must share the baby's time checkpoint.", nameof(care));
+            if (development != null)
+            {
+                var reached = canWalk ? MotorSkill.Walking : canCrawl ? MotorSkill.Crawling :
+                    canSitAndReach ? MotorSkill.Sitting : MotorSkill.None;
+                if (development.Shy > reached)
+                    throw new ArgumentException("Only a reached skill can be shy.", nameof(development));
+            }
 
             return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
                 toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme, canWalk, blockTowers,
-                appearance ?? BabyAppearance.Default, care);
+                appearance ?? BabyAppearance.Default, care, development);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
             bool newSoundResolved, NurseryTheme nurseryTheme, bool canWalk, int blockTowers, BabyAppearance appearance,
-            CareRecord care)
+            CareRecord care, DevelopmentRecord development = null)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -136,6 +155,7 @@ namespace BAIby.Simulation
             NurseryTheme = nurseryTheme;
             Appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
             Care = care ?? throw new ArgumentNullException(nameof(care));
+            Development = development;
         }
 
         // Copy-with: every omitted argument keeps its current value, so adding a field cannot shift
@@ -146,14 +166,14 @@ namespace BAIby.Simulation
             int? toyFamiliarity = null, int? plushFamiliarity = null, bool? canSitAndReach = null, bool? canCrawl = null,
             double? connection = null, int? storySessions = null, double? cleanliness = null, double? health = null,
             bool? newSoundResolved = null, NurseryTheme? nurseryTheme = null, bool? canWalk = null, int? blockTowers = null,
-            BabyAppearance appearance = null, CareRecord care = null) =>
+            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null) =>
             new BabyState(Name, timeCheckpoint ?? TimeCheckpoint, age ?? Age,
                 satiety ?? Satiety, comfort ?? Comfort, energy ?? Energy,
                 toyFamiliarity ?? ToyFamiliarity, plushFamiliarity ?? PlushFamiliarity,
                 canSitAndReach ?? CanSitAndReach, canCrawl ?? CanCrawl, connection ?? Connection,
                 storySessions ?? StorySessions, cleanliness ?? Cleanliness, health ?? Health,
                 newSoundResolved ?? NewSoundResolved, nurseryTheme ?? NurseryTheme, canWalk ?? CanWalk,
-                blockTowers ?? BlockTowers, appearance ?? Appearance, care ?? Care);
+                blockTowers ?? BlockTowers, appearance ?? Appearance, care ?? Care, development ?? Development);
 
         public BabyState WithNurseryTheme(NurseryTheme nurseryTheme)
         {

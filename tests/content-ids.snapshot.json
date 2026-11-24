@@ -20,6 +20,15 @@
     "Earned": 1,
     "Premium": 2
   },
+  "CareCategories": {
+    "None": 0,
+    "Meal": 1,
+    "Comfort": 2,
+    "Play": 4,
+    "Story": 8,
+    "Hygiene": 16,
+    "Rest": 32
+  },
   "CareCondition": {
     "Well": 0,
     "UnderTheWeather": 1,
@@ -120,11 +129,28 @@
     "Walking": 2,
     "Grown": 3
   },
+  "DevelopmentTrack": {
+    "Motor": 0,
+    "Learning": 1,
+    "Social": 2,
+    "Physical": 3
+  },
   "EarnedGoal": {
     "FirstFullCareDay": 0,
     "Bond40": 1,
     "RaisedToGrown": 2,
     "SevenOnTimeCareDays": 3
+  },
+  "EngagementKind": {
+    "PlayRattle": 0,
+    "PlayPlush": 1,
+    "Story": 2,
+    "Blocks": 3,
+    "Soothe": 4,
+    "Meal": 5,
+    "Hygiene": 6,
+    "ComfortSound": 7,
+    "ExploreSound": 8
   },
   "EntitlementSource": {
     "Store": 0,
@@ -163,6 +189,12 @@
     "Missed": 3,
     "Excused": 4,
     "Covered": 5
+  },
+  "MotorSkill": {
+    "None": 0,
+    "Sitting": 1,
+    "Crawling": 2,
+    "Walking": 3
   },
   "NurseryTheme": {
     "Sage": 0,
@@ -310,6 +342,11 @@
   "RoutinePreset": {
     "SchoolDay": 0,
     "Home": 1
+  },
+  "SampleMode": {
+    "Normal": 0,
+    "Away": 1,
+    "Helper": 2
   },
   "SkinTone": {
     "Warm": 0,

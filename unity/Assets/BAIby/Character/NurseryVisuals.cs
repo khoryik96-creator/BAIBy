@@ -857,7 +857,9 @@ namespace BAIby.Character
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             float bath = reaction == Reaction.FreshBath ? Window(elapsed, 0, .36f, 1.90f, BathCueDuration) : 0;
             float blocks = reaction == Reaction.StackedBlocks ? Window(elapsed, 0, .30f, 1.75f, BlocksCueDuration) : 0;
-            bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull || reaction == Reaction.TooPoorly;
+            // A bored baby gives the same small head shake, without pushing anything away.
+            bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull || reaction == Reaction.TooPoorly ||
+                reaction == Reaction.Bored;
             float refuse = refusing ? Window(elapsed, 0, .18f, 1.15f, RefuseCueDuration) : 0;
             float refuseShake = Mathf.Sin(elapsed * 17f) * 5.5f * refuse;
             float pushAway = reaction == Reaction.PushesToyAway ? refuse : 0;

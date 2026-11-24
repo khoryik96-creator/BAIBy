@@ -178,7 +178,7 @@ namespace BAIby.Presentation
                     return $"{state.Name} is a bit under the weather: sniffly and low on energy. A visit to Dr. Lee, " +
                         "or a good day of care, will help.";
                 default:
-                    return care.IsMessy ? "The nursery is getting messy. Wash up to tidy it." : null;
+                    return DescribeShy(state) ?? (care.IsMessy ? "The nursery is getting messy. Wash up to tidy it." : null);
             }
         }
 

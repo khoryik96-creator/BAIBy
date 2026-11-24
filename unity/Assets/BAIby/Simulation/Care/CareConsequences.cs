@@ -104,7 +104,7 @@ namespace BAIby.Simulation
 
         // What the companion's state does to development readiness (docs/care-and-growth.md, Milestone timing):
         // 1 when well, 0.75 under the weather, 0.5 upset or recovering, and 0 while sick before the doctor. The
-        // lower of the mood's and the condition's factor applies. Slice 4's readiness timing multiplies by it.
+        // lower of the mood's and the condition's factor applies. Readiness timing (BabyGrowth) multiplies by it.
         public static double Readiness(CareRecord record)
         {
             if (record == null)

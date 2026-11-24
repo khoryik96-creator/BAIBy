@@ -16,11 +16,11 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Open **Feed** before crawling | Milk is available. Mashed banana and soft oats show when they unlock. |
 | Open **Feed** as a crawler | All three choices are available. Milk helps energy, banana helps comfort, and oats give the largest fullness increase. |
 | Feed and soothe | Fullness and comfort rise, with a distinct reaction for each interaction. Age follows the game clock. |
-| Select **Next day** three times and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. |
+| Feed, change, soothe and play, then select **Next day**; repeat until the baby sits (three or four times) and play with the familiar toy again | The baby sits and reaches for the familiar toy. The milestone appears once. Care sets the day: see [Development](#development-readiness-tracks-and-setback). |
 | Open **A new sound** after sitting unlocks | The chime plays and the two responses preview their distinct effects. You can leave the choice pending and come back. |
 | Choose **Comfort them** or **Explore together** | The chosen effects apply once and the notice stays resolved after reopening. |
-| Advance from day six to day seven | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
-| Advance from day 13 to day 14 | The Early walker pose and first-steps announcement appear. Play with a familiar toy to see the first steps toward it. |
+| Keep caring and selecting **Next day** until crawling (between day 6 and day 10) | A distinct crawling pose appears and the milestone is announced. Play with a familiar toy to see the baby crawl toward it. |
+| Keep going until first steps (between day 12 and day 20) | The Early walker pose and first-steps announcement appear. Play with a familiar toy to see the first steps toward it. |
 | Select **Rest** after crawling unlocks | The baby settles into a lying-down nap pose for the current stage. |
 | Open **Growth** and select **Read a story** | The storybook appears and the panel shows one more story session and increased connection. |
 | Open **Decor** and switch from Sage to Peach | The room fades to the new illustration. Baby stats stay the same and the selected style survives reload. |
@@ -32,6 +32,27 @@ Open the nursery in Unity Play Mode or in the Web preview. Use a fresh save to r
 | Open **Growth → Baby report** | Current milestones and connection reflect the save. After repeated story time or block stacking, those interests appear alongside any favorite toy. |
 | Close and reopen the same build | The same baby, look, energy, favorite toy, developmental stage, story sessions, towers built, connection, cleanliness, and health return. |
 | Play at phone size | Check whether the gaze is clear, the posture reads as a new stage, the hands meet the toy, and the main controls fit without crowding. |
+
+## Development: readiness, tracks and setback
+
+Care slice 4 of [care and growth](care-and-growth.md). Each milestone has a nominal day (sitting 3, crawling 7, walking 14). Good, varied, on-time care brings it sooner, down to 0.8x; neglect makes it later, up to 1.3x; and it always comes by 1.4x (day 4.2, 9.8 and 19.6). Skills never go away.
+
+The quickest way to see faster and slower milestones is a Web, Editor or Development build with **Developer mode** on (Grown-ups gear on Home, or `?dev=1`) and the **Next day** button. A preview day passes no real time: it ages the baby a day and drains the needs for up to 8 hours, so the care you give before each tap is what it rewards.
+
+| Step | Expected result |
+| --- | --- |
+| Adopt a baby, open **Growth** | A mint card under the day line reads "Likely to sit up in about 3 days" with an **On track** pill and a hint ("Meals on time, play and cuddles keep it coming."). |
+| Before each **Next day**: feed (twice if hungry), change, soothe, play with the rattle and the plush (or read a story), and rest | The baby sits on the third preview day, crawls on about the seventh and walks on about the fourteenth. After play the card shows a shorter wait and, when it is short of the nominal day, **Ahead**. |
+| Adopt another baby and select **Next day** with no care at all | Needs fall and the card turns to **Taking their time** ("Mia is taking their time with sitting up. Play and cuddles help."). The baby sits on the fourth preview day, crawls on about the ninth and walks on about the seventeenth. |
+| Play with the same toy, or read, four times in a row | The fourth time the baby gives a small head shake: "looks a little bored of that. Try something different!" Repeats within six hours count for less; another kind of play is fresh. A preview day passes no real time, so repeating the same play before every **Next day** soon looks bored too. |
+| Feed, change, soothe and read on the same care day | The fourth kind of care adds 2 to Connection, once a day. |
+| Open **Growth → Baby report** | A Growth section lists Moving, Learning, Bonding and Growing as Flourishing, Steady, or what helps ("Stories help"), and the growth chart band: Thriving, Steady or "Needs regular meals". The next milestone reads "Likely in about N days"; reached ones read **Unlocked**. |
+| Real time: leave a crawler or walker for a day so three meals are missed, come back and leave it unfed for 15 minutes in the nursery | A setback: the newest skill feels shy. A walker stands and crawls like a crawler ("feels a little shy about walking and crawls to toys for now"), a crawler sits. The skill stays in the report as **A bit shy**, blocks stay open, and readiness for the next skill drops a little. Feeding within the first 15 minutes of the visit avoids it. Gentle care has no setback. |
+| Give a shy baby one good care day: three meals on time and two soothes | On the last of them the baby walks (or crawls) again with a celebration: "is walking again! A good day of meals and cuddles helped." The Growth card counts the good day while it lasts ("meals on time 1 of 3, cuddles 0 of 2"). |
+| Make the baby sick (see Health below) and open **Growth** | "Growing waits while Mia is poorly"; readiness pauses until Dr. Lee's visit, and the guarantee still holds. |
+| Reopen a save from before this build | The baby keeps every milestone it has, and the time since it was saved counts at the nominal pace, as before; from then on care sets the pace. The save becomes v15 on the next write. |
+
+The developer read-out (`BabySession.CareSummary`) ends with the growth line: next skill, readiness, the projection in days, W and the four qualities, and any shy skill.
 
 ## Daily routine and consequences
 
@@ -54,7 +75,7 @@ Care slice 2 of [care and growth](care-and-growth.md). Needs follow the real clo
 | Tap the strip (or **Routine**), then **Away 1 day** (or 3 days, 1 week, 2 weeks) | The chips read **Away**, the status says needs stay steady, and **We're back** replaces the choices. While away, needs settle no lower than 60 (lower needs stay put), Health holds, nothing is missed and age keeps its normal pace. |
 | Reopen after the Away period ends | Windows count again from the planned end; a return a day late is an ordinary absence. Any care, or **We're back**, ends Away mode early. |
 | Tap the strip (or **Routine**) and choose **Gentle** | Fussing starts only below 25, overdue meals never fuss, escalation waits 4 hours, and overfeeding costs less. **Standard** is the default. |
-| Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v14 on the next write. |
+| Reopen a save from before this build | The baby opens as it was: content, no misses, tidy room, Standard style. The save becomes v15 on the next write. |
 
 ## Health: under the weather, sick and the doctor
 
@@ -74,7 +95,7 @@ Care slice 3 of [care and growth](care-and-growth.md). Health is a second track 
 | Give an under-the-weather baby a good care day: two meals on time, nothing missed, play or a story, and bedtime | After the care day ends (04:00) the baby is well again, without the doctor, if Health is back at 50. |
 | Choose **Gentle** in the Routine panel | Under the weather starts below Health 40, Sick below 20 and only after 30 minutes present. |
 | Open **Home** | The card reads "A bit under the weather", "Poorly, would love the doctor" or "Getting better", and a sick baby lights the Home dot. |
-| Reopen a save from before this build | The baby opens well, with nothing counted. The save becomes v14 (care v3) on the next write. |
+| Reopen a save from before this build | The baby opens well, with nothing counted. The save becomes v15 (care v3) on the next write. |
 
 ## Household
 

@@ -20,6 +20,10 @@ namespace BAIby.Application
         public IReadOnlyList<RoutineSlot> Routine =>
             State == null ? (IReadOnlyList<RoutineSlot>)Array.Empty<RoutineSlot>() : BabySimulation.Routine(State);
 
+        // Development for the Growth panel and the report (track qualities, the growth chart band, the next skill
+        // and when it is likely), as of the last refresh; null before adoption.
+        public GrowthReport Growth => State == null ? null : simulation.Growth(State);
+
         // Whether feeding now would overfeed.
         public bool IsFull => State != null && simulation.IsFull(State);
 

@@ -262,8 +262,9 @@ namespace BAIby.Presentation
             ApplyNurseryTheme(state?.NurseryTheme ?? NurseryTheme.Sage);
             var ambientToy = state?.FavoriteToy ?? Toy.Rattle;
             var visibleToy = playedToy ?? ambientToy;
-            nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
-                canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
+            // A shy skill (a setback) shows the stage before it; the walking-again celebration plays the skill.
+            nursery.Present(adopted, state?.ShowsSitting ?? false, VisualReaction(state, reaction), visibleToy, ambientToy,
+                canCrawl: state?.ShowsCrawling ?? false, food: food, canWalk: state?.ShowsWalking ?? false);
             nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0,
                 state?.Care.Condition ?? CareCondition.Well);
             // After Present, so the look is built first for the stage that is actually shown.
@@ -290,7 +291,8 @@ namespace BAIby.Presentation
             energy.Set(state.Energy);
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
-            var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeReaction(state.Name, reaction, visibleToy, food);
+            var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeGrowthReaction(state, reaction) ??
+                DescribeReaction(state.Name, reaction, visibleToy, food);
             if (unlocked.UnlockedWalking)
                 status.text = $"{state.Name} can take a few steps now. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
@@ -306,8 +308,9 @@ namespace BAIby.Presentation
             UpdateRoutineSlots(session.Routine, state.Care.Preset);
             routine.UpdateDetails(state, DescribeCondition(state) ??
                 $"{state.Name} is settled. Meals, play, bed and a wash each day keep the routine.");
-            development.UpdateDetails(state, age.text, status.text);
-            report.UpdateDetails(BabyReport.From(state));
+            var growth = session.Growth;
+            development.UpdateDetails(state, age.text, status.text, growth);
+            report.UpdateDetails(BabyReport.From(state), growth);
             feeding.UpdateDetails(state, status.text);
             UpdateHealthControls(state, reaction, reactionText);
             UpdateMood(state.Care.Mood);
@@ -455,10 +458,10 @@ namespace BAIby.Presentation
             var panel = Tray("Care", false, 378);
             controls = panel.parent.gameObject;
             BuildCareSheet(panel);
-            development = new DevelopmentPanel(Tray("Development Panel", false, 360),
+            development = new DevelopmentPanel(Tray("Development Panel", false, DevelopmentPanel.Height),
                 () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
                 () => ShowPanel(NurseryPanel.Report));
-            report = new ReportPanel(Tray("Report Panel", false, 470), () => ShowPanel(NurseryPanel.Development));
+            report = new ReportPanel(Tray("Report Panel", false, ReportPanel.Height), () => ShowPanel(NurseryPanel.Development));
             blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
                 () => ShowPanel(NurseryPanel.Development), CompleteBlocks);
             feeding = new FeedingPanel(Tray("Feeding Panel", false, 360),

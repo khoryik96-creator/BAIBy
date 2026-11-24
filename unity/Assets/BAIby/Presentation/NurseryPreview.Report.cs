@@ -9,8 +9,13 @@ namespace BAIby.Presentation
     {
         private ReportPanel report;
 
+        // The baby report: each track's quality and the growth chart band, the milestones with the next one's
+        // projection, interests and Connection.
         private sealed class ReportPanel
         {
+            public const float Height = 600;
+            private readonly Text[] tracks = new Text[4];
+            private readonly Text band;
             private readonly Text sitting;
             private readonly Text crawling;
             private readonly Text walking;
@@ -25,8 +30,17 @@ namespace BAIby.Presentation
             public ReportPanel(RectTransform content, Action close)
             {
                 Root = content.parent.gameObject;
-                SheetHeading("Report Heading", content, "Baby report", 470);
-                Done = SheetClose("Close baby report", "Done", content, 470, close);
+                SheetHeading("Report Heading", content, "Baby report", Height);
+                Done = SheetClose("Close baby report", "Done", content, Height, close);
+
+                Section("Report Growth Section", content, 474, 510, "Growth");
+                var right = Box("Report Tracks Right", content, new Vector2(0.5f, 0), Vector2.right, new Vector2(8, 0), Vector2.zero);
+                tracks[(int)DevelopmentTrack.Motor] = Line("Report Moving", content, 440, 472, 0.5f);
+                tracks[(int)DevelopmentTrack.Learning] = Line("Report Learning", right, 440, 472);
+                tracks[(int)DevelopmentTrack.Social] = Line("Report Bonding", content, 408, 440, 0.5f);
+                tracks[(int)DevelopmentTrack.Physical] = Line("Report Growing", right, 408, 440);
+                band = Line("Report Growth Chart", content, 376, 408);
+                band.color = FernDeep;
 
                 Section("Milestones", content, 333, 370);
                 sitting = Milestone("Sitting and reaching", "Report Sitting", content, 299);
@@ -49,11 +63,15 @@ namespace BAIby.Presentation
                 Root.SetActive(false);
             }
 
-            public void UpdateDetails(BabyReport details)
+            public void UpdateDetails(BabyReport details, GrowthReport growth)
             {
-                SetMilestone(sitting, details.CanSitAndReach);
-                SetMilestone(crawling, details.CanCrawl);
-                SetMilestone(walking, details.CanWalk);
+                foreach (DevelopmentTrack track in Enum.GetValues(typeof(DevelopmentTrack)))
+                    tracks[(int)track].text = growth == null ? string.Empty
+                        : $"{TrackName(track)} · {TrackWord(track, growth.Quality(track))}";
+                band.text = growth == null ? string.Empty : "Growth chart · " + BandName(growth.Band);
+                SetMilestone(sitting, MotorSkill.Sitting, details.CanSitAndReach, growth);
+                SetMilestone(crawling, MotorSkill.Crawling, details.CanCrawl, growth);
+                SetMilestone(walking, MotorSkill.Walking, details.CanWalk, growth);
                 favoriteToy.text = details.FavoriteToy is Toy favorite ? $"Favorite toy · {ToyName(favorite)}" : "No favorite toy yet";
                 stories.text = details.EnjoysStories
                     ? $"Enjoys story time · {details.StorySessions} stories read"
@@ -64,29 +82,35 @@ namespace BAIby.Presentation
                 bond.text = $"{Mathf.RoundToInt((float)details.Connection)} / 100";
             }
 
-            private static void Section(string name, Transform content, float bottom, float top)
+            private static void Section(string name, Transform content, float bottom, float top, string text = null)
             {
-                Label(name, content, name, 30, Ink, TextAnchor.MiddleLeft,
+                Label(name, content, text ?? name, 30, Ink, TextAnchor.MiddleLeft,
                     new Vector2(0, bottom), Vector2.right, new Vector2(0, top), FontStyle.Bold);
             }
 
-            private static Text Line(string name, Transform content, float bottom, float top)
+            private static Text Line(string name, Transform content, float bottom, float top, float right = 1)
             {
-                return Label(name, content, "", 23, Muted, TextAnchor.MiddleLeft,
-                    new Vector2(0, bottom), Vector2.right, new Vector2(0, top));
+                var line = Label(name, content, "", 23, Muted, TextAnchor.MiddleLeft,
+                    new Vector2(0, bottom), new Vector2(right, 0), new Vector2(right < 1 ? -8 : 0, top));
+                FitText(line, 16, 23);
+                return line;
             }
 
             private static Text Milestone(string title, string valueName, Transform parent, float bottom)
             {
                 Label(title, parent, title, 24, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, bottom), new Vector2(0.70f, 0), new Vector2(0, bottom + 34));
-                return Label(valueName, parent, "", 22, Secondary, TextAnchor.MiddleRight,
-                    new Vector2(0, bottom), Vector2.right, new Vector2(0, bottom + 34), FontStyle.Bold);
+                    new Vector2(0, bottom), new Vector2(0.52f, 0), new Vector2(0, bottom + 34));
+                // The status takes the right half: "Unlocked", "A bit shy", or "Likely in about 2 days".
+                var column = Box(valueName + " Column", parent, new Vector2(0.52f, 0), Vector2.right, Vector2.zero, Vector2.zero);
+                var value = Label(valueName, column, "", 22, Secondary, TextAnchor.MiddleRight,
+                    new Vector2(8, bottom), Vector2.right, new Vector2(0, bottom + 34), FontStyle.Bold);
+                FitText(value, 15, 22);
+                return value;
             }
 
-            private static void SetMilestone(Text status, bool unlocked)
+            private static void SetMilestone(Text status, MotorSkill skill, bool unlocked, GrowthReport growth)
             {
-                status.text = unlocked ? "Unlocked" : "Locked";
+                status.text = MilestoneStatus(skill, unlocked, growth);
                 status.color = unlocked ? FernDeep : Secondary;
             }
         }
