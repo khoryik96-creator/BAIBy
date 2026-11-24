@@ -942,6 +942,7 @@ PetHouseholdChecks.Run();
 EntitlementChecks.Run();
 GrowthChecks.Run();
 BondChecks.Run();
+CatCareChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 // Ordinary care until the baby is content: meals first, then soothing, rest and a bath.

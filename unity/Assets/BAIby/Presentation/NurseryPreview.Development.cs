@@ -1,5 +1,6 @@
 using System;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,7 +12,9 @@ namespace BAIby.Presentation
         private Button developmentButton;
 
         // Growth: the day and stage, a projection card for the next skill, three pastel metric cards (the care rhythm,
-        // Bond and towers), the last moment, and tiles for a story, blocks, the report and the journal.
+        // Bond and towers), the last moment, and tiles for a story, blocks, the report and the journal. A pet's Growth
+        // (care slice 7) is the same sheet: its projection ("Likely to pounce in about 2 days"), the rhythm, Bond and
+        // Trust, and the Journal tile across the row.
         private sealed class DevelopmentPanel
         {
             public const float Height = 446;
@@ -32,6 +35,8 @@ namespace BAIby.Presentation
             private readonly Text projection;
             private readonly Text projectionHint;
             private readonly (Image Pill, Text Label, Image Mark) pace;
+            private readonly Text thirdMetric;
+            private bool petMode;
 
             public DevelopmentPanel(RectTransform content, Action close, Action readStory, Action openBlocks,
                 Action openReport, Action openJournal)
@@ -60,6 +65,7 @@ namespace BAIby.Presentation
                 rhythm = MetricCard("Care rhythm", "Rhythm Value", content, 0, 1f / 3, Lilac);
                 bond = MetricCard("Bond", "Bond Value", content, 1f / 3, 2f / 3, Blush);
                 blockTowers = MetricCard("Towers built", "Towers Value", content, 2f / 3, 1, Butter);
+                thirdMetric = blockTowers.transform.parent.Find("Metric Label").GetComponent<Text>();
 
                 Feedback = Label("Development Feedback", content, "", 23, Muted, TextAnchor.MiddleLeft,
                     new Vector2(0, 104), Vector2.right, new Vector2(0, 156));
@@ -77,17 +83,11 @@ namespace BAIby.Presentation
 
             public void UpdateDetails(BabyState state, string ageText, string feedback, GrowthReport growth, BondRecord bonding)
             {
+                SetMode(false);
                 age.text = ageText;
-                projection.text = ProjectionLine(state, growth);
-                projectionHint.text = ProjectionHint(state, growth);
-                var paceText = growth == null || growth.Next == MotorSkill.None || growth.Paused ? string.Empty
-                    : PaceName(growth.Pace);
-                pace.Label.text = paceText;
-                pace.Pill.gameObject.SetActive(paceText.Length > 0);
-                var pill = (RectTransform)pace.Pill.transform;
-                var width = PillWidth(pace.Label, Px(24));
-                Place(pill, new Vector2(1, 1), new Vector2(-14, -10), new Vector2(width, 32));
-                projection.rectTransform.offsetMax = new Vector2(-(paceText.Length > 0 ? width + 24 : 16), -6);
+                projection.text = ProjectionLine(state.Name, growth);
+                projectionHint.text = ProjectionHint(state.Name, growth);
+                ShowPace(growth);
                 var days = bonding?.Rhythm ?? 0;
                 rhythm.text = days == 1 ? "1 day" : $"{days} days";
                 bond.text = $"{Mathf.RoundToInt((float)state.Bond)} / 100";
@@ -96,6 +96,60 @@ namespace BAIby.Presentation
                 stackTitle.rectTransform.offsetMin = new Vector2(stackTitle.rectTransform.offsetMin.x, state.CanWalk ? 8 : 26);
                 blockAvailability.gameObject.SetActive(!state.CanWalk);
                 Feedback.text = feedback;
+            }
+
+            // A pet's Growth: the projection, rhythm, Bond and Trust (temperament's Security for pets), and the journal.
+            // `meals` is how many on-time meals the setback's good day asks for.
+            public void UpdatePet(PetState pet, string ageText, string feedback, GrowthReport growth, BondRecord bonding,
+                SecurityPhase trust, int meals)
+            {
+                SetMode(true);
+                age.text = ageText;
+                projection.text = ProjectionLine(pet.Name, growth, true);
+                projectionHint.text = ProjectionHint(pet.Name, growth, true, meals);
+                ShowPace(growth);
+                var days = bonding?.Rhythm ?? 0;
+                rhythm.text = days == 1 ? "1 day" : $"{days} days";
+                bond.text = $"{Mathf.RoundToInt((float)pet.Bond)} / 100";
+                blockTowers.text = TrustWord(trust, pet.Bond);
+                Feedback.text = feedback;
+            }
+
+            private static string TrustWord(SecurityPhase trust, double bond)
+            {
+                switch (trust)
+                {
+                    case SecurityPhase.Settled: return "Settled";
+                    case SecurityPhase.Clingy: return "A bit wary";
+                    default: return bond < 20 ? "Getting to know you" : "Growing";
+                }
+            }
+
+            // The baby's tiles (story, blocks, report, journal) or a pet's Journal across the row.
+            private void SetMode(bool pet)
+            {
+                if (petMode == pet && ReadStory.gameObject.activeSelf == !pet)
+                    return;
+                petMode = pet;
+                ReadStory.gameObject.SetActive(!pet);
+                StackBlocks.gameObject.SetActive(!pet);
+                OpenReport.gameObject.SetActive(!pet);
+                thirdMetric.text = pet ? "Trust" : "Towers built";
+                var journalRect = (RectTransform)OpenJournal.transform;
+                journalRect.anchorMin = new Vector2(pet ? 0 : 0.75f, 0);
+                journalRect.offsetMin = new Vector2(pet ? 0 : 8, journalRect.offsetMin.y);
+            }
+
+            private void ShowPace(GrowthReport growth)
+            {
+                var paceText = growth == null || growth.Next == MotorSkill.None || growth.Paused ? string.Empty
+                    : PaceName(growth.Pace);
+                pace.Label.text = paceText;
+                pace.Pill.gameObject.SetActive(paceText.Length > 0);
+                var pill = (RectTransform)pace.Pill.transform;
+                var width = PillWidth(pace.Label, Px(24));
+                Place(pill, new Vector2(1, 1), new Vector2(-14, -10), new Vector2(width, 32));
+                projection.rectTransform.offsetMax = new Vector2(-(paceText.Length > 0 ? width + 24 : 16), -6);
             }
 
             // A compact pastel tile: an icon left of its label.

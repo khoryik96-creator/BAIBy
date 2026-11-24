@@ -9,19 +9,19 @@ namespace BAIby.Simulation
     // The growth chart band from the Physical track: never weights or body labels. Not saved.
     public enum GrowthBand { Thriving, Steady, NeedsRegularMeals }
 
-    // A read-out of the baby's development for the Growth panel and the Baby report.
+    // A read-out of a companion's development for the Growth panel and the report.
     public sealed class GrowthReport
     {
         // The latest track qualities and Wellbeing.
         public TrackSample Sample { get; }
         public GrowthBand Band { get; }
-        // The next motor skill (None once walking), readiness towards it, and when it is likely at the current
-        // pace (at most its guarantee).
+        // The next motor skill (None once the last is reached), readiness towards it, and when it is likely at the
+        // current pace (at most its guarantee).
         public MotorSkill Next { get; }
         public double Readiness { get; }
         public TimeSpan ExpectedIn { get; }
         public GrowthPace Pace { get; }
-        // Readiness is paused: the baby is sick and waits for the doctor.
+        // Readiness is paused: the little one is sick and waits for the doctor or the vet.
         public bool Paused { get; }
         public MotorSkill Shy { get; }
         // Progress through the good day that ends a setback.
@@ -46,7 +46,8 @@ namespace BAIby.Simulation
         public double Quality(DevelopmentTrack track) => Sample.Quality(track);
     }
 
-    // The baby's development (docs/care-and-growth.md, Development tracks, Milestone timing and the Setback rung).
+    // Development (docs/care-and-growth.md, Development tracks, Milestone timing and the Setback rung), for the baby and,
+    // through Subject, for any species with three milestones (a cat's pounce, climb and high jump).
     //
     // - Readiness p towards the next motor skill grows at cond / (D x (1.30 - 0.50 Q)) a day, D being the stage's
     //   nominal length, Q the Motor quality and cond CareConsequences.Readiness at the start of the gap. Past the
@@ -56,29 +57,44 @@ namespace BAIby.Simulation
     //   paces readiness until the next one, and each sample is computed from the state at the start of the gap,
     //   so within a session one long advance equals many short ones. Away mode holds the nominal pace; past the
     //   absence ceiling a helper holds Q 0.3.
-    // - A baby saved before tracks existed (no record) is seeded with readiness from its age, and its first advance
+    // - A companion saved before tracks existed (no record) is seeded with readiness from its age, and its first advance
     //   runs at the nominal pace, so migration never moves a milestone.
     // - Setback, only while the player is present, never re-locks: the newest skill goes shy and readiness drops by
-    //   0.15. One good day (three on-time meals and two comforting actions) brings it back.
+    //   0.15. One good day (three on-time meals, or every meal of a routine with fewer, and two comforting actions)
+    //   brings it back.
     internal sealed class BabyGrowth
     {
         private const int Stages = 3;
         private readonly long[] nominal = new long[Stages];
         private readonly long[] length = new long[Stages];
         private readonly long[] guarantee = new long[Stages];
+        private readonly MotorSkill[] skills;
+        private readonly BabyNeeds.NeedRates rates;
         private readonly CareTunables care;
         private readonly GrowthTunables tunables;
 
         public BabyGrowth(TimeSpan sittingAge, TimeSpan crawlingAge, TimeSpan walkingAge, CareTunables care,
             GrowthTunables tunables)
+            : this(new[] { sittingAge, crawlingAge, walkingAge },
+                new[] { MotorSkill.Sitting, MotorSkill.Crawling, MotorSkill.Walking }, care, tunables, BabyNeeds.NeedRates.Baby)
         {
+        }
+
+        // Three milestones at their nominal ages, in order, and the needs' rates for preview days.
+        public BabyGrowth(TimeSpan[] ages, MotorSkill[] skills, CareTunables care, GrowthTunables tunables,
+            BabyNeeds.NeedRates rates)
+        {
+            if (ages == null || ages.Length != Stages || skills == null || skills.Length != Stages)
+                throw new ArgumentException("Growth needs three milestones.", nameof(ages));
             this.care = care;
             this.tunables = tunables;
-            nominal[0] = sittingAge.Ticks;
-            nominal[1] = crawlingAge.Ticks;
-            nominal[2] = walkingAge.Ticks;
+            this.skills = (MotorSkill[])skills.Clone();
+            this.rates = rates;
             for (var i = 0; i < Stages; i++)
             {
+                nominal[i] = ages[i].Ticks;
+                if (nominal[i] <= (i == 0 ? 0 : nominal[i - 1]))
+                    throw new ArgumentOutOfRangeException(nameof(ages), "Each milestone follows the one before.");
                 length[i] = nominal[i] - (i == 0 ? 0 : nominal[i - 1]);
                 guarantee[i] = (long)Math.Ceiling(nominal[i] * tunables.Guarantee);
             }
@@ -86,26 +102,79 @@ namespace BAIby.Simulation
 
         public GrowthTunables Tunables => tunables;
 
+        // The milestones, in order.
+        public IReadOnlyList<MotorSkill> Skills => skills;
+
         // The ledger and needs a pure advance from the state would reach at an instant (UTC ticks).
         public delegate (CareRecord Care, BabyNeeds.Values Needs, double Bond) Projection(long at);
 
-        // Readiness from age at the nominal pace, and a sample of the state as it is.
-        public DevelopmentRecord Seed(BabyState state)
+        // What growth reads from a companion: its age, how many milestones it has reached, its development record (null
+        // before it is seeded), its ledger, needs and Bond, and its checkpoint.
+        internal readonly struct Subject
         {
-            var stage = StageOf(state);
+            public readonly long Age;
+            public readonly int Stage;
+            public readonly DevelopmentRecord Development;
+            public readonly CareRecord Care;
+            public readonly BabyNeeds.Values Needs;
+            public readonly double Bond;
+            public readonly DateTimeOffset Checkpoint;
+
+            public Subject(long age, int stage, DevelopmentRecord development, CareRecord care, BabyNeeds.Values needs,
+                double bond, DateTimeOffset checkpoint)
+            {
+                Age = age;
+                Stage = stage;
+                Development = development;
+                Care = care;
+                Needs = needs;
+                Bond = bond;
+                Checkpoint = checkpoint;
+            }
+        }
+
+        // What one care action counts as: its engagement kind (null for none, or when refused), its kind of care for the
+        // day's variety, whether it was refused, a meal (an on-time one counts towards a setback's good day) or comforting.
+        internal readonly struct CareKind
+        {
+            public readonly EngagementKind? Kind;
+            public readonly CareCategories Category;
+            public readonly bool Refused;
+            public readonly bool Meal;
+            public readonly bool Comforting;
+
+            public CareKind(EngagementKind? kind, CareCategories category, bool refused, bool meal, bool comforting)
+            {
+                Kind = refused ? null : kind;
+                Category = refused ? CareCategories.None : category;
+                Refused = refused;
+                Meal = meal;
+                Comforting = comforting;
+            }
+        }
+
+        public static Subject Of(BabyState state) =>
+            new Subject(state.Age.Ticks, StageOf(state), state.Development, state.Care, BabyNeeds.From(state), state.Bond,
+                state.TimeCheckpoint);
+
+        // Readiness from age at the nominal pace, and a sample of the state as it is.
+        public DevelopmentRecord Seed(BabyState state) => Seed(Of(state));
+
+        public DevelopmentRecord Seed(Subject state)
+        {
+            var stage = state.Stage;
             var readiness = 0.0;
             if (stage < Stages)
             {
                 var start = stage == 0 ? 0 : nominal[stage - 1];
-                readiness = DevelopmentRules.Clamp01((double)(state.Age.Ticks - start) / length[stage]);
+                readiness = DevelopmentRules.Clamp01((double)(state.Age - start) / length[stage]);
             }
 
             var empty = new List<EngagementEntry>();
             return new DevelopmentRecord.Builder
             {
                 Readiness = readiness,
-                Sample = SampleOf(SampleMode.Normal, BabyNeeds.From(state), state.Care, state.Bond, empty,
-                    state.TimeCheckpoint.UtcTicks),
+                Sample = SampleOf(SampleMode.Normal, state.Needs, state.Care, state.Bond, empty, state.Checkpoint.UtcTicks),
                 Engagement = empty,
                 CategoryDay = state.Care.CareDay,
                 RecoveryDay = state.Care.CareDay,
@@ -113,7 +182,9 @@ namespace BAIby.Simulation
         }
 
         // Unlocks that are already due without time passing (readiness 1, or the guarantee age).
-        public Step Settle(BabyState state)
+        public Step Settle(BabyState state) => Settle(Of(state));
+
+        public Step Settle(Subject state)
         {
             var dev = state.Development ?? Seed(state);
             var run = new Run(this, state, dev);
@@ -123,12 +194,14 @@ namespace BAIby.Simulation
 
         // Real time from the state's checkpoint to `now`. The ledger and needs at each sample instant come from
         // `project`, which advances the state's own ledger and needs without settling the ladder.
-        public Step Real(BabyState state, DateTimeOffset now, Projection project)
+        public Step Real(BabyState state, DateTimeOffset now, Projection project) => Real(Of(state), now, project);
+
+        public Step Real(Subject state, DateTimeOffset now, Projection project)
         {
             var seeded = state.Development == null;
             var dev = state.Development ?? Seed(state);
             var run = new Run(this, state, dev);
-            var from = state.TimeCheckpoint.UtcTicks;
+            var from = state.Checkpoint.UtcTicks;
             var to = now.UtcTicks;
             run.Check();
             if (seeded || state.Care.AwaitingAnchor)
@@ -158,7 +231,7 @@ namespace BAIby.Simulation
                 run.Cell(end - t, sample, cond, CountedLow(t, end, absenceEnd, sample));
                 if (end == next)
                 {
-                    sample = SampleAt(state, project, next, absenceEnd);
+                    sample = SampleAt(state, dev, project, next, absenceEnd);
                     sampledAt = next;
                     if (sample.Mode == SampleMode.Normal && sample.Wellbeing >= tunables.SetbackWellbeing)
                         run.Draft.LowWellbeingTime = TimeSpan.Zero;
@@ -170,21 +243,24 @@ namespace BAIby.Simulation
             // A held sample is refreshed at the last grid instant, as short advances would have.
             var last = FloorGrid(to, interval);
             if (sample.Mode != SampleMode.Normal && last > from && last > sampledAt)
-                sample = SampleAt(state, project, last, absenceEnd);
+                sample = SampleAt(state, dev, project, last, absenceEnd);
             run.Draft.Sample = sample;
             return run.Finish();
         }
 
         // A preview day: no real time passes, so the ledger and engagement hold and the hours count as awake hours.
-        public Step Preview(BabyState state, TimeSpan elapsed, TimeSpan cap, double recoveryBoost, double comfortFactor = 1)
+        public Step Preview(BabyState state, TimeSpan elapsed, TimeSpan cap, double recoveryBoost, double comfortFactor = 1) =>
+            Preview(Of(state), elapsed, cap, recoveryBoost, comfortFactor);
+
+        public Step Preview(Subject state, TimeSpan elapsed, TimeSpan cap, double recoveryBoost, double comfortFactor = 1)
         {
             var dev = state.Development ?? Seed(state);
             var run = new Run(this, state, dev);
             run.Check();
             var cond = CareConsequences.Readiness(state.Care);
             var mode = state.Care.IsAway ? SampleMode.Away : SampleMode.Normal;
-            var start = BabyNeeds.From(state);
-            var at = state.TimeCheckpoint.UtcTicks;
+            var start = state.Needs;
+            var at = state.Checkpoint.UtcTicks;
             var interval = tunables.SampleInterval.Ticks;
             var sample = dev.Sample;
             var hour = 0L;
@@ -196,7 +272,7 @@ namespace BAIby.Simulation
                 run.Cell(end - hour, sample, cond, 0);
                 if (end == next)
                 {
-                    var needs = BabyNeeds.Awake(start, TimeSpan.FromTicks(next), cap, recoveryBoost, comfortFactor);
+                    var needs = BabyNeeds.Awake(start, TimeSpan.FromTicks(next), cap, rates, recoveryBoost, comfortFactor);
                     sample = SampleOf(mode, needs, state.Care, state.Bond, dev.Engagement, at);
                 }
 
@@ -215,14 +291,18 @@ namespace BAIby.Simulation
 
         // The setback rung, after an advance: only while the player is present (an advance within the presence gap,
         // at least the sick dwell into the visit), never while away, and never in Gentle care.
-        public DevelopmentRecord Setback(DevelopmentRecord dev, BabyState state, CareRecord before, CareRecord after)
+        public DevelopmentRecord Setback(DevelopmentRecord dev, BabyState state, CareRecord before, CareRecord after) =>
+            Setback(dev, StageOf(state), before, after);
+
+        // `stage` is the number of milestones reached after the advance.
+        public DevelopmentRecord Setback(DevelopmentRecord dev, int stage, CareRecord before, CareRecord after)
         {
             if (dev.HasSetback || after.IsAway || after.AwaitingAnchor || before.AwaitingAnchor)
                 return dev;
             var rules = care.RulesFor(after.Style);
             if (!rules.Setbacks)
                 return dev;
-            var newest = Newest(state);
+            var newest = NewestOf(stage);
             if (newest == MotorSkill.None)
                 return dev;
 
@@ -258,17 +338,26 @@ namespace BAIby.Simulation
         public CareOutcome AfterCare(BabyState before, CareAction action, Toy toy, Reaction reaction, CareRecord record,
             BabyNeeds.Values needs, double scale, CuriosityPhase curiosity, double temperament, Func<double, double> settleBond)
         {
+            var refused = reaction == Reaction.PushesToyAway || reaction == Reaction.TooPoorly ||
+                reaction == Reaction.MedicineNotNow;
+            var kind = new CareKind(KindOf(action, toy, record.LastReason), CategoryOf(action), refused, action == CareAction.Feed,
+                action == CareAction.Soothe || action == CareAction.ComfortNewSound);
+            return AfterCare(Of(before), kind, record, needs, scale, curiosity, temperament, settleBond);
+        }
+
+        public CareOutcome AfterCare(Subject before, CareKind action, CareRecord record, BabyNeeds.Values needs, double scale,
+            CuriosityPhase curiosity, double temperament, Func<double, double> settleBond)
+        {
             var dev = before.Development ?? Seed(before);
             var draft = dev.ToBuilder();
             var at = record.Checkpoint.UtcTicks;
-            var refused = reaction == Reaction.PushesToyAway || reaction == Reaction.TooPoorly ||
-                reaction == Reaction.MedicineNotNow;
+            var refused = action.Refused;
             var bored = false;
             var bonus = 0.0;
-            var kind = refused ? null : KindOf(action, toy, record.LastReason);
+            var kind = action.Kind;
             if (kind.HasValue)
             {
-                var wellbeing = Wellbeing(BabyNeeds.From(before));
+                var wellbeing = Wellbeing(before.Needs);
                 var repeats = DevelopmentRules.Repeats(dev.Engagement, kind.Value, at, tunables);
                 var toyBit = ToyBit(kind.Value);
                 var novel = toyBit != 0 && (dev.StageToys & toyBit) == 0;
@@ -284,7 +373,7 @@ namespace BAIby.Simulation
                 bored = IsPlay(kind.Value) && repeats >= tunables.BoredRepeats;
             }
 
-            var category = refused ? CareCategories.None : CategoryOf(action);
+            var category = action.Category;
             if (draft.CategoryDay != record.CareDay)
             {
                 draft.CategoryDay = record.CareDay;
@@ -309,11 +398,13 @@ namespace BAIby.Simulation
                     draft.RecoverySoothes = 0;
                 }
 
-                if (action == CareAction.Feed && record.LastReason == CareReason.MealOnTime)
+                if (action.Meal && record.LastReason == CareReason.MealOnTime)
                     draft.RecoveryMeals++;
-                if (action == CareAction.Soothe || action == CareAction.ComfortNewSound)
+                if (action.Comforting)
                     draft.RecoverySoothes++;
-                if (draft.RecoveryMeals >= tunables.RecoveryMeals && draft.RecoverySoothes >= tunables.RecoverySoothes)
+                // A routine with fewer meal windows (a cat eats twice) asks for all of them on time.
+                var meals = Math.Min(tunables.RecoveryMeals, RoutineCalendar.MealWindows(record.Routine));
+                if (draft.RecoveryMeals >= meals && draft.RecoverySoothes >= tunables.RecoverySoothes)
                 {
                     draft.Shy = MotorSkill.None;
                     recovered = true;
@@ -327,7 +418,9 @@ namespace BAIby.Simulation
             return new CareOutcome(draft.Build(), bond, bored, recovered, kind);
         }
 
-        public GrowthReport Report(BabyState state)
+        public GrowthReport Report(BabyState state) => Report(Of(state));
+
+        public GrowthReport Report(Subject state)
         {
             var dev = state.Development ?? Seed(state);
             var sample = dev.Sample;
@@ -348,8 +441,8 @@ namespace BAIby.Simulation
             var unlockAge = run.UnlockAge ?? guarantee[stage];
             var ratio = (double)unlockAge / nominal[stage];
             var pace = ratio < 0.95 ? GrowthPace.Ahead : ratio <= 1.05 ? GrowthPace.OnTrack : GrowthPace.TakingTime;
-            return new GrowthReport(sample, band, (MotorSkill)(stage + 1), readiness,
-                TimeSpan.FromTicks(Math.Max(0, unlockAge - state.Age.Ticks)), pace, cond <= 0, dev.Shy,
+            return new GrowthReport(sample, band, skills[stage], readiness,
+                TimeSpan.FromTicks(Math.Max(0, unlockAge - state.Age)), pace, cond <= 0, dev.Shy,
                 dev.RecoveryMeals, dev.RecoverySoothes);
         }
 
@@ -357,7 +450,7 @@ namespace BAIby.Simulation
         // (for checks and tuning: the same integration as real time).
         public TimeSpan[] Schedule(TrackSample sample, double cond, TimeSpan step)
         {
-            var run = new Run(this, 0, false, false, false, new DevelopmentRecord.Builder { Sample = sample });
+            var run = new Run(this, 0, 0, new DevelopmentRecord.Builder { Sample = sample });
             var ages = new TimeSpan[Stages];
             var stage = 0;
             while (stage < Stages)
@@ -375,15 +468,17 @@ namespace BAIby.Simulation
             state.CanWalk ? MotorSkill.Walking : state.CanCrawl ? MotorSkill.Crawling :
             state.CanSitAndReach ? MotorSkill.Sitting : MotorSkill.None;
 
+        // The newest milestone among `stage` reached (None before the first).
+        public MotorSkill NewestOf(int stage) => stage <= 0 ? MotorSkill.None : skills[Math.Min(stage, Stages) - 1];
+
         public static double Wellbeing(BabyNeeds.Values needs) =>
             DevelopmentRules.Wellbeing(needs.Satiety, needs.Comfort, needs.Energy, needs.Cleanliness);
 
-        private TrackSample SampleAt(BabyState state, Projection project, long at, long absenceEnd)
+        private TrackSample SampleAt(Subject state, DevelopmentRecord dev, Projection project, long at, long absenceEnd)
         {
             var mode = state.Care.IsAwayAt(new DateTimeOffset(at, TimeSpan.Zero)) ? SampleMode.Away
                 : at >= absenceEnd ? SampleMode.Helper : SampleMode.Normal;
             var projected = project(at);
-            var dev = state.Development;
             return SampleOf(mode, projected.Needs, projected.Care, projected.Bond, dev.Engagement, at);
         }
 
@@ -452,13 +547,15 @@ namespace BAIby.Simulation
 
         private static bool IsPlay(EngagementKind kind) =>
             kind == EngagementKind.PlayRattle || kind == EngagementKind.PlayPlush || kind == EngagementKind.Story ||
-            kind == EngagementKind.Blocks || kind == EngagementKind.ExploreSound;
+            kind == EngagementKind.Blocks || kind == EngagementKind.ExploreSound || kind == EngagementKind.PlayWand;
 
+        // A cat's wand is its first toy (the rattle's bit).
         private static int ToyBit(EngagementKind kind)
         {
             switch (kind)
             {
-                case EngagementKind.PlayRattle: return 1;
+                case EngagementKind.PlayRattle:
+                case EngagementKind.PlayWand: return 1;
                 case EngagementKind.PlayPlush: return 2;
                 case EngagementKind.Blocks: return 4;
                 default: return 0;
@@ -495,34 +592,38 @@ namespace BAIby.Simulation
             return floor == at ? at : NextGrid(at, interval);
         }
 
-        // The result of one development step.
+        // The result of one development step. Milestones are numbered 0 to 2 (for the baby: sitting, crawling, walking).
         internal sealed class Step
         {
+            private readonly bool[] can;
+            private readonly bool[] unlocked;
+
             public DevelopmentRecord.Builder Draft { get; }
-            public bool CanSitAndReach { get; }
-            public bool CanCrawl { get; }
-            public bool CanWalk { get; }
-            public bool UnlockedSitting { get; }
-            public bool UnlockedCrawling { get; }
-            public bool UnlockedWalking { get; }
+            public bool CanSitAndReach => can[0];
+            public bool CanCrawl => can[1];
+            public bool CanWalk => can[2];
+            public bool UnlockedSitting => unlocked[0];
+            public bool UnlockedCrawling => unlocked[1];
+            public bool UnlockedWalking => unlocked[2];
             // The caller samples the advanced state at the end (a migrated advance).
             public bool ResampleAtEnd { get; set; }
 
             public bool AnyUnlocked => UnlockedSitting || UnlockedCrawling || UnlockedWalking;
 
+            // Milestones reached after the step.
+            public int Stage => can[2] ? 3 : can[1] ? 2 : can[0] ? 1 : 0;
+
             // The age (ticks) at which each stage unlocked during the step; meaningful where Unlocked* is true.
             public long[] UnlockAges { get; }
+
+            public bool Unlocked(int stage) => unlocked[stage];
 
             public Step(DevelopmentRecord.Builder draft, bool[] can, bool[] unlocked, long[] unlockAges)
             {
                 Draft = draft;
                 UnlockAges = (long[])unlockAges.Clone();
-                CanSitAndReach = can[0];
-                CanCrawl = can[1];
-                CanWalk = can[2];
-                UnlockedSitting = unlocked[0];
-                UnlockedCrawling = unlocked[1];
-                UnlockedWalking = unlocked[2];
+                this.can = (bool[])can.Clone();
+                this.unlocked = (bool[])unlocked.Clone();
             }
         }
 
@@ -558,20 +659,19 @@ namespace BAIby.Simulation
             public long? UnlockAge { get; set; }
             public long[] UnlockAges { get; } = new long[Stages];
 
-            public Run(BabyGrowth growth, BabyState state, DevelopmentRecord dev)
-                : this(growth, state.Age.Ticks, state.CanSitAndReach, state.CanCrawl, state.CanWalk, dev.ToBuilder())
+            public Run(BabyGrowth growth, Subject state, DevelopmentRecord dev)
+                : this(growth, state.Age, state.Stage, dev.ToBuilder())
             {
             }
 
-            public Run(BabyGrowth growth, long age, bool sitting, bool crawling, bool walking, DevelopmentRecord.Builder draft)
+            public Run(BabyGrowth growth, long age, int stage, DevelopmentRecord.Builder draft)
             {
                 this.growth = growth;
                 Draft = draft;
                 Age = age;
-                can[0] = sitting;
-                can[1] = sitting && crawling;
-                can[2] = sitting && crawling && walking;
-                Stage = can[2] ? 3 : can[1] ? 2 : can[0] ? 1 : 0;
+                Stage = Math.Max(0, Math.Min(Stages, stage));
+                for (var i = 0; i < Stage; i++)
+                    can[i] = true;
             }
 
             // One stretch of `ticks` paced by `sample`; `low` ticks of it count towards low Wellbeing.

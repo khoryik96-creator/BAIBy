@@ -7,7 +7,8 @@ using UnityEngine.UI;
 namespace BAIby.Presentation
 {
     // The health axis on screen (care slice 3, docs/care-and-growth.md): a condition chip in the header card, a
-    // Doctor or Medicine tile in the care sheet, and Dr. Lee's sheet with the three recovery steps. The baby's own
+    // Doctor or Medicine tile in the care sheet, and Dr. Lee's sheet with the three recovery steps. A cat (care slice 7)
+    // shares the chip and the sheet, which becomes the vet's (Dr. Rosa) in the pet room. The baby's own
     // look (a paler tint, a droop, the bed and quilt, and a small bubble) comes from NurseryVisuals.SetCondition.
     // Copy stays calm: it says what helps, never blames, and never frightens.
     public sealed partial class NurseryPreview
@@ -59,7 +60,24 @@ namespace BAIby.Presentation
             healthButton.gameObject.SetActive(false);
             careTiles.Add(healthButton);
 
-            doctor = new DoctorPanel(Tray("Doctor Panel", false, 378), () => ShowPanel(NurseryPanel.Care), VisitDoctor);
+            doctor = new DoctorPanel(Tray("Doctor Panel", false, 378), CloseDoctor, VisitDoctorOrVet);
+        }
+
+        // The sheet is the baby's doctor in the nursery and the vet in a pet's room.
+        private void CloseDoctor()
+        {
+            if (view == HouseholdView.PetRoom)
+                ShowPetPanel(PetPanel.Care);
+            else
+                ShowPanel(NurseryPanel.Care);
+        }
+
+        private void VisitDoctorOrVet()
+        {
+            if (view == HouseholdView.PetRoom)
+                VisitVet();
+            else
+                VisitDoctor();
         }
 
         private void UseHealthAction()
@@ -91,7 +109,7 @@ namespace BAIby.Presentation
         private void UpdateHealthControls(BabyState state, Reaction reaction, string reactionText)
         {
             var care = state.Care;
-            var chip = ChipFor(care, session.MedicineCourse);
+            var chip = ChipFor(care, session.MedicineCourse, false);
             conditionChip.gameObject.SetActive(chip.Text != null);
             favorite.gameObject.SetActive(chip.Text == null);
             if (chip.Text != null)
@@ -138,12 +156,12 @@ namespace BAIby.Presentation
             favorite.gameObject.SetActive(true);
         }
 
-        private static (string Text, Color Background, Color Ink) ChipFor(CareRecord care, int course)
+        private static (string Text, Color Background, Color Ink) ChipFor(CareRecord care, int course, bool pet)
         {
             switch (care.Condition)
             {
                 case CareCondition.UnderTheWeather: return ("Under the weather", Butter, ButterInk);
-                case CareCondition.Sick: return ("Sick — needs the doctor", Blush, BlushInk);
+                case CareCondition.Sick: return (pet ? "Sick — needs the vet" : "Sick — needs the doctor", Blush, BlushInk);
                 case CareCondition.Recovering:
                     return ($"Recovering · medicine {Math.Min(care.MedicineDoses, course)} of {course}", FernSoft, FernDeep);
                 default: return (null, Mist, Ink);
@@ -218,6 +236,9 @@ namespace BAIby.Presentation
             private readonly Image[] steps = new Image[3];
             private readonly Text[] stepLabels = new Text[3];
             private readonly Text doneLabel;
+            private readonly Text heading;
+            private readonly Text visitTitle;
+            private readonly Text visitDetails;
 
             public GameObject Root { get; }
             public Button Visit { get; }
@@ -232,7 +253,7 @@ namespace BAIby.Presentation
                     new Vector2(0, Height - 96), new Vector2(96, Height));
                 SoftShapes.Radius(Surface(badge, Sky), Px(18));
                 IconAt("Doctor Badge Icon", badge, "Doctor", Ink, new Vector2(0.5f, 0.5f), Vector2.zero, Px(28));
-                var heading = Label("Doctor Heading", content, "Dr. Lee", 39, Ink, TextAnchor.MiddleLeft,
+                heading = Label("Doctor Heading", content, "Dr. Lee", 39, Ink, TextAnchor.MiddleLeft,
                     new Vector2(116, Height - 48), new Vector2(0.73f, 0), new Vector2(0, Height - 2), FontStyle.Bold);
                 FitText(heading, 28, 39);
                 Feedback = Label("Doctor Feedback", content, "", 24, Secondary, TextAnchor.UpperLeft,
@@ -267,24 +288,33 @@ namespace BAIby.Presentation
                 Visit = ActionButton("Visit Dr. Lee", content, 0, 1, 0, 94, visit, Fern, Color.white);
                 Visit.name = "Visit doctor";
                 SoftShapes.Radius(Visit.image, Px(18));
-                var title = Visit.GetComponentInChildren<Text>();
-                title.fontSize = 30;
-                title.rectTransform.offsetMin = new Vector2(12, 34);
-                title.rectTransform.offsetMax = new Vector2(-12, -6);
-                var details = Label("Visit Dr. Lee Effects", Visit.transform, "Free  ·  Health +15  ·  A gentle check-up",
+                visitTitle = Visit.GetComponentInChildren<Text>();
+                visitTitle.fontSize = 30;
+                visitTitle.rectTransform.offsetMin = new Vector2(12, 34);
+                visitTitle.rectTransform.offsetMax = new Vector2(-12, -6);
+                visitDetails = Label("Visit Dr. Lee Effects", Visit.transform, "Free  ·  Health +15  ·  A gentle check-up",
                     20, new Color(1, 1, 1, 0.86f), TextAnchor.MiddleCenter, new Vector2(12, 8), Vector2.right, new Vector2(-12, 38));
-                FitText(details, 15, 20);
+                FitText(visitDetails, 15, 20);
                 Root.SetActive(false);
             }
 
             // Before the visit the sheet invites; after it, it keeps Dr. Lee's words until it closes. The steps
             // follow the recovery: the current one is tinted sage, finished ones get a tick in their number.
-            public void UpdateDetails(BabyState state, bool offered, string outcome, int course)
+            public void UpdateDetails(BabyState state, bool offered, string outcome, int course) =>
+                UpdateFor(state.Name, state.Care, offered, outcome, course, false);
+
+            // The same sheet for a pet: the vet, Dr. Rosa, sees it in its basket.
+            public void UpdateFor(string name, CareRecord care, bool offered, string outcome, int course, bool pet)
             {
-                var name = state.Name;
+                var doctorName = pet ? VetName : "Dr. Lee";
+                heading.text = pet ? VetName + ", the vet" : "Dr. Lee";
+                visitTitle.text = "Visit " + doctorName;
+                Visit.name = pet ? "Visit vet" : "Visit doctor";
+                visitDetails.text = pet ? "Free  ·  Health +15  ·  A gentle check-up" : "Free  ·  Health +15  ·  A gentle check-up";
+                stepLabels[0].text = "Visit " + doctorName;
                 Visit.gameObject.SetActive(offered);
-                var recovering = state.Care.Condition == CareCondition.Recovering;
-                var current = offered ? 0 : recovering ? 1 + Math.Min(state.Care.MedicineDoses, 1) : -1;
+                var recovering = care.Condition == CareCondition.Recovering;
+                var current = offered ? 0 : recovering ? 1 + Math.Min(care.MedicineDoses, 1) : -1;
                 for (var i = 0; i < steps.Length; i++)
                 {
                     var finished = !offered && recovering && i < current;
@@ -298,9 +328,9 @@ namespace BAIby.Presentation
                 PlaceDone(offered);
                 if (offered)
                 {
-                    Scene.text = state.Care.Condition == CareCondition.Sick
-                        ? $"{name} is poorly and resting in bed. Dr. Lee can see {name} right now."
-                        : $"{name} is a little under the weather. Dr. Lee can see {name} right now.";
+                    Scene.text = care.Condition == CareCondition.Sick
+                        ? $"{name} is poorly and resting {(pet ? "curled up in a basket" : "in bed")}. {doctorName} can see {name} right now."
+                        : $"{name} is a little under the weather. {doctorName} can see {name} right now.";
                     Feedback.text = "Visits are always free and only take a moment.";
                     return;
                 }
@@ -308,7 +338,7 @@ namespace BAIby.Presentation
                 if (outcome != null)
                     Scene.text = outcome;
                 else if (!Root.activeSelf)
-                    Scene.text = $"{name} is well looked after. Dr. Lee is here whenever {name} feels poorly.";
+                    Scene.text = $"{name} is well looked after. {doctorName} is here whenever {name} feels poorly.";
                 Feedback.text = recovering
                     ? "The Medicine tile is in the care sheet. Give it at mealtimes."
                     : string.Empty;

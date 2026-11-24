@@ -265,13 +265,38 @@ namespace BAIby.Application
             var before = RecordFor(species);
             var care = companion.PetSession.ApplyCare(verb);
             var kind = PetCareDays.KindOf(pets.Catalog.Get(species), verb);
+            // A care the pet refused (too poorly, or swatting the toy away when grumpy) counts for nothing.
+            if (Refused(care.Cue))
+                kind = PetCareKind.None;
             var day = before.CareDays.Record(kind, PetCareDays.DayNumber(now()));
             var completed = day.Completed;
-            if (care.BecameGrown)
-                AddCelebration(slot, CompanionMilestone.Grown);
+            AddPetCelebrations(slot, companion.PetSession.Reached, care.BecameGrown);
             SaveProgress(species, before.WithCareDays(day.Days));
             return new PetCareOutcome(care.Cue, care.BecameGrown, completed, NewlyUnlocked(species, before));
         }
+
+        // The free vet's visit for a pet under the weather or sick.
+        public PetCareOutcome VisitPetVet(int slot) => PetAction(slot, session => session.VisitVet());
+
+        // A medicine dose with a meal while the pet is recovering.
+        public PetCareOutcome GivePetMedicine(int slot) => PetAction(slot, session => session.GiveMedicine());
+
+        // A journal photo of the pet; Cue is Content when it was taken and Bored once today's three are taken.
+        public PetCareOutcome TakePetPhoto(int slot, PhotoMoment moment) =>
+            PetAction(slot, session =>
+            {
+                var photo = session.TakePhoto(moment);
+                return (photo.Taken ? PetCue.Content : PetCue.Bored, photo.BecameGrown);
+            });
+
+        // Away mode for a pet: up to 14 days, free. Any care brings the pet back to normal.
+        public PetCareOutcome StartPetAway(int slot, TimeSpan duration) =>
+            PetAction(slot, session => (PetCue.Content, session.StartAway(duration)));
+
+        public PetCareOutcome EndPetAway(int slot) => PetAction(slot, session => (PetCue.Content, session.EndAway()));
+
+        // The pet's care style (Gentle or Standard). It writes the pet's record only.
+        public void SetPetCareStyle(int slot, CareStyle style) => AwakePet(slot).PetSession.SetCareStyle(style);
 
         // Playtest shortcut, like the nursery's Preview next day.
         public PetCareOutcome AdvancePetPreview(int slot, TimeSpan elapsed)
@@ -280,10 +305,44 @@ namespace BAIby.Application
             var species = companion.PetState.Species;
             var before = RecordFor(species);
             var grown = companion.PetSession.AdvancePreview(elapsed);
-            if (grown)
-                AddCelebration(slot, CompanionMilestone.Grown);
+            AddPetCelebrations(slot, companion.PetSession.Reached, grown);
             SaveProgress(species, before);
             return new PetCareOutcome(PetCue.Content, grown, false, NewlyUnlocked(species, before));
+        }
+
+        // A pet action that is not a care verb: it advances the pet first, keeps what it reached as celebrations, and
+        // saves the species' progress (Bond and growth), like care.
+        private PetCareOutcome PetAction(int slot, Func<PetSession, (PetCue Cue, bool BecameGrown)> act)
+        {
+            var companion = AwakePet(slot);
+            var species = companion.PetState.Species;
+            var before = RecordFor(species);
+            var result = act(companion.PetSession);
+            AddPetCelebrations(slot, companion.PetSession.Reached, result.BecameGrown);
+            SaveProgress(species, before);
+            return new PetCareOutcome(result.Cue, result.BecameGrown, false, NewlyUnlocked(species, before));
+        }
+
+        private static bool Refused(PetCue cue) =>
+            cue == PetCue.TooPoorly || cue == PetCue.PushesToyAway || cue == PetCue.MedicineNotNow;
+
+        // Milestones reached and growing up, in order, as pending celebrations the pet's room plays once.
+        private bool AddPetCelebrations(int slot, IReadOnlyList<MotorSkill> reached, bool grown)
+        {
+            var added = false;
+            foreach (var skill in reached)
+            {
+                switch (skill)
+                {
+                    case MotorSkill.Pounce: added |= AddCelebration(slot, CompanionMilestone.Pounce); break;
+                    case MotorSkill.Climb: added |= AddCelebration(slot, CompanionMilestone.Climb); break;
+                    case MotorSkill.HighJump: added |= AddCelebration(slot, CompanionMilestone.HighJump); break;
+                }
+            }
+
+            if (grown)
+                added |= AddCelebration(slot, CompanionMilestone.Grown);
+            return added;
         }
 
         // The pet's state advanced to now without any write, for Home's minute tick.
@@ -596,7 +655,10 @@ namespace BAIby.Application
         private bool Refresh(HouseholdCompanion companion)
         {
             if (companion.PetSession != null)
-                return companion.PetSession.Refresh() && AddCelebration(companion.Slot, CompanionMilestone.Grown);
+            {
+                var grown = companion.PetSession.Refresh();
+                return AddPetCelebrations(companion.Slot, companion.PetSession.Reached, grown);
+            }
 
             return companion.Session != null && AddCelebrations(companion.Slot, companion.Session.Refresh());
         }

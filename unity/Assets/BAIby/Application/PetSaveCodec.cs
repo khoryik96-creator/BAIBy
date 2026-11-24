@@ -8,10 +8,17 @@ using BAIby.Simulation.Pets;
 
 namespace BAIby.Application
 {
-    // One <pet version="1"> record per pet slot. IDs are the stable content IDs from PetIds.
+    // One <pet version="2"> record per pet slot. IDs are the stable content IDs from PetIds.
+    //
+    // v2: a species with a care profile (the cat) also saves its care systems: the milestones it has reached (an attribute
+    // of <unlocks>), a <care> element (its routine comes from the species), and, once seeded, <development>, <bonding>
+    // and <journal> elements, the elements a baby's save uses (its <bond> is <bonding> here, beside the pet's own <bond>). A v1 pet decodes as before: its stage, Bond, look and
+    // meters are kept, the milestones its age passed are reached (all of them once grown), and its records are seeded
+    // on first use, the ledger excusing the whole gap on its first advance (as the baby's v1 migration did).
     internal static class PetSaveCodec
     {
-        public const int Version = 1;
+        public const int Version = 2;
+        private const int VersionBeforeCare = 1;
 
         public static string Encode(PetState state)
         {
@@ -33,6 +40,13 @@ namespace BAIby.Application
                     new XAttribute("value", state.Meter(meter))));
             }
 
+            var unlocks = new XElement("unlocks", new XAttribute("grown", state.IsGrown));
+            var profile = PetCareProfile.For(state.Species);
+            var cared = profile != null;
+            // A pet restored without its ledger saves the ledger its first advance would start from.
+            var care = state.Care ?? (cared ? CareRules.Unanchored(state.TimeCheckpoint, profile.Routine) : null);
+            if (cared)
+                unlocks.Add(new XAttribute("milestones", state.Milestones));
             return new XElement("pet",
                     new XAttribute("version", Version),
                     new XElement("name", state.Name),
@@ -44,7 +58,11 @@ namespace BAIby.Application
                     meters,
                     new XElement("bond", new XAttribute("value", state.Bond), new XAttribute("highest", state.HighestBond)),
                     new XElement("personality", new XAttribute("lively", state.Liveliness), new XAttribute("bold", state.Boldness)),
-                    new XElement("unlocks", new XAttribute("grown", state.IsGrown)))
+                    unlocks,
+                    cared ? CareRecordCodec.Encode(care) : null,
+                    cared && state.Development != null ? DevelopmentRecordCodec.Encode(state.Development) : null,
+                    cared && state.Bonding != null ? Bonding(state.Bonding) : null,
+                    cared && state.Journal != null ? JournalRecordCodec.Encode(state.Journal) : null)
                 .ToString(SaveOptions.DisableFormatting);
         }
 
@@ -96,21 +114,49 @@ namespace BAIby.Application
 
                 var bond = Field(root, "bond");
                 var personality = Field(root, "personality");
-                return PetState.Restore(catalog, (string)Field(root, "name"), appearance,
-                    new DateTimeOffset((long)Field(root, "checkpoint"), TimeSpan.Zero),
-                    TimeSpan.FromTicks((long)Field(root, "age")),
-                    meters,
-                    (double)Attribute(bond, "value"),
-                    (double)Attribute(bond, "highest"),
-                    (double)Attribute(personality, "lively"),
-                    (double)Attribute(personality, "bold"),
-                    (bool)Attribute(Field(root, "unlocks"), "grown"));
+                var unlocks = Field(root, "unlocks");
+                var checkpoint = new DateTimeOffset((long)Field(root, "checkpoint"), TimeSpan.Zero);
+                var age = TimeSpan.FromTicks((long)Field(root, "age"));
+                var profile = PetCareProfile.For(species);
+                // A v1 pet, or a species without care records yet: the simple record.
+                if (version == VersionBeforeCare || profile == null)
+                {
+                    if (profile == null && (root.Element(CareRecordCodec.ElementName) != null || unlocks.Attribute("milestones") != null))
+                        throw new InvalidDataException($"A {species} save cannot hold care records yet.");
+                    return PetState.Restore(catalog, (string)Field(root, "name"), appearance, checkpoint, age, meters,
+                        (double)Attribute(bond, "value"), (double)Attribute(bond, "highest"),
+                        (double)Attribute(personality, "lively"), (double)Attribute(personality, "bold"),
+                        (bool)Attribute(unlocks, "grown"));
+                }
+
+                var development = root.Element(DevelopmentRecordCodec.ElementName);
+                var bonding = root.Element(BondingElement);
+                var journal = root.Element(JournalRecordCodec.ElementName);
+                return PetState.Restore(catalog, (string)Field(root, "name"), appearance, checkpoint, age, meters,
+                    (double)Attribute(bond, "value"), (double)Attribute(bond, "highest"),
+                    (double)Attribute(personality, "lively"), (double)Attribute(personality, "bold"),
+                    (bool)Attribute(unlocks, "grown"),
+                    CareRecordCodec.Decode(Field(root, CareRecordCodec.ElementName), profile.Routine),
+                    development == null ? null : DevelopmentRecordCodec.Decode(development),
+                    bonding == null ? null : BondRecordCodec.Decode(new XElement(bonding) { Name = BondRecordCodec.ElementName }),
+                    journal == null ? null : JournalRecordCodec.Decode(journal),
+                    (int)Attribute(unlocks, "milestones"));
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)
             {
                 throw new InvalidDataException("The pet save contains invalid data.", exception);
             }
+        }
+
+        // The pet record already has a <bond> element (Bond and its highest value), so Bond's record is <bonding>.
+        private const string BondingElement = "bonding";
+
+        private static XElement Bonding(BondRecord record)
+        {
+            var element = BondRecordCodec.Encode(record);
+            element.Name = BondingElement;
+            return element;
         }
 
         // Meter ID order, so a record encodes the same way every time.

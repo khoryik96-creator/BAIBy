@@ -6,6 +6,9 @@ namespace BAIby.Simulation
     // Saved values are stable IDs. Append new options; never renumber.
     public enum RoutinePreset { SchoolDay = 0, Home = 1 }
     public enum CareMoment { Morning = 0, Afternoon = 1, Evening = 2, Bedtime = 3 }
+    // Whose routine a ledger keeps: a species' windows (docs/care-and-growth.md, Pets and household). Not saved: a
+    // baby's ledger is always Baby, and a pet's codec names the routine from its species.
+    public enum CareRoutine { Baby, Cat }
 
     // One moment of the routine as local times of day. On time is [Open, Due), late is [Due, LateUntil).
     public sealed class CareWindow
@@ -20,8 +23,8 @@ namespace BAIby.Simulation
         {
             if (!Enum.IsDefined(typeof(CareMoment), moment))
                 throw new ArgumentOutOfRangeException(nameof(moment));
-            if (core != CareTags.Meal && core != CareTags.Bedtime)
-                throw new ArgumentOutOfRangeException(nameof(core), "A window's core is a meal or a bedtime.");
+            if (core != CareTags.Meal && core != CareTags.Bedtime && core != CareTags.Play)
+                throw new ArgumentOutOfRangeException(nameof(core), "A window's core is a meal, play or a bedtime.");
             if (open < TimeSpan.Zero || due <= open || lateUntil <= due)
                 throw new ArgumentException("A care window needs Open < Due < LateUntil.");
 
@@ -62,11 +65,36 @@ namespace BAIby.Simulation
             Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 0, 20, 30, 21, 30),
         };
 
+        // A cat eats twice (Morning and Evening) and has a play window in the Afternoon slot instead of a meal; its
+        // bedtime is the evening nap. The same four moments, so the ledger, the strip and the saves keep four letters.
+        private static readonly CareWindow[] CatSchoolDay =
+        {
+            Window(CareMoment.Morning, CareTags.Meal, 7, 0, 10, 0, 12, 0),
+            Window(CareMoment.Afternoon, CareTags.Play, 15, 0, 18, 0, 19, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 18, 0, 20, 30, 21, 30),
+            Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 30, 21, 30, 22, 30),
+        };
+
+        private static readonly CareWindow[] CatHome =
+        {
+            Window(CareMoment.Morning, CareTags.Meal, 7, 0, 9, 30, 11, 0),
+            Window(CareMoment.Afternoon, CareTags.Play, 12, 0, 15, 0, 16, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 17, 30, 19, 30, 20, 30),
+            Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 0, 20, 30, 21, 30),
+        };
+
         // The wake time moves only the morning window; the rest of the day stays school-friendly.
-        public static IReadOnlyList<CareWindow> Windows(RoutinePreset preset, TimeSpan wakeTime)
+        public static IReadOnlyList<CareWindow> Windows(RoutinePreset preset, TimeSpan wakeTime) =>
+            Windows(CareRoutine.Baby, preset, wakeTime);
+
+        public static IReadOnlyList<CareWindow> Windows(CareRoutine routine, RoutinePreset preset, TimeSpan wakeTime)
         {
             ValidateRoutine(preset, wakeTime);
-            var template = preset == RoutinePreset.Home ? Home : SchoolDay;
+            if (!Enum.IsDefined(typeof(CareRoutine), routine))
+                throw new ArgumentOutOfRangeException(nameof(routine));
+            var template = routine == CareRoutine.Cat
+                ? preset == RoutinePreset.Home ? CatHome : CatSchoolDay
+                : preset == RoutinePreset.Home ? Home : SchoolDay;
             var windows = (CareWindow[])template.Clone();
             if (wakeTime != DefaultWakeTime)
                 windows[(int)CareMoment.Morning] = template[(int)CareMoment.Morning].Shifted(wakeTime);
@@ -76,16 +104,40 @@ namespace BAIby.Simulation
 
         // The daily wash: on time from the morning opening until the evening meal is due, late until the
         // evening meal's late limit. A missed wash leaves the room messier.
-        public static (TimeSpan Open, TimeSpan Due, TimeSpan LateUntil) WashWindow(RoutinePreset preset, TimeSpan wakeTime)
+        // A cat's daily wash is its brush.
+        public static (TimeSpan Open, TimeSpan Due, TimeSpan LateUntil) WashWindow(RoutinePreset preset, TimeSpan wakeTime) =>
+            WashWindow(CareRoutine.Baby, preset, wakeTime);
+
+        public static (TimeSpan Open, TimeSpan Due, TimeSpan LateUntil) WashWindow(CareRoutine routine, RoutinePreset preset,
+            TimeSpan wakeTime)
         {
-            var windows = Windows(preset, wakeTime);
+            var windows = Windows(routine, preset, wakeTime);
             var evening = windows[(int)CareMoment.Evening];
             return (windows[(int)CareMoment.Morning].Open, evening.Due, evening.LateUntil);
         }
 
         // Quiet hours run from the bedtime window's due time until the wake time.
         public static (TimeSpan Start, TimeSpan End) Night(RoutinePreset preset, TimeSpan wakeTime) =>
-            (Windows(preset, wakeTime)[(int)CareMoment.Bedtime].Due, wakeTime);
+            Night(CareRoutine.Baby, preset, wakeTime);
+
+        public static (TimeSpan Start, TimeSpan End) Night(CareRoutine routine, RoutinePreset preset, TimeSpan wakeTime) =>
+            (Windows(routine, preset, wakeTime)[(int)CareMoment.Bedtime].Due, wakeTime);
+
+        // How many meal windows a care day of the routine has (three for a baby, two for a cat).
+        public static int MealWindows(CareRoutine routine)
+        {
+            var meals = 0;
+            foreach (var window in Windows(routine, RoutinePreset.SchoolDay, DefaultWakeTime))
+            {
+                if (window.Core == CareTags.Meal)
+                    meals++;
+            }
+
+            return meals;
+        }
+
+        // Whether the routine has a timed play window. Its together ring then follows that window, not the whole day.
+        public static bool HasPlayWindow(CareRoutine routine) => routine == CareRoutine.Cat;
 
         public static void ValidateRoutine(RoutinePreset preset, TimeSpan wakeTime)
         {

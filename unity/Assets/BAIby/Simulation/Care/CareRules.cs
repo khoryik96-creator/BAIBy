@@ -9,6 +9,9 @@ namespace BAIby.Simulation
     // Away mode: windows that overlap a planned absence are Covered, hands-on care ends it early, and the
     // absence ceiling counts from its planned end, so an overdue return is an ordinary absence.
     //
+    // Routines: the record's CareRoutine picks its windows. A routine with a play window (a cat's) feeds its together
+    // ring from that window (on time, late or missed, like a meal) instead of from the whole day, and never owes it.
+    //
     // Time rules: elapsed time uses the UTC instant and the offset only places windows. An offset change
     // applies from the next care day. A change over TravelJump excuses only the care day it lands on; the
     // days it spans count like any absence. The care day never decreases, a backwards clock changes nothing,
@@ -17,7 +20,10 @@ namespace BAIby.Simulation
     {
         private static readonly long MaxTicks = DateTimeOffset.MaxValue.UtcTicks;
 
-        public static CareRecord Start(DateTimeOffset now, CareTunables tunables)
+        public static CareRecord Start(DateTimeOffset now, CareTunables tunables) =>
+            Start(now, tunables, CareRoutine.Baby);
+
+        public static CareRecord Start(DateTimeOffset now, CareTunables tunables, CareRoutine routine)
         {
             if (tunables == null)
                 throw new ArgumentNullException(nameof(tunables));
@@ -34,14 +40,18 @@ namespace BAIby.Simulation
                 LastReason = CareReason.Started,
                 ConditionSince = now,
                 SessionStart = now,
+                Routine = routine,
             };
             CloseWindows(draft, instant, false, tunables, new GapSummary());
             return draft.Build();
         }
 
-        // A ledger for a baby saved before care existed. Its first Advance excuses the whole gap.
-        public static CareRecord Unanchored(DateTimeOffset checkpoint) => new CareRecord.Builder
+        // A ledger for a companion saved before care existed. Its first Advance excuses the whole gap.
+        public static CareRecord Unanchored(DateTimeOffset checkpoint) => Unanchored(checkpoint, CareRoutine.Baby);
+
+        public static CareRecord Unanchored(DateTimeOffset checkpoint, CareRoutine routine) => new CareRecord.Builder
         {
+            Routine = routine,
             Checkpoint = checkpoint,
             ExcusedUntil = checkpoint,
             LastCareAt = checkpoint,
@@ -144,6 +154,9 @@ namespace BAIby.Simulation
                 reason = MarkWash(draft, at);
             if ((tags & CareTags.Together) != 0)
                 reason = MarkTogether(draft, at, tunables);
+            if ((tags & CareTags.Play) != 0 && RoutineCalendar.HasPlayWindow(draft.Routine))
+                reason = MarkMoment(draft, CareTags.Play, at, CareReason.PlayOnTime, CareReason.PlayLate,
+                    CareReason.PlayExcused, CareReason.PlayOutsideWindow, tunables);
             if ((tags & CareTags.Bedtime) != 0)
                 reason = MarkMoment(draft, CareTags.Bedtime, at, CareReason.BedtimeOnTime, CareReason.BedtimeLate,
                     CareReason.BedtimeExcused, CareReason.BedtimeOutsideWindow, tunables);
@@ -227,7 +240,7 @@ namespace BAIby.Simulation
                 return false;
 
             var at = record.Checkpoint.UtcTicks;
-            foreach (var window in RoutineCalendar.Windows(record.Preset, record.WakeTime))
+            foreach (var window in RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime))
             {
                 if (window.Core != CareTags.Meal || record.StatusOf(window.Moment) != MomentStatus.Pending)
                     continue;
@@ -252,7 +265,7 @@ namespace BAIby.Simulation
                 return null;
 
             var at = record.Checkpoint.UtcTicks;
-            foreach (var window in RoutineCalendar.Windows(record.Preset, record.WakeTime))
+            foreach (var window in RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime))
             {
                 if (window.Core == CareTags.Meal && at >= Place(record.CareDay, record.Offset, window.Open) &&
                     at < Place(record.CareDay, record.Offset, window.LateUntil))
@@ -308,7 +321,7 @@ namespace BAIby.Simulation
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
 
-            var window = RoutineCalendar.Windows(record.Preset, record.WakeTime)[(int)moment];
+            var window = RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime)[(int)moment];
             return (AsInstant(Place(record.CareDay, record.Offset, window.Open)),
                 AsInstant(Place(record.CareDay, record.Offset, window.Due)),
                 AsInstant(Place(record.CareDay, record.Offset, window.LateUntil)));
@@ -354,8 +367,9 @@ namespace BAIby.Simulation
                 return;
 
             var skipped = target - draft.CareDay;
-            // Each skipped day holds its moments, together time and the wash.
-            draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, RoutineCalendar.MomentCount + 2));
+            // Each skipped day holds its moments, together time (unless a play window is one of them) and the wash.
+            var perDay = RoutineCalendar.MomentCount + (RoutineCalendar.HasPlayWindow(draft.Routine) ? 1 : 2);
+            draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, perDay));
             gap.Events?.Add(new LedgerEvent(LedgerEventKind.HelperDays,
                 RoutineCalendar.CareDayStart(draft.CareDay + 1, draft.Offset, tunables.DayStart), draft.CareDay,
                 (int)Math.Min(int.MaxValue, skipped)));
@@ -369,7 +383,8 @@ namespace BAIby.Simulation
             if (IsGoodDay(draft))
                 draft.GoodDay = draft.CareDay;
             var dayStart = RoutineCalendar.CareDayStart(draft.CareDay, draft.Offset, tunables.DayStart);
-            if (!draft.TogetherToday)
+            // A play window keeps the together ring itself.
+            if (!draft.TogetherToday && !RoutineCalendar.HasPlayWindow(draft.Routine))
                 Resolve(draft, dayStart, dayEnd, tunables, gap,
                     () => draft.TogetherDays = draft.TogetherDays.Push(CareMark.Missed, tunables.TogetherRing));
             if (gap.Events != null)
@@ -395,7 +410,7 @@ namespace BAIby.Simulation
                     mealsDone += done ? 1 : 0;
                     mealsMissed += status == MomentStatus.Missed ? 1 : 0;
                 }
-                else
+                else if (window.Core == CareTags.Bedtime)
                 {
                     bedtime |= done;
                 }
@@ -433,7 +448,7 @@ namespace BAIby.Simulation
 
             if (draft.Wash == MomentStatus.Pending)
             {
-                var wash = RoutineCalendar.WashWindow(draft.Preset, draft.WakeTime);
+                var wash = RoutineCalendar.WashWindow(draft.Routine, draft.Preset, draft.WakeTime);
                 var lateUntil = Place(draft.CareDay, draft.Offset, wash.LateUntil);
                 if (endOfDay || lateUntil <= through)
                     draft.Wash = Resolve(draft, Place(draft.CareDay, draft.Offset, wash.Open), Math.Min(lateUntil, through),
@@ -494,6 +509,12 @@ namespace BAIby.Simulation
                 draft.Meals = draft.Meals.Push(CareMark.Missed, tunables.MealRing);
                 draft.MissedSinceWell = true;
             }
+            else if (core == CareTags.Play)
+            {
+                // A missed play window is a missed together day; play is never owed.
+                draft.TogetherDays = draft.TogetherDays.Push(CareMark.Missed, tunables.TogetherRing);
+                return;
+            }
             else
                 draft.Bedtimes = draft.Bedtimes.Push(CareMark.Missed, tunables.BedtimeRing);
             draft.Owed |= core;
@@ -504,7 +525,7 @@ namespace BAIby.Simulation
             if (draft.Wash != MomentStatus.Pending)
                 return CareReason.WashOutsideWindow;
 
-            var wash = RoutineCalendar.WashWindow(draft.Preset, draft.WakeTime);
+            var wash = RoutineCalendar.WashWindow(draft.Routine, draft.Preset, draft.WakeTime);
             var open = Place(draft.CareDay, draft.Offset, wash.Open);
             var due = Place(draft.CareDay, draft.Offset, wash.Due);
             var lateUntil = Place(draft.CareDay, draft.Offset, wash.LateUntil);
@@ -552,6 +573,8 @@ namespace BAIby.Simulation
                     draft.Moments[index] = lateWindow ? MomentStatus.Late : MomentStatus.OnTime;
                     if (core == CareTags.Meal)
                         draft.Meals = draft.Meals.Push(mark, tunables.MealRing);
+                    else if (core == CareTags.Play)
+                        draft.TogetherDays = draft.TogetherDays.Push(mark, tunables.TogetherRing);
                     else
                         draft.Bedtimes = draft.Bedtimes.Push(mark, tunables.BedtimeRing);
 
@@ -585,6 +608,9 @@ namespace BAIby.Simulation
 
             // Together time done after the grace period counts; a grace day without it is excused at day end.
             draft.TogetherToday = true;
+            // A play window keeps the together ring; any together time still counts for the day (the care rhythm).
+            if (RoutineCalendar.HasPlayWindow(draft.Routine))
+                return CareReason.TogetherCounted;
             if (IsExcused(draft, at))
             {
                 draft.ExcusedCount = Add(draft.ExcusedCount, 1);
@@ -606,7 +632,7 @@ namespace BAIby.Simulation
             awayUntil > awayFrom && open < awayUntil && closeAt > awayFrom;
 
         private static IReadOnlyList<CareWindow> Windows(CareRecord.Builder draft) =>
-            RoutineCalendar.Windows(draft.Preset, draft.WakeTime);
+            RoutineCalendar.Windows(draft.Routine, draft.Preset, draft.WakeTime);
 
         private static long Place(long careDay, TimeSpan offset, TimeSpan localTime) =>
             RoutineCalendar.Place(careDay, offset, localTime);

@@ -850,6 +850,101 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(restored.gameObject, "Home keepsakes").text, Does.Contain("Pip (cat"));
         }
 
+        // Care slice 7 on a fake clock: the cat's routine strip, breakfast on time, Next day without care until the
+        // cat is under the weather, sick fifteen minutes into the visit, the vet's visit, two medicine doses in two
+        // meal windows, a milestone in the bubble and in the journal, and Growth's projection.
+        [UnityTest]
+        public IEnumerator CatKeepsItsRoutineSeesTheVetAndPounces()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Tap(view.gameObject, "Adopt a pet");
+            Tap(view.gameObject, "Species Cat");
+            Tap(view.gameObject, "Breed Domestic shorthair");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Pip";
+            Tap(view.gameObject, "Adopt pet");
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Pip"));
+            Assert.That(HasObject(view.gameObject, "Routine Breakfast") && HasObject(view.gameObject, "Routine Play") &&
+                HasObject(view.gameObject, "Routine Dinner") && HasObject(view.gameObject, "Routine Nap") &&
+                HasObject(view.gameObject, "Routine Brush"), Is.True, "the strip shows the cat's windows");
+            Assert.That(Child<Button>(view.gameObject, "Take a pet photo").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Button>(view.gameObject, "Pet growth").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Button>(view.gameObject, "Vet").gameObject.activeInHierarchy, Is.False, "a well cat needs no vet");
+
+            // Two days later, breakfast is on time (the first day is excused).
+            clock = new DateTimeOffset(2026, 3, 4, 8, 30, 0, TimeSpan.Zero);
+            var bubbles = new List<string>();
+            Tap(view.gameObject, "Pet care Feed");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Assert.That(bubbles[0], Does.Contain("right on time"));
+
+            // Next day without care: the cat's needs fall until it is under the weather.
+            for (var day = 0; day < 8 && Child<Image>(view.gameObject, "Condition Chip").gameObject.activeInHierarchy == false; day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Pet preview next day");
+                bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            }
+
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Under the weather"));
+            Assert.That(Child<Text>(view.gameObject, "Pet Health Caption").text, Is.EqualTo("Free visit"));
+            Assert.That(bubbles.Any(text => text.Contains("pounced")), Is.True, "the first pounce is celebrated");
+
+            // Fifteen minutes into the visit, Health below 30 makes the cat sick: it rests with a thermometer.
+            clock = clock.AddMinutes(21);
+            Tap(view.gameObject, "Pet care Pet");
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Sick — needs the vet"));
+            Tap(view.gameObject, "Pet care Wand");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("too poorly"));
+            yield return new WaitForSecondsRealtime(1f);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Pet thermometer").enabled, Is.True);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Pet rest artwork").color.a, Is.GreaterThan(0.5f),
+                "a sick cat rests");
+
+            Tap(view.gameObject, "Vet");
+            Assert.That(Child<RectTransform>(view.gameObject, "Doctor Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Doctor Heading").text, Does.Contain("the vet"));
+            Tap(view.gameObject, "Visit vet");
+            Assert.That(Child<Text>(view.gameObject, "Doctor Scene").text, Does.Contain("needs rest and medicine"));
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Recovering · medicine 0 of 2"));
+            Tap(view.gameObject, "Close doctor");
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Pet medicine");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("Dose 1 of 2"));
+            Assert.That(Child<Button>(view.gameObject, "Pet medicine").interactable, Is.False, "one dose per meal");
+
+            clock = new DateTimeOffset(2026, 3, 4, 18, 30, 0, TimeSpan.Zero);
+            Tap(view.gameObject, "Pet care Feed");
+            Tap(view.gameObject, "Pet medicine");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("Well again"));
+            Assert.That(Child<Image>(view.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.False);
+
+            // Growth projects the next milestone; the journal keeps the pounce.
+            Tap(view.gameObject, "Pet growth");
+            Assert.That(Child<RectTransform>(view.gameObject, "Development Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Growth Projection Text").text, Does.Contain("Likely to").Or.Contain("reached"));
+            Assert.That(Child<Button>(view.gameObject, "Read a story").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "Journal");
+            Assert.That(Child<Text>(view.gameObject, "Journal Heading").text, Is.EqualTo("Pip's journal"));
+            var titles = Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)).ToList();
+            if (Child<Button>(view.gameObject, "Older journal page").interactable)
+                Tap(view.gameObject, "Older journal page");
+            titles.AddRange(Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)));
+            Assert.That(titles.Any(title => title.Contains("First pounce")), Is.True, "the pounce is in the journal");
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Done");
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet Care Panel").gameObject.activeInHierarchy, Is.True);
+        }
+
         [UnityTearDown]
         public IEnumerator CleanUp()
         {

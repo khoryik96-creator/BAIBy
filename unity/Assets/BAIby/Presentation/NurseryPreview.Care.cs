@@ -255,6 +255,8 @@ namespace BAIby.Presentation
             Stretch(title.rectTransform, columnLeft, columnRight, 14, 64);
             Stretch(age.rectTransform, columnLeft, columnRight, 64, 96);
             Stretch(wake.rectTransform, columnLeft, columnRight, 64, 96);
+            // The header label and the day line share one spot; a companion's day line always wins, in every view.
+            wake.enabled = string.IsNullOrEmpty(age.text);
             if (chipShown)
             {
                 var chipTop = chipInRow ? (HeaderRow - ChipHeight) / 2 : HeaderRow - 6;

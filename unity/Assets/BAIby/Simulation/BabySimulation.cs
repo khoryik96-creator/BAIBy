@@ -228,41 +228,15 @@ namespace BAIby.Simulation
         // stickers, a hard spell that ended, and week pages. `before` is seeded; `bond` is null when no day closed.
         private JournalRecord Chronicle(BabyState before, BabyState after, BabyGrowth.Step step, BondStep bond, bool real)
         {
-            var from = before.TimeCheckpoint;
-            var entries = new List<JournalEntry>();
-            var unlocked = new[] { step.UnlockedSitting, step.UnlockedCrawling, step.UnlockedWalking };
-            for (var stage = 0; stage < unlocked.Length; stage++)
+            var milestones = new List<(MotorSkill, long)>();
+            for (var stage = 0; stage < 3; stage++)
             {
-                if (!unlocked[stage])
-                    continue;
-                var age = TimeSpan.FromTicks(step.UnlockAges[stage]);
-                entries.Add(JournalEntry.Milestone(real ? InstantAt(from, age - before.Age) : from, JournalRules.DayOf(age),
-                    (MotorSkill)(stage + 1)));
+                if (step.Unlocked(stage))
+                    milestones.Add(((MotorSkill)(stage + 1), step.UnlockAges[stage]));
             }
 
-            if (bond != null)
-            {
-                foreach (var (at, days) in bond.Stickers)
-                {
-                    var instant = new DateTimeOffset(at, TimeSpan.Zero);
-                    entries.Add(JournalEntry.Sticker(instant, JournalRules.DayOf(real ? before.Age + (instant - from) : before.Age), days));
-                }
-            }
-
-            var journal = before.Journal;
-            if (entries.Count > 0)
-                journal = journal.With(entries, journal.SpellSince, journal.SpellDay, journal.Weeks, journal.WeekStartCareDays);
-            journal = JournalRules.AfterCondition(journal, before.Care.Condition, after.Care.Condition, after.TimeCheckpoint,
-                after.Age);
-            journal = JournalRules.Weeks(journal, before.Age, after.Age, from, real, before.Bonding.TotalCareDays,
-                bond?.CountedDays);
-            return journal;
-        }
-
-        private static DateTimeOffset InstantAt(DateTimeOffset from, TimeSpan after)
-        {
-            var ticks = from.UtcTicks + Math.Max(0, Math.Min(after.Ticks, DateTimeOffset.MaxValue.UtcTicks - from.UtcTicks));
-            return new DateTimeOffset(ticks, TimeSpan.Zero);
+            return JournalRules.Chronicle(before.Journal, before.TimeCheckpoint, before.Age, before.Care.Condition,
+                after.TimeCheckpoint, after.Age, after.Care.Condition, milestones, bond, real, before.Bonding.TotalCareDays);
         }
 
         // The baby's development for the Growth panel and the report: track qualities, the growth chart band, and
@@ -657,21 +631,8 @@ namespace BAIby.Simulation
 
         // What the condition at the start of a gap, and a clingy phase (which can begin or end when a care day closes
         // inside the gap), do to the needs over it.
-        private BabyNeeds.Effects HealthEffects(CareRecord care, BondStep bond)
-        {
-            var ceiling = care.IsUnwell ? careTunables.UnwellEnergyCap : 100;
-            var clingy = bond != null && bond.ClingyAtStart;
-            var comfort = clingy ? bondTunables.ClingyComfort : 1;
-            var switchAt = bond?.ClingyChangeAt ?? long.MaxValue;
-            var after = switchAt == long.MaxValue ? comfort : clingy ? 1 : bondTunables.ClingyComfort;
-            if (care.Condition != CareCondition.Recovering)
-                return new BabyNeeds.Effects(ceiling, 1, long.MinValue, comfort, after, switchAt);
-
-            var since = care.ConditionSince.UtcTicks;
-            var window = careTunables.RecoveryWindow.Ticks;
-            var until = since > long.MaxValue - window ? long.MaxValue : since + window;
-            return new BabyNeeds.Effects(ceiling, careTunables.RecoveryBoost, until, comfort, after, switchAt);
-        }
+        private BabyNeeds.Effects HealthEffects(CareRecord care, BondStep bond) =>
+            BabyNeeds.EffectsFor(care, bond, careTunables, bondTunables);
 
         private static NeedSnapshot Snapshot(BabyNeeds.Values needs) =>
             new NeedSnapshot(needs.Lowest, needs.Satiety, needs.Comfort);

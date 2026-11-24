@@ -14,6 +14,9 @@ namespace BAIby.Application
         // data is still written as v1, byte for byte as before, so an older build keeps managing it. Once
         // pet data exists the manifest is v2, which an older build keeps untouched instead of rewriting it
         // without the pet keepsakes and progress it cannot read.
+        // A cat's milestones (pounce, climb, high jump: care slice 7) waiting as celebrations sit in their own
+        // <pet-celebrations> element, which a v2 build that cannot read them ignores (and drops: only the pending
+        // announcement is lost, and the journal keeps the milestone).
         private const int Version = 2;
         private const int VersionBeforePets = 1;
 
@@ -36,8 +39,9 @@ namespace BAIby.Application
             }
 
             var celebrations = new XElement("celebrations");
+            var petCelebrations = new XElement("pet-celebrations");
             foreach (var celebration in manifest.Celebrations)
-                celebrations.Add(new XElement("celebration",
+                (celebration.Milestone >= CompanionMilestone.Pounce ? petCelebrations : celebrations).Add(new XElement("celebration",
                     new XAttribute("slot", celebration.Slot),
                     new XAttribute("milestone", (int)celebration.Milestone)));
 
@@ -57,6 +61,9 @@ namespace BAIby.Application
                     pets.Add(EncodeSpecies(record));
                 root.Add(pets);
             }
+
+            if (petCelebrations.HasElements)
+                root.Add(petCelebrations);
 
             return root.ToString(SaveOptions.DisableFormatting);
         }
@@ -82,6 +89,11 @@ namespace BAIby.Application
                 }
 
                 var celebrations = new List<PendingCelebration>();
+                var petCelebrations = root.Element("pet-celebrations")?.Elements("celebration") ?? new XElement[0];
+                // A kitten's milestones always come before it grows up, so they are read first.
+                foreach (var element in petCelebrations)
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"),
+                        (CompanionMilestone)(int)Attribute(element, "milestone")));
                 foreach (var element in Field(root, "celebrations").Elements("celebration"))
                     celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"),
                         (CompanionMilestone)(int)Attribute(element, "milestone")));

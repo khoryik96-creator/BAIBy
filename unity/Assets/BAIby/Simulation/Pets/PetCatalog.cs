@@ -415,15 +415,17 @@ namespace BAIby.Simulation.Pets
             var collarSet = new[] { PetAccessory.None, PetAccessory.Collar, PetAccessory.Bandana, PetAccessory.Bow };
             var species = new[]
             {
+                // Care slice 7 retuned the cat for its routine of two meals a day: awake needs fall at half the
+                // earlier rates (the same ratio for every meter, so the breeds stay balanced) and a meal gives 35.
                 new SpeciesDefinition(Species.Cat, TimeSpan.FromDays(7),
                     new[]
                     {
-                        Meter(PetMeter.Fullness, 7, 70), Meter(PetMeter.Energy, 6, 80),
-                        Meter(PetMeter.Comfort, 4, 70), Meter(PetMeter.Cleanliness, 3, 90),
+                        Meter(PetMeter.Fullness, 3.5, 70), Meter(PetMeter.Energy, 3, 80),
+                        Meter(PetMeter.Comfort, 2, 70), Meter(PetMeter.Cleanliness, 1.5, 90),
                     },
                     new[]
                     {
-                        Verb(PetVerb.Feed, 1, 0, 0, Effect(PetMeter.Fullness, 30)),
+                        Verb(PetVerb.Feed, 1, 0, 0, Effect(PetMeter.Fullness, 35)),
                         Verb(PetVerb.Pet, 3, 0, 1, Effect(PetMeter.Comfort, 20)),
                         Verb(PetVerb.Wand, 2, 2, 1, Effect(PetMeter.Energy, -12), Effect(PetMeter.Comfort, 5)),
                         Verb(PetVerb.Brush, 2, -1, 0, Effect(PetMeter.Cleanliness, 25), Effect(PetMeter.Comfort, 8)),
