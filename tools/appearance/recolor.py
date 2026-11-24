@@ -28,6 +28,17 @@ OUTFIT = {
     "Lilac": ((232, 222, 242), (170, 150, 200)),
     "Terracotta": ((240, 222, 200), (196, 116, 84)),
     "Midnight": ((70, 82, 110), (226, 190, 120)),
+    # Look packs (CosmeticCatalog): Cozy knits, Garden party, then the Founder pack. Exactly as in
+    # AppearancePalette.cs; tests/Appearance checks every entry from here on.
+    "OatmealKnit": ((240, 232, 214), (122, 92, 78)),
+    "BerryKnit": ((246, 222, 228), (170, 70, 96)),
+    "MossKnit": ((232, 236, 214), (112, 132, 82)),
+    "FogKnit": ((226, 230, 236), (110, 122, 140)),
+    "Rosebud": ((252, 232, 236), (226, 120, 140)),
+    "Marigold": ((252, 240, 220), (232, 140, 48)),
+    "GardenMint": ((228, 246, 236), (78, 170, 140)),
+    "Bluebell": ((234, 240, 252), (96, 126, 200)),
+    "FernGold": ((84, 118, 96), (230, 196, 112)),
 }
 
 

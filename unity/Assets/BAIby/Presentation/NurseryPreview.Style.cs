@@ -1,4 +1,5 @@
 using System;
+using BAIby.Application;
 using BAIby.Character;
 using BAIby.Simulation;
 using UnityEngine;
@@ -20,18 +21,31 @@ namespace BAIby.Presentation
 
         private void ChooseAppearance(Func<BabyAppearance, BabyAppearance> change)
         {
-            var next = change(session.State.Appearance);
+            var saved = session.State.Appearance;
+            var next = change(saved);
             if (!session.CanWear(next, DeveloperModeOn))
             {
-                // Earned looks wait for their care rhythm; nothing is ever sold.
+                // Earned looks wait for their care rhythm; they are never sold.
                 var days = Math.Max(EarnedLooks.RhythmFor(next.Headwear), EarnedLooks.RhythmFor(next.Outfit));
                 style.Feedback.text = $"Earned with a {days}-day care rhythm. Keep caring each day!";
                 return;
             }
 
+            if (!CosmeticCatalog.CanWear(saved, next, Owned))
+            {
+                // A special look is previewed on the baby and not saved; the saved look comes back when Style closes.
+                // Only the part just tapped is previewed over what is shown now.
+                var shown = ShownLook(saved);
+                var preview = change(shown);
+                nursery.SetAppearance(preview, true);
+                style.UpdateSelection(saved);
+                style.Feedback.text = CosmeticCatalog.LockedLine(CosmeticCatalog.LockedPack(preview, Owned));
+                return;
+            }
+
             try
             {
-                session.SetAppearance(next, DeveloperModeOn);
+                session.SetAppearance(next, DeveloperModeOn, Owned);
             }
             catch (Exception error)
             {
@@ -45,8 +59,10 @@ namespace BAIby.Presentation
 
         private void ApplyBabyAppearance(BabyAppearance appearance, bool retryFailed = false)
         {
-            bool shown = nursery.SetAppearance(appearance, retryFailed);
+            // A saved special look whose pack isn't owned (a refund) shows the free default; the choice is kept.
+            bool shown = nursery.SetAppearance(ShownLook(appearance), retryFailed);
             style.SetEarned(session?.Bonding?.LongestRhythm ?? 0, DeveloperModeOn);
+            style.SetSpecial(Owned);
             style.UpdateSelection(appearance);
             if (!shown)
                 style.Feedback.text = "This look couldn't be shown right now.";
@@ -64,6 +80,7 @@ namespace BAIby.Presentation
             // The sheet is no taller than the care sheet, so the baby stays clear above it.
             private const float GridBottom = 42;
             private const float GridTop = 212;
+            private const int CategoryCount = 6;
 
             private readonly StyleCategory[] categories;
             private BabyAppearance current = BabyAppearance.Default;
@@ -103,10 +120,18 @@ namespace BAIby.Presentation
                         Wear(Outfit.Sage), Wear(Outfit.Oat), Wear(Outfit.Sky), Wear(Outfit.Blush),
                         Wear(Outfit.Butter), Wear(Outfit.Lilac), Wear(Outfit.Terracotta), Wear(Outfit.Midnight)
                     }),
-                    Category(4, "Hat", tabs, grid, choose, new[]
+                    // The look packs' outfits: Cozy knits, Garden party, then the Founder pack's Fern & gold.
+                    Category(4, "More", tabs, grid, choose, new[]
+                    {
+                        Wear(Outfit.OatmealKnit), Wear(Outfit.BerryKnit), Wear(Outfit.MossKnit), Wear(Outfit.FogKnit),
+                        Wear(Outfit.FernGold), Wear(Outfit.Rosebud), Wear(Outfit.Marigold), Wear(Outfit.GardenMint),
+                        Wear(Outfit.Bluebell)
+                    }),
+                    Category(5, "Hat", tabs, grid, choose, new[]
                     {
                         Hat(Headwear.None, "None"), Hat(Headwear.Bow, "Bow"), Hat(Headwear.BearBeanie, "Bear beanie"),
-                        Hat(Headwear.BucketHat, "Bucket hat"), Hat(Headwear.DaisyClip, "Daisy clip")
+                        Hat(Headwear.BucketHat, "Bucket hat"), Hat(Headwear.DaisyClip, "Daisy clip"),
+                        Hat(Headwear.PomBeanie, "Pom-pom beanie"), Hat(Headwear.SunHat, "Sun hat")
                     })
                 };
 
@@ -138,6 +163,13 @@ namespace BAIby.Presentation
                     category.SetEarned(longestRhythm, unlockAll);
             }
 
+            // Which special looks the household owns: a locked one carries the "Special" chip.
+            public void SetSpecial(IEntitlements owned)
+            {
+                foreach (var category in categories)
+                    category.SetSpecial(owned);
+            }
+
             private void ShowCategory(int index)
             {
                 shown = index;
@@ -148,7 +180,7 @@ namespace BAIby.Presentation
             private StyleCategory Category(int index, string title, RectTransform tabs, RectTransform grid,
                 Action<Func<BabyAppearance, BabyAppearance>> choose, SwatchSpec[] specs)
             {
-                const float width = 0.2f;
+                var width = 1f / CategoryCount;
                 var tab = ActionButton(title, tabs, index * width, (index + 1) * width, 6, 58,
                     () => ShowCategory(index), Mist, Muted);
                 tab.name = "Style tab " + title;
@@ -156,7 +188,7 @@ namespace BAIby.Presentation
                 SoftShapes.Pill(tab.image);
                 var tabRect = (RectTransform)tab.transform;
                 tabRect.offsetMin = new Vector2(index == 0 ? 6 : 2, tabRect.offsetMin.y);
-                tabRect.offsetMax = new Vector2(index == 4 ? -6 : -2, tabRect.offsetMax.y);
+                tabRect.offsetMax = new Vector2(index == CategoryCount - 1 ? -6 : -2, tabRect.offsetMax.y);
 
                 var group = Box(title + " Choices", grid, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 var columns = (specs.Length + 1) / 2;
@@ -186,19 +218,22 @@ namespace BAIby.Presentation
                 new SwatchSpec(cut.ToString(), null, null, look => look.WithHairStyle(cut));
 
             private static SwatchSpec Wear(Outfit outfit) =>
-                new SwatchSpec(outfit.ToString(), ToColor(AppearancePalette.OutfitMain(outfit, SageMain)),
+                new SwatchSpec(OutfitName(outfit), ToColor(AppearancePalette.OutfitMain(outfit, SageMain)),
                     ToColor(AppearancePalette.OutfitAccent(outfit, SageAccent)), look => look.WithOutfit(outfit),
-                    EarnedLooks.RhythmFor(outfit));
+                    EarnedLooks.RhythmFor(outfit), CosmeticCatalog.PackFor(CosmeticCatalog.OutfitId(outfit)) != null
+                        ? CosmeticCatalog.OutfitId(outfit) : null);
 
             private static SwatchSpec Hat(Headwear headwear, string title) =>
-                new SwatchSpec(title, null, null, look => look.WithHeadwear(headwear), EarnedLooks.RhythmFor(headwear));
+                new SwatchSpec(title, null, null, look => look.WithHeadwear(headwear), EarnedLooks.RhythmFor(headwear),
+                    CosmeticCatalog.PackFor(CosmeticCatalog.HeadwearId(headwear)) != null ? CosmeticCatalog.HeadwearId(headwear) : null);
         }
 
         private sealed class SwatchSpec
         {
             public SwatchSpec(string title, Color? chip, Color? trim, Func<BabyAppearance, BabyAppearance> change,
-                int earnedAt = 0)
+                int earnedAt = 0, string specialId = null)
             {
+                SpecialId = specialId;
                 Title = title;
                 Chip = chip;
                 Trim = trim;
@@ -208,6 +243,8 @@ namespace BAIby.Presentation
 
             // The care rhythm (days) that earns this look; 0 for a look that is always there.
             public int EarnedAt { get; }
+            // The content ID of a look-pack item (CosmeticCatalog); null for a free or earned look.
+            public string SpecialId { get; }
 
             public string Title { get; }
             public Color? Chip { get; }
@@ -252,6 +289,12 @@ namespace BAIby.Presentation
                     swatch.SetEarned(longestRhythm, unlockAll);
             }
 
+            public void SetSpecial(IEntitlements owned)
+            {
+                foreach (var swatch in swatches)
+                    swatch.SetSpecial(owned);
+            }
+
             public Button SelectedButton(BabyAppearance appearance)
             {
                 foreach (var swatch in swatches)
@@ -276,6 +319,7 @@ namespace BAIby.Presentation
             private readonly Text label;
             private readonly bool colour;
             private readonly int earnedAt;
+            private readonly string specialId;
             private readonly Image badge;
             private readonly Text badgeLabel;
             private bool locked;
@@ -332,7 +376,8 @@ namespace BAIby.Presentation
 
                 // An earned look's badge sits on the chip's top right: "Earned", or the rhythm that earns it.
                 earnedAt = spec.EarnedAt;
-                if (earnedAt > 0)
+                specialId = spec.SpecialId;
+                if (earnedAt > 0 || specialId != null)
                 {
                     // Beside a colour chip's top right, or on a pill's top right corner; clear of the tabs above.
                     var anchor = colour ? new Vector2(0.5f, 1) : Vector2.one;
@@ -356,6 +401,19 @@ namespace BAIby.Presentation
                 badge.color = locked ? Mist : FernSoft;
                 badgeLabel.color = locked ? Muted : FernDeep;
                 badgeLabel.text = locked ? $"{earnedAt} days" : "Earned";
+            }
+
+            // A look-pack item carries a small butter "Special" chip while its pack is not owned, and nothing once owned.
+            public void SetSpecial(IEntitlements owned)
+            {
+                if (specialId == null)
+                    return;
+
+                locked = !owned.IsCosmeticUnlocked(specialId);
+                badge.gameObject.SetActive(locked);
+                badge.color = Butter;
+                badgeLabel.color = ButterInk;
+                badgeLabel.text = "Special";
             }
 
             public bool Matches(BabyAppearance appearance) => change(appearance).Equals(appearance);

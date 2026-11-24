@@ -16,6 +16,7 @@ namespace BAIby.Tests.Appearance
         {
             IdentityLookLeavesPixelsExact();
             PaletteTargetsMatchContract();
+            PythonPaletteMatchesLookPacks();
             KnownValueRecolor();
             RecolorRoundsHalfToEvenAndClamps();
             WeightsSumRule();
@@ -373,6 +374,41 @@ namespace BAIby.Tests.Appearance
             data.reference.skin = new double[] { 232, 178, 141 };
             data.overlays[0].pose = "Sleeper";
             Throws<FormatException>(() => AppearanceLayout.FromData(data), "overlays for unknown poses are rejected");
+        }
+
+        // The preview tool (tools/appearance/recolor.py) names every outfit, and every look-pack outfit (after Midnight) has
+        // exactly the C# targets, so the contact sheets show what the game draws. The free outfits keep the art-QA tweaks the
+        // tool's README lists (Oat accent, Sky and Lilac mains), which the game palette predates.
+        private static void PythonPaletteMatchesLookPacks()
+        {
+            var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+                "tools", "appearance", "recolor.py"));
+            var text = File.ReadAllText(path);
+            var start = text.IndexOf("OUTFIT = {", StringComparison.Ordinal);
+            var end = text.IndexOf("\n}", start, StringComparison.Ordinal);
+            Check(start >= 0 && end > start, "recolor.py declares the OUTFIT palette");
+            var table = text.Substring(start, end - start);
+            foreach (Outfit outfit in Enum.GetValues(typeof(Outfit)))
+            {
+                var name = "\"" + outfit + "\":";
+                var at = table.IndexOf(name, StringComparison.Ordinal);
+                Check(at >= 0, "recolor.py has the " + outfit + " outfit");
+                if (at < 0 || outfit <= Outfit.Midnight)
+                    continue;
+
+                var line = text.Substring(start + at, text.IndexOf('\n', start + at) - start - at);
+                var numbers = new List<double>();
+                foreach (var part in line.Substring(name.Length).Split(new[] { '(', ')', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                        numbers.Add(value);
+                }
+
+                Check(numbers.Count == 6 &&
+                    AppearancePalette.OutfitMain(outfit, Reference.OutfitMain).Equals(new AppearanceColor(numbers[0], numbers[1], numbers[2])) &&
+                    AppearancePalette.OutfitAccent(outfit, Reference.OutfitAccent).Equals(new AppearanceColor(numbers[3], numbers[4], numbers[5])),
+                    outfit + " matches between AppearancePalette.cs and recolor.py");
+            }
         }
 
         // The art pipeline writes layout.json concurrently; when it exists, make sure its shape matches.

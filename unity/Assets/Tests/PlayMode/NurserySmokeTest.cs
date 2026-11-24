@@ -1039,6 +1039,81 @@ namespace BAIby.Tests
             Assert.That(ActiveFloors(view.gameObject), Is.EqualTo(2), "the ball launcher and litter box show their floors");
         }
 
+        // Look packs: a locked special outfit carries "Special" and only previews with a calm line (no shop, no price);
+        // Grown-ups → Looks & rooms adds a test pack, the outfit is saved, and removing the pack keeps the saved choice
+        // while the chip comes back. A locked room theme previews in Decor and keeps the saved theme selected.
+        [UnityTest]
+        public IEnumerator LookPacksPreviewWhenLockedAndKeepTheChoiceAfterARefund()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Adopt(view.gameObject, "Mia");
+
+            Tap(view.gameObject, "Style");
+            Tap(view.gameObject, "Style tab More");
+            Assert.That(Child<Text>(view.gameObject, "More Moss Badge Label").text, Is.EqualTo("Special"));
+            Assert.That(Child<Text>(view.gameObject, "More Moss Badge Label").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "More Moss");
+            var line = Child<Text>(view.gameObject, "Style Feedback").text;
+            Assert.That(line, Is.EqualTo("Part of the Cozy knits pack — a grown-up can get it in Grown-ups."));
+            Assert.That(line.ToLowerInvariant(), Does.Not.Contain("buy").And.Not.Contain("shop").And.Not.Contain("$"));
+            Assert.That(Child<Image>(view.gameObject, "More Moss Selection").gameObject.activeSelf, Is.False, "a preview is not saved");
+            Tap(view.gameObject, "Close style");
+
+            // Grown-ups → Looks & rooms, behind the parental gate: the test build adds a pack (nothing is bought).
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            PassGate(view.gameObject);
+            Tap(view.gameObject, "Settings looks");
+            Assert.That(Child<RectTransform>(view.gameObject, "Looks Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Looks Pack Title 0").text, Is.EqualTo("Cozy knits"));
+            Tap(view.gameObject, "Looks pack toggle 0");
+            Assert.That(Child<Text>(view.gameObject, "Looks Feedback").text, Does.StartWith("Cozy knits added"));
+            Tap(view.gameObject, "Close looks");
+            Tap(view.gameObject, "Close settings");
+            Tap(view.gameObject, "Close home");
+
+            Tap(view.gameObject, "Style");
+            Tap(view.gameObject, "Style tab More");
+            Assert.That(Child<Text>(view.gameObject, "More Moss Badge Label").gameObject.activeInHierarchy, Is.False, "owned: no chip");
+            Tap(view.gameObject, "More Moss");
+            Assert.That(Child<Image>(view.gameObject, "More Moss Selection").gameObject.activeSelf, Is.True);
+            Tap(view.gameObject, "Close style");
+
+            // Removing the pack (a refund) keeps the saved choice; the chip comes back and the baby shows Sage.
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Household settings");
+            PassGate(view.gameObject);
+            Tap(view.gameObject, "Settings looks");
+            Tap(view.gameObject, "Looks pack toggle 0");
+            Assert.That(Child<Text>(view.gameObject, "Looks Feedback").text, Does.Contain("stays saved"));
+            Tap(view.gameObject, "Close looks");
+            Tap(view.gameObject, "Close settings");
+            Tap(view.gameObject, "Close home");
+            Tap(view.gameObject, "Style");
+            Tap(view.gameObject, "Style tab More");
+            Assert.That(Child<Image>(view.gameObject, "More Moss Selection").gameObject.activeSelf, Is.True, "the choice is kept");
+            Assert.That(Child<Text>(view.gameObject, "More Moss Badge Label").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Close style");
+
+            // A locked room theme previews and keeps the saved theme selected.
+            Tap(view.gameObject, "Decor");
+            Assert.That(Child<RectTransform>(view.gameObject, "Starlight Special").gameObject.activeInHierarchy, Is.True);
+            Tap(view.gameObject, "Starlight");
+            Assert.That(Child<Text>(view.gameObject, "Decor Feedback").text, Does.StartWith("Part of the Starlight pack"));
+            Assert.That(Child<Text>(view.gameObject, "Sage Selection").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Starlight Selection").gameObject.activeInHierarchy, Is.False);
+            Tap(view.gameObject, "Close decor");
+        }
+
         // Talk time: Next day previews until First words (by day 23 whatever happens), the Talk tile and its feeling chips,
         // typing off by default and turned on in Grown-ups behind the gate, the calm safety message in the sheet with an
         // empty bubble, the journal's lines, and nothing typed in any saved key.

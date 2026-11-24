@@ -131,6 +131,17 @@ def main():
              for k in HEADWEAR]
     grid(cells, HEADWEAR, ["Sitter Midnight", "Sitter Blush", "WRest Midnight", "WRest Blush"],
          title="Headwear follows outfit").save(out / "e3_headwear_outfits.png")
+    # (g) the look packs as sold: each pack's outfits with its hat, and the Founder outfit, on four stages
+    packs = [("Cozy knits", ["OatmealKnit", "BerryKnit", "MossKnit", "FogKnit"], "PomBeanie"),
+             ("Garden party", ["Rosebud", "Marigold", "GardenMint", "Bluebell"], "SunHat"),
+             ("Founder", ["FernGold"], "None")]
+    rows, labels = [], []
+    for title, fits, hat in packs:
+        for o in fits:
+            rows.append([on_bg(A.render(p, outfit=o, hat=hat, style=st))
+                         for p, st in zip(STAGES, ["Curls", "Coils", "Smooth", "Tuft"])])
+            labels.append(o)
+    grid(rows, labels, STAGES, cell=220, title="Look packs (outfit + the pack's hat)").save(out / "g_look_packs.png")
     # (f) random combos on the nursery backdrop
     rng = random.Random(2026)
     bd = Image.open(BACKDROP).convert("RGB")

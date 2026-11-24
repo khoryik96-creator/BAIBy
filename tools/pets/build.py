@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the PLACEHOLDER cat art: base poses, region maps, breed marking overlays,
-the collar accessory overlay, layout.json and Unity .meta files.
+the neck wear overlays (Collar, and the Bandana and Bow of the "Cat bandanas & bows"
+pack), layout.json and Unity .meta files.
 
     python3 tools/pets/build.py            # all poses (about a minute on 4 cores)
     python3 tools/pets/build.py --jobs 1   # serial
@@ -25,7 +26,7 @@ from PIL import Image
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from cat import BREEDS, POSES, REF_ACCENT, REF_COAT, REF_IRIS, REF_MARK, RUNTIME_SCALE  # noqa: E402
+from cat import BREEDS, POSES, REF_ACCENT, REF_COAT, REF_IRIS, REF_MARK, RUNTIME_SCALE, WEAR  # noqa: E402
 from palette import breed_entries, collar_entries, eye_entries  # noqa: E402
 
 sys.path.insert(0, str(HERE.parent / "appearance"))
@@ -100,7 +101,7 @@ def render_job(job):
     elif kind == "darkpatch":
         cv = render(pose, breed=name, capture="darkpatch")
     else:
-        cv = render(pose, capture="collar")
+        cv = render(pose, capture=name.lower())
     return job, cv.overlay() + (cv.image()[0],)
 
 
@@ -116,7 +117,7 @@ def main():
         jobs.append((pose, "base", None))
         jobs += [(pose, "marking", b) for b in BREEDS]
         jobs.append((pose, "darkpatch", "Calico"))
-        jobs.append((pose, "collar", "Collar"))
+        jobs += [(pose, "wear", w) for w in WEAR]
     if args.jobs > 1:
         with ProcessPoolExecutor(args.jobs) as ex:
             results = dict(ex.map(render_job, jobs))
@@ -140,7 +141,7 @@ def main():
 
         overlays = [(f"Markings/{b}/{pose}", (pose, "marking", b), "secondary") for b in BREEDS]
         overlays.append((f"Markings/Calico/{pose}Dark", (pose, "darkpatch", "Calico"), "dark"))
-        overlays.append((f"Accessories/Collar/{pose}", (pose, "collar", "Collar"), "secondary"))
+        overlays += [(f"Accessories/{w}/{pose}", (pose, "wear", w), "secondary") for w in WEAR]
         for path, key, gtarget in overlays:
             oimg, oreg, full = results[key]
             oimg, oreg, full = oimg[y0:y1, x0:x1], oreg[y0:y1, x0:x1], full[y0:y1, x0:x1]
@@ -158,7 +159,7 @@ def main():
         print(f"{pose}: {x1 - x0}x{y1 - y0}")
 
     order = {p: i for i, p in enumerate(POSES)}
-    kinds = [f"Markings/{b}" for b in BREEDS] + ["Accessories/Collar"]
+    kinds = [f"Markings/{b}" for b in BREEDS] + [f"Accessories/{w}" for w in WEAR]
     layout = {
         "placeholder": True,
         "species": "Cat",

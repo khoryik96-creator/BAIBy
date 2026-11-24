@@ -18,8 +18,6 @@ namespace BAIby.Presentation
         // Species in the order they arrive (docs/pet-mode.md decision 5). Only shipped species can be chosen.
         private static readonly Species[] SpeciesOrder = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish, Species.Rabbit };
         private static readonly Species[] ShippedSpecies = { Species.Cat };
-        // Collar choices: none, then outfit accents so a collar can match a baby's outfit.
-        private static readonly Outfit?[] CollarChoices = { null, Outfit.Sage, Outfit.Sky, Outfit.Blush, Outfit.Midnight };
 
         private PetVisuals petStage;
         private ChoicePanel choice;
@@ -27,13 +25,16 @@ namespace BAIby.Presentation
         private Species draftSpecies = Species.Cat;
         private PetBreed draftBreed = PetBreed.DomesticShorthair;
         private PetCoat draftCoat = PetCoat.Ginger;
-        private int draftCollar = 1;
+        // What the new pet wears: a collar in an outfit accent by default, so it can match a baby's outfit. The bandana,
+        // the bow and three more colours come with "Cat bandanas & bows"; locked ones carry "Special" and preview only.
+        private PetAccessory draftWear = PetAccessory.Collar;
+        private Outfit draftAccent = Outfit.Sage;
 
         private void BuildAdoptionPanels()
         {
             choice = new ChoicePanel(Tray("Adopt Choice Panel", false, 378), ShowHome, StartBabyAdoption, StartPetAdoption);
             petAdoption = new PetAdoptionPanel(Tray("Pet Adoption Panel", false, 378), PetAdoptionBack, ChooseSpecies,
-                ChooseBreed, ChooseCoat, () => ShowPetAdoptionPage(2), CycleCollar, AdoptPet);
+                ChooseBreed, ChooseCoat, () => ShowPetAdoptionPage(2), CycleAdoptionWear, AdoptPet);
         }
 
         // "+ Adopt" and the first launch: choose a baby or a pet.
@@ -62,7 +63,8 @@ namespace BAIby.Presentation
             draftSpecies = Species.Cat;
             draftBreed = PetBreed.DomesticShorthair;
             draftCoat = household.PetCatalog.Get(draftBreed).DefaultCoat;
-            draftCollar = 1;
+            draftWear = PetAccessory.Collar;
+            draftAccent = Outfit.Sage;
             petAdoption.NameField.text = string.Empty;
             view = HouseholdView.PetAdoption;
             petStage.PlayArrival();
@@ -106,9 +108,11 @@ namespace BAIby.Presentation
             RefreshPetAdoption();
         }
 
-        private void CycleCollar()
+        private void CycleAdoptionWear(bool colour)
         {
-            draftCollar = (draftCollar + 1) % CollarChoices.Length;
+            var next = colour ? NextAccent(DraftLook()) : NextWear(DraftLook(), household.PetCatalog);
+            draftWear = next.Accessory;
+            draftAccent = next.AccessoryAccent;
             RefreshPetAdoption();
         }
 
@@ -154,16 +158,25 @@ namespace BAIby.Presentation
             petAdoption.ShowCoats(catalog.Get(draftBreed).Coats, draftCoat);
             var adoptable = household.CanAdoptBreed(draftBreed);
             petAdoption.ShowBreedDetail(DescribeBreed(catalog.Get(draftBreed), adoptable), adoptable);
-            var collar = CollarChoices[draftCollar];
-            petAdoption.ShowName(SpeciesName(draftSpecies), collar == null ? "No collar" : "Collar: " + collar.Value);
+            var look = DraftLook();
+            var wearLocked = look.Accessory != PetAccessory.None &&
+                !Owned.IsCosmeticUnlocked(CosmeticCatalog.PetWearId(look.Species, look.Accessory));
+            var colourLocked = !CosmeticCatalog.IsPetAccentUnlocked(Owned, look.AccessoryAccent);
+            petAdoption.ShowName(SpeciesName(draftSpecies),
+                "Wears: " + WearName(look.Accessory) + (wearLocked ? " · Special" : string.Empty),
+                "Colour: " + OutfitName(look.AccessoryAccent) + (colourLocked ? " · Special" : string.Empty));
+            var locked = CosmeticCatalog.LockedPack(look, Owned);
+            if (locked != null)
+                petAdoption.Feedback.text = CosmeticCatalog.LockedLine(locked);
+            else if (petAdoption.Feedback.text.StartsWith("Part of the", StringComparison.Ordinal))
+                petAdoption.Feedback.text = string.Empty;
             petStage.Show(DraftLook(), catalog, PetStage.Young, false);
         }
 
         private PetAppearance DraftLook()
         {
-            var collar = CollarChoices[draftCollar];
-            return new PetAppearance(draftBreed, draftCoat, null,
-                collar == null ? PetAccessory.None : PetAccessory.Collar, collar ?? Outfit.Sage);
+            var wear = household.PetCatalog.Get(PetIds.SpeciesOf(draftBreed)).Offers(draftWear) ? draftWear : PetAccessory.None;
+            return new PetAppearance(draftBreed, draftCoat, null, wear, draftAccent);
         }
 
         private PetBreed FirstBreed(Species species)
@@ -195,6 +208,14 @@ namespace BAIby.Presentation
             if (!household.CanAdoptBreed(draftBreed))
             {
                 ShowPetAdoptionPage(1);
+                return;
+            }
+
+            var locked = CosmeticCatalog.LockedPack(DraftLook(), Owned);
+            if (locked != null)
+            {
+                // A special item was only previewed: choose another to welcome the pet home.
+                petAdoption.Feedback.text = CosmeticCatalog.LockedLine(locked) + " Choose another to welcome them home.";
                 return;
             }
 
@@ -239,7 +260,7 @@ namespace BAIby.Presentation
             nursery.SetBabyShown(!petInRoom && !petBehindHome);
             petStage.SetShown(petInRoom || petBehindHome);
             if (petBehindHome && !petInRoom)
-                petStage.Show(active.PetState.Appearance, household.PetCatalog, active.PetState.Stage, IsSleepy(active.PetState));
+                petStage.Show(ShownPet(active.PetState.Appearance), household.PetCatalog, active.PetState.Stage, IsSleepy(active.PetState));
             // Portraits stay while Home or a pet's journal (its photos) is on screen.
             if (view != HouseholdView.Home && view != HouseholdView.Journal &&
                 !(view == HouseholdView.PetRoom && petPanel == PetPanel.Journal))
@@ -254,11 +275,17 @@ namespace BAIby.Presentation
             }
 
             if (view == HouseholdView.PetRoom)
+            {
                 UpdateHouseholdChips(petPanel == PetPanel.Care);
+                // A pet's room has Decor (its theme, and what a cat wears) but no Style.
+                decorButton.gameObject.SetActive(petPanel == PetPanel.Care);
+                styleButton.gameObject.SetActive(false);
+                LayoutTopStack();
+            }
         }
 
         private Sprite PetPortrait(PetState state) =>
-            state == null || household == null ? null : petStage.PortraitFor(state.Appearance, household.PetCatalog, state.Stage);
+            state == null || household == null ? null : petStage.PortraitFor(ShownPet(state.Appearance), household.PetCatalog, state.Stage);
 
         private string BreedStatus(BreedDefinition breed, bool unlocked)
         {
@@ -441,8 +468,8 @@ namespace BAIby.Presentation
             private readonly Button back;
             private readonly Button next;
             private readonly Button adopt;
-            private readonly Button collar;
-            private readonly Text collarLabel;
+            private readonly Text wearLabel;
+            private readonly Text colourLabel;
             private readonly Text nameHeading;
             private readonly Text namePlaceholder;
             private readonly Action<PetBreed> chooseBreed;
@@ -459,7 +486,7 @@ namespace BAIby.Presentation
             public int Page { get; private set; }
 
             public PetAdoptionPanel(RectTransform content, Action back, Action<Species> chooseSpecies, Action<PetBreed> chooseBreed,
-                Action<PetCoat> chooseCoat, Action next, Action cycleCollar, Action adopt)
+                Action<PetCoat> chooseCoat, Action next, Action<bool> cycleWear, Action adopt)
             {
                 this.chooseBreed = chooseBreed;
                 this.chooseCoat = chooseCoat;
@@ -543,13 +570,19 @@ namespace BAIby.Presentation
                 namePlaceholder = Label("Pet Name Placeholder", field, "Name", 30, Secondary, TextAnchor.MiddleLeft,
                     new Vector2(26, 0), Vector2.one, new Vector2(-26, 0));
                 NameField.placeholder = namePlaceholder;
-                collar = ActionButton("Pet collar", nameGroup, 0, 0.42f, 0, 0, cycleCollar, Mist, Ink);
-                collarLabel = collar.GetComponentInChildren<Text>();
-                FitText(collarLabel, 15, 24);
-                PlaceFromTop((RectTransform)collar.transform, 0, 0.42f, 200, 278, 0, 9);
-                this.adopt = ActionButton("Adopt pet", nameGroup, 0.42f, 1, 0, 0, adopt, Fern, Color.white);
+                // What the pet wears and its colour, each a soft button that steps on.
+                var wear = ActionButton("Pet collar", nameGroup, 0, 0.29f, 0, 0, () => cycleWear(false), Mist, Ink);
+                wearLabel = wear.GetComponentInChildren<Text>();
+                FitText(wearLabel, 13, 21);
+                PlaceFromTop((RectTransform)wear.transform, 0, 0.29f, 200, 278, 0, 5);
+                var colour = ActionButton("Pet collar colour", nameGroup, 0.29f, 0.58f, 0, 0, () => cycleWear(true), Mist, Ink);
+                colourLabel = colour.GetComponentInChildren<Text>();
+                FitText(colourLabel, 13, 21);
+                PlaceFromTop((RectTransform)colour.transform, 0.29f, 0.58f, 200, 278, 5, 5);
+                this.adopt = ActionButton("Adopt pet", nameGroup, 0.58f, 1, 0, 0, adopt, Fern, Color.white);
                 this.adopt.GetComponentInChildren<Text>().text = "Welcome home";
-                PlaceFromTop((RectTransform)this.adopt.transform, 0.42f, 1, 200, 278, 9, 0);
+                FitText(this.adopt.GetComponentInChildren<Text>(), 18, 26);
+                PlaceFromTop((RectTransform)this.adopt.transform, 0.58f, 1, 200, 278, 5, 0);
 
                 Feedback = Label("Pet Adoption Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
@@ -649,11 +682,12 @@ namespace BAIby.Presentation
                 next.GetComponentInChildren<Text>().text = adoptable ? "Choose a name" : "Locked";
             }
 
-            public void ShowName(string species, string collarText)
+            public void ShowName(string species, string wearText, string colourText)
             {
                 nameHeading.text = $"What's your {species.ToLowerInvariant()}'s name?";
                 namePlaceholder.text = species + " name";
-                collarLabel.text = collarText;
+                wearLabel.text = wearText;
+                colourLabel.text = colourText;
             }
 
             private static RectTransform Group(string name, RectTransform content) =>

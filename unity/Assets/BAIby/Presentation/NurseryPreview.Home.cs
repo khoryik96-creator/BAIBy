@@ -12,7 +12,7 @@ namespace BAIby.Presentation
     public sealed partial class NurseryPreview
     {
         // Choose is "Who's joining your home?"; PetAdoption picks species, breed and name; PetRoom is a pet's room.
-        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom, Helpers }
+        private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom, Helpers, Looks }
 
         private HouseholdView view = HouseholdView.Adoption;
         private HouseholdSession household;
@@ -456,6 +456,8 @@ namespace BAIby.Presentation
             private readonly Text rooms;
             private readonly Text playtestBadge;
             private readonly RectTransform playtestChip;
+            private readonly RectTransform founderChip;
+            private readonly Text founderBadge;
             private readonly Action<int> open;
             private readonly Action adopt;
             private readonly Action<int> farewell;
@@ -496,6 +498,13 @@ namespace BAIby.Presentation
                 playtestBadge = Label("Home playtest badge", playtestChip, "Playtest unlocks", 20, FernDeep,
                     TextAnchor.MiddleCenter, new Vector2(Px(10), 0), Vector2.one, new Vector2(-Px(10), 0), FontStyle.Bold);
                 playtestChip.gameObject.SetActive(false);
+
+                // The Founder pack's badge: a small butter chip on the household card, for grown-ups who support the game.
+                founderChip = Box("Home founder chip", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SoftShapes.Pill(Surface(founderChip, Butter));
+                founderBadge = Label("Home founder badge", founderChip, "Founder", 20, ButterInk,
+                    TextAnchor.MiddleCenter, new Vector2(Px(10), 0), Vector2.one, new Vector2(-Px(10), 0), FontStyle.Bold);
+                founderChip.gameObject.SetActive(false);
 
                 cards = Box("Home Cards", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
@@ -565,6 +574,7 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
                 playtestBadge.text = developerMode ? "Developer mode" : "Playtest unlocks";
                 playtestChip.gameObject.SetActive(playtestOn || developerMode);
+                founderChip.gameObject.SetActive(household.IsCosmeticUnlocked(CosmeticCatalog.FounderBadge));
                 var active = household.Active;
                 close.gameObject.SetActive(active != null);
                 var awake = Math.Min(household.Companions.Count, household.Capacity);
@@ -574,10 +584,22 @@ namespace BAIby.Presentation
                 var left = active != null ? 82 + Gap : 0;
                 PlaceFromTop(headingArea, 0, 1, TopPad + 2, TopPad + 98, left, 82 + Gap);
                 var y = TopPad + 106f;
-                if (playtestChip.gameObject.activeSelf)
+                if (playtestChip.gameObject.activeSelf || founderChip.gameObject.activeSelf)
                 {
-                    var chipWidth = PillWidth(playtestBadge, Px(10));
-                    PlaceFromTop(playtestChip, 0, 0, y, y + 44, left, -left - chipWidth);
+                    var x = left;
+                    if (founderChip.gameObject.activeSelf)
+                    {
+                        var founderWidth = PillWidth(founderBadge, Px(10));
+                        PlaceFromTop(founderChip, 0, 0, y, y + 44, x, -x - founderWidth);
+                        x += founderWidth + 12;
+                    }
+
+                    if (playtestChip.gameObject.activeSelf)
+                    {
+                        var chipWidth = PillWidth(playtestBadge, Px(10));
+                        PlaceFromTop(playtestChip, 0, 0, y, y + 44, x, -x - chipWidth);
+                    }
+
                     y += 56;
                 }
 

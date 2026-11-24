@@ -41,8 +41,9 @@ namespace BAIby.Tests.Appearance
                 {
                     var pose = PetLayout.PoseName(stage, resting);
                     check(layout.TryGetPoseSize(pose, out _, out _), "the cat layout has the " + pose + " pose");
-                    check(layout.TryGetOverlay(PetLayout.AccessoryPath(PetAccessory.Collar, pose), out _),
-                        "the collar has a " + pose + " overlay");
+                    foreach (var accessory in new[] { PetAccessory.Collar, PetAccessory.Bandana, PetAccessory.Bow })
+                        check(layout.TryGetOverlay(PetLayout.AccessoryPath(accessory, pose), out _),
+                            "the " + accessory + " has a " + pose + " overlay");
                     foreach (var breed in new[] { PetBreed.Tabby, PetBreed.Tuxedo, PetBreed.Siamese, PetBreed.Calico })
                         check(layout.TryGetOverlay(PetLayout.MarkingsPath(breed, pose), out _), breed + " has " + pose + " markings");
                     check(layout.IsDarkOverlay(PetLayout.DarkMarkingsPath(PetBreed.Calico, pose)), "Calico has dark " + pose + " patches");

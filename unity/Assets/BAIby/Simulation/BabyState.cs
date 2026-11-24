@@ -2,7 +2,8 @@ using System;
 
 namespace BAIby.Simulation
 {
-    public enum NurseryTheme { Sage = 0, Peach = 1 }
+    // Saved content IDs (append only). Sage and Peach are free; the others are room themes (CosmeticCatalog).
+    public enum NurseryTheme { Sage = 0, Peach = 1, CloudNursery = 2, Starlight = 3, GoldenHour = 4 }
     public enum Toy { Rattle, Plush }
     public enum Food { Milk = 0, Banana = 1, Oats = 2 }
     public enum CareAction { Feed, Soothe, Play, Rest, ReadStory, ChangeDiaper, ComfortNewSound, ExploreNewSound, Bath, StackBlocks, Medicine }
@@ -216,7 +217,7 @@ namespace BAIby.Simulation
 
         private static void ValidateNurseryTheme(NurseryTheme nurseryTheme)
         {
-            if (nurseryTheme != NurseryTheme.Sage && nurseryTheme != NurseryTheme.Peach)
+            if (!Enum.IsDefined(typeof(NurseryTheme), nurseryTheme))
                 throw new ArgumentOutOfRangeException(nameof(nurseryTheme));
         }
     }

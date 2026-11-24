@@ -29,7 +29,7 @@ gh run download RUN_ID --name baiby-web --dir build/Web
 python3 tools/check-web-build.py build/Web
 ```
 
-Open port **8000** to play: the front page goes straight to `/nursery/`. To try everything without locks, open **Home → Grown-ups** and turn on **Developer mode** (or add `?dev=1` to the address): every room, premium breed and earned breed opens. Test builds only. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
+Open port **8000** to play: the front page goes straight to `/nursery/`. To try everything without locks, open **Home → Grown-ups** and turn on **Developer mode** (or add `?dev=1` to the address): every room, premium breed, earned breed, look pack and room theme opens. Test builds only. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
 
 ## Mobile restart development
 
@@ -53,6 +53,6 @@ dotnet run --project tests/Simulation/SimulationChecks.csproj --configuration Re
 dotnet run --project tests/Appearance/AppearanceChecks.csproj --configuration Release
 ```
 
-The baby's look comes from region maps and hair and headwear overlays generated from the pose illustrations. Regenerate them with the tool in [tools/appearance](tools/appearance), which also renders preview sheets for review.
+The baby's look comes from region maps and hair and headwear overlays generated from the pose illustrations. Regenerate them with the tool in [tools/appearance](tools/appearance), which also renders preview sheets for review (`build.py --only-hats PomBeanie,SunHat` redraws just the named hats). The cat's art and its neck wear come from [tools/pets](tools/pets), and the premium room themes (Cloud nursery, Starlight, Golden hour) are recoloured from the Sage nursery by [tools/rooms/build.py](tools/rooms/build.py) (`--preview` writes a contact sheet). The look packs, room themes, cat wear and Founder pack are listed in [monetization](docs/monetization.md#looks-and-rooms-built-in-m2b); [the playtest](docs/playtest.md#looks-and-rooms-monetization-m2b) shows how to see each one with `?dev=1` or `?ent=`.
 
 The character and milestone timing are for playtesting. The nursery uses layered 2D artwork, with awake and sleeping chibi poses for each developmental stage. The local adapter uses Unity PlayerPrefs with a previous valid payload for recovery. Verify persistence on each target before beta.

@@ -21,7 +21,7 @@ namespace BAIby.Presentation
         // A photo catches the moment of the last care for this long, as for the baby.
         private const float PetMomentSeconds = 120;
 
-        private enum PetPanel { Care, Routine, Growth, Journal, Vet }
+        private enum PetPanel { Care, Routine, Growth, Journal, Vet, Decor }
 
         private PetPanel petPanel;
         private Button petRoutineButton;
@@ -106,6 +106,7 @@ namespace BAIby.Presentation
                 return;
 
             var cared = FindCompanion(petSlot)?.PetSession?.HasCare == true;
+            decor.Root.SetActive(petPanel == PetPanel.Decor);
             routine.Root.SetActive(cared && petPanel == PetPanel.Routine);
             development.Root.SetActive(cared && petPanel == PetPanel.Growth);
             journal.Root.SetActive(cared && petPanel == PetPanel.Journal);
@@ -121,7 +122,9 @@ namespace BAIby.Presentation
                 return;
 
             var previous = petPanel;
-            petPanel = companion.PetSession.HasCare ? next : PetPanel.Care;
+            petPanel = companion.PetSession.HasCare || next == PetPanel.Decor ? next : PetPanel.Care;
+            if (previous == PetPanel.Decor && petPanel != PetPanel.Decor)
+                EndDecorPreview();
             if (petPanel == PetPanel.Journal)
                 journal.ShowPetPages(companion.PetState, companion.PetSession.Journal, companion.PetSession.Bonding, null,
                     entry => PetPhoto(companion.PetState, entry));
@@ -143,10 +146,19 @@ namespace BAIby.Presentation
                 case PetPanel.Vet:
                     (doctor.Visit.gameObject.activeSelf ? doctor.Visit : doctor.Done).Select();
                     break;
+                case PetPanel.Decor:
+                    var pet = companion.PetState;
+                    decor.Layout(true, pet.Species == Species.Cat);
+                    ApplyPetRoomTheme();
+                    petWearDraft = pet.Appearance;
+                    decor.ShowWear(pet.Appearance, Owned);
+                    decor.ChoiceFor(household.PetRoomTheme).Select();
+                    break;
                 default:
                     var focus = previous switch
                     {
                         PetPanel.Growth or PetPanel.Journal => petGrowthButton,
+                        PetPanel.Decor => decorButton,
                         PetPanel.Routine => routineStripFits ? routineStrip.Open : (Selectable)petRoutineButton,
                         PetPanel.Vet when petHealthButton != null && petHealthButton.gameObject.activeSelf &&
                             petHealthButton.interactable => petHealthButton,
@@ -370,7 +382,7 @@ namespace BAIby.Presentation
             var grownDay = (int)household.PetCatalog.Get(state.Species).GrownAge.TotalDays + 1;
             var stage = entry.Day >= grownDay ? PetStage.Grown : PetStage.Young;
             var rest = entry.Moment == PhotoMoment.Napping || entry.Moment == PhotoMoment.Poorly;
-            return petStage.PortraitFor(state.Appearance, household.PetCatalog, stage, rest);
+            return petStage.PortraitFor(ShownPet(state.Appearance), household.PetCatalog, stage, rest);
         }
 
         private void RememberPetMoment(PetVerb verb, PetCue cue)

@@ -19,7 +19,7 @@ POSES = ["Newborn", "NewbornRest", "Sitter", "SitterRest",
          "Crawler", "CrawlerRest", "Walker", "WalkerRest"]
 STAGES = ["Newborn", "Sitter", "Crawler", "Walker"]
 STYLES = ["Curls", "Coils", "Smooth", "Tuft"]
-HEADWEAR = ["Bow", "BearBeanie", "BucketHat", "DaisyClip"]
+HEADWEAR = ["Bow", "BearBeanie", "BucketHat", "DaisyClip", "PomBeanie", "SunHat"]
 
 # Supersampling factor used when drawing new art.
 SS = 4

@@ -80,6 +80,7 @@ namespace BAIby.Presentation
                     ShowHome();
                     break;
                 case HouseholdView.Helpers:
+                case HouseholdView.Looks:
                     ShowSettings();
                     break;
                 case HouseholdView.Gate:
@@ -520,8 +521,7 @@ namespace BAIby.Presentation
                 () => ShowPanel(NurseryPanel.Care), OpenDiaperExercise, () => Care(CareAction.Bath));
             diaper = new DiaperPanel(Tray("Diaper Panel", false, 378),
                 () => ShowPanel(NurseryPanel.Hygiene), CompleteDiaper);
-            decor = new DecorPanel(Tray("Decor Panel", false, 360),
-                () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
+            decor = new DecorPanel(Tray("Decor Panel", false, 360), CloseDecor, ChooseRoomTheme, CyclePetWear);
             style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
             BuildHealth(panel);
             BuildTalk();
@@ -544,6 +544,11 @@ namespace BAIby.Presentation
         {
             var previous = activePanel;
             activePanel = next;
+            // Leaving Decor or Style ends a preview of a locked look: the saved one (or its free default) comes back.
+            if (previous == NurseryPanel.Decor && next != NurseryPanel.Decor)
+                EndDecorPreview();
+            if (previous == NurseryPanel.Style && next != NurseryPanel.Style && session?.State != null)
+                ApplyBabyAppearance(session.State.Appearance);
             UpdatePanelVisibility(true);
             switch (next)
             {
@@ -580,6 +585,8 @@ namespace BAIby.Presentation
                     diaper.StartControl.Select();
                     break;
                 case NurseryPanel.Decor:
+                    decor.Layout(false);
+                    ApplyNurseryTheme(session.State.NurseryTheme);
                     decor.ChoiceFor(session.State.NurseryTheme).Select();
                     break;
                 case NurseryPanel.Routine:

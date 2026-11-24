@@ -69,9 +69,15 @@ namespace BAIby.Character
         private byte[] appearanceRegions;
         private Camera nurseryCamera;
         private SpriteRenderer backdrop;
-        private SpriteRenderer peachBackdrop;
-        private float peachOpacity;
-        private float targetPeachOpacity;
+        // Every room theme but Sage is one illustration on a layer above the Sage art that fades in. Peach loads with
+        // the room; the premium themes (Cloud nursery, Starlight, Golden hour) load the first time they are shown.
+        private SpriteRenderer themeBackdrop;
+        private float themeOpacity;
+        private float targetThemeOpacity;
+        private Sprite pendingThemeArt;
+        private readonly Dictionary<NurseryTheme, Sprite> themeArt = new Dictionary<NurseryTheme, Sprite>();
+        private float backdropWidth;
+        private float backdropHeight;
         private SpriteRenderer rug;
         private SpriteRenderer cushion;
         private SpriteRenderer shade;
@@ -239,9 +245,63 @@ namespace BAIby.Character
             snapHealthLook = true;
         }
 
+        // Fades to the theme's illustration. Draw a theme the household may show (CosmeticCatalog.Displayed); a theme
+        // whose art is missing shows Sage.
         public void SetTheme(NurseryTheme theme)
         {
-            targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;
+            var art = theme == NurseryTheme.Sage ? null : ThemeArt(theme);
+            if (themeBackdrop == null || art == null)
+            {
+                pendingThemeArt = null;
+                targetThemeOpacity = 0;
+                return;
+            }
+
+            if (themeBackdrop.sprite == art || themeOpacity <= 0)
+            {
+                ShowThemeArt(art);
+                pendingThemeArt = null;
+                targetThemeOpacity = 1;
+                return;
+            }
+
+            // Another theme is showing: fade it out, then fade the new one in (UpdateTheme).
+            pendingThemeArt = art;
+            targetThemeOpacity = 0;
+        }
+
+        private Sprite ThemeArt(NurseryTheme theme)
+        {
+            if (themeArt.TryGetValue(theme, out var cached))
+                return cached;
+
+            var name = ThemeArtName(theme);
+            var art = name == null ? null : LoadSprite(Art + "Nursery/" + name);
+            if (art == null)
+                Debug.LogError("Missing nursery illustration for " + theme + " in Resources/BAIby/Nursery/" + name + ".");
+            themeArt[theme] = art;
+            return art;
+        }
+
+        private static string ThemeArtName(NurseryTheme theme)
+        {
+            switch (theme)
+            {
+                case NurseryTheme.Peach: return "BackdropPeach";
+                case NurseryTheme.CloudNursery: return "BackdropCloud";
+                case NurseryTheme.Starlight: return "BackdropStarlight";
+                case NurseryTheme.GoldenHour: return "BackdropGoldenHour";
+                default: return null;
+            }
+        }
+
+        private void ShowThemeArt(Sprite art)
+        {
+            if (themeBackdrop.sprite == art)
+                return;
+            themeBackdrop.sprite = art;
+            if (backdropWidth > 0)
+                FrameBackdrop(themeBackdrop, backdropWidth, backdropHeight);
         }
 
         // The baby's place on the needs axis and the health axis and the room's mess, shown with the existing art: a
@@ -514,12 +574,9 @@ namespace BAIby.Character
             if (roomArt != null)
             {
                 backdrop = AddLayer(transform, "Nursery illustration", roomArt, Color.white, -11);
-                var peachArt = LoadSprite(Art + "Nursery/BackdropPeach");
-                if (peachArt == null)
-                    Debug.LogError("Missing peach nursery illustration in Resources/BAIby/Nursery/BackdropPeach.");
-                else
-                    peachBackdrop = AddLayer(transform, "Nursery illustration peach", peachArt, Color.white, -10);
-                SetOpacity(peachBackdrop, 0);
+                var peachArt = ThemeArt(NurseryTheme.Peach);
+                themeBackdrop = AddLayer(transform, "Nursery illustration theme", peachArt, Color.white, -10);
+                SetOpacity(themeBackdrop, 0);
             }
             else
             {
@@ -994,13 +1051,21 @@ namespace BAIby.Character
 
         private void UpdateTheme()
         {
-            if (peachBackdrop == null || peachOpacity == targetPeachOpacity)
+            if (themeBackdrop == null)
                 return;
+            if (themeOpacity == targetThemeOpacity)
+            {
+                if (pendingThemeArt == null || themeOpacity > 0)
+                    return;
+                ShowThemeArt(pendingThemeArt);
+                pendingThemeArt = null;
+                targetThemeOpacity = 1;
+            }
 
             const float fadeSeconds = .28f;
-            peachOpacity = Mathf.MoveTowards(peachOpacity, targetPeachOpacity, Time.unscaledDeltaTime / fadeSeconds);
-            SetOpacity(peachBackdrop, Mathf.SmoothStep(0, 1, peachOpacity));
-            backdrop.enabled = peachOpacity < 1;
+            themeOpacity = Mathf.MoveTowards(themeOpacity, targetThemeOpacity, Time.unscaledDeltaTime / fadeSeconds);
+            SetOpacity(themeBackdrop, Mathf.SmoothStep(0, 1, themeOpacity));
+            backdrop.enabled = themeOpacity < 1;
         }
 
         private void PoseChime(float now, float elapsed, float comfort, float explore)
@@ -1217,8 +1282,10 @@ namespace BAIby.Character
             float worldWidth = 2 * nurseryCamera.orthographicSize * aspect;
             visibleWidth = Mathf.Min(worldWidth * .95f, 5.17f);
             float worldHeight = 2 * nurseryCamera.orthographicSize;
+            backdropWidth = worldWidth;
+            backdropHeight = worldHeight;
             FrameBackdrop(backdrop, worldWidth, worldHeight);
-            FrameBackdrop(peachBackdrop, worldWidth, worldHeight);
+            FrameBackdrop(themeBackdrop, worldWidth, worldHeight);
             if (rug != null)
             {
                 rug.transform.localPosition = new Vector3(0, -1.76f, 0);

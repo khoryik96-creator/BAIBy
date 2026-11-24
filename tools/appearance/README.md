@@ -21,13 +21,19 @@ pip install -r tools/appearance/requirements.txt
 ```
 python3 tools/appearance/build.py      # regenerate every asset + layout.json + .meta files (~10 min)
 python3 tools/appearance/build.py --no-hats [--poses Sitter,Walker]   # dev: faster partial rebuild
+python3 tools/appearance/build.py --only-hats PomBeanie,SunHat [--poses Sitter]   # redraw only these hats
 python3 tools/appearance/check.py      # contract self-check (exit code 1 on failure)
 python3 tools/appearance/preview.py    # contact sheets (default: the session scratchpad; --out DIR)
 python3 tools/appearance/fit_heads.py  # dev helper: suggests refined skull parameters for heads.py
 ```
 
 The build is deterministic (fixed seeds, fixed PNG encoder settings) and keeps
-existing `.meta` GUIDs, so rerunning it without changes produces no diff.
+existing `.meta` GUIDs, so rerunning it without changes produces no diff on the
+machine that built it. Newer numpy/scipy/Pillow versions shift a few
+anti-aliased pixels of the Base and hair, so to add or redraw a hat use
+`--only-hats`: it draws the named hats against the *shipped* Base and hair
+overlays (exactly what the game composites under them) and leaves every other
+file untouched.
 
 ## Outputs
 
@@ -39,7 +45,7 @@ All images are PNGs stored with a `.bytes` extension (Unity imports them as
 | `Base/{Pose}` | pose with the hair removed and the skull/forehead rebuilt (skin fill + dark-brown head outline) |
 | `Base/{Pose}Regions` | region map, same size as the pose |
 | `Hair/{Curls,Coils,Smooth,Tuft}/{Pose}` (+`Regions`) | cropped hair overlay |
-| `Headwear/{Bow,BearBeanie,BucketHat,DaisyClip}/{Pose}` (+`Regions`) | cropped headwear overlay (composited above hair) |
+| `Headwear/{Bow,BearBeanie,BucketHat,DaisyClip,PomBeanie,SunHat}/{Pose}` (+`Regions`) | cropped headwear overlay (composited above hair); PomBeanie (Cozy knits) and SunHat (Garden party) are look-pack hats |
 | `layout.json` | measured reference colours, pose sizes, overlay offsets (`y` from the top) |
 
 Region maps are RGBA8: R = skin, G = hair, B = outfit main, A = outfit accent
@@ -92,11 +98,18 @@ weight; R+G+B+A <= 255; outlines, eyes, eye whites, mouth and fixed details are 
 ## Palette
 
 The palette table lives in `recolor.py` and must stay identical to
-`AppearancePalette.cs` and the contract. Identity options (Warm, Chestnut, Sage)
+`AppearancePalette.cs` and the contract. `tests/Appearance` checks that every
+outfit is named here and that every look-pack outfit (after Midnight: the Cozy
+knits, Garden party and Founder colourways) has exactly the C# targets. Identity options (Warm, Chestnut, Sage)
 use the measured references from `layout.json`.
 
 Art-QA palette tweaks (relative to the first contract draft): Brown (166,104,68),
 Deep (120,72,48) so faces stay readable; Platinum (224,206,168) so light hair is
 not blown out; Oat accent (188,150,116) so it does not merge with the outline;
 Sky main (222,234,242) and Lilac main (232,222,242) so the pastel mains do not
-read as plain white.
+read as plain white. These tweaks (and Brown, Deep, Platinum above) were never
+carried into `AppearancePalette.cs`, so the preview of those free options differs
+slightly from the game; the look-pack outfits match exactly.
+
+`preview.py` also writes `g_look_packs.png`: each pack outfit with its pack's hat
+on the four stages.

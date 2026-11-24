@@ -29,6 +29,7 @@ PETS = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets"
 CAT = PETS / "Cat"
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
 BREEDS = ["Tabby", "Tuxedo", "Siamese", "Calico"]
+WEAR = ["Collar", "Bandana", "Bow"]
 SIZE_RANGE = (380, 700)          # baby poses are 409..619 px on each side
 OUTLINE = np.array([77, 41, 23])
 GUID = re.compile(r"^guid: ([0-9a-f]{32})$", re.M)
@@ -107,7 +108,7 @@ def main():
         fail(f"layout poses {sorted(poses)} != {sorted(POSES)}")
     overlays = {o["path"]: o for o in layout.get("overlays", [])}
     want_overlays = ({f"Markings/{b}/{p}" for b in BREEDS for p in POSES} | {f"Markings/Calico/{p}Dark" for p in POSES}
-                     | {f"Accessories/Collar/{p}" for p in POSES})
+                     | {f"Accessories/{w}/{p}" for w in WEAR for p in POSES})
     if set(overlays) != want_overlays:
         fail(f"overlay set mismatch: missing {sorted(want_overlays - set(overlays))}, "
              f"extra {sorted(set(overlays) - want_overlays)}")
@@ -176,7 +177,7 @@ def main():
         print(f"ok {path} at {o['x']},{o['y']} {w}x{h}")
 
     check_meta(lp, False, guids)
-    for folder in [PETS, CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories", CAT / "Accessories" / "Collar"] + \
+    for folder in [PETS, CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories"] + [CAT / "Accessories" / w for w in WEAR] + \
             [CAT / "Markings" / b for b in BREEDS]:
         if not folder.is_dir():
             fail(f"missing folder {folder.relative_to(ROOT)}")

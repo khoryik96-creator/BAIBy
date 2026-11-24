@@ -53,7 +53,7 @@ produces no diff.
 | `palette.py` | suggested coat/eye colours per breed and coat (written into `layout.json`) |
 | `build.py` | renders base, marking and collar layers, crops, writes assets, `layout.json` and Unity metas |
 | `check.py` | verifies the shipped files |
-| `preview.py` | contact sheets built only from the shipped files |
+| `preview.py` | contact sheets built only from the shipped files (`wear.png`: collar, bandana and bow on every pose) |
 
 ## Outputs
 
@@ -65,7 +65,7 @@ exactly like the baby appearance assets.
 | --- | --- |
 | `Base/{Pose}` (+`Regions`) | plain cat, cropped to its silhouette + 4 px |
 | `Markings/{Tabby,Tuxedo,Siamese,Calico}/{Pose}` (+`Regions`) | cropped breed marking overlay |
-| `Accessories/Collar/{Pose}` (+`Regions`) | cropped collar overlay (region A, recolourable with the outfit accent palette) |
+| `Accessories/{Collar,Bandana,Bow}/{Pose}` (+`Regions`) | cropped neck wear overlay (region A, recolourable with the outfit accent palette); the bandana and bow are the "Cat bandanas & bows" pack (`petwear.cat.bandanas-bows`) |
 | `layout.json` | reference colours, pose sizes, overlay offsets, suggested palette |
 
 Poses: `YoungAwake` and `GrownAwake` sit with small teardrop haunches tucked
