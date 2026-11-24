@@ -615,6 +615,13 @@ namespace BAIby.Presentation
                 bottom = Mathf.Max(bottom, stageCorners[1].y);
             }
 
+            // A pet is small beside its speech bubble, so its room keeps the pet above the bubble too.
+            if (petBubbleRect != null && petBubbleRect.gameObject.activeInHierarchy)
+            {
+                petBubbleRect.GetWorldCorners(stageCorners);
+                bottom = Mathf.Max(bottom, stageCorners[1].y);
+            }
+
             var top = (float)Screen.height;
             if (header != null && header.activeInHierarchy)
             {
