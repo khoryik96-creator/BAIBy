@@ -9,11 +9,17 @@ namespace BAIby.Application
     // One <development v="1"> element: readiness, the latest quality sample, recent engagement, the day's variety and
     // the setback. Invalid data throws InvalidDataException; a newer version throws NotSupportedException so the
     // session leaves that save untouched.
+    //
+    // v2 adds First words and Talk time (a baby past day 9, when First words' stage starts): readiness in words, whether
+    // they came in first-words, and the talks so far with the care day whose first talk counted. Nothing typed is ever
+    // kept. A record before that stage is still written as v1 byte for byte; a v1 record decodes with the stage not
+    // started, and a baby past day 9 is then seeded from age (BabyGrowth). An older build leaves a v2 record alone.
     internal static class DevelopmentRecordCodec
     {
         public const string ElementName = "development";
         private const string EntryName = "e";
-        private const int Version = 1;
+        private const int Version = 2;
+        private const int VersionBeforeWords = 1;
 
         public static XElement Encode(DevelopmentRecord development)
         {
@@ -22,7 +28,7 @@ namespace BAIby.Application
 
             var sample = development.Sample;
             var element = new XElement(ElementName,
-                new XAttribute("v", Version),
+                new XAttribute("v", development.LearningStarted ? Version : VersionBeforeWords),
                 new XAttribute("readiness", development.Readiness),
                 new XAttribute("mode", (int)sample.Mode),
                 new XAttribute("wellbeing", sample.Wellbeing),
@@ -40,6 +46,12 @@ namespace BAIby.Application
                 new XAttribute("recovery-day", development.RecoveryDay),
                 new XAttribute("recovery-meals", development.RecoveryMeals),
                 new XAttribute("recovery-soothes", development.RecoverySoothes));
+            if (development.LearningStarted)
+                element.Add(new XAttribute("words", development.Words),
+                    new XAttribute("first-words", development.FirstWords),
+                    new XAttribute("talks", development.Talks),
+                    new XAttribute("talk-day", development.TalkDay),
+                    new XAttribute("talk-counted", development.TalkCounted));
             foreach (var entry in development.Engagement)
                 element.Add(new XElement(EntryName,
                     new XAttribute("k", (int)entry.Kind),
@@ -65,9 +77,14 @@ namespace BAIby.Application
 
                 var engagement = new List<EngagementEntry>();
                 foreach (var entry in element.Elements(EntryName))
-                    engagement.Add(new EngagementEntry((EngagementKind)(int)Attribute(entry, "k"), (long)Attribute(entry, "t"),
-                        (double)Attribute(entry, "f")));
+                {
+                    var kind = (EngagementKind)(int)Attribute(entry, "k");
+                    if (kind == EngagementKind.Talk && version < Version)
+                        throw new InvalidDataException("A development record before First words cannot hold a talk.");
+                    engagement.Add(new EngagementEntry(kind, (long)Attribute(entry, "t"), (double)Attribute(entry, "f")));
+                }
 
+                var words = version >= Version;
                 return new DevelopmentRecord.Builder
                 {
                     Readiness = (double)Attribute(element, "readiness"),
@@ -86,6 +103,12 @@ namespace BAIby.Application
                     RecoveryDay = (long)Attribute(element, "recovery-day"),
                     RecoveryMeals = (int)Attribute(element, "recovery-meals"),
                     RecoverySoothes = (int)Attribute(element, "recovery-soothes"),
+                    LearningStarted = words,
+                    Words = words ? (double)Attribute(element, "words") : 0,
+                    FirstWords = words && (bool)Attribute(element, "first-words"),
+                    Talks = words ? (int)Attribute(element, "talks") : 0,
+                    TalkDay = words ? (long)Attribute(element, "talk-day") : 0,
+                    TalkCounted = words && (bool)Attribute(element, "talk-counted"),
                 }.Build();
             }
             catch (Exception exception) when (exception is FormatException || exception is ArgumentException ||

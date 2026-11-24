@@ -73,6 +73,8 @@ namespace BAIby.Simulation
         public bool ShowsSitting => CanSitAndReach && ShySkill != MotorSkill.Sitting;
         public bool ShowsCrawling => CanCrawl && ShySkill != MotorSkill.Crawling;
         public bool ShowsWalking => CanWalk && ShySkill != MotorSkill.Walking;
+        // First words, the Learning track's milestone: Talk time opens with it. Never re-locks.
+        public bool HasFirstWords => Development?.FirstWords ?? false;
 
         public static BabyState Restore(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,

@@ -24,6 +24,8 @@ namespace BAIby.Simulation
         ExploreSound = 8,
         // A cat's wand play (Motor). Petting counts as Soothe and brushing as Hygiene.
         PlayWand = 9,
+        // Talk time, the day's first talk once First words is reached (Learning and Social).
+        Talk = 10,
     }
 
     // How a quality sample paces readiness: with its own qualities, held by Away mode at the nominal pace, or by a
@@ -96,7 +98,8 @@ namespace BAIby.Simulation
     }
 
     // Development state: readiness towards the next motor skill, the last quality sample, recent engagement, the day's
-    // variety and the setback. Immutable; DevelopmentRules and BabyGrowth return a new record for every change.
+    // variety and the setback; for a baby, readiness towards First words (the Learning track's milestone) and Talk time.
+    // Immutable; DevelopmentRules and BabyGrowth return a new record for every change.
     public sealed class DevelopmentRecord : IEquatable<DevelopmentRecord>
     {
         // Engagement entries a record keeps; older ones fall out of the engagement window anyway.
@@ -124,6 +127,16 @@ namespace BAIby.Simulation
         public long RecoveryDay { get; }
         public int RecoveryMeals { get; }
         public int RecoverySoothes { get; }
+        // The Learning track's First words (a baby only). Its stage starts at LearningStart days (BabyGrowth); until then
+        // nothing is counted and the record saves as before. Words is readiness towards it (0 once reached).
+        public bool LearningStarted { get; }
+        public double Words { get; }
+        public bool FirstWords { get; }
+        // Talk time: talks so far (they vary the child's replies), and the care day whose first talk was counted.
+        // TalkCounted is cleared by a Next day preview, as Bond's daily caps are.
+        public int Talks { get; }
+        public long TalkDay { get; }
+        public bool TalkCounted { get; }
 
         public bool HasSetback => Shy != MotorSkill.None;
 
@@ -142,6 +155,12 @@ namespace BAIby.Simulation
             RecoveryDay = source.RecoveryDay;
             RecoveryMeals = source.RecoveryMeals;
             RecoverySoothes = source.RecoverySoothes;
+            LearningStarted = source.LearningStarted;
+            Words = source.Words;
+            FirstWords = source.FirstWords;
+            Talks = source.Talks;
+            TalkDay = source.TalkDay;
+            TalkCounted = source.TalkCounted;
         }
 
         public Builder ToBuilder() => new Builder
@@ -159,6 +178,12 @@ namespace BAIby.Simulation
             RecoveryDay = RecoveryDay,
             RecoveryMeals = RecoveryMeals,
             RecoverySoothes = RecoverySoothes,
+            LearningStarted = LearningStarted,
+            Words = Words,
+            FirstWords = FirstWords,
+            Talks = Talks,
+            TalkDay = TalkDay,
+            TalkCounted = TalkCounted,
         };
 
         public bool Equals(DevelopmentRecord other)
@@ -180,7 +205,9 @@ namespace BAIby.Simulation
                 CategoryDay == other.CategoryDay && Categories == other.Categories && VarietyGiven == other.VarietyGiven &&
                 Shy == other.Shy && SetbackSince.UtcTicks == other.SetbackSince.UtcTicks &&
                 RecoveryDay == other.RecoveryDay && RecoveryMeals == other.RecoveryMeals &&
-                RecoverySoothes == other.RecoverySoothes;
+                RecoverySoothes == other.RecoverySoothes && LearningStarted == other.LearningStarted &&
+                Words.Equals(other.Words) && FirstWords == other.FirstWords && Talks == other.Talks &&
+                TalkDay == other.TalkDay && TalkCounted == other.TalkCounted;
         }
 
         public override bool Equals(object obj) => Equals(obj as DevelopmentRecord);
@@ -202,6 +229,12 @@ namespace BAIby.Simulation
             public long RecoveryDay { get; set; }
             public int RecoveryMeals { get; set; }
             public int RecoverySoothes { get; set; }
+            public bool LearningStarted { get; set; }
+            public double Words { get; set; }
+            public bool FirstWords { get; set; }
+            public int Talks { get; set; }
+            public long TalkDay { get; set; }
+            public bool TalkCounted { get; set; }
 
             public DevelopmentRecord Build()
             {
@@ -240,6 +273,13 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(Shy));
                 if (RecoveryMeals < 0 || RecoverySoothes < 0)
                     throw new ArgumentOutOfRangeException(nameof(RecoveryMeals));
+                ValidateFraction(Words, nameof(Words));
+                if ((FirstWords || Words > 0) && !LearningStarted)
+                    throw new ArgumentException("First words come after the Learning stage starts.", nameof(FirstWords));
+                if (Talks < 0 || TalkDay < 0 || TalkDay > LastCareDay)
+                    throw new ArgumentOutOfRangeException(nameof(Talks));
+                if ((Talks > 0 || TalkCounted) && !FirstWords)
+                    throw new ArgumentException("Talk time opens with First words.", nameof(Talks));
 
                 return new DevelopmentRecord(this);
             }

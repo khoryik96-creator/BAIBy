@@ -13,11 +13,15 @@ namespace BAIby.Application
     //
     // v2 adds helper days (kind 6, with feeder portions in n, play top-ups in c and tidy-ups in x). A journal without
     // them is still written as v1 byte for byte; an older build leaves a v2 journal alone.
+    //
+    // v3 adds First words (kind 7), talk lines (kind 8, the feeling in fe) and talks about something big (kind 9, nothing
+    // else). Never any typed words. A journal without them is written as v2 or v1 as before.
     internal static class JournalRecordCodec
     {
         public const string ElementName = "journal";
         private const string EntryName = "j";
-        private const int Version = 2;
+        private const int Version = 3;
+        private const int VersionBeforeTalk = 2;
         private const int VersionBeforeHelpers = 1;
 
         public static XElement Encode(JournalRecord journal)
@@ -26,7 +30,8 @@ namespace BAIby.Application
                 throw new ArgumentNullException(nameof(journal));
 
             var element = new XElement(ElementName,
-                new XAttribute("v", journal.HasHelperEntries ? Version : VersionBeforeHelpers),
+                new XAttribute("v", journal.HasTalkEntries ? Version : journal.HasHelperEntries ? VersionBeforeTalk
+                    : VersionBeforeHelpers),
                 new XAttribute("spell", journal.InSpell ? journal.SpellSince.UtcTicks : 0),
                 new XAttribute("spell-day", journal.SpellDay),
                 new XAttribute("weeks", journal.Weeks),
@@ -60,6 +65,9 @@ namespace BAIby.Application
                         item.Add(new XAttribute("n", entry.Feeds), new XAttribute("c", entry.Plays),
                             new XAttribute("x", entry.Tidies));
                         break;
+                    case JournalKind.Talk:
+                        item.Add(new XAttribute("fe", (int)entry.Feeling));
+                        break;
                 }
 
                 element.Add(item);
@@ -87,8 +95,12 @@ namespace BAIby.Application
                 foreach (var item in element.Elements(EntryName))
                 {
                     var kind = (JournalKind)(int)Attribute(item, "k");
-                    if (kind == JournalKind.Helper && version < Version)
+                    if (kind == JournalKind.Helper && version < VersionBeforeTalk)
                         throw new InvalidDataException("A journal before helpers cannot hold a helper day.");
+                    var talk = kind == JournalKind.FirstWords || kind == JournalKind.Talk || kind == JournalKind.BigTalk;
+                    if (talk && version < Version)
+                        throw new InvalidDataException("A journal before Talk time cannot hold a talk.");
+                    var feeling = kind == JournalKind.Talk ? (Feeling)(int)Attribute(item, "fe") : Feeling.Happy;
                     var at = Instant(Attribute(item, "t"));
                     var skill = item.Attribute("s") == null ? MotorSkill.None : (MotorSkill)(int)item.Attribute("s");
                     var moment = PhotoMoment.Calm;
@@ -112,7 +124,7 @@ namespace BAIby.Application
                     var careDays = item.Attribute("c") == null ? 0 : (int)item.Attribute("c");
                     var tidies = item.Attribute("x") == null ? 0 : (int)item.Attribute("x");
                     entries.Add(JournalEntry.Restore(kind, at, (int)Attribute(item, "d"), skill, moment, look, spell, since,
-                        sinceDay, count, careDays, tidies));
+                        sinceDay, count, careDays, tidies, feeling));
                 }
 
                 var spellTicks = (long)Attribute(element, "spell");

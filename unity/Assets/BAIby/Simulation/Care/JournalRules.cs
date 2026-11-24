@@ -126,6 +126,43 @@ namespace BAIby.Simulation
             return journal.With(new[] { entry }, DateTimeOffset.MinValue, 0, journal.Weeks, journal.WeekStartCareDays);
         }
 
+        // First words, on the day and at the instant they came (a preview day writes at `from`).
+        public static JournalRecord FirstWords(JournalRecord journal, DateTimeOffset from, TimeSpan ageBefore, TimeSpan wordsAge,
+            bool real)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+
+            var at = real ? InstantAt(from, wordsAge - ageBefore) : from;
+            return journal.With(JournalEntry.FirstWords(at, DayOf(wordsAge)));
+        }
+
+        // A day's Talk time: the feeling shared, one line a day at most (the first one stays). Never anything typed.
+        public static JournalRecord Talk(JournalRecord journal, DateTimeOffset at, TimeSpan age, Feeling feeling)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+            if (journal.TalkOn(DayOf(age)) != null)
+                return journal;
+
+            return journal.With(JournalEntry.Talk(at, DayOf(age), feeling));
+        }
+
+        // A talk about something big: a neutral line with no feeling, topic or text. It takes the place of that day's
+        // talk line, once.
+        public static JournalRecord BigTalk(JournalRecord journal, DateTimeOffset at, TimeSpan age)
+        {
+            if (journal == null)
+                throw new ArgumentNullException(nameof(journal));
+
+            var day = DayOf(age);
+            var old = journal.TalkOn(day);
+            if (old != null && old.Kind == JournalKind.BigTalk)
+                return journal;
+            var entry = JournalEntry.BigTalk(old != null && old.At > at ? old.At : at, day);
+            return old == null ? journal.With(entry) : journal.Replace(old, entry);
+        }
+
         // A shy skill is back after a good day.
         public static JournalRecord SkillBack(JournalRecord journal, DateTimeOffset at, TimeSpan age, MotorSkill skill,
             DateTimeOffset since)

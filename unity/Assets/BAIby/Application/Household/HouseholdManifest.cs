@@ -174,6 +174,18 @@ namespace BAIby.Application
             kinds.Sort();
             var copy = new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords);
             copy.HelpersOff = kinds.AsReadOnly();
+            copy.TalkTyping = TalkTyping;
+            return copy;
+        }
+
+        // Whether a grown-up let children type in Talk time (off by default; Grown-ups, behind the parental gate).
+        public bool TalkTyping { get; private set; }
+
+        public HouseholdManifest WithTalkTyping(bool on)
+        {
+            var copy = new HouseholdManifest(Companions, ActiveSlot, Celebrations, Keepsakes, SpeciesRecords);
+            copy.HelpersOff = HelpersOff;
+            copy.TalkTyping = on;
             return copy;
         }
 
