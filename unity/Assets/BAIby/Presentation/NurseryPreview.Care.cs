@@ -474,9 +474,12 @@ namespace BAIby.Presentation
 
             var area = safeArea.rect.size;
             var beside = area.x >= 0.48f * area.y + 840;
-            var maxWidth = beside ? 440f : 600f;
+            var maxWidth = beside ? 440f : StackWidth;
             var padX = Px(12);
             var padY = Px(8);
+            var sheetHeight = sheet.rect.height;
+            // Above the sheet the bubble stays under the baby's chin, about 46% of the height from the bottom.
+            var room = beside ? 132 : Mathf.Max(64, 0.46f * area.y - sheetHeight - 14 - 2 * padY);
             var size = 24;
             Vector2 content;
             do
@@ -484,12 +487,11 @@ namespace BAIby.Presentation
                 text.fontSize = size;
                 content = Measure(text, maxWidth - 2 * padX);
                 size -= 1;
-            } while (content.y > 132 && size >= 19);
+            } while (content.y > room && size >= 18);
 
             var width = content.x + 2 * padX;
             var height = content.y + 2 * padY;
             rect.sizeDelta = new Vector2(width, height);
-            var sheetHeight = sheet.rect.height;
             if (beside)
             {
                 SoftShapes.Bubble(shape, false, Px(16));
@@ -499,7 +501,7 @@ namespace BAIby.Presentation
             else
             {
                 SoftShapes.Bubble(shape, true, Px(16));
-                var x = width > 380 ? -width / 2 : Mathf.Clamp(-40, -330, 330 - width);
+                var x = width > 370 ? -width / 2 : Mathf.Clamp(-40, -StackWidth / 2, StackWidth / 2 - width);
                 rect.anchoredPosition = new Vector2(x, 14);
             }
         }
