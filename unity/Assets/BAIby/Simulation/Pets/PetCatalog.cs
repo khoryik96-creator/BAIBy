@@ -474,18 +474,22 @@ namespace BAIby.Simulation.Pets
                         Verb(PetVerb.Litter, 0, 0, 0, Effect(PetMeter.Litter, 100)),
                     },
                     new[] { PetMoment.Binky }, collarSet),
+                // P2 tuned the hamster for one meal a day (docs/care-and-growth.md, slice 7): its day nap is its quiet
+                // hours (PetCareProfile.Hamster's night rates), so these awake rates run from the evening through the
+                // night. A dinner gives 45, about what a whole day costs; a wheel spin or a gentle hold lets it run.
                 new SpeciesDefinition(Species.Hamster, TimeSpan.FromDays(5),
                     new[]
                     {
-                        Meter(PetMeter.Fullness, 6, 70), Meter(PetMeter.Energy, 6, 80),
-                        Meter(PetMeter.Bedding, 3, 90), Meter(PetMeter.Exercise, 5, 70),
+                        Meter(PetMeter.Fullness, 2.4, 70), Meter(PetMeter.Energy, 3, 80),
+                        Meter(PetMeter.Bedding, 2, 90), Meter(PetMeter.Exercise, 2.4, 70),
                     },
                     new[]
                     {
-                        Verb(PetVerb.Bowl, 1, 0, 0, Effect(PetMeter.Fullness, 30)),
-                        Verb(PetVerb.Wheel, 0, 2, 0, Effect(PetMeter.Exercise, 30), Effect(PetMeter.Energy, -10)),
-                        Verb(PetVerb.FluffBedding, 1, 0, 0, Effect(PetMeter.Bedding, 40)),
-                        Verb(PetVerb.GentleHold, 3, 0, 2),
+                        Verb(PetVerb.Bowl, 1, 0, 0, Effect(PetMeter.Fullness, 45)),
+                        Verb(PetVerb.Wheel, 2, 2, 0, Effect(PetMeter.Exercise, 30), Effect(PetMeter.Energy, -10)),
+                        Verb(PetVerb.FluffBedding, 1, -1, 0, Effect(PetMeter.Bedding, 40)),
+                        // Held gently, a hamster scrambles from hand to hand: a little exercise and a lot of trust.
+                        Verb(PetVerb.GentleHold, 3, 0, 2, Effect(PetMeter.Exercise, 12)),
                         Verb(PetVerb.Nap, 0, -1, 0, Effect(PetMeter.Energy, 35)),
                     },
                     new[] { PetMoment.CheekPouches }, new[] { PetAccessory.None, PetAccessory.Bow }),
@@ -578,20 +582,22 @@ namespace BAIby.Simulation.Pets
                 Premium(PetBreed.Harlequin, "harlequin", recolor, Coats(PetCoat.Tricolor, PetCoat.Fawn),
                     Trade(PetMeter.Hay, 10, PetMeter.Litter, 10), 10, 5),
 
+                // Rates: Fullness 2.4, Energy 3, Bedding 2, Exercise 2.4 per hour, so 15% of 2.4 = 18% of 2 = 12% of 3.
                 Free(PetBreed.SyrianGolden, recolor, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Brown),
-                    Trade(PetMeter.Exercise, 12, PetMeter.Bedding, 20), 5, 5),
+                    Trade(PetMeter.Exercise, 15, PetMeter.Bedding, 18), 5, 5),
                 Earned(PetBreed.WinterWhite, EarnedGoal.FirstFullCareDay, recolor, Coats(PetCoat.White, PetCoat.Gray, PetCoat.Sable),
-                    Trade(PetMeter.Fullness, 10, PetMeter.Energy, 10), -5, 0),
+                    Trade(PetMeter.Fullness, 15, PetMeter.Energy, 12), -5, 0),
                 Earned(PetBreed.Roborovski, EarnedGoal.Bond40, recolor, Coats(PetCoat.Tan, PetCoat.White),
-                    Trade(PetMeter.Exercise, 12, PetMeter.Energy, 10), 15, -10),
+                    Trade(PetMeter.Exercise, 15, PetMeter.Energy, 12), 15, -10),
+                // The Teddy bear's long coat is a markings overlay (long fur tufts) that ships with the species.
                 Premium(PetBreed.TeddyBear, "teddy_bear", overlay, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Chocolate),
-                    Trade(PetMeter.Bedding, 20, PetMeter.Exercise, 12), -10, 5),
+                    Trade(PetMeter.Bedding, 18, PetMeter.Exercise, 15), -10, 5, availableNow: true),
                 Premium(PetBreed.Panda, "panda", recolor, Coats(PetCoat.White),
-                    Trade(PetMeter.Fullness, 10, PetMeter.Bedding, 20), 0, 5),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Bedding, 12), 0, 5),
                 Premium(PetBreed.Sapphire, "sapphire", recolor, Coats(PetCoat.Blue, PetCoat.Gray),
-                    Trade(PetMeter.Energy, 10, PetMeter.Exercise, 12), 5, -5),
+                    Trade(PetMeter.Energy, 12, PetMeter.Exercise, 15), 5, -5),
                 Premium(PetBreed.Campbells, "campbells", recolor, Coats(PetCoat.Gray, PetCoat.Fawn, PetCoat.Black),
-                    Trade(PetMeter.Exercise, 12, PetMeter.Fullness, 10), 10, 5),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Fullness, 12), 10, 5),
             };
 
             // Pack contents are fixed when a pack is published (monetization: packs never include
@@ -642,13 +648,14 @@ namespace BAIby.Simulation.Pets
             BreedTendency[] tendencies, int lively, int bold) =>
             new BreedDefinition(breed, PetIds.SpeciesOf(breed), BreedUnlock.Earned, goal, null, art, true, coats, tendencies, lively, bold);
 
-        // Recolor premium breeds ship with their species; overlay and new-silhouette art follows later.
+        // Recolor premium breeds ship with their species; overlay and new-silhouette art follows later unless it ships
+        // with the species (availableNow, as the hamster's Teddy bear does).
         private static BreedDefinition Premium(PetBreed breed, string key, BreedArtTier art, PetCoat[] coats,
-            BreedTendency[] tendencies, int lively, int bold)
+            BreedTendency[] tendencies, int lively, int bold, bool availableNow = false)
         {
             var species = PetIds.SpeciesOf(breed);
             return new BreedDefinition(breed, species, BreedUnlock.Premium, null, PetIds.BreedProductId(species, key), art,
-                art == BreedArtTier.Recolor, coats, tendencies, lively, bold);
+                art == BreedArtTier.Recolor || availableNow, coats, tendencies, lively, bold);
         }
     }
 }

@@ -212,7 +212,9 @@ static class PetChecks
                 Equal(BreedUnlock.Premium, breed.Unlock, $"{name} is premium");
                 Equal(expected.ProductId, breed.ProductId, $"{name} product ID");
                 Equal(expected.Art, breed.Art, $"{name} art tier");
-                Equal(expected.Art == BreedArtTier.Recolor, breed.AvailableNow, $"{name} availability follows its art tier");
+                // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2).
+                Equal(expected.Art == BreedArtTier.Recolor || breed.Breed == PetBreed.TeddyBear, breed.AvailableNow,
+                    $"{name} availability follows its art tier");
                 Equal<EarnedGoal?>(null, breed.Goal, $"{name} needs no goal");
             }
 
@@ -399,10 +401,12 @@ static class PetChecks
         foreach (var species in Catalog.AllSpecies)
         {
             var baseline = species.Meters.Sum(meter => Math.Min(meter.Initial, 8 * meter.DecayPerHour));
+            // Awake hours: a hamster naps through the day (its quiet hours), so its 8 hours start in the evening.
+            var from = PetCareProfile.For(species.Species)?.NapsByDay == true ? Start.AddHours(16) : morning;
             foreach (var breed in Catalog.BreedsOf(species.Species))
             {
-                var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, breed.Breed), morning);
-                var later = sim.Advance(pet, morning.AddHours(8)).State;
+                var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, breed.Breed), from);
+                var later = sim.Advance(pet, from.AddHours(8)).State;
                 var lost = species.Meters.Sum(meter => pet.Meter(meter.Meter) - later.Meter(meter.Meter));
                 Close(baseline, lost, $"{breed.Breed} loses the same need in 8 hours as any {species.Species}");
             }
@@ -458,12 +462,13 @@ static class PetChecks
     {
         var sim = new PetSimulation();
         // A cat sleeps through quiet hours (slice 7), so the time model starts in the morning, when every species
-        // spends its first eight hours awake.
+        // spends its first eight hours awake; a hamster naps by day (P2), so its first eight awake hours start at 16:00.
         var Start = PetChecks.Start.AddHours(8);
         foreach (var species in Catalog.AllSpecies)
         {
+            var from = PetCareProfile.For(species.Species)?.NapsByDay == true ? PetChecks.Start.AddHours(16) : Start;
             var starter = Catalog.BreedsOf(species.Species).Single(breed => breed.Unlock == BreedUnlock.Free);
-            var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, starter.Breed), Start);
+            var pet = sim.Adopt("Pip", PetAppearance.Default(Catalog, starter.Breed), from);
             var name = species.Species.ToString();
             Equal(species.Meters.Count + 1, pet.Meters.Count, $"{name} has its meters plus Health");
             foreach (var meter in species.Meters)
@@ -474,33 +479,38 @@ static class PetChecks
             Equal((double)starter.BoldBias, pet.Boldness, $"{name} boldness starts from the breed bias");
             Equal(PetStage.Young, pet.Stage, $"{name} starts young");
 
-            var backwards = sim.Advance(pet, Start.AddHours(-5));
+            var backwards = sim.Advance(pet, from.AddHours(-5));
             Equal(pet, backwards.State, $"{name} ignores a backwards clock");
             Equal(false, backwards.BecameGrown, $"{name} backwards clock unlocks nothing");
-            Equal(pet, sim.Advance(pet, Start.ToOffset(TimeSpan.FromHours(9))).State, $"{name} same instant in a new timezone is a no-op");
+            Equal(pet, sim.Advance(pet, from.ToOffset(TimeSpan.FromHours(9))).State, $"{name} same instant in a new timezone is a no-op");
 
-            var almost = sim.Advance(pet, Start.Add(species.GrownAge).AddTicks(-1));
+            var almost = sim.Advance(pet, from.Add(species.GrownAge).AddTicks(-1));
             Equal(false, almost.BecameGrown, $"{name} waits for its Grown day");
-            var grown = sim.Advance(almost.State, Start.Add(species.GrownAge));
+            var grown = sim.Advance(almost.State, from.Add(species.GrownAge));
             Equal(true, grown.BecameGrown, $"{name} grows up on its day");
             Equal(PetStage.Grown, grown.State.Stage, $"{name} is grown");
-            Equal(false, sim.Advance(grown.State, Start.Add(species.GrownAge).AddDays(3)).BecameGrown, $"{name} grows up only once");
-            Equal(false, sim.Advance(grown.State, Start).BecameGrown, $"{name} backwards clock after growing");
+            Equal(false, sim.Advance(grown.State, from.Add(species.GrownAge).AddDays(3)).BecameGrown, $"{name} grows up only once");
+            Equal(false, sim.Advance(grown.State, from).BecameGrown, $"{name} backwards clock after growing");
 
-            var capped = sim.Advance(pet, Start.AddDays(30)).State;
-            var atCap = sim.Advance(pet, Start.AddHours(8)).State;
+            var capped = sim.Advance(pet, from.AddDays(30)).State;
+            var atCap = sim.Advance(pet, from.AddHours(8)).State;
             Equal(TimeSpan.FromDays(30), capped.Age, $"{name} age is not capped");
+            var restsAlone = PetCareProfile.For(species.Species)?.RestsAlone == true;
             foreach (var meter in species.Meters)
             {
-                Equal(atCap.Meter(meter.Meter), capped.Meter(meter.Meter), $"{name} {meter.Meter} decay is capped at 8 hours");
-                Close(Math.Max(0, meter.Initial - 8 * meter.DecayPerHour * starter.DecayFactor(meter.Meter)), capped.Meter(meter.Meter),
+                Close(Math.Max(0, meter.Initial - 8 * meter.DecayPerHour * starter.DecayFactor(meter.Meter)), atCap.Meter(meter.Meter),
                     $"{name} {meter.Meter} decays at its rate");
+                // A hamster's day naps past the cap still rest it (P2): only its Energy comes back.
+                if (restsAlone && meter.Meter == PetMeter.Energy)
+                    Close(100, capped.Meter(meter.Meter), $"{name} rests through the naps of a long absence");
+                else
+                    Equal(atCap.Meter(meter.Meter), capped.Meter(meter.Meter), $"{name} {meter.Meter} decay is capped at 8 hours");
             }
             Equal(true, capped.Meter(species.Meters[0].Meter) < pet.Meter(species.Meters[0].Meter), $"{name} needs fall while away");
 
             var neglected = pet;
             for (var day = 1; day <= 40; day++)
-                neglected = sim.Advance(neglected, Start.AddDays(day)).State;
+                neglected = sim.Advance(neglected, from.AddDays(day)).State;
             Equal(PetSimulation.HealthFloor, neglected.Health, $"{name} Health rests at the floor; nothing dies");
             Equal(pet.Meters.Count, neglected.Meters.Count, $"{name} keeps every meter");
             Equal(pet.Name, neglected.Name, $"{name} stays in the household");
@@ -509,7 +519,11 @@ static class PetChecks
                 var cared = neglected;
                 foreach (var verb in species.Verbs.Where(verb => verb.Effects.Any(effect => effect.Meter == meter.Meter && effect.Delta > 0)))
                     cared = sim.ApplyCare(cared, verb.Verb).State;
-                Equal(true, cared.Meter(meter.Meter) > neglected.Meter(meter.Meter), $"{name} {meter.Meter} recovers with care");
+                // A hamster's naps already rested it: its Energy is as high as an unwell pet's can be (P2).
+                if (restsAlone && meter.Meter == PetMeter.Energy)
+                    Equal(true, neglected.Meter(meter.Meter) >= CareTunables.Default.UnwellEnergyCap - 1e-9, $"{name} rests by its naps");
+                else
+                    Equal(true, cared.Meter(meter.Meter) > neglected.Meter(meter.Meter), $"{name} {meter.Meter} recovers with care");
             }
         }
 
@@ -620,9 +634,10 @@ static class PetChecks
         Equal(100.0, sim.ApplyCare(murky, PetVerb.WaterChange).State.Meter(PetMeter.Water), "water change clears the tank");
         Equal(murky.Meter(PetMeter.Water) + 15, sim.ApplyCare(murky, PetVerb.WipeGlass).State.Meter(PetMeter.Water), "wiping helps a little");
 
-        var friend = hamster;
+        // The simple rules have no daily cap (a hamster now follows its care profile, with the baby's caps).
+        var friend = rabbit;
         for (var index = 0; index < 40; index++)
-            friend = sim.ApplyCare(friend, PetVerb.GentleHold).State;
+            friend = sim.ApplyCare(friend, PetVerb.FloorTime).State;
         Equal(100.0, friend.Bond, "Bond is capped at 100");
         Equal(100.0, friend.HighestBond, "Bond high-water mark follows");
         Equal(BondTier.BestFriends, friend.BondTier, "best friends");

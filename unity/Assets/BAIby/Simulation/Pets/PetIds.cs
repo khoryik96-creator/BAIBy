@@ -6,7 +6,7 @@ namespace BAIby.Simulation.Pets
     // tests/content-ids.test.mjs snapshots every member.
     public enum Species { Cat = 0, Dog = 1, Fish = 2, Rabbit = 3, Hamster = 4 }
 
-    // Breeds use a block of 100 IDs per species (Cat 100+, Dog 200+, Fish 300+, Rabbit 400+,
+    // Breeds use a block of 100 IDs per species ((species ID + 1) x 100: Cat 100+, Dog 200+, Fish 300+, Rabbit 400+,
     // Hamster 500+), so a saved breed always names its species. Later breeds take the next free
     // ID in their species block.
     public enum PetBreed
@@ -108,10 +108,11 @@ namespace BAIby.Simulation.Pets
 
     // How a pet answered care. A species with a care profile uses the ladder's answers too: too full, swatting the
     // toy away when grumpy, too poorly to play, bored of the same game, medicine and the vet, and a shy skill back.
+    // Napping: a hamster in its day nap sleeps on and the wheel waits for the evening (never a failure).
     public enum PetCue
     {
         Content = 0, IgnoredFlakes = 1, TooFull = 2, PushesToyAway = 3, TooPoorly = 4, Bored = 5, MedicineTaken = 6,
-        MedicineNotNow = 7, MedicineDone = 8, VetVisited = 9, VetAllClear = 10, SkillBack = 11,
+        MedicineNotNow = 7, MedicineDone = 8, VetVisited = 9, VetAllClear = 10, SkillBack = 11, Napping = 12,
     }
 
     public static class PetIds

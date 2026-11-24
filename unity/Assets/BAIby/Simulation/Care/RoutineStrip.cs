@@ -4,11 +4,12 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // Display-only; never saved.
-    public enum RoutineSlotKind { MorningMeal, AfternoonMeal, EveningMeal, Play, Bedtime, Wash }
+    public enum RoutineSlotKind { MorningMeal, AfternoonMeal, EveningMeal, Play, Bedtime, Wash, Nap }
 
     // Later: the window has not opened. Due: open now. Overdue: past due, still waiting (late if done now). Helped: a
-    // helper served the meal (it still waits for a hands-on meal while the window is open).
-    public enum RoutineSlotState { Later, Due, Overdue, OnTime, DoneLate, Missed, Excused, Away, Helped }
+    // helper served the meal (it still waits for a hands-on meal while the window is open). Napping: a day nap is under
+    // way (a hamster's; it asks nothing of the player).
+    public enum RoutineSlotState { Later, Due, Overdue, OnTime, DoneLate, Missed, Excused, Away, Helped, Napping }
 
     public sealed class RoutineSlot
     {
@@ -39,6 +40,9 @@ namespace BAIby.Simulation
                 throw new ArgumentNullException(nameof(record));
 
             var windows = RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime);
+            if (RoutineCalendar.NapsByDay(record.Routine))
+                return NapDay(record, windows);
+
             var slots = new List<RoutineSlot>(6);
             foreach (var window in windows)
             {
@@ -61,6 +65,31 @@ namespace BAIby.Simulation
             }
 
             slots.Add(bedtime);
+            var wash = RoutineCalendar.WashWindow(record.Routine, record.Preset, record.WakeTime);
+            slots.Add(Slot(record, RoutineSlotKind.Wash, record.Wash, wash.Open, wash.Due, wash.LateUntil));
+            return slots.AsReadOnly();
+        }
+
+        // A hamster's day: its nap through school hours (one slot for both nap blocks), the wheel, dinner and the bedding.
+        private static IReadOnlyList<RoutineSlot> NapDay(CareRecord record, IReadOnlyList<CareWindow> windows)
+        {
+            var morning = windows[(int)CareMoment.Morning];
+            var afternoon = windows[(int)CareMoment.Bedtime];
+            var napOpen = Local(record, morning.Open);
+            var napDue = Local(record, afternoon.Due);
+            var napEnd = Local(record, afternoon.LateUntil);
+            var at = record.Checkpoint;
+            var napState = record.IsAway ? RoutineSlotState.Away
+                : at < napOpen ? RoutineSlotState.Later
+                : at < napDue ? RoutineSlotState.Napping : RoutineSlotState.Excused;
+            var slots = new List<RoutineSlot>(4) { new RoutineSlot(RoutineSlotKind.Nap, napState, napOpen, napDue, napEnd) };
+            foreach (var moment in new[] { CareMoment.Afternoon, CareMoment.Evening })
+            {
+                var window = windows[(int)moment];
+                var kind = window.Core == CareTags.Play ? RoutineSlotKind.Play : (RoutineSlotKind)(int)window.Moment;
+                slots.Add(Slot(record, kind, record.StatusOf(moment), window.Open, window.Due, window.LateUntil));
+            }
+
             var wash = RoutineCalendar.WashWindow(record.Routine, record.Preset, record.WakeTime);
             slots.Add(Slot(record, RoutineSlotKind.Wash, record.Wash, wash.Open, wash.Due, wash.LateUntil));
             return slots.AsReadOnly();

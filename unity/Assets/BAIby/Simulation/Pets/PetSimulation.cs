@@ -156,6 +156,9 @@ namespace BAIby.Simulation.Pets
         // Whether the vet's visit is offered: the pet is under the weather or sick.
         public static bool CanVisitVet(PetState state) => state?.Care != null && state.Care.IsUnwell;
 
+        // Whether the pet is in its day nap at its checkpoint (a hamster through school hours): a cosy, normal sleep.
+        public static bool IsNapping(PetState state) => state?.Care != null && CareRules.IsNapping(state.Care);
+
         // The free vet's visit (Health +15, then Recovering with medicine, or home well). Advance first.
         public PetStep VisitVet(PetState state) => care.VisitVet(Profiled(state));
 

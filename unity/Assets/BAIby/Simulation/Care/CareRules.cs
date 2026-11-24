@@ -287,6 +287,20 @@ namespace BAIby.Simulation
             return null;
         }
 
+        // Whether the companion is in its day nap at the record's checkpoint (a hamster through school hours). Care then
+        // stays gentle: the presentation peeks quietly, and the wheel waits for the evening.
+        public static bool IsNapping(CareRecord record)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (!RoutineCalendar.NapsByDay(record.Routine))
+                return false;
+
+            var local = record.Checkpoint.UtcTicks + record.Offset.Ticks;
+            var timeOfDay = TimeSpan.FromTicks(((local % TimeSpan.TicksPerDay) + TimeSpan.TicksPerDay) % TimeSpan.TicksPerDay);
+            return RoutineCalendar.IsNapTime(record.Routine, record.Preset, record.WakeTime, timeOfDay);
+        }
+
         // A stable key for one meal window of one care day; never 0.
         public static long WindowKey(long careDay, CareMoment moment) =>
             careDay * RoutineCalendar.MomentCount + (int)moment + 1;
@@ -417,6 +431,13 @@ namespace BAIby.Simulation
             {
                 var status = draft.Moments[(int)window.Moment];
                 var done = status == MomentStatus.OnTime || status == MomentStatus.Late;
+                // A day nap is the companion's own rest: it always counts as rested and excuses nothing else.
+                if (window.Nap)
+                {
+                    bedtime = true;
+                    continue;
+                }
+
                 if (window.Core == CareTags.Meal)
                 {
                     mealsDone += done ? 1 : 0;
@@ -433,7 +454,8 @@ namespace BAIby.Simulation
             }
 
             var away = OverlapsAway(draft.AwayFrom.UtcTicks, draft.AwayUntil.UtcTicks, dayStart, dayEnd);
-            return new CareDaySummary(mealsDone, mealsMissed, draft.TogetherToday, bedtime, covered && !away, away, excused);
+            return new CareDaySummary(mealsDone, mealsMissed, draft.TogetherToday, bedtime, covered && !away, away, excused,
+                RoutineCalendar.GoodDayMeals(draft.Routine));
         }
 
         // Resolves pending windows that closed by `through`. At the end of a day every pending window
@@ -450,6 +472,14 @@ namespace BAIby.Simulation
                 var lateUntil = Place(draft.CareDay, draft.Offset, window.LateUntil);
                 if (!endOfDay && lateUntil > through)
                     continue;
+
+                // A nap block asks nothing of the player: it closes excused, never missed or owed.
+                if (window.Nap)
+                {
+                    draft.Moments[index] = MomentStatus.Excused;
+                    draft.ExcusedCount = Add(draft.ExcusedCount, 1);
+                    continue;
+                }
 
                 var open = Place(draft.CareDay, draft.Offset, window.Open);
                 var closeAt = Math.Min(lateUntil, through);
@@ -507,7 +537,8 @@ namespace BAIby.Simulation
             return MomentStatus.Missed;
         }
 
-        // A good care day: no meal or bedtime missed or covered, at least two meals on time, and together time.
+        // A good care day: no meal or bedtime missed or covered, at least two meals on time (every meal of a routine with
+        // fewer: a hamster's one dinner), and together time. A day nap closes excused, which a good day allows.
         private static bool IsGoodDay(CareRecord.Builder draft)
         {
             if (!draft.TogetherToday)
@@ -524,7 +555,7 @@ namespace BAIby.Simulation
                     onTimeMeals++;
             }
 
-            return onTimeMeals >= 2;
+            return onTimeMeals >= RoutineCalendar.GoodDayMeals(draft.Routine);
         }
 
         private static void PushMissed(CareRecord.Builder draft, CareTags core, CareTunables tunables)
@@ -577,7 +608,7 @@ namespace BAIby.Simulation
                 foreach (var window in windows)
                 {
                     var index = (int)window.Moment;
-                    if (window.Core != core || draft.Moments[index] != MomentStatus.Pending)
+                    if (window.Core != core || window.Nap || draft.Moments[index] != MomentStatus.Pending)
                         continue;
 
                     var open = Place(draft.CareDay, draft.Offset, window.Open);

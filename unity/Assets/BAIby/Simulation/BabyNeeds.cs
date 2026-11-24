@@ -21,7 +21,9 @@ namespace BAIby.Simulation
     //   faster until a fixed instant after the doctor's visit, so the boost is the same in one advance or many.
     // - Pets share these rules through NeedRates: a cat's four meters (Fullness, Comfort, Energy, Cleanliness) fall at
     //   its species' and breed's rates instead of the baby's; the night, the bedtime rest, Away mode and Health work
-    //   the same way.
+    //   the same way. A hamster's four (Fullness, Exercise, Energy, Bedding, in those roles) rest by day: its quiet
+    //   hours are its day nap (inside one day, RoutineCalendar.Night), and the nap always brings Energy back to full
+    //   (RestsAlone), so a sleeping hamster is never a missed bedtime.
     // - Helpers (HelperRun) end a counted stretch where a need reaches its floor and raise it there, inside the counted
     //   hours only (never while Away mode holds the needs). Without helpers nothing here changes.
     internal static class BabyNeeds
@@ -56,10 +58,20 @@ namespace BAIby.Simulation
             public readonly double NightComfort;
             public readonly double NightEnergy;
             public readonly double NightCleanliness;
+            // The companion rests on its own (a hamster's day nap): its quiet hours always bring Energy back to full,
+            // with no bedtime care asked.
+            public readonly bool RestsAlone;
 
             public NeedRates(double fullness, double comfort, double energy, double cleanliness, double nightFullness,
                 double nightComfort, double nightEnergy, double nightCleanliness)
+                : this(fullness, comfort, energy, cleanliness, nightFullness, nightComfort, nightEnergy, nightCleanliness, false)
             {
+            }
+
+            public NeedRates(double fullness, double comfort, double energy, double cleanliness, double nightFullness,
+                double nightComfort, double nightEnergy, double nightCleanliness, bool restsAlone)
+            {
+                RestsAlone = restsAlone;
                 Fullness = fullness;
                 Comfort = comfort;
                 Energy = energy;
@@ -277,14 +289,30 @@ namespace BAIby.Simulation
                 if (helpers != null)
                     values = helpers.Act(values, at, offset, 0);
                 var timeOfDay = Mod(at + offset.Ticks, TimeSpan.TicksPerDay);
-                var isNight = timeOfDay >= night.Start.Ticks || timeOfDay < night.End.Ticks;
+                // Quiet hours either wrap midnight (the evening to the wake time) or, for a day nap, sit inside one day.
+                var wraps = night.Start > night.End;
+                bool isNight;
                 long boundary;
-                if (!isNight)
-                    boundary = night.Start.Ticks - timeOfDay;
-                else if (timeOfDay >= night.Start.Ticks)
-                    boundary = TimeSpan.TicksPerDay - timeOfDay + night.End.Ticks;
+                if (wraps)
+                {
+                    isNight = timeOfDay >= night.Start.Ticks || timeOfDay < night.End.Ticks;
+                    if (!isNight)
+                        boundary = night.Start.Ticks - timeOfDay;
+                    else if (timeOfDay >= night.Start.Ticks)
+                        boundary = TimeSpan.TicksPerDay - timeOfDay + night.End.Ticks;
+                    else
+                        boundary = night.End.Ticks - timeOfDay;
+                }
                 else
-                    boundary = night.End.Ticks - timeOfDay;
+                {
+                    isNight = timeOfDay >= night.Start.Ticks && timeOfDay < night.End.Ticks;
+                    if (isNight)
+                        boundary = night.End.Ticks - timeOfDay;
+                    else if (timeOfDay < night.Start.Ticks)
+                        boundary = night.Start.Ticks - timeOfDay;
+                    else
+                        boundary = TimeSpan.TicksPerDay - timeOfDay + night.Start.Ticks;
+                }
 
                 // The recovery boost ends at a fixed instant, so a stretch never straddles it.
                 var boosted = at < effects.BoostUntil;
@@ -301,15 +329,42 @@ namespace BAIby.Simulation
                         isNight ? rates.NightCleanliness : rates.Cleanliness));
                 var length = Math.Min(Math.Min(to - at, boundary), budget);
                 // The morning part of a night belongs to the previous evening's care day.
-                var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (timeOfDay < night.End.Ticks ? 1 : 0);
-                var energyCap = isNight ? Math.Min(NightEnergyCap(rest, nightDay), effects.EnergyCeiling) : 0;
+                var nightDay = FloorDiv(at + offset.Ticks, TimeSpan.TicksPerDay) - (wraps && timeOfDay < night.End.Ticks ? 1 : 0);
+                var restCap = rates.RestsAlone ? RestedNightEnergy : NightEnergyCap(rest, nightDay);
+                var energyCap = isNight ? Math.Min(restCap, effects.EnergyCeiling) : 0;
                 values = Segment(values, Hours(length), isNight, energyCap, boosted ? effects.RecoveryBoost : 1, rates,
                     beforeSwitch ? effects.Comfort : effects.ComfortAfter);
                 budget -= length;
                 at += length;
             }
 
+            // Past the cap nothing decays, but a companion that rests alone still rests: its day naps in the uncounted
+            // time bring Energy back, so a long absence never leaves a hamster tired from a nap it slept through.
+            if (rates.RestsAlone && at < to)
+                values.Energy = RestUncounted(values.Energy, at, to, offset, night, rates.NightEnergy,
+                    Math.Min(RestedNightEnergy, effects.EnergyCeiling));
             return values;
+        }
+
+        // Energy restored over the day-nap hours of [from, to) (quiet hours inside one day), up to the cap.
+        private static double RestUncounted(double energy, long from, long to, TimeSpan offset,
+            (TimeSpan Start, TimeSpan End) night, double rate, double cap)
+        {
+            if (night.Start > night.End || rate <= 0)
+                return energy;
+
+            var at = from;
+            while (at < to && energy < cap)
+            {
+                var dayStart = at - Mod(at + offset.Ticks, TimeSpan.TicksPerDay);
+                var napFrom = Math.Max(at, dayStart + night.Start.Ticks);
+                var napTo = Math.Min(to, dayStart + night.End.Ticks);
+                if (napTo > napFrom)
+                    energy = Math.Min(cap, energy + Hours(napTo - napFrom) * rate);
+                at = dayStart + TimeSpan.TicksPerDay;
+            }
+
+            return energy;
         }
 
         private static Values Held(Values values, double hours, double hold, NeedRates rates)

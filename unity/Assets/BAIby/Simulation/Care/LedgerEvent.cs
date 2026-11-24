@@ -21,9 +21,13 @@ namespace BAIby.Simulation
         public bool Away { get; }
         public bool Excused { get; }
 
+        // How many meals the care rhythm asks of this routine's day (two, or one for a hamster's single dinner).
+        public int MealsWanted { get; }
+
         public CareDaySummary(int mealsDone, int mealsMissed, bool together, bool bedtime, bool helperCovered, bool away,
-            bool excused)
+            bool excused, int mealsWanted = 2)
         {
+            MealsWanted = mealsWanted;
             MealsDone = mealsDone;
             MealsMissed = mealsMissed;
             Together = together;
