@@ -414,6 +414,94 @@ namespace BAIby.Tests
             Tap(walker.gameObject, "Close baby report");
         }
 
+        // Care slice 3 on a fake clock: preview days without care leave Health low, so the baby is under the weather;
+        // 15 minutes later in the same visit it is sick; Dr. Lee's visit starts Recovering; two medicine doses in two
+        // meal windows make the baby well again.
+        [UnityTest]
+        public IEnumerator SickBabySeesTheDoctorAndRecoversWithMedicine()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 6, 0, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Adopt(view.gameObject, "Mia");
+            Assert.That(Child<Image>(view.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Button>(view.gameObject, "Doctor").gameObject.activeInHierarchy, Is.False);
+
+            for (var day = 1; day <= 4; day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Preview next day");
+            }
+
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Under the weather"));
+            Assert.That(Child<Image>(view.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Favorite Toy").gameObject.activeInHierarchy, Is.False,
+                "the chip takes the favorite toy's place");
+            Assert.That(Child<Text>(view.gameObject, "Health Action Caption").text, Is.EqualTo("Free visit"));
+            Assert.That(((RectTransform)Child<Button>(view.gameObject, "Preview next day").transform).anchorMax.x,
+                Is.EqualTo(1f / 3).Within(0.001f), "the bottom row makes room for the Doctor button");
+            yield return new WaitForSecondsRealtime(1f);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Sniffle drop").enabled, Is.True);
+
+            // Fifteen minutes into the visit, Health below 30 makes the baby sick.
+            clock = clock.AddMinutes(21);
+            Tap(view.gameObject, "Soothe");
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Sick — needs the doctor"));
+            Tap(view.gameObject, "Play with rattle");
+            Assert.That(Reaction(view.gameObject), Does.Contain("too poorly"));
+            yield return new WaitForSecondsRealtime(1f);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Health blanket").enabled, Is.True);
+            Assert.That(Child<SpriteRenderer>(view.gameObject, "Fever thermometer").enabled, Is.True);
+
+            Tap(view.gameObject, "Doctor");
+            Assert.That(Child<RectTransform>(view.gameObject, "Doctor Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<RectTransform>(view.gameObject, "Doctor Panel").rect.height,
+                Is.LessThanOrEqualTo(Child<RectTransform>(view.gameObject, "Care").rect.height));
+            Assert.That(Child<Text>(view.gameObject, "Doctor Scene").text, Does.Contain("resting in bed"));
+            Tap(view.gameObject, "Visit doctor");
+            Assert.That(Child<Text>(view.gameObject, "Doctor Scene").text, Does.Contain("needs rest and medicine"));
+            Assert.That(Child<Button>(view.gameObject, "Visit doctor").gameObject.activeInHierarchy, Is.False);
+            Assert.That(EventSystem.current.currentSelectedGameObject,
+                Is.EqualTo(Child<Button>(view.gameObject, "Close doctor").gameObject));
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Recovering · medicine 0 of 2"));
+            Tap(view.gameObject, "Close doctor");
+            var medicine = Child<Button>(view.gameObject, "Medicine");
+            Assert.That(medicine.interactable, Is.False, "medicine waits for a meal");
+            Assert.That(Child<Text>(view.gameObject, "Health Action Caption").text, Is.EqualTo("At breakfast 07:00"));
+
+            clock = new DateTimeOffset(2026, 3, 2, 7, 30, 0, TimeSpan.Zero);
+            Tap(view.gameObject, "Feed");
+            Tap(view.gameObject, "Milk");
+            Tap(view.gameObject, "Close feeding");
+            Tap(view.gameObject, "Medicine");
+            Assert.That(Reaction(view.gameObject), Does.Contain("Dose 1 of 2"));
+            Assert.That(Child<Text>(view.gameObject, "Condition Chip Label").text, Is.EqualTo("Recovering · medicine 1 of 2"));
+            Assert.That(Child<Button>(view.gameObject, "Medicine").interactable, Is.False, "one dose per meal");
+
+            UnityEngine.Object.Destroy(view.gameObject);
+            yield return null;
+            var restored = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Assert.That(Child<Text>(restored.gameObject, "Condition Chip Label").text,
+                Is.EqualTo("Recovering · medicine 1 of 2"), "recovery survives a reload");
+
+            clock = new DateTimeOffset(2026, 3, 2, 14, 30, 0, TimeSpan.Zero);
+            Tap(restored.gameObject, "Soothe");
+            Tap(restored.gameObject, "Medicine");
+            Assert.That(Reaction(restored.gameObject), Does.Contain("Well again"));
+            Assert.That(Child<Image>(restored.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.False);
+            Assert.That(Child<Button>(restored.gameObject, "Medicine").gameObject.activeInHierarchy, Is.False);
+            Assert.That(((RectTransform)Child<Button>(restored.gameObject, "Preview next day").transform).anchorMax.x,
+                Is.EqualTo(0.5f).Within(0.001f));
+        }
+
         [UnityTest]
         public IEnumerator HouseholdAdoptsSwitchesAndRestoresBothBabies()
         {

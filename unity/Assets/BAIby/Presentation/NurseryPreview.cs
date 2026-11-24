@@ -267,7 +267,8 @@ namespace BAIby.Presentation
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
                 canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
-            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0);
+            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0,
+                state?.Care.Condition ?? CareCondition.Well);
             // After Present, so the look is built first for the stage that is actually shown.
             ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
 
@@ -291,7 +292,7 @@ namespace BAIby.Presentation
             energy.Set(state.Energy);
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
-            var reactionText = DescribeReaction(state.Name, reaction, visibleToy, food);
+            var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeReaction(state.Name, reaction, visibleToy, food);
             if (unlocked.UnlockedWalking)
                 status.text = $"{state.Name} can take a few steps now. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
@@ -310,6 +311,7 @@ namespace BAIby.Presentation
             development.UpdateDetails(state, age.text, status.text);
             report.UpdateDetails(BabyReport.From(state));
             feeding.UpdateDetails(state, status.text);
+            UpdateHealthControls(state, reaction, reactionText);
         }
 
         private static string StageName(BabyState state)
@@ -352,7 +354,7 @@ namespace BAIby.Presentation
         {
             const double low = 45;
             if (state.Health < low)
-                return $"{state.Name} seems under the weather and could use some care.";
+                return $"{state.Name} looks a little pale and could use some care.";
             if (state.Cleanliness < low)
                 return $"{state.Name} could use a fresh diaper.";
             if (state.Energy < low && state.Energy <= state.Satiety && state.Energy <= state.Comfort)
@@ -391,6 +393,8 @@ namespace BAIby.Presentation
                 feeding.Feedback.text = message;
             else if (development.Root.activeSelf)
                 development.Feedback.text = message;
+            else if (doctor.Root.activeSelf)
+                doctor.Feedback.text = message;
             else if (controls.activeSelf)
                 status.text = message;
             else
@@ -480,7 +484,7 @@ namespace BAIby.Presentation
                 () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
             ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
                 () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
-            ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
+            previewDayButton = ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
             developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
                 () => ShowPanel(NurseryPanel.Development), Mist, Ink);
             development = new DevelopmentPanel(Tray("Development Panel", false, 360),
@@ -500,6 +504,7 @@ namespace BAIby.Presentation
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            BuildHealth(top, panel);
             BuildRoutine();
             BuildHome();
             controls.SetActive(false);
@@ -510,7 +515,7 @@ namespace BAIby.Presentation
             cleanliness.Root.gameObject.SetActive(false);
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -553,6 +558,9 @@ namespace BAIby.Presentation
                 case NurseryPanel.Routine:
                     (session.State.Care.Style == CareStyle.Gentle ? routine.GentleButton : routine.StandardButton).Select();
                     break;
+                case NurseryPanel.Doctor:
+                    (doctor.Visit.gameObject.activeSelf ? doctor.Visit : doctor.Done).Select();
+                    break;
                 case NurseryPanel.Style:
                     style.Open(session.State.Appearance);
                     // Shows the failure note again if the saved look's art could not be built.
@@ -568,6 +576,9 @@ namespace BAIby.Presentation
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.Style: styleButton.Select(); break;
                         case NurseryPanel.Routine: RoutineOpener.Select(); break;
+                        case NurseryPanel.Doctor:
+                            (healthButton.gameObject.activeSelf && healthButton.interactable ? healthButton : developmentButton).Select();
+                            break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -588,6 +599,7 @@ namespace BAIby.Presentation
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
+            doctor.Root.SetActive(adopted && activePanel == NurseryPanel.Doctor);
             routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);

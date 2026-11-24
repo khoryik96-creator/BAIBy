@@ -131,6 +131,9 @@ namespace BAIby.Simulation
             return CareConsequences.Medicine(state.Care);
         }
 
+        // Medicine doses that end Recovering.
+        public int RecoveryDoses => careTunables.RecoveryDoses;
+
         // Read-only ledger summary for the Development panel.
         public string DescribeCare(BabyState state)
         {

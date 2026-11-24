@@ -14,8 +14,8 @@ namespace BAIby.Presentation
             if (!session.State.CanWalk)
                 return;
 
-            // An upset walker pushes the blocks away at once, before the child builds anything.
-            if (CareConsequences.RefusesPlay(session.State.Care))
+            // An upset or sick walker turns the blocks down at once, before the child builds anything.
+            if (CareConsequences.RefusesPlay(session.State.Care) || CareConsequences.FeelsTooPoorly(session.State.Care))
             {
                 Care(CareAction.StackBlocks);
                 return;
