@@ -20,6 +20,22 @@
     "Earned": 1,
     "Premium": 2
   },
+  "CareCondition": {
+    "Well": 0,
+    "UnderTheWeather": 1,
+    "Sick": 2,
+    "Recovering": 3
+  },
+  "CareConditionCause": {
+    "None": 0,
+    "LowHealth": 1,
+    "LowCareScore": 2,
+    "StayedUnwell": 3,
+    "DoctorVisit": 4,
+    "GoodCareDay": 5,
+    "MedicineCourse": 6,
+    "RecoveredWithTime": 7
+  },
   "CareMark": {
     "OnTime": 0,
     "Late": 1,
@@ -75,7 +91,9 @@
     "WashOnTime": 26,
     "WashLate": 27,
     "WashExcused": 28,
-    "WashOutsideWindow": 29
+    "WashOutsideWindow": 29,
+    "DoctorVisited": 30,
+    "MedicineDose": 31
   },
   "CareStyle": {
     "Standard": 0,

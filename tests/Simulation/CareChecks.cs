@@ -426,7 +426,7 @@ static class CareChecks
         Equal(1.0, CareRules.Score(care, Tunables), "a migrated baby starts with a full CareScore");
         Equal(Day(2026, 3, 5), care.CareDay, "the care day follows the player's local date");
         Equal(summer, care.Offset, "the ledger takes the player's offset");
-        Equal(true, saves.Primary.Contains("version=\"13\"") && saves.Primary.Contains("<care v=\"2\""), "the migration saves v13");
+        Equal(true, saves.Primary.Contains("version=\"14\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v14");
         Equal(care, new BabySession(game, saves, () => clock).State.Care, "the anchored ledger survives a reload");
 
         session.ApplyCare(CareAction.Feed);
@@ -534,7 +534,7 @@ static class CareChecks
 
         // A newer build may write a newer care record inside a baby save this build reads.
         var future = new XElement(valid);
-        future.Element("care").SetAttributeValue("v", "3");
+        future.Element("care").SetAttributeValue("v", "4");
         try
         {
             BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting));
@@ -547,7 +547,7 @@ static class CareChecks
         session = new BabySession(Game(), saves, () => care.Checkpoint);
         session.ApplyCare(CareAction.Feed);
         var newer = XElement.Parse(saves.Primary);
-        newer.Element("care").SetAttributeValue("v", "3");
+        newer.Element("care").SetAttributeValue("v", "4");
         saves.Primary = newer.ToString(SaveOptions.DisableFormatting);
         var backupBefore = saves.Backup;
         try

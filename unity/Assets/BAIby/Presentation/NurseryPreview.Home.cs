@@ -121,6 +121,8 @@ namespace BAIby.Presentation
             goodbye.Root.SetActive(view == HouseholdView.Goodbye);
             ApplyRoomPanels();
             UpdatePanelVisibility(nurseryShown);
+            if (!nurseryShown)
+                HideHealthChip();
             ApplyPetViews();
         }
 
@@ -387,8 +389,15 @@ namespace BAIby.Presentation
         {
             const double low = 45;
             needsCare = true;
+            switch (state.Care.Condition)
+            {
+                case CareCondition.Sick: return "Poorly, would love the doctor";
+                case CareCondition.UnderTheWeather: return "A bit under the weather";
+                case CareCondition.Recovering: return "Getting better";
+            }
+
             if (state.Health < low)
-                return "Feeling under the weather";
+                return "Looking a little pale";
             if (state.Cleanliness < low)
                 return "Ready for a fresh diaper";
             if (state.Energy < low)

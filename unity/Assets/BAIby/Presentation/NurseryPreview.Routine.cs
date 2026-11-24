@@ -149,12 +149,15 @@ namespace BAIby.Presentation
             routine.FirstAwayChoice.Select();
         }
 
-        // What the baby's mood, the room and Away mode ask for, or null when the needs read-out says enough.
+        // What the baby's health, mood, the room and Away mode ask for, or null when the needs read-out says enough.
         private static string DescribeCondition(BabyState state)
         {
             var care = state.Care;
             if (care.IsAway)
                 return $"{state.Name} is fine while you're away. Needs stay steady until you're back.";
+            if (care.Condition == CareCondition.Sick)
+                return $"{state.Name} is poorly and resting in bed with a little fever. Feeds and cuddles help, " +
+                    "and Dr. Lee will help most.";
 
             switch (care.Mood)
             {
@@ -170,6 +173,15 @@ namespace BAIby.Presentation
                     if (care.MoodCause == CareMoodCause.MealOverdue)
                         return $"{state.Name} is fussing. It's past mealtime.";
                     return $"{state.Name} is fussing. {DescribeNeeds(state)}";
+            }
+
+            switch (care.Condition)
+            {
+                case CareCondition.Recovering:
+                    return $"{state.Name} is getting better. Medicine goes with meals: one dose at two different mealtimes.";
+                case CareCondition.UnderTheWeather:
+                    return $"{state.Name} is a bit under the weather: sniffly and low on energy. A visit to Dr. Lee, " +
+                        "or a good day of care, will help.";
                 default:
                     return care.IsMessy ? "The nursery is getting messy. Wash up to tidy it." : null;
             }

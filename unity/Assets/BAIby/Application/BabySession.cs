@@ -61,6 +61,25 @@ namespace BAIby.Application
             return (caredFor.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
         }
 
+        // Whether the doctor's visit is offered (the baby is under the weather or sick), as of the last refresh.
+        public bool CanVisitDoctor => State != null && BabySimulation.CanVisitDoctor(State);
+
+        // Medicine doses that end Recovering.
+        public int MedicineCourse => simulation.RecoveryDoses;
+
+        // Whether a medicine dose would count, as of the last refresh.
+        public MedicineState Medicine => State == null ? MedicineState.NotNeeded : BabySimulation.Medicine(State);
+
+        // The free doctor's visit, at the current instant.
+        public (Reaction Reaction, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) VisitDoctor()
+        {
+            var elapsed = simulation.Advance(GetAdoptedBaby(), now());
+            var visit = simulation.VisitDoctor(elapsed.State);
+            if (visit.State != State)
+                Commit(visit.State);
+            return (visit.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
+        }
+
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(TimeSpan elapsed)
         {
             var current = simulation.Advance(GetAdoptedBaby(), now());

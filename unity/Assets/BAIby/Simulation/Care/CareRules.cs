@@ -32,6 +32,8 @@ namespace BAIby.Simulation
                 ExcusedUntil = AsInstant(Add(instant, tunables.FirstDayGrace.Ticks)),
                 LastCareAt = now,
                 LastReason = CareReason.Started,
+                ConditionSince = now,
+                SessionStart = now,
             };
             CloseWindows(draft, instant, false, tunables, new GapSummary());
             return draft.Build();
@@ -45,6 +47,8 @@ namespace BAIby.Simulation
             LastCareAt = checkpoint,
             AwaitingAnchor = true,
             LastReason = CareReason.AwaitingAnchor,
+            ConditionSince = checkpoint,
+            SessionStart = checkpoint,
         }.Build();
 
         public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables)
@@ -94,6 +98,9 @@ namespace BAIby.Simulation
             // Time away never counts towards escalation.
             if (draft.Mood != CareMood.Content && checkpoint < draft.AwayUntil.UtcTicks && draft.AwayFrom.UtcTicks < instant)
                 draft.MoodSince = AsInstant(Math.Max(draft.MoodSince.UtcTicks, Math.Min(draft.AwayUntil.UtcTicks, instant)));
+            // A gap longer than the presence gap means the player was away: this advance starts a new visit.
+            if (instant - checkpoint > tunables.PresenceGap.Ticks)
+                draft.SessionStart = now;
             draft.Checkpoint = now;
             draft.LastReason = gap.Reason(travel, draft.LastReason);
             return draft.Build();
@@ -230,6 +237,52 @@ namespace BAIby.Simulation
             return false;
         }
 
+        // The meal window open at the record's checkpoint on the current care day ([Open, LateUntil)), if any.
+        public static CareMoment? MealWindowAt(CareRecord record)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (record.AwaitingAnchor)
+                return null;
+
+            var at = record.Checkpoint.UtcTicks;
+            foreach (var window in RoutineCalendar.Windows(record.Preset, record.WakeTime))
+            {
+                if (window.Core == CareTags.Meal && at >= Place(record.CareDay, record.Offset, window.Open) &&
+                    at < Place(record.CareDay, record.Offset, window.LateUntil))
+                    return window.Moment;
+            }
+
+            return null;
+        }
+
+        // A stable key for one meal window of one care day; never 0.
+        public static long WindowKey(long careDay, CareMoment moment) =>
+            careDay * RoutineCalendar.MomentCount + (int)moment + 1;
+
+        // Whether the advance from `before` to `after` began a new visit (the gap was longer than the presence gap).
+        public static bool StartedSession(CareRecord before, CareRecord after)
+        {
+            if (before == null)
+                throw new ArgumentNullException(nameof(before));
+            if (after == null)
+                throw new ArgumentNullException(nameof(after));
+
+            return after.Checkpoint.UtcTicks > before.Checkpoint.UtcTicks &&
+                after.SessionStart.UtcTicks == after.Checkpoint.UtcTicks;
+        }
+
+        // An absence counts from the last hands-on care, or from the planned end of Away mode.
+        public static long AbsenceEnd(CareRecord record, CareTunables tunables)
+        {
+            if (record == null)
+                throw new ArgumentNullException(nameof(record));
+            if (tunables == null)
+                throw new ArgumentNullException(nameof(tunables));
+
+            return Add(Math.Max(record.LastCareAt.UtcTicks, record.AwayUntil.UtcTicks), tunables.AbsenceCeiling.Ticks);
+        }
+
         // 0 to 1. Excused and Covered entries never count; unfilled ring slots (and so empty rings) count as 1.
         public static double Score(CareRecord record, CareTunables tunables)
         {
@@ -265,6 +318,7 @@ namespace BAIby.Simulation
             draft.ExcusedUntil = AsInstant(Math.Max(draft.ExcusedUntil.UtcTicks, instant));
             draft.LastCareAt = now;
             draft.AwaitingAnchor = false;
+            draft.SessionStart = now;
             CloseWindows(draft, instant, false, tunables, new GapSummary());
             draft.Checkpoint = now;
             draft.LastReason = CareReason.GapExcused;
@@ -303,6 +357,8 @@ namespace BAIby.Simulation
         private static void CloseDay(CareRecord.Builder draft, long dayEnd, CareTunables tunables, GapSummary gap)
         {
             CloseWindows(draft, dayEnd, true, tunables, gap);
+            if (IsGoodDay(draft))
+                draft.GoodDay = draft.CareDay;
             if (draft.TogetherToday)
                 return;
 
@@ -369,10 +425,32 @@ namespace BAIby.Simulation
             return MomentStatus.Missed;
         }
 
+        // A good care day: no meal or bedtime missed or covered, at least two meals on time, and together time.
+        private static bool IsGoodDay(CareRecord.Builder draft)
+        {
+            if (!draft.TogetherToday)
+                return false;
+
+            var onTimeMeals = 0;
+            foreach (var window in Windows(draft))
+            {
+                var status = draft.Moments[(int)window.Moment];
+                if (status == MomentStatus.Missed || status == MomentStatus.Covered || status == MomentStatus.Pending)
+                    return false;
+                if (window.Core == CareTags.Meal && status == MomentStatus.OnTime)
+                    onTimeMeals++;
+            }
+
+            return onTimeMeals >= 2;
+        }
+
         private static void PushMissed(CareRecord.Builder draft, CareTags core, CareTunables tunables)
         {
             if (core == CareTags.Meal)
+            {
                 draft.Meals = draft.Meals.Push(CareMark.Missed, tunables.MealRing);
+                draft.MissedSinceWell = true;
+            }
             else
                 draft.Bedtimes = draft.Bedtimes.Push(CareMark.Missed, tunables.BedtimeRing);
             draft.Owed |= core;
