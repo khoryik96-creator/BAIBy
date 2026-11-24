@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using BAIby.Application;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -239,11 +240,13 @@ namespace BAIby.Presentation
             ShowPanel(NurseryPanel.Journal);
         }
 
-        // Done goes back to wherever the journal was opened: Home or the Growth sheet.
+        // Done goes back to wherever the journal was opened: Home or the Growth sheet (a baby's or a pet's).
         private void CloseJournal()
         {
             if (view == HouseholdView.Journal)
                 ShowHome();
+            else if (view == HouseholdView.PetRoom)
+                ShowPetPanel(PetPanel.Growth);
             else
                 ShowPanel(NurseryPanel.Development);
         }
@@ -273,6 +276,10 @@ namespace BAIby.Presentation
             private BabyState baby;
             private JournalRecord record;
             private BondRecord bonding;
+            // Whose journal is shown, and for a pet (care slice 7) how its photos are drawn.
+            private string companion;
+            private bool petPages;
+            private Func<JournalEntry, Sprite> petPicture;
 
             // The pages of a baby's journal, built once beside the pet's lines.
             private void BuildPages(RectTransform content)
@@ -327,6 +334,9 @@ namespace BAIby.Presentation
             {
                 Feedback.text = string.Empty;
                 baby = state;
+                companion = state.Name;
+                petPages = false;
+                petPicture = null;
                 record = journalRecord ?? JournalRecord.Empty;
                 bonding = bondRecord;
                 SetHeight(BabyHeight);
@@ -341,6 +351,32 @@ namespace BAIby.Presentation
                 var rhythm = bonding?.Rhythm ?? 0;
                 summary.text = $"{DayWord(JournalRules.DayOf(state.Age))} · {stage} · Bond {Mathf.RoundToInt((float)state.Bond)}" +
                     $" · Rhythm {rhythm} {(rhythm == 1 ? "day" : "days")}";
+                ShowTab(0);
+            }
+
+            // A pet's journal with pages (a species with a care profile): milestones, photos drawn from its pose art,
+            // stickers, week pages and hard days, read-only. From Growth (resting null) or from Home.
+            public void ShowPetPages(PetState pet, JournalRecord journalRecord, BondRecord bondRecord, bool? resting,
+                Func<JournalEntry, Sprite> picture)
+            {
+                Feedback.text = string.Empty;
+                baby = null;
+                companion = pet.Name;
+                petPages = true;
+                petPicture = picture;
+                record = journalRecord ?? JournalRecord.Empty;
+                bonding = bondRecord;
+                SetHeight(BabyHeight);
+                petLines.SetActive(false);
+                pages.SetActive(true);
+                heading.text = $"{pet.Name}'s journal";
+                state.text = resting == true
+                    ? $"{pet.Name} is resting. They're safe, and their needs don't drop while they rest."
+                    : resting == false ? $"{pet.Name} is awake in their room."
+                    : "Milestones, photos and the days you got through together.";
+                var rhythm = bonding?.Rhythm ?? 0;
+                summary.text = $"{DayWord(JournalRules.DayOf(pet.Age))} · {PetStageTitle(pet.Species, pet.Stage)} · " +
+                    $"Bond {Mathf.RoundToInt((float)pet.Bond)} · Rhythm {rhythm} {(rhythm == 1 ? "day" : "days")}";
                 ShowTab(0);
             }
 
@@ -374,7 +410,7 @@ namespace BAIby.Presentation
 
             private void Fill()
             {
-                if (baby == null)
+                if (companion == null)
                     return;
 
                 var items = Rows();
@@ -414,7 +450,7 @@ namespace BAIby.Presentation
                     switch (entry.Kind)
                     {
                         case JournalKind.Arrival:
-                            list.Add(new JournalRow("Home", Peach, $"Day 1 · {baby.Name} came home",
+                            list.Add(new JournalRow("Home", Peach, $"Day 1 · {companion} came home",
                                 $"{Date(entry.At)} · Welcome to the family!"));
                             break;
                         case JournalKind.Milestone:
@@ -495,7 +531,8 @@ namespace BAIby.Presentation
 
                 if (record.InSpell)
                     list.Insert(0, new JournalRow("Heart", Blush, $"Since {DayWord(record.SpellDay).ToLowerInvariant()} · Feeling poorly",
-                        "Rest, cuddles and Dr. Lee help. You'll get through it together."));
+                        petPages ? $"Rest, gentle petting and {VetName} the vet help. You'll get through it together."
+                            : "Rest, cuddles and Dr. Lee help. You'll get through it together."));
                 if (list.Count == 0)
                     list.Add(new JournalRow("Heart", Blush, "No hard days so far",
                         "If one comes, you'll get through it together."));
@@ -514,6 +551,9 @@ namespace BAIby.Presentation
                 var stickers = BondRules.Stickers(longest);
                 for (var i = stickers.Count - 1; i >= 0; i--)
                     list.Add(new JournalRow("Star", Butter, $"{stickers[i]}-day care rhythm", StickerEarnedOn(stickers[i])));
+                // Earned looks are the baby's outfits; a pet's rhythm earns stickers.
+                if (petPages)
+                    return list;
                 foreach (var (look, days) in new[]
                 {
                     (HatName(Headwear.DaisyClip), EarnedLooks.RhythmFor(Headwear.DaisyClip)),
@@ -547,6 +587,19 @@ namespace BAIby.Presentation
             // A photo's picture: the pose of its stage, resting for a nap or a poorly day, in the look it kept.
             private Sprite Picture(JournalEntry entry)
             {
+                if (petPages)
+                {
+                    try
+                    {
+                        return petPicture?.Invoke(entry);
+                    }
+                    catch (Exception error)
+                    {
+                        Debug.LogException(error);
+                        return null;
+                    }
+                }
+
                 var stage = entry.Skill == MotorSkill.Walking ? 3 : entry.Skill == MotorSkill.Crawling ? 2
                     : entry.Skill == MotorSkill.Sitting ? 1 : 0;
                 var rest = entry.Moment == PhotoMoment.Napping || entry.Moment == PhotoMoment.Poorly;
@@ -563,7 +616,7 @@ namespace BAIby.Presentation
 
             private JournalRow StickerRow(JournalEntry entry)
             {
-                var look = EarnedLookAt(entry.Count);
+                var look = petPages ? null : EarnedLookAt(entry.Count);
                 return new JournalRow("Star", Butter, $"{DayWord(entry.Day)} · {entry.Count}-day care rhythm",
                     look == null ? "A sticker for the shelf!" : $"A sticker, and the {look} to wear");
             }
@@ -574,10 +627,11 @@ namespace BAIby.Presentation
                     ? $"Days {entry.SinceDay} to {entry.Day}" : DayWord(entry.Day);
                 if (entry.Spell == HardSpell.Shy)
                     return new JournalRow("Heart", Blush, $"{days} · A bit shy about {SkillGerund(entry.Skill)}",
-                        $"A good day of meals and cuddles brought {SkillGerund(entry.Skill)} back.");
+                        $"A good day of meals and {(petPages ? "petting" : "cuddles")} brought {SkillGerund(entry.Skill)} back.");
 
                 return new JournalRow("Heart", Blush, $"{days} · A poorly spell",
-                    "Rest, medicine and cuddles helped. All better now!");
+                    petPages ? "Rest, medicine and gentle petting helped. All better now!"
+                        : "Rest, medicine and cuddles helped. All better now!");
             }
 
             private static string MilestoneTitle(MotorSkill skill)
@@ -586,6 +640,9 @@ namespace BAIby.Presentation
                 {
                     case MotorSkill.Sitting: return "Sat up for the first time";
                     case MotorSkill.Crawling: return "First crawl";
+                    case MotorSkill.Pounce: return "First pounce";
+                    case MotorSkill.Climb: return "First climb";
+                    case MotorSkill.HighJump: return "First high jump";
                     default: return "First steps";
                 }
             }
@@ -596,6 +653,9 @@ namespace BAIby.Presentation
                 {
                     case MotorSkill.Sitting: return "sitting and reaching";
                     case MotorSkill.Crawling: return "off to explore";
+                    case MotorSkill.Pounce: return "wiggle, wiggle, pounce!";
+                    case MotorSkill.Climb: return "up the cat tree";
+                    case MotorSkill.HighJump: return "all the way to the windowsill";
                     default: return "toddling towards a toy";
                 }
             }

@@ -4,7 +4,8 @@ using BAIby.Simulation;
 namespace BAIby.Presentation
 {
     // Words for development (care slice 4): the projection of the next skill, track qualities, the growth chart band,
-    // the setback and the reactions it brings. Warm and never blaming; no weights or body labels.
+    // the setback and the reactions it brings. Warm and never blaming; no weights or body labels. A cat's milestones
+    // (care slice 7: pounce, climb, high jump) share them.
     public sealed partial class NurseryPreview
     {
         private static string SkillGerund(MotorSkill skill)
@@ -13,6 +14,9 @@ namespace BAIby.Presentation
             {
                 case MotorSkill.Sitting: return "sitting up";
                 case MotorSkill.Crawling: return "crawling";
+                case MotorSkill.Pounce: return "pouncing";
+                case MotorSkill.Climb: return "climbing";
+                case MotorSkill.HighJump: return "high jumps";
                 default: return "walking";
             }
         }
@@ -23,19 +27,22 @@ namespace BAIby.Presentation
             {
                 case MotorSkill.Sitting: return "sit up";
                 case MotorSkill.Crawling: return "crawl";
+                case MotorSkill.Pounce: return "pounce";
+                case MotorSkill.Climb: return "climb";
+                case MotorSkill.HighJump: return "try a high jump";
                 default: return "take first steps";
             }
         }
 
-        // "Likely to crawl in about 2 days".
-        private static string ProjectionLine(BabyState state, GrowthReport growth)
+        // "Likely to crawl in about 2 days", or for a kitten "Likely to pounce in about 2 days".
+        private static string ProjectionLine(string name, GrowthReport growth, bool pet = false)
         {
             if (growth == null)
                 return string.Empty;
             if (growth.Next == MotorSkill.None)
-                return "Sitting, crawling and first steps reached";
+                return pet ? "Pouncing, climbing and high jumps reached" : "Sitting, crawling and first steps reached";
             if (growth.Paused)
-                return "Growing waits while " + state.Name + " is poorly";
+                return "Growing waits while " + name + " is poorly";
 
             return "Likely to " + SkillVerb(growth.Next) + " " + Soon(growth.ExpectedIn);
         }
@@ -51,22 +58,25 @@ namespace BAIby.Presentation
             return $"in about {Math.Round(days):0} days";
         }
 
-        private static string ProjectionHint(BabyState state, GrowthReport growth)
+        // `meals` is how many on-time meals a good day asks for (three, or two for a cat).
+        private static string ProjectionHint(string name, GrowthReport growth, bool pet = false, int meals = 3)
         {
             if (growth == null)
                 return string.Empty;
+            var cuddles = pet ? "pets" : "cuddles";
             if (growth.Shy != MotorSkill.None)
                 return $"A bit shy about {SkillGerund(growth.Shy)}. A good day helps: meals on time " +
-                    $"{Math.Min(3, growth.RecoveryMeals)} of 3, cuddles {Math.Min(2, growth.RecoverySoothes)} of 2.";
+                    $"{Math.Min(meals, growth.RecoveryMeals)} of {meals}, {cuddles} {Math.Min(2, growth.RecoverySoothes)} of 2.";
             if (growth.Paused)
-                return "Feeds, cuddles and Dr. Lee will help.";
+                return pet ? $"Meals, gentle petting and {VetName} the vet will help." : "Feeds, cuddles and Dr. Lee will help.";
             if (growth.Next == MotorSkill.None)
-                return "Play, stories and cuddles keep every track growing.";
+                return pet ? "Wand play, petting and brushing keep every track growing."
+                    : "Play, stories and cuddles keep every track growing.";
 
             switch (growth.Pace)
             {
                 case GrowthPace.TakingTime:
-                    return $"{state.Name} is taking their time with {SkillGerund(growth.Next)}. {Helps(growth.Next)}";
+                    return $"{name} is taking their time with {SkillGerund(growth.Next)}. {Helps(growth.Next)}";
                 case GrowthPace.Ahead:
                     return "Lots of play and on-time meals are paying off.";
                 default:
@@ -80,6 +90,9 @@ namespace BAIby.Presentation
             {
                 case MotorSkill.Sitting: return "Play and cuddles help.";
                 case MotorSkill.Crawling: return "Extra floor play helps.";
+                case MotorSkill.Pounce:
+                case MotorSkill.Climb: return "Wand play at playtime helps.";
+                case MotorSkill.HighJump: return "Wand play and meals on time help.";
                 default: return "Play and regular meals help.";
             }
         }

@@ -58,7 +58,8 @@ namespace BAIby.Presentation
                 case HouseholdView.Wake: return wakePanel.Feedback;
                 case HouseholdView.Choose: return choice.Feedback;
                 case HouseholdView.PetAdoption: return petAdoption.Feedback;
-                case HouseholdView.PetRoom: return petStatus;
+                // A shared sheet open in the pet's room shows its own message.
+                case HouseholdView.PetRoom: return petPanel == PetPanel.Care ? petStatus : null;
                 default: return null;
             }
         }
@@ -221,7 +222,10 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Journal;
             ApplyHouseholdView();
-            if (companion.PetState != null)
+            if (companion.PetState != null && companion.PetSession.HasCare)
+                journal.ShowPetPages(companion.PetState, companion.PetSession.Journal, companion.PetSession.Bonding,
+                    household.IsResting(slot), entry => PetPhoto(companion.PetState, entry));
+            else if (companion.PetState != null)
                 journal.ShowPet(companion.PetState, household.IsResting(slot));
             else
                 journal.ShowBaby(companion.State, companion.Session.Journal, companion.Session.Bonding,

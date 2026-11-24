@@ -11,6 +11,10 @@ namespace BAIby.Character
     // shown pet's poses stay in memory: a new look or stage destroys the old textures and sprites, each
     // pose is built when it is first needed, and decoded art is not kept between builds. Missing or
     // broken art logs a warning and shows a calm placeholder shape instead of the pet.
+    //
+    // The health axis (care slice 7) shows as a small bubble over the pet, drawn from soft shapes like the baby's: a
+    // sniffle drop when it is under the weather, a thermometer when it is sick (it rests in its rest pose too), a capsule
+    // while it recovers. A shy skill (a setback) turns wand play into a quiet rest instead of the pounce.
     public sealed class PetVisuals : MonoBehaviour
     {
         private const string Art = "BAIby/Pets/";
@@ -46,6 +50,15 @@ namespace BAIby.Character
         private PetVerb cue;
         private float cueStarted = -100;
         private float arrived = -100;
+        private bool shy;
+        private Sprite disc;
+        private Transform badge;
+        private SpriteRenderer sniffle;
+        private SpriteRenderer thermometer;
+        private SpriteRenderer thermometerFill;
+        private SpriteRenderer thermometerBulb;
+        private SpriteRenderer capsuleWarm;
+        private SpriteRenderer capsuleLight;
 
         // The pet stands in the nursery's room: on its floor line, drawn at the layout's runtime scale
         // relative to the baby's pose pixels, following the room as the screen changes shape.
@@ -88,6 +101,18 @@ namespace BAIby.Character
             EnsureSprites();
         }
 
+        // The health condition's bubble, and whether the newest skill is shy (play shows a quiet rest).
+        public void SetCondition(CareCondition health, bool shySkill)
+        {
+            shy = shySkill;
+            var shown = health != CareCondition.Well;
+            if (badge.gameObject.activeSelf != shown)
+                badge.gameObject.SetActive(shown);
+            sniffle.enabled = health == CareCondition.UnderTheWeather;
+            thermometer.enabled = thermometerFill.enabled = thermometerBulb.enabled = health == CareCondition.Sick;
+            capsuleWarm.enabled = capsuleLight.enabled = health == CareCondition.Recovering;
+        }
+
         // A short body cue for a care action. A nap blends into the rest pose for a while.
         public void PlayCue(PetVerb verb)
         {
@@ -99,8 +124,9 @@ namespace BAIby.Character
         public void PlayArrival() => arrived = Time.unscaledTime;
 
         // A portrait for a Home card: the awake pose of that look and stage at half size. Kept for the
-        // few cards on Home and freed by ReleasePortraits. Null when the art could not be built.
-        public Sprite PortraitFor(PetAppearance appearance, PetCatalog catalog, PetStage stage)
+        // few cards on Home and freed by ReleasePortraits. Null when the art could not be built. A journal
+        // photo of a nap or a poorly day uses the rest pose.
+        public Sprite PortraitFor(PetAppearance appearance, PetCatalog catalog, PetStage stage, bool resting = false)
         {
             if (appearance == null || catalog == null)
                 return null;
@@ -108,14 +134,14 @@ namespace BAIby.Character
             var key = Look.Of(appearance, catalog, stage);
             for (int i = 0; i < portraits.Count; i++)
             {
-                if (portraits[i].Key.Equals(key))
+                if (portraits[i].Key.Equals(key) && portraits[i].Resting == resting)
                     return portraits[i].Sprite;
             }
 
             Sprite sprite = null;
             try
             {
-                sprite = BuildSprite(key, false, 2, "portrait");
+                sprite = BuildSprite(key, resting, 2, resting ? "rest portrait" : "portrait");
             }
             catch (System.Exception exception)
             {
@@ -126,7 +152,7 @@ namespace BAIby.Character
                 ReleaseBuildScratch();
             }
 
-            portraits.Insert(0, new Portrait(key, sprite));
+            portraits.Insert(0, new Portrait(key, sprite, resting));
             while (portraits.Count > CachedPortraits)
             {
                 var evicted = portraits[portraits.Count - 1];
@@ -152,6 +178,31 @@ namespace BAIby.Character
             awake = AddLayer(rig, "Pet awake artwork", null, Color.white, 1);
             rest = AddLayer(rig, "Pet rest artwork", null, Color.white, 2);
             placeholder = SoftShape(false);
+            BuildBadge();
+        }
+
+        // The health bubble, from soft discs: a white bubble with a sniffle drop, a thermometer or a capsule.
+        private void BuildBadge()
+        {
+            disc = Disc();
+            badge = new GameObject("Pet health badge").transform;
+            badge.SetParent(transform, false);
+            Part("Pet health bubble", new Color32(255, 255, 255, 235), 10, Vector2.zero, new Vector2(.62f, .56f));
+            sniffle = Part("Pet sniffle drop", new Color32(126, 176, 222, 255), 11, new Vector2(0, -.02f), new Vector2(.17f, .23f));
+            thermometer = Part("Pet thermometer", new Color32(236, 228, 222, 255), 11, new Vector2(0, .04f), new Vector2(.10f, .36f));
+            thermometerFill = Part("Pet thermometer fill", new Color32(226, 112, 112, 255), 12, new Vector2(0, -.02f), new Vector2(.05f, .22f));
+            thermometerBulb = Part("Pet thermometer bulb", new Color32(226, 112, 112, 255), 12, new Vector2(0, -.13f), new Vector2(.15f, .15f));
+            capsuleWarm = Part("Pet capsule warm", new Color32(232, 150, 111, 255), 11, new Vector2(-.06f, 0), new Vector2(.19f, .17f));
+            capsuleLight = Part("Pet capsule light", new Color32(251, 240, 207, 255), 12, new Vector2(.06f, 0), new Vector2(.19f, .17f));
+            badge.gameObject.SetActive(false);
+        }
+
+        private SpriteRenderer Part(string name, Color32 color, int order, Vector2 position, Vector2 size)
+        {
+            var part = AddLayer(badge, name, disc, color, order);
+            part.transform.localPosition = position;
+            part.transform.localScale = new Vector3(size.x, size.y, 1);
+            return part;
         }
 
         private void EnsureSprites()
@@ -360,7 +411,8 @@ namespace BAIby.Character
 
             var now = Time.unscaledTime;
             var sinceCue = now - cueStarted;
-            bool napping = cue == PetVerb.Nap && sinceCue < NapDuration;
+            // A shy pet answers wand play with a quiet rest instead of the pounce.
+            bool napping = (cue == PetVerb.Nap || (shy && cue == PetVerb.Wand)) && sinceCue < NapDuration;
             float targetRest = wantsRest || napping ? 1 : 0;
             restBlend = Mathf.MoveTowards(restBlend, targetRest, Time.unscaledDeltaTime * 1.6f);
             if ((restBlend > 0 && restSprite == null && !restFailed) || (restBlend < 1 && awakeSprite == null && !awakeFailed))
@@ -377,7 +429,7 @@ namespace BAIby.Character
             SetAlpha(rest, resting);
 
             float active = sinceCue < CueDuration ? Mathf.Sin(Mathf.Clamp01(sinceCue / CueDuration) * Mathf.PI) : 0;
-            float hop = cue == PetVerb.Wand ? Mathf.Abs(Mathf.Sin(sinceCue * 7.5f)) * active : 0;
+            float hop = cue == PetVerb.Wand && !shy ? Mathf.Abs(Mathf.Sin(sinceCue * 7.5f)) * active : 0;
             float purr = cue == PetVerb.Pet ? Mathf.Sin(now * 30f) * active : 0;
             float eat = cue == PetVerb.Feed ? active : 0;
             float groom = cue == PetVerb.Brush ? Mathf.Sin(sinceCue * 5f) * active : 0;
@@ -393,6 +445,49 @@ namespace BAIby.Character
             float shadeWidth = PoseWidth() * scale * Mathf.Lerp(.78f, .62f, hop);
             shade.transform.localPosition = new Vector3(visibleWidth * -.02f, floorY - .03f, 0);
             shade.transform.localScale = new Vector3(Mathf.Max(.4f, shadeWidth), .34f, 1);
+
+            // The health bubble floats above the pet's head, a little lower when it rests.
+            if (badge.gameObject.activeSelf)
+            {
+                var height = PoseHeight() * scale * Mathf.Lerp(1f, .78f, resting);
+                var width = PoseWidth() * scale;
+                badge.localPosition = new Vector3(visibleWidth * -.02f + width * .32f,
+                    floorY + height + .18f + Mathf.Sin(now * 1.8f) * .03f, 0);
+            }
+        }
+
+        // The unscaled height of the shown pose.
+        private float PoseHeight()
+        {
+            var sprite = awake.sprite;
+            return sprite == null ? 3f : sprite.bounds.size.y;
+        }
+
+        // A soft disc one unit across, centered, for the health bubble.
+        private Sprite Disc()
+        {
+            const int size = 48;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.wrapMode = TextureWrapMode.Clamp;
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + .5f) / size - .5f;
+                    float dy = (y + .5f) / size - .5f;
+                    float alpha = Mathf.Clamp01((.5f - Mathf.Sqrt(dx * dx + dy * dy)) * size);
+                    pixels[y * size + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(alpha * 255));
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), size, 0,
+                SpriteMeshType.FullRect, Vector4.zero, false);
+            generatedAssets.Add(sprite);
+            generatedAssets.Add(texture);
+            return sprite;
         }
 
         private double RuntimeScale()
@@ -557,14 +652,16 @@ namespace BAIby.Character
 
         private readonly struct Portrait
         {
-            public Portrait(Look key, Sprite sprite)
+            public Portrait(Look key, Sprite sprite, bool resting)
             {
                 Key = key;
                 Sprite = sprite;
+                Resting = resting;
             }
 
             public Look Key { get; }
             public Sprite Sprite { get; }
+            public bool Resting { get; }
         }
     }
 }

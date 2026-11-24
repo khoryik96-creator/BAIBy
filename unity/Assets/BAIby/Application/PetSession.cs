@@ -143,6 +143,14 @@ namespace BAIby.Application
             return current.BecameGrown || preview.BecameGrown;
         }
 
+        // Gentle or Standard care: how strongly the consequence ladder bites. Stored now, applied at once.
+        public void SetCareStyle(CareStyle style)
+        {
+            var updated = simulation.ChangeCareStyle(GetAdoptedPet(), style);
+            if (updated != State)
+                record.Commit(updated);
+        }
+
         public void SetAppearance(PetAppearance appearance)
         {
             var updated = GetAdoptedPet().WithAppearance(appearance);

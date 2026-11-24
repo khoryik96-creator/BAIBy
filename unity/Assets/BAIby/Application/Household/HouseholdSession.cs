@@ -295,6 +295,9 @@ namespace BAIby.Application
 
         public PetCareOutcome EndPetAway(int slot) => PetAction(slot, session => (PetCue.Content, session.EndAway()));
 
+        // The pet's care style (Gentle or Standard). It writes the pet's record only.
+        public void SetPetCareStyle(int slot, CareStyle style) => AwakePet(slot).PetSession.SetCareStyle(style);
+
         // Playtest shortcut, like the nursery's Preview next day.
         public PetCareOutcome AdvancePetPreview(int slot, TimeSpan elapsed)
         {

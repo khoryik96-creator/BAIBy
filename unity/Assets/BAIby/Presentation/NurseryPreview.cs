@@ -94,6 +94,8 @@ namespace BAIby.Presentation
                     PetAdoptionBack();
                     break;
                 case HouseholdView.PetRoom:
+                    if (petPanel != PetPanel.Care)
+                        ShowPetPanel(petPanel == PetPanel.Journal ? PetPanel.Growth : PetPanel.Care);
                     break;
                 default:
                     if (activePanel != NurseryPanel.Care)
@@ -475,8 +477,8 @@ namespace BAIby.Presentation
             controls = panel.parent.gameObject;
             BuildCareSheet(panel);
             development = new DevelopmentPanel(Tray("Development Panel", false, DevelopmentPanel.Height),
-                () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
-                () => ShowPanel(NurseryPanel.Report), OpenBabyJournal);
+                CloseGrowth, () => Care(CareAction.ReadStory), OpenBlocks,
+                () => ShowPanel(NurseryPanel.Report), OpenGrowthJournal);
             report = new ReportPanel(Tray("Report Panel", false, ReportPanel.Height), () => ShowPanel(NurseryPanel.Development));
             blocks = new StackBlocksPanel(Tray("Blocks Panel", false, 378),
                 () => ShowPanel(NurseryPanel.Development), CompleteBlocks);

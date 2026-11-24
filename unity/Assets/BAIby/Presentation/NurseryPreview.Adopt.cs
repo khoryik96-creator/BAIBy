@@ -221,7 +221,8 @@ namespace BAIby.Presentation
         {
             choice.Root.SetActive(view == HouseholdView.Choose);
             petAdoption.Root.SetActive(view == HouseholdView.PetAdoption);
-            petCare.SetActive(view == HouseholdView.PetRoom);
+            petCare.SetActive(view == HouseholdView.PetRoom && petPanel == PetPanel.Care);
+            ApplyPetPanels();
             foreach (var meter in petMeters)
                 meter.Root.gameObject.SetActive(view == HouseholdView.PetRoom && meter.Shown);
 
@@ -239,7 +240,9 @@ namespace BAIby.Presentation
             petStage.SetShown(petInRoom || petBehindHome);
             if (petBehindHome && !petInRoom)
                 petStage.Show(active.PetState.Appearance, household.PetCatalog, active.PetState.Stage, IsSleepy(active.PetState));
-            if (view != HouseholdView.Home)
+            // Portraits stay while Home or a pet's journal (its photos) is on screen.
+            if (view != HouseholdView.Home && view != HouseholdView.Journal &&
+                !(view == HouseholdView.PetRoom && petPanel == PetPanel.Journal))
                 petStage.ReleasePortraits();
             if (petInRoom)
             {
@@ -251,7 +254,7 @@ namespace BAIby.Presentation
             }
 
             if (view == HouseholdView.PetRoom)
-                UpdateHouseholdChips(true);
+                UpdateHouseholdChips(petPanel == PetPanel.Care);
         }
 
         private Sprite PetPortrait(PetState state) =>
