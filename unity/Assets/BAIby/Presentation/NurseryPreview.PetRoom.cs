@@ -104,7 +104,7 @@ namespace BAIby.Presentation
             LayoutTitleBlock(petTitle, petBond, right, metrics.Heading);
             var sheet = (RectTransform)petCare.transform;
             sheet.offsetMax = new Vector2(sheet.offsetMax.x, y + metrics.Heading + SheetBottomPad + SheetTopPad);
-            LayoutBubble(petBubble, petBubbleRect, petStatus, sheet);
+            LayoutBubble(petBubble, petBubbleRect, petStatus, sheet, FeederChipLift);
             petBubbleText = petStatus.text;
         }
 
@@ -112,7 +112,7 @@ namespace BAIby.Presentation
         {
             if (petStatus == null || petStatus.text == petBubbleText)
                 return;
-            LayoutBubble(petBubble, petBubbleRect, petStatus, (RectTransform)petCare.transform);
+            LayoutBubble(petBubble, petBubbleRect, petStatus, (RectTransform)petCare.transform, FeederChipLift);
             petBubbleText = petStatus.text;
         }
 

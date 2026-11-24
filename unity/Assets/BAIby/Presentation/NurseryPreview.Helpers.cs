@@ -302,6 +302,8 @@ namespace BAIby.Presentation
             }
 
             var root = (RectTransform)feederChip.Pill.transform;
+            if (root.gameObject.activeSelf != shown)
+                petBubbleText = null; // the speech bubble moves up or down with the chip on its next layout
             root.gameObject.SetActive(shown);
             if (!shown)
                 return;
@@ -315,6 +317,9 @@ namespace BAIby.Presentation
             root.offsetMin = new Vector2(SideMargin, 12);
             root.offsetMax = new Vector2(SideMargin + width, 12 + 52);
         }
+
+        // The pet's speech bubble sits above the feeder chip when the chip shows, so neither covers the other.
+        private float FeederChipLift => feederChip.Pill != null && feederChip.Pill.gameObject.activeSelf ? 60 : 0;
 
         // Grown-ups: switch each owned helper on or off for the household, behind the parental gate. Test builds add a
         // playtest toggle for the whole set; a build without a store says helpers are coming. No prices, no prompts.
