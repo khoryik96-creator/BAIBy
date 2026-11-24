@@ -51,7 +51,13 @@ namespace BAIby.Simulation
             SessionStart = checkpoint,
         }.Build();
 
-        public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables)
+        public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables) =>
+            Advance(record, now, tunables, null);
+
+        // The same, adding what the advance resolved (missed meals, closed days, helper days) to `events` in time
+        // order. The events of one advance and of several shorter ones are the same.
+        public static CareRecord Advance(CareRecord record, DateTimeOffset now, CareTunables tunables,
+            ICollection<LedgerEvent> events)
         {
             if (record == null)
                 throw new ArgumentNullException(nameof(record));
@@ -67,7 +73,7 @@ namespace BAIby.Simulation
             if (draft.AwaitingAnchor)
                 return Anchor(draft, now, tunables);
 
-            var gap = new GapSummary();
+            var gap = new GapSummary { Events = events };
             var travel = false;
             if (now.Offset != draft.NextOffset)
             {
@@ -350,6 +356,9 @@ namespace BAIby.Simulation
             var skipped = target - draft.CareDay;
             // Each skipped day holds its moments, together time and the wash.
             draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, RoutineCalendar.MomentCount + 2));
+            gap.Events?.Add(new LedgerEvent(LedgerEventKind.HelperDays,
+                RoutineCalendar.CareDayStart(draft.CareDay + 1, draft.Offset, tunables.DayStart), draft.CareDay,
+                (int)Math.Min(int.MaxValue, skipped)));
             draft.CareDay = target;
             gap.Covered = true;
         }
@@ -359,12 +368,44 @@ namespace BAIby.Simulation
             CloseWindows(draft, dayEnd, true, tunables, gap);
             if (IsGoodDay(draft))
                 draft.GoodDay = draft.CareDay;
-            if (draft.TogetherToday)
-                return;
-
             var dayStart = RoutineCalendar.CareDayStart(draft.CareDay, draft.Offset, tunables.DayStart);
-            Resolve(draft, dayStart, dayEnd, tunables, gap,
-                () => draft.TogetherDays = draft.TogetherDays.Push(CareMark.Missed, tunables.TogetherRing));
+            if (!draft.TogetherToday)
+                Resolve(draft, dayStart, dayEnd, tunables, gap,
+                    () => draft.TogetherDays = draft.TogetherDays.Push(CareMark.Missed, tunables.TogetherRing));
+            if (gap.Events != null)
+                gap.Events.Add(new LedgerEvent(LedgerEventKind.DayClosed, dayEnd, draft.CareDay,
+                    day: Summarize(draft, dayStart, dayEnd)));
+        }
+
+        // How the closing day went: meals done and missed, together time, bedtime, and whether a helper, Away mode
+        // or an excuse covered any of it.
+        private static CareDaySummary Summarize(CareRecord.Builder draft, long dayStart, long dayEnd)
+        {
+            var mealsDone = 0;
+            var mealsMissed = 0;
+            var bedtime = false;
+            var covered = false;
+            var excused = draft.DayExcused;
+            foreach (var window in Windows(draft))
+            {
+                var status = draft.Moments[(int)window.Moment];
+                var done = status == MomentStatus.OnTime || status == MomentStatus.Late;
+                if (window.Core == CareTags.Meal)
+                {
+                    mealsDone += done ? 1 : 0;
+                    mealsMissed += status == MomentStatus.Missed ? 1 : 0;
+                }
+                else
+                {
+                    bedtime |= done;
+                }
+
+                covered |= status == MomentStatus.Covered;
+                excused |= status == MomentStatus.Excused;
+            }
+
+            var away = OverlapsAway(draft.AwayFrom.UtcTicks, draft.AwayUntil.UtcTicks, dayStart, dayEnd);
+            return new CareDaySummary(mealsDone, mealsMissed, draft.TogetherToday, bedtime, covered && !away, away, excused);
         }
 
         // Resolves pending windows that closed by `through`. At the end of a day every pending window
@@ -386,6 +427,8 @@ namespace BAIby.Simulation
                 var closeAt = Math.Min(lateUntil, through);
                 var core = window.Core;
                 draft.Moments[index] = Resolve(draft, open, closeAt, tunables, gap, () => PushMissed(draft, core, tunables));
+                if (core == CareTags.Meal && draft.Moments[index] == MomentStatus.Missed)
+                    gap.Events?.Add(new LedgerEvent(LedgerEventKind.MealMissed, closeAt, draft.CareDay));
             }
 
             if (draft.Wash == MomentStatus.Pending)
@@ -584,6 +627,8 @@ namespace BAIby.Simulation
             public bool Shifted;
             public bool Missed;
             public bool Covered;
+            // Where the advance reports what it resolved; null when nobody asked.
+            public ICollection<LedgerEvent> Events;
 
             public CareReason Reason(bool travel, CareReason previous)
             {

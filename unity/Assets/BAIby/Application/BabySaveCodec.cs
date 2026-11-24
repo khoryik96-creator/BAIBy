@@ -13,7 +13,12 @@ namespace BAIby.Application
         // v14: the care element carries the health axis (care v3); a v13 baby decodes as well.
         // v15: a <development> element carries the development tracks, readiness and the setback. A v14 or older baby
         // has none: the simulation seeds it from age, and its first advance keeps the nominal pace.
-        private const int Version = 15;
+        // v16: Bond replaces Connection (the <connection> element keeps its value), a <bond> element carries its
+        // high-water mark, temperament and the care rhythm, and a <journal> element the journal. A v15 or older baby has
+        // neither: the simulation seeds them (high-water mark = Bond, neutral temperament, no rhythm, a journal with the
+        // milestones already reached on their nominal days).
+        private const int Version = 16;
+        private const int VersionBeforeBond = 15;
         private const int VersionBeforeDevelopment = 14;
         private const int VersionBeforeCare = 11;
         private const int VersionBeforeAppearance = 10;
@@ -41,7 +46,7 @@ namespace BAIby.Application
                 new XElement("plush-familiarity", state.PlushFamiliarity),
                 new XElement("can-sit-and-reach", state.CanSitAndReach),
                 new XElement("can-crawl", state.CanCrawl),
-                new XElement("connection", state.Connection),
+                new XElement("connection", state.Bond),
                 new XElement("story-sessions", state.StorySessions),
                 new XElement("cleanliness", state.Cleanliness),
                 new XElement("health", state.Health),
@@ -56,7 +61,9 @@ namespace BAIby.Application
                     new XAttribute("outfit", (int)state.Appearance.Outfit),
                     new XAttribute("headwear", (int)state.Appearance.Headwear)),
                 CareRecordCodec.Encode(state.Care),
-                state.Development == null ? null : DevelopmentRecordCodec.Encode(state.Development))
+                state.Development == null ? null : DevelopmentRecordCodec.Encode(state.Development),
+                state.Bonding == null ? null : BondRecordCodec.Encode(state.Bonding),
+                state.Journal == null ? null : JournalRecordCodec.Encode(state.Journal))
             .ToString(SaveOptions.DisableFormatting);
 
         public static BabyState Decode(string payload)
@@ -95,6 +102,13 @@ namespace BAIby.Application
                     // A baby that was never advanced since its migration saves no development record yet.
                     version > VersionBeforeDevelopment && root.Element(DevelopmentRecordCodec.ElementName) != null
                         ? DevelopmentRecordCodec.Decode(root.Element(DevelopmentRecordCodec.ElementName))
+                        : null,
+                    // Like development, a baby not advanced since its migration saves neither yet.
+                    version > VersionBeforeBond && root.Element(BondRecordCodec.ElementName) != null
+                        ? BondRecordCodec.Decode(root.Element(BondRecordCodec.ElementName))
+                        : null,
+                    version > VersionBeforeBond && root.Element(JournalRecordCodec.ElementName) != null
+                        ? JournalRecordCodec.Decode(root.Element(JournalRecordCodec.ElementName))
                         : null);
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||

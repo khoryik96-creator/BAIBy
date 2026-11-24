@@ -28,7 +28,9 @@ namespace BAIby.Simulation
         public double Energy { get; }
         public double Cleanliness { get; }
         public double Health { get; }
-        public double Connection { get; }
+        // Bond, 0 to 100: the relationship meter that replaced Connection (saved under its old name). It grows with
+        // care and falls with missed meals and unanswered distress, never below 60% of its high-water mark.
+        public double Bond { get; }
         public int StorySessions { get; }
         public int BlockTowers { get; }
         // The original familiarity count is now specific to the rattle.
@@ -58,6 +60,12 @@ namespace BAIby.Simulation
         // Development tracks, readiness and the setback. Null for a baby saved before tracks existed: the
         // simulation seeds it from age on first use.
         public DevelopmentRecord Development { get; }
+        // Bond's high-water mark and caps, temperament and the care rhythm. Null for a baby saved before them: the
+        // simulation seeds it (high-water mark = Bond, neutral temperament, no rhythm) on first use.
+        public BondRecord Bonding { get; }
+        // Milestones, photos, stickers, hard days and weekly pages. Null for a baby saved before the journal: the
+        // simulation seeds it with the milestones already reached.
+        public JournalRecord Journal { get; }
         public bool HasPendingNewSound => CanSitAndReach && !NewSoundResolved;
         // The skill a setback made shy, if any. It stays reached (skills never re-lock); the baby just shows the
         // stage before it for a while, so the walker crawls to toys.
@@ -70,7 +78,8 @@ namespace BAIby.Simulation
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
             bool newSoundResolved, NurseryTheme nurseryTheme = NurseryTheme.Sage, bool canWalk = false, int blockTowers = 0,
-            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null)
+            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null,
+            BondRecord bonding = null, JournalRecord journal = null)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("The saved baby needs a name.", nameof(name));
@@ -124,16 +133,19 @@ namespace BAIby.Simulation
                     throw new ArgumentException("Only a reached skill can be shy.", nameof(development));
             }
 
+            if (bonding != null && bonding.HighWater < connection)
+                throw new ArgumentException("Bond cannot be above its high-water mark.", nameof(bonding));
+
             return new BabyState(name, timeCheckpoint, age, satiety, comfort, energy,
                 toyFamiliarity, plushFamiliarity, canSitAndReach, canCrawl, connection, storySessions, cleanliness, health, newSoundResolved, nurseryTheme, canWalk, blockTowers,
-                appearance ?? BabyAppearance.Default, care, development);
+                appearance ?? BabyAppearance.Default, care, development, bonding, journal);
         }
 
         internal BabyState(string name, DateTimeOffset timeCheckpoint, TimeSpan age,
             double satiety, double comfort, double energy, int toyFamiliarity, int plushFamiliarity,
             bool canSitAndReach, bool canCrawl, double connection, int storySessions, double cleanliness, double health,
             bool newSoundResolved, NurseryTheme nurseryTheme, bool canWalk, int blockTowers, BabyAppearance appearance,
-            CareRecord care, DevelopmentRecord development = null)
+            CareRecord care, DevelopmentRecord development = null, BondRecord bonding = null, JournalRecord journal = null)
         {
             Name = name;
             TimeCheckpoint = timeCheckpoint;
@@ -143,7 +155,7 @@ namespace BAIby.Simulation
             Energy = energy;
             Cleanliness = cleanliness;
             Health = health;
-            Connection = connection;
+            Bond = connection;
             StorySessions = storySessions;
             BlockTowers = blockTowers;
             ToyFamiliarity = toyFamiliarity;
@@ -156,6 +168,8 @@ namespace BAIby.Simulation
             Appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
             Care = care ?? throw new ArgumentNullException(nameof(care));
             Development = development;
+            Bonding = bonding;
+            Journal = journal;
         }
 
         // Copy-with: every omitted argument keeps its current value, so adding a field cannot shift
@@ -164,16 +178,18 @@ namespace BAIby.Simulation
         internal BabyState With(DateTimeOffset? timeCheckpoint = null, TimeSpan? age = null,
             double? satiety = null, double? comfort = null, double? energy = null,
             int? toyFamiliarity = null, int? plushFamiliarity = null, bool? canSitAndReach = null, bool? canCrawl = null,
-            double? connection = null, int? storySessions = null, double? cleanliness = null, double? health = null,
+            double? bond = null, int? storySessions = null, double? cleanliness = null, double? health = null,
             bool? newSoundResolved = null, NurseryTheme? nurseryTheme = null, bool? canWalk = null, int? blockTowers = null,
-            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null) =>
+            BabyAppearance appearance = null, CareRecord care = null, DevelopmentRecord development = null,
+            BondRecord bonding = null, JournalRecord journal = null) =>
             new BabyState(Name, timeCheckpoint ?? TimeCheckpoint, age ?? Age,
                 satiety ?? Satiety, comfort ?? Comfort, energy ?? Energy,
                 toyFamiliarity ?? ToyFamiliarity, plushFamiliarity ?? PlushFamiliarity,
-                canSitAndReach ?? CanSitAndReach, canCrawl ?? CanCrawl, connection ?? Connection,
+                canSitAndReach ?? CanSitAndReach, canCrawl ?? CanCrawl, bond ?? Bond,
                 storySessions ?? StorySessions, cleanliness ?? Cleanliness, health ?? Health,
                 newSoundResolved ?? NewSoundResolved, nurseryTheme ?? NurseryTheme, canWalk ?? CanWalk,
-                blockTowers ?? BlockTowers, appearance ?? Appearance, care ?? Care, development ?? Development);
+                blockTowers ?? BlockTowers, appearance ?? Appearance, care ?? Care, development ?? Development,
+                bonding ?? Bonding, journal ?? Journal);
 
         public BabyState WithNurseryTheme(NurseryTheme nurseryTheme)
         {

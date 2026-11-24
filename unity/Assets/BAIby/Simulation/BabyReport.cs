@@ -14,7 +14,7 @@ namespace BAIby.Simulation
         public Toy? FavoriteToy { get; }
         public int StorySessions { get; }
         public int BlockTowers { get; }
-        public double Connection { get; }
+        public double Bond { get; }
 
         public bool EnjoysStories => StorySessions >= InterestThreshold;
         public bool EnjoysBlocks => BlockTowers >= InterestThreshold;
@@ -37,7 +37,7 @@ namespace BAIby.Simulation
             FavoriteToy = state.FavoriteToy;
             StorySessions = state.StorySessions;
             BlockTowers = state.BlockTowers;
-            Connection = state.Connection;
+            Bond = state.Bond;
         }
     }
 }

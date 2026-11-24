@@ -284,7 +284,7 @@ static class HealthChecks
             Equal(Reaction.TooPoorly, refused.Reaction, $"a sick baby gently refuses {action}");
             Near(sick.Energy, refused.State.Energy, $"refused {action} costs nothing");
             Near(sick.Cleanliness, refused.State.Cleanliness, $"refused {action} changes nothing");
-            Near(sick.Connection, refused.State.Connection, $"refused {action} adds no connection");
+            Near(sick.Bond, refused.State.Bond, $"refused {action} adds no connection");
             Equal(sick.StorySessions + sick.BlockTowers + sick.ToyFamiliarity,
                 refused.State.StorySessions + refused.State.BlockTowers + refused.State.ToyFamiliarity, $"refused {action} counts nothing");
             Equal(false, refused.State.Care.TogetherToday, $"refused {action} is not together time");
@@ -574,7 +574,7 @@ static class HealthChecks
         var decoded = BabySaveCodec.Decode(BabySaveCodec.Encode(full));
         Equal(full.Care, decoded.Care, "every health field round-trips");
         Equal(true, BabySaveCodec.Encode(full).Contains("<care v=\"3\""), "the care record is v3");
-        Equal(true, BabySaveCodec.Encode(full).StartsWith("<baby version=\"15\""), "the baby save is v15");
+        Equal(true, BabySaveCodec.Encode(full).StartsWith("<baby version=\"16\""), "the baby save is v15");
 
         // A v13 save (care v2) from before the health axis.
         var v13 = XElement.Parse(BabySaveCodec.Encode(Baby(at, health: 35)));
@@ -593,7 +593,7 @@ static class HealthChecks
         Equal(0, session.State.Care.MedicineDoses, "no medicine");
         clock = at.AddMinutes(5);
         session.Refresh();
-        Equal(true, saves.Primary.Contains("version=\"15\"") && saves.Primary.Contains("<care v=\"3\""), "the next write is v15");
+        Equal(true, saves.Primary.Contains("version=\"16\"") && saves.Primary.Contains("<care v=\"3\""), "the next write is v15");
         Equal(CareCondition.UnderTheWeather, session.State.Care.Condition,
             "an anchored v13 baby with low Health follows the ladder from its next refresh");
 
@@ -614,7 +614,7 @@ static class HealthChecks
         missing.Element("care").Attribute("doses").Remove();
         ExpectInvalid(missing.ToString(SaveOptions.DisableFormatting), "a v3 care record missing a health field is corrupt");
         var future = XElement.Parse(BabySaveCodec.Encode(full));
-        future.SetAttributeValue("version", 16);
+        future.SetAttributeValue("version", 17);
         try
         {
             BabySaveCodec.Decode(future.ToString(SaveOptions.DisableFormatting));
@@ -693,7 +693,7 @@ static class HealthChecks
 
     private static BabyState Restore(BabyState state, double health, CareRecord care) =>
         BabyState.Restore(state.Name, state.TimeCheckpoint, state.Age, state.Satiety, state.Comfort, state.Energy,
-            state.ToyFamiliarity, state.PlushFamiliarity, state.CanSitAndReach, state.CanCrawl, state.Connection,
+            state.ToyFamiliarity, state.PlushFamiliarity, state.CanSitAndReach, state.CanCrawl, state.Bond,
             state.StorySessions, state.Cleanliness, health, state.NewSoundResolved, state.NurseryTheme, state.CanWalk,
             state.BlockTowers, state.Appearance, care);
 

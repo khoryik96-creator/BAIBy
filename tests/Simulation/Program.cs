@@ -10,6 +10,12 @@ if (args.Length > 0 && args[0] == "growth")
     return;
 }
 
+if (args.Length > 0 && args[0] == "bond")
+{
+    BondChecks.Run();
+    return;
+}
+
 var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 var game = new BabySimulation(TimeSpan.FromDays(3), TimeSpan.FromHours(4), TimeSpan.FromDays(7), TimeSpan.FromDays(12));
 var newborn = game.Adopt("Mia", start);
@@ -105,7 +111,7 @@ saves.FailWrites = false;
 recovered.ApplyCare(CareAction.Play);
 Equal(true, new BabySession(game, saves, () => now).State.CanSitAndReach, "recovery can save again");
 
-saves.Primary = "<baby version=\"16\" />";
+saves.Primary = "<baby version=\"17\" />";
 try
 {
     _ = new BabySession(game, saves, () => now);
@@ -113,7 +119,7 @@ try
 }
 catch (NotSupportedException)
 {
-    Equal("<baby version=\"16\" />", saves.Primary, "future save is preserved");
+    Equal("<baby version=\"17\" />", saves.Primary, "future save is preserved");
 }
 
 const string legacySave = "<baby version=\"1\"><name>Sam</name><checkpoint>639028224000000000</checkpoint>" +
@@ -131,7 +137,7 @@ Equal(0, migrated.State.PlushFamiliarity, "v1 migration establishes plush as unf
 Equal(true, migrated.State.CanSitAndReach, "v1 migration preserves milestone");
 Equal(80.0, migrated.State.Energy, "v1 migration supplies default energy");
 migrated.ApplyCare(CareAction.Rest);
-Equal(true, migratedSaves.Primary.Contains("version=\"15\""), "first edit after migration writes v14");
+Equal(true, migratedSaves.Primary.Contains("version=\"16\""), "first edit after migration writes v14");
 Equal(legacySave, migratedSaves.Backup, "v1 backup remains recoverable");
 Equal(100.0, new BabySession(game, migratedSaves, () => start).State.Energy,
     "rest on migrated save persists energy in v13");
@@ -198,7 +204,7 @@ Equal((false, true, false), crawlerSession.Refresh(), "migration unlocks already
 Equal(41.0, crawlerSession.State.Satiety, "migration at same instant does not decay satiety");
 Equal(63.0, crawlerSession.State.Energy, "migration at same instant does not decay energy");
 Equal(1, crawlerSaves.Writes, "migrated milestone persists once");
-Equal(true, crawlerSaves.Primary.Contains("version=\"15\""), "crawling state writes the current schema");
+Equal(true, crawlerSaves.Primary.Contains("version=\"16\""), "crawling state writes the current schema");
 var persistedCrawler = new BabySession(game, crawlerSaves, () => start);
 Equal(true, persistedCrawler.State.CanCrawl, "v4 restores crawling");
 Equal((false, false, false), persistedCrawler.Refresh(), "v4 refresh cannot re-award crawling");
@@ -219,24 +225,24 @@ Equal((Reaction.CrawlsToToy, true, true, false), crawlingCare.ApplyCare(CareActi
 Equal((Reaction.CrawlsToToy, false, false, false), crawlingCare.ApplyCare(CareAction.Play, Toy.Plush),
     "same-time care does not re-award milestones");
 
-Equal(0.0, newborn.Connection, "newborn starts building connection");
-Equal(3.0, game.ApplyCare(newborn, CareAction.Soothe).State.Connection, "soothing builds lasting connection");
-Equal(1.0, played.State.Connection, "playing builds lasting connection");
+Equal(0.0, newborn.Bond, "newborn starts building connection");
+Equal(3.0, game.ApplyCare(newborn, CareAction.Soothe).State.Bond, "soothing builds lasting connection");
+Equal(1.0, played.State.Bond, "playing builds lasting connection");
 var story = game.ApplyCare(newborn, CareAction.ReadStory);
 Equal(Reaction.EnjoysStory, story.Reaction, "reading has its own reaction");
 Equal(1, story.State.StorySessions, "reading records a story session");
-Equal(2.0, story.State.Connection, "reading builds connection");
+Equal(2.0, story.State.Bond, "reading builds connection");
 Equal(74.0, story.State.Energy, "reading uses a little energy");
 Equal(newborn.Age, story.State.Age, "reading does not advance age");
 Equal(0.0, game.ApplyCare(tired, CareAction.ReadStory).State.Energy, "reading cannot reduce energy below zero");
 var longAbsence = game.Advance(story.State, start.AddDays(10));
-Equal(2.0, longAbsence.State.Connection, "connection does not decay while away");
+Equal(1.2, longAbsence.State.Bond, "missed meals cost Bond, never below 60% of its high-water mark");
 Equal(1, longAbsence.State.StorySessions, "story history survives elapsed time");
 var bedtime = story.State;
 for (var i = 0; i < 60; i++)
     bedtime = game.ApplyCare(bedtime, CareAction.ReadStory).State;
-Equal(100.0, bedtime.Connection, "repeated reading caps connection");
-Equal(61, bedtime.StorySessions, "reading still records sessions when connection is capped");
+Equal(12.0, bedtime.Bond, "repeated reading in one day stops at the daily Bond cap of 12");
+Equal(61, bedtime.StorySessions, "reading still records sessions when Bond is capped");
 var manyStories = BabyState.Restore("Mia", start, TimeSpan.Zero, 70, 75, 80, 0, 0, false, false, 0, int.MaxValue, 100, 100, false);
 Equal(int.MaxValue, game.ApplyCare(manyStories, CareAction.ReadStory).State.StorySessions,
     "reading cannot overflow the story count");
@@ -249,12 +255,12 @@ var journalSaves = new MemorySaveStore { Primary = preJournalSave };
 var journal = new BabySession(game, journalSaves, () => start);
 Equal(true, journal.State.CanCrawl, "v4 journal migration preserves crawling");
 Equal(3, journal.State.PlushFamiliarity, "v4 journal migration preserves toy history");
-Equal(0.0, journal.State.Connection, "v4 starts connection at baseline");
+Equal(0.0, journal.State.Bond, "v4 starts connection at baseline");
 Equal(0, journal.State.StorySessions, "v4 has no story history");
 journal.ApplyCare(CareAction.ReadStory);
 journal.ApplyCare(CareAction.Soothe);
 var resumedJournal = new BabySession(game, journalSaves, () => start);
-Equal(5.0, resumedJournal.State.Connection, "v5 resumes lasting connection");
+Equal(5.0, resumedJournal.State.Bond, "v5 resumes lasting connection");
 Equal(1, resumedJournal.State.StorySessions, "v5 resumes story session count");
 Equal(true, resumedJournal.State.CanCrawl, "v5 retains reached milestones");
 
@@ -311,11 +317,11 @@ var healthSaves = new MemorySaveStore { Primary = preHealthSave };
 var healthSession = new BabySession(game, healthSaves, () => healthClock);
 Equal(100.0, healthSession.State.Cleanliness, "v5 migration starts with full cleanliness");
 Equal(100.0, healthSession.State.Health, "v5 migration starts with full health");
-Equal(34.0, healthSession.State.Connection, "v5 migration preserves connection");
+Equal(34.0, healthSession.State.Bond, "v5 migration preserves connection");
 Equal(8, healthSession.State.StorySessions, "v5 migration preserves story history");
 healthClock = start.AddHours(3);
 healthSession.Refresh();
-Equal(true, healthSaves.Primary.Contains("version=\"15\""), "health save uses the current schema");
+Equal(true, healthSaves.Primary.Contains("version=\"16\""), "health save uses the current schema");
 var resumedHealth = new BabySession(game, healthSaves, () => healthClock);
 Equal(healthSession.State.Health, resumedHealth.State.Health, "v6 restores health");
 Equal(healthSession.State.Cleanliness, resumedHealth.State.Cleanliness, "v6 restores cleanliness");
@@ -369,14 +375,18 @@ Equal(true, crawler.State.HasPendingNewSound, "incident remains available until 
 var reassured = game.ApplyCare(threshold.State, CareAction.ComfortNewSound);
 Equal(Reaction.NewSoundComforted, reassured.Reaction, "comfort has its own incident reaction");
 Equal(threshold.State.Comfort + 16, reassured.State.Comfort, "comfort choice soothes the baby");
-Equal(threshold.State.Connection + 2, reassured.State.Connection, "comfort choice builds connection");
+// Gains count double back up to the high-water mark (threshold lost a little Bond to missed meals).
+double Regained(BabyState before, double raw) =>
+    before.Bond + Math.Min(raw * 2, before.Bonding.HighWater - before.Bond) +
+    Math.Max(0, raw - (before.Bonding.HighWater - before.Bond) / 2);
+Equal(Regained(threshold.State, 2), reassured.State.Bond, "comfort choice builds Bond");
 Equal(threshold.State.Energy, reassured.State.Energy, "comfort choice leaves energy unchanged");
 Equal(true, reassured.State.NewSoundResolved, "comfort resolves the incident");
 Equal(false, reassured.State.HasPendingNewSound, "resolved incident is no longer pending");
 
 var explored = game.ApplyCare(threshold.State, CareAction.ExploreNewSound);
 Equal(Reaction.NewSoundExplored, explored.Reaction, "exploration has its own incident reaction");
-Equal(threshold.State.Connection + 5, explored.State.Connection, "exploration builds more connection");
+Equal(Regained(threshold.State, 5), explored.State.Bond, "exploration builds more Bond");
 Equal(threshold.State.Energy - 6, explored.State.Energy, "exploration uses energy");
 Equal(threshold.State.Comfort, explored.State.Comfort, "exploration leaves comfort unchanged");
 Equal(true, explored.State.NewSoundResolved, "exploration resolves the incident");
@@ -462,7 +472,7 @@ themeSession.SetNurseryTheme(NurseryTheme.Peach);
 Equal(1, themeSaves.Writes, "new theme saves immediately");
 Equal(NurseryTheme.Peach, themeSession.State.NurseryTheme, "new theme applies immediately");
 var expectedTheme = XElement.Parse(preThemeSave);
-expectedTheme.SetAttributeValue("version", 15);
+expectedTheme.SetAttributeValue("version", 16);
 expectedTheme.Add(new XElement("nursery-theme", 1), new XElement("can-walk", false), new XElement("block-towers", 0),
     DefaultAppearanceElement(), UnanchoredCareElement());
 Equal(true, XNode.DeepEquals(expectedTheme, XElement.Parse(themeSaves.Primary)),
@@ -502,6 +512,8 @@ expectedBath.SetElementValue("energy", 45);
 expectedBath.Element("care").ReplaceWith(CareRecordCodec.Encode(bath.State.Care));
 // Care also feeds development (engagement and a fresh quality sample); GrowthChecks covers it.
 expectedBath.Add(DevelopmentRecordCodec.Encode(bath.State.Development));
+// Bond, temperament, the rhythm and the journal ride along (BondChecks covers them).
+expectedBath.Add(BondRecordCodec.Encode(bath.State.Bonding), JournalRecordCodec.Encode(bath.State.Journal));
 Equal(true, XNode.DeepEquals(expectedBath, XElement.Parse(BabySaveCodec.Encode(bath.State))),
     "bath leaves all other saved fields unchanged");
 var changedInstead = game.ApplyCare(bathReady, CareAction.ChangeDiaper).State;
@@ -510,7 +522,7 @@ Equal(bathReady.Comfort, changedInstead.Comfort, "diaper does not soothe");
 var soothedInstead = game.ApplyCare(bathReady, CareAction.Soothe).State;
 Equal(67.0, soothedInstead.Comfort, "soothing retains its own comfort effect");
 Equal(bathReady.Cleanliness, soothedInstead.Cleanliness, "soothing does not clean");
-Equal(45.0, soothedInstead.Connection, "soothing retains its connection effect");
+Equal(45.0, soothedInstead.Bond, "soothing retains its connection effect");
 var cappedBath = game.ApplyCare(bath.State, CareAction.Bath).State;
 Equal(100.0, cappedBath.Cleanliness, "bath caps cleanliness");
 Equal(100.0, cappedBath.Comfort, "bath caps comfort");
@@ -588,9 +600,10 @@ var migratedWalker = new BabySession(game, walkingMigrationSaves, () => start);
 Equal(false, migratedWalker.State.CanWalk, "v8 has no stored walking flag");
 Equal((false, false, true), migratedWalker.Refresh(), "an eligible v8 player unlocks walking without elapsed time");
 var expectedWalker = XElement.Parse(preWalkingSave);
-expectedWalker.SetAttributeValue("version", 15);
+expectedWalker.SetAttributeValue("version", 16);
 expectedWalker.Add(new XElement("can-walk", true), new XElement("block-towers", 0), DefaultAppearanceElement(),
-    UnanchoredCareElement(), XElement.Parse(walkingMigrationSaves.Primary).Element("development"));
+    UnanchoredCareElement(), XElement.Parse(walkingMigrationSaves.Primary).Element("development"),
+    XElement.Parse(walkingMigrationSaves.Primary).Element("bond"), XElement.Parse(walkingMigrationSaves.Primary).Element("journal"));
 Equal(0.0, migratedWalker.State.Development.Readiness, "the walker's readiness is spent");
 Equal(true, XNode.DeepEquals(expectedWalker, XElement.Parse(walkingMigrationSaves.Primary)),
     "same-time migration does not decay needs or alter any other existing fields");
@@ -608,7 +621,7 @@ var blockReady = BabyState.Restore("Mia", start, TimeSpan.FromDays(12), 71, 47, 
 var stacked = game.ApplyCare(blockReady, CareAction.StackBlocks);
 Equal(Reaction.StackedBlocks, stacked.Reaction, "stacking blocks uses a distinct reaction");
 Equal(1, stacked.State.BlockTowers, "stacking records one tower");
-Equal(45.0, stacked.State.Connection, "building together improves connection");
+Equal(45.0, stacked.State.Bond, "building together improves connection");
 Equal(45.0, stacked.State.Energy, "building uses energy");
 var expectedTower = XElement.Parse(BabySaveCodec.Encode(blockReady));
 expectedTower.SetElementValue("block-towers", 1);
@@ -616,13 +629,15 @@ expectedTower.SetElementValue("connection", 45);
 expectedTower.SetElementValue("energy", 45);
 expectedTower.Element("care").ReplaceWith(CareRecordCodec.Encode(stacked.State.Care));
 expectedTower.Add(DevelopmentRecordCodec.Encode(stacked.State.Development));
+// Bond, temperament, the rhythm and the journal ride along (BondChecks covers them).
+expectedTower.Add(BondRecordCodec.Encode(stacked.State.Bonding), JournalRecordCodec.Encode(stacked.State.Journal));
 Equal(true, XNode.DeepEquals(expectedTower, XElement.Parse(BabySaveCodec.Encode(stacked.State))),
     "stacking preserves all unrelated fields");
 
 var limitsForBlocks = BabyState.Restore("Mia", start, TimeSpan.FromDays(12), 71, 47, 4,
     2, 3, true, true, 99, 8, 23, 89, true, NurseryTheme.Peach, canWalk: true, blockTowers: int.MaxValue);
 var clampedBlocks = game.ApplyCare(limitsForBlocks, CareAction.StackBlocks).State;
-Equal(100.0, clampedBlocks.Connection, "stacking caps connection");
+Equal(100.0, clampedBlocks.Bond, "stacking caps connection");
 Equal(0.0, clampedBlocks.Energy, "stacking cannot make energy negative");
 Equal(int.MaxValue, clampedBlocks.BlockTowers, "tower count cannot overflow");
 
@@ -668,7 +683,7 @@ var migratedBlocks = new BabySession(game, olderBlocksSaves, () => start);
 Equal(true, migratedBlocks.State.CanWalk, "v9 migration keeps walking unlocked");
 Equal(0, migratedBlocks.State.BlockTowers, "v9 starts with zero block towers");
 migratedBlocks.ApplyCare(CareAction.StackBlocks);
-Equal(true, olderBlocksSaves.Primary.Contains("version=\"15\""), "stacking migrates v9 to the current schema");
+Equal(true, olderBlocksSaves.Primary.Contains("version=\"16\""), "stacking migrates v9 to the current schema");
 Equal(1, new BabySession(game, olderBlocksSaves, () => start).State.BlockTowers, "migrated v11 restores the first tower");
 
 var newbornReport = BabyReport.From(newborn);
@@ -677,7 +692,7 @@ Equal(TimeSpan.Zero, newbornReport.Age, "report reflects current game age");
 Equal(false, newbornReport.CanSitAndReach || newbornReport.CanCrawl || newbornReport.CanWalk,
     "newborn report lists no milestones as unlocked");
 Equal<Toy?>(null, newbornReport.FavoriteToy, "report has no favorite before play");
-Equal(0.0, newbornReport.Connection, "report shows actual initial connection");
+Equal(0.0, newbornReport.Bond, "report shows actual initial connection");
 Equal(false, newbornReport.EnjoysStories, "report has no story interest without sessions");
 Equal(false, newbornReport.EnjoysBlocks, "report has no block interest without towers");
 Equal<Toy?>(null, BabyReport.From(played.State).FavoriteToy, "one toy play does not establish a favorite");
@@ -721,7 +736,7 @@ Equal(TimeSpan.FromDays(16.8), developedReport.Age, "report reads elapsed game a
 Equal<Toy?>(Toy.Plush, developedReport.FavoriteToy, "report reflects favorite from saved history");
 Equal(true, developedReport.EnjoysStories && developedReport.EnjoysBlocks,
     "two stories or towers establish the corresponding interest");
-Equal(15.0, developedReport.Connection, "report shows actual saved connection rather than an inferred score");
+Equal(12.0, developedReport.Bond, "report shows the saved Bond (a day of care stops at the daily cap)");
 Equal(reportState, reportReloaded.State, "creating a report leaves session state untouched");
 Equal(reportPayload, reportSaves.Primary, "creating a report leaves the save unchanged");
 Equal(reportWrites, reportSaves.Writes, "creating a report performs no save writes");
@@ -746,7 +761,7 @@ var lookClock = start;
 var lookSession = new BabySession(game, lookSaves, () => lookClock);
 try
 {
-    lookSession.SetAppearance(customLook);
+    lookSession.SetAppearance(customLook, unlockEarned: true);
     throw new InvalidOperationException("Styling requires an adopted baby.");
 }
 catch (InvalidOperationException exception) when (exception.Message == "Adopt a baby first.")
@@ -771,11 +786,13 @@ catch (ArgumentNullException)
 {
     Equal(1, lookSaves.Writes, "a missing look cannot alter the save");
 }
+// The custom look wears the Midnight outfit, earned at a 7-day rhythm: developer mode unlocks it (BondChecks covers
+// earning it).
 var lookStateBeforeFailure = lookSession.State;
 lookSaves.FailWrites = true;
 try
 {
-    lookSession.SetAppearance(customLook);
+    lookSession.SetAppearance(customLook, unlockEarned: true);
     throw new InvalidOperationException("Failed look write should be surfaced.");
 }
 catch (IOException)
@@ -784,7 +801,7 @@ catch (IOException)
     Equal(adoptedLookPayload, lookSaves.Primary, "failed look write leaves persisted state unchanged");
 }
 lookSaves.FailWrites = false;
-lookSession.SetAppearance(customLook);
+lookSession.SetAppearance(customLook, unlockEarned: true);
 Equal(2, lookSaves.Writes, "a new look saves immediately");
 Equal(customLook, lookSession.State.Appearance, "a new look applies immediately");
 var expectedLook = XElement.Parse(adoptedLookPayload);
@@ -793,7 +810,7 @@ expectedLook.Element("appearance").ReplaceWith(new XElement("appearance",
     new XAttribute("outfit", 7), new XAttribute("headwear", 2)));
 Equal(true, XNode.DeepEquals(expectedLook, XElement.Parse(lookSaves.Primary)),
     "a look change saves stable IDs and preserves all other fields");
-lookSession.SetAppearance(customLook);
+lookSession.SetAppearance(customLook, unlockEarned: true);
 Equal(2, lookSaves.Writes, "reselecting the saved look skips writes");
 
 var lookReload = new BabySession(game, lookSaves, () => lookClock);
@@ -869,9 +886,9 @@ Equal((false, false, false), migratedLook.Refresh(), "same-time v10 reopen does 
 Equal(0, preAppearanceSaves.Writes, "loading a v10 save writes nothing");
 migratedLook.SetAppearance(BabyAppearance.Default);
 Equal(0, preAppearanceSaves.Writes, "keeping the default look on a v10 save writes nothing");
-migratedLook.SetAppearance(customLook);
+migratedLook.SetAppearance(customLook, unlockEarned: true);
 var expectedMigratedLook = XElement.Parse(preAppearanceSave);
-expectedMigratedLook.SetAttributeValue("version", 15);
+expectedMigratedLook.SetAttributeValue("version", 16);
 expectedMigratedLook.Add(new XElement("appearance",
     new XAttribute("skin", 5), new XAttribute("hair-color", 5), new XAttribute("hair-style", 1),
     new XAttribute("outfit", 7), new XAttribute("headwear", 2)), UnanchoredCareElement());
@@ -906,14 +923,14 @@ ExpectInvalidSave(missingLook.ToString(SaveOptions.DisableFormatting), "a v11 sa
 var invalidLookSaves = new MemorySaveStore();
 var invalidLookSession = new BabySession(game, invalidLookSaves, () => start);
 invalidLookSession.Adopt("Mia");
-invalidLookSession.SetAppearance(customLook);
+invalidLookSession.SetAppearance(customLook, unlockEarned: true);
 var corruptLook = XElement.Parse(invalidLookSaves.Primary);
 corruptLook.Element("appearance").SetAttributeValue("skin", 99);
 invalidLookSaves.Primary = corruptLook.ToString(SaveOptions.DisableFormatting);
 var lookRecovered = new BabySession(game, invalidLookSaves, () => start);
 Equal("Mia", lookRecovered.State.Name, "an invalid look ID falls back to the backup save");
 Equal(BabyAppearance.Default, lookRecovered.State.Appearance, "backup restores the last valid look");
-lookRecovered.SetAppearance(customLook);
+lookRecovered.SetAppearance(customLook, unlockEarned: true);
 Equal(customLook, new BabySession(game, invalidLookSaves, () => start).State.Appearance, "recovery can save a look again");
 
 PetChecks.Run();
@@ -924,6 +941,7 @@ HouseholdChecks.Run();
 PetHouseholdChecks.Run();
 EntitlementChecks.Run();
 GrowthChecks.Run();
+BondChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 // Ordinary care until the baby is content: meals first, then soothing, rest and a bath.
