@@ -6,7 +6,10 @@ namespace BAIby.Simulation
 {
     // Saved as single letters; never change a letter.
     public enum CareMark { OnTime = 0, Late = 1, Missed = 2 }
-    public enum MomentStatus { Pending = 0, OnTime = 1, Late = 2, Missed = 3, Excused = 4, Covered = 5 }
+    // Helped: a paid helper (the feeder) served during the window and nobody gave the meal by hand. Like Covered it stays
+    // out of the rings and is not owed; unlike Covered, Bond, temperament and the care rhythm count it as missed, so a
+    // helper never changes the attention axis.
+    public enum MomentStatus { Pending = 0, OnTime = 1, Late = 2, Missed = 3, Excused = 4, Covered = 5, Helped = 6 }
     // The needs axis of the consequence ladder. Saved as numbers: append, never renumber.
     public enum CareMood { Content = 0, Fussy = 1, Upset = 2 }
     // Why the companion last moved on the needs axis. Saved as numbers: append, never renumber.
@@ -140,7 +143,7 @@ namespace BAIby.Simulation
     // All instants are UTC; offsets only place windows on the local clock.
     public sealed class CareRecord : IEquatable<CareRecord>
     {
-        private const string StatusLetters = "POLMEC";
+        private const string StatusLetters = "POLMECH";
         private static readonly long LastCareDay = DateTime.MaxValue.Ticks / TimeSpan.TicksPerDay;
         private static readonly TimeSpan MaxOffset = TimeSpan.FromHours(14);
         // A stored care day stays this close to its checkpoint's calendar day, whatever the offsets.
@@ -217,6 +220,8 @@ namespace BAIby.Simulation
         public long GoodDay { get; }
         // Whose windows the ledger keeps (a baby's, or a species' routine). Never saved in the care element.
         public CareRoutine Routine { get; }
+        // The household helpers' stock and counts for this companion. Never null; empty until a helper is used.
+        public HelperRecord Helpers { get; }
         public bool IsAway => IsAwayAt(Checkpoint);
         public bool IsUnwell => Condition == CareCondition.UnderTheWeather || Condition == CareCondition.Sick;
         public bool IsMessy => Mess > 0;
@@ -306,6 +311,20 @@ namespace BAIby.Simulation
             LastDoseWindow = source.LastDoseWindow;
             GoodDay = source.GoodDay;
             Routine = source.Routine;
+            Helpers = source.Helpers;
+        }
+
+        // The same record with the helpers' stock and counts replaced.
+        public CareRecord WithHelpers(HelperRecord helpers)
+        {
+            if (helpers == null)
+                throw new ArgumentNullException(nameof(helpers));
+            if (helpers.Equals(Helpers))
+                return this;
+
+            var draft = ToBuilder();
+            draft.Helpers = helpers;
+            return draft.Build();
         }
 
         public Builder ToBuilder() => new Builder
@@ -352,6 +371,7 @@ namespace BAIby.Simulation
             LastDoseWindow = LastDoseWindow,
             GoodDay = GoodDay,
             Routine = Routine,
+            Helpers = Helpers,
         };
 
         public bool Equals(CareRecord other)
@@ -384,7 +404,7 @@ namespace BAIby.Simulation
                 UnwellTime == other.UnwellTime && UnwellSessions == other.UnwellSessions &&
                 SessionStart.UtcTicks == other.SessionStart.UtcTicks && MissedSinceWell == other.MissedSinceWell &&
                 MedicineDoses == other.MedicineDoses && LastDoseWindow == other.LastDoseWindow && GoodDay == other.GoodDay &&
-                Routine == other.Routine;
+                Routine == other.Routine && Helpers.Equals(other.Helpers);
         }
 
         public override bool Equals(object obj) => Equals(obj as CareRecord);
@@ -437,6 +457,7 @@ namespace BAIby.Simulation
             public long LastDoseWindow { get; set; }
             public long GoodDay { get; set; }
             public CareRoutine Routine { get; set; }
+            public HelperRecord Helpers { get; set; } = HelperRecord.Empty;
 
             public CareRecord Build()
             {
@@ -467,7 +488,7 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(CoveredCount));
                 if (!Enum.IsDefined(typeof(CareReason), LastReason))
                     throw new ArgumentOutOfRangeException(nameof(LastReason));
-                if (!Enum.IsDefined(typeof(MomentStatus), Wash))
+                if (!Enum.IsDefined(typeof(MomentStatus), Wash) || Wash == MomentStatus.Helped)
                     throw new ArgumentOutOfRangeException(nameof(Wash));
                 if (Mess < 0 || Mess > MaxMess)
                     throw new ArgumentOutOfRangeException(nameof(Mess));
@@ -509,6 +530,10 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(GoodDay));
                 if (!Enum.IsDefined(typeof(CareRoutine), Routine))
                     throw new ArgumentOutOfRangeException(nameof(Routine));
+                if (Helpers == null)
+                    throw new ArgumentNullException(nameof(Helpers));
+                if (Helpers.LastServe > Checkpoint.UtcTicks)
+                    throw new ArgumentException("A helper cannot serve after the checkpoint.", nameof(Helpers));
 
                 return new CareRecord(this);
             }

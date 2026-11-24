@@ -10,6 +10,12 @@ if (args.Length > 0 && args[0] == "growth")
     return;
 }
 
+if (args.Length > 0 && args[0] == "golden")
+{
+    Console.WriteLine(GoldenScenario.Hash());
+    return;
+}
+
 if (args.Length > 0 && args[0] == "bond")
 {
     BondChecks.Run();
@@ -943,6 +949,7 @@ EntitlementChecks.Run();
 GrowthChecks.Run();
 BondChecks.Run();
 CatCareChecks.Run();
+HelperChecks.Run();
 Console.WriteLine("Simulation and wipe geometry checks passed.");
 
 // Ordinary care until the baby is content: meals first, then soothing, rest and a bath.

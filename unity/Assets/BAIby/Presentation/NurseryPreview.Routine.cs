@@ -334,6 +334,7 @@ namespace BAIby.Presentation
                     case RoutineSlotState.DoneLate: return "Done late";
                     case RoutineSlotState.Missed: return "Missed";
                     case RoutineSlotState.Away: return "Away";
+                    case RoutineSlotState.Helped: return "Helper";
                     default: return "Free";
                 }
             }
@@ -349,6 +350,7 @@ namespace BAIby.Presentation
                     case RoutineSlotState.DoneLate: return (EnergyRing, 18, false);
                     case RoutineSlotState.Missed: return (Hex(0xD98C98), 18, false);
                     case RoutineSlotState.Away: return (Hex(0xCFC3EA), 18, false);
+                    case RoutineSlotState.Helped: return (Hex(0xBDB6C2), 18, false);
                     case RoutineSlotState.Later: return (Divider, 18, false);
                     default: return (Divider, 18, true);
                 }

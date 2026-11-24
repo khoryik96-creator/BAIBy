@@ -26,6 +26,7 @@ namespace BAIby.Simulation
         public static readonly TimeSpan DefaultMaxNeedDecay = TimeSpan.FromHours(8);
         private readonly CareTunables careTunables;
         private readonly BondTunables bondTunables;
+        private readonly HelperRules helperRules;
         private readonly BabyGrowth growth;
         private readonly TimeSpan sittingAge;
         private readonly TimeSpan crawlingAge;
@@ -39,7 +40,8 @@ namespace BAIby.Simulation
         // The three ages are each milestone's nominal age: readiness moves it to between 0.8x and 1.3x of it with care,
         // and always unlocks it by GrowthTunables.Guarantee (1.4x).
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge,
-            CareTunables careTunables = null, GrowthTunables growthTunables = null, BondTunables bondTunables = null)
+            CareTunables careTunables = null, GrowthTunables growthTunables = null, BondTunables bondTunables = null,
+            HelperRules helperRules = null)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
@@ -60,12 +62,15 @@ namespace BAIby.Simulation
             growth = new BabyGrowth(sittingAge, crawlingAge, walkingAge, this.careTunables, growthRules);
             this.bondTunables = bondTunables ?? BondTunables.Default;
             this.bondTunables.Validate();
+            this.helperRules = helperRules ?? HelperRules.Default;
+            this.helperRules.Validate(this.careTunables.Standard.FussyNeed, this.careTunables.FullMealThreshold);
             this.sittingAge = sittingAge;
             this.crawlingAge = crawlingAge;
             this.walkingAge = walkingAge;
         }
 
         public BondTunables BondTunables => bondTunables;
+        public HelperRules HelperRules => helperRules;
 
         public BabyState Adopt(string name, DateTimeOffset now)
         {
@@ -82,7 +87,14 @@ namespace BAIby.Simulation
         // the health axis each move at most one rung. Readiness grows with the Motor track's quality, sampled every
         // hour, and the condition at the start of the gap (BabyGrowth); a skill unlocks when it is ready, and always
         // by 1.4x its nominal age. While the player is present, neglect can make the newest skill shy (a setback).
-        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state, DateTimeOffset now) =>
+            Advance(state, now, null, null);
+
+        // The same with the household's helpers (null for none): they hold Fullness, Comfort and Cleanliness at their
+        // floors through the counted hours, and what they did is added to `events` (when given) in time order and to the
+        // journal. Helpers never change Bond, temperament, the rhythm, engagement, counts or milestones directly.
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) Advance(BabyState state,
+            DateTimeOffset now, HelperSettings helpers, ICollection<HelperEvent> events = null)
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
@@ -105,15 +117,38 @@ namespace BAIby.Simulation
             var bond = BondRules.Advance(state.Bond, state.Bonding, state.Care, ledger, now.UtcTicks, bondTunables, careTunables);
             var start = BabyNeeds.From(state);
             var effects = HealthEffects(state.Care, bond);
-            var needs = BabyNeeds.Real(start, state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
-                careTunables.DayStart, effects);
+            var helped = HelperAdvance.Active(state.Care, helpers);
+            BabyNeeds.Values needs;
+            HelperRun run = null;
+            if (helped)
+            {
+                var gap = HelperAdvance.Real(state.Care, care, now, start, maxNeedDecay, careTunables, effects,
+                    BabyNeeds.NeedRates.Baby, helpers, helperRules);
+                care = gap.Care;
+                needs = gap.Needs;
+                run = gap.Run;
+            }
+            else
+            {
+                needs = BabyNeeds.Real(start, state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
+                    careTunables.DayStart, effects);
+            }
+
             // Each sample sees the ledger, needs and Bond a pure advance from this state would reach at its instant.
             var step = growth.Real(state, now, at =>
             {
                 if (at == now.UtcTicks)
                     return (care, needs, bond.Bond);
-                var ledgerAt = CareRules.Advance(state.Care, new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset), careTunables);
+                var instant = new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset);
+                var ledgerAt = CareRules.Advance(state.Care, instant, careTunables);
                 var bondAt = BondRules.Advance(state.Bond, state.Bonding, state.Care, ledger, at, bondTunables, careTunables).Bond;
+                if (helped)
+                {
+                    var gapAt = HelperAdvance.Real(state.Care, ledgerAt, instant, start, maxNeedDecay, careTunables, effects,
+                        BabyNeeds.NeedRates.Baby, helpers, helperRules);
+                    return (gapAt.Care, gapAt.Needs, bondAt);
+                }
+
                 return (ledgerAt, BabyNeeds.Real(start, state.Care, ledgerAt, maxNeedDecay, careTunables.AwayHoldLevel,
                     careTunables.DayStart, effects), bondAt);
             });
@@ -130,11 +165,28 @@ namespace BAIby.Simulation
             var advanced = Develop(state, now, now - state.TimeCheckpoint, needs, care, step, development);
             var setback = growth.Setback(development, advanced.State, state.Care, care);
             var result = advanced.State.With(bond: bond.Bond, bonding: bond.Record, development: setback);
-            return (result.With(journal: Chronicle(state, result, step, bond, true)), advanced.UnlockedSitting,
-                advanced.UnlockedCrawling, advanced.UnlockedWalking);
+            var journal = Chronicle(state, result, step, bond, true);
+            if (run != null && run.Events.Count > 0)
+            {
+                journal = JournalRules.Helpers(journal, run.Events, state.Age);
+                if (events != null)
+                {
+                    foreach (var helperEvent in run.Events)
+                        events.Add(helperEvent);
+                }
+            }
+
+            return (result.With(journal: journal), advanced.UnlockedSitting, advanced.UnlockedCrawling,
+                advanced.UnlockedWalking);
         }
 
-        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed) =>
+            AdvancePreview(state, elapsed, null, null);
+
+        // The same with the household's helpers: inside the coverage window they act through the preview day's awake
+        // hours as on a new day (their events are at the checkpoint, since no real time passes).
+        public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(
+            BabyState state, TimeSpan elapsed, HelperSettings helpers, ICollection<HelperEvent> events = null)
         {
             if (elapsed <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(elapsed));
@@ -150,11 +202,27 @@ namespace BAIby.Simulation
             var effects = HealthEffects(state.Care, null);
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
             var step = growth.Preview(state, elapsed, maxNeedDecay, boost, comfort);
-            var advanced = Develop(state, state.TimeCheckpoint, elapsed,
-                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost, comfort), state.Care, step, step.Draft.Build());
+            var run = HelperAdvance.Active(state.Care, helpers)
+                ? HelperRun.BeginPreview(state.Care, helpers, helperRules, careTunables.DayStart)
+                : null;
+            var needs = BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, BabyNeeds.NeedRates.Baby, boost, comfort,
+                run);
+            var care = run == null ? state.Care : state.Care.WithHelpers(run.Record);
+            var advanced = Develop(state, state.TimeCheckpoint, elapsed, needs, care, step, step.Draft.Build());
             var result = advanced.State.With(bonding: bond.Record);
-            return (result.With(journal: Chronicle(state, result, step, bond, false)), advanced.UnlockedSitting,
-                advanced.UnlockedCrawling, advanced.UnlockedWalking);
+            var journal = Chronicle(state, result, step, bond, false);
+            if (run != null && run.Events.Count > 0)
+            {
+                journal = JournalRules.Helpers(journal, run.Events, state.Age);
+                if (events != null)
+                {
+                    foreach (var helperEvent in run.Events)
+                        events.Add(helperEvent);
+                }
+            }
+
+            return (result.With(journal: journal), advanced.UnlockedSitting, advanced.UnlockedCrawling,
+                advanced.UnlockedWalking);
         }
 
         // The relationship: Bond's high-water mark, temperament and the care rhythm (seeded for an older save).
@@ -323,6 +391,16 @@ namespace BAIby.Simulation
                 throw new ArgumentNullException(nameof(state));
 
             return state.With(care: CareRules.StartAway(state.Care, duration));
+        }
+
+        // Fills the feeder (the Sitter's bottles) to the full stock. Free: not care, no credit, nothing else moves.
+        public BabyState StockFeeder(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            var care = HelperAdvance.Stock(state.Care, helperRules.MaxStock, helperRules);
+            return ReferenceEquals(care, state.Care) ? state : state.With(care: care);
         }
 
         public BabyState EndAway(BabyState state)
