@@ -494,6 +494,9 @@ namespace BAIby.Presentation
             public void ShowPet(PetState pet, bool resting)
             {
                 Feedback.text = string.Empty;
+                SetHeight(PetHeight);
+                pages.SetActive(false);
+                petLines.SetActive(true);
                 heading.text = $"{pet.Name}'s journal";
                 state.text = resting
                     ? $"{pet.Name} is resting. They're safe, and their needs don't drop while they rest."

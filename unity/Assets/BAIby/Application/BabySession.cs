@@ -27,6 +27,24 @@ namespace BAIby.Application
         // Whether feeding now would overfeed.
         public bool IsFull => State != null && simulation.IsFull(State);
 
+        // Bond's high-water mark, temperament and the care rhythm, as of the last refresh; null before adoption.
+        public BondRecord Bonding => State == null ? null : simulation.Bonding(State);
+
+        // Where temperament stands (a clingy phase, settled, cautious or an explorer); Steady before adoption.
+        public SecurityPhase Security => State == null ? SecurityPhase.Steady : simulation.Security(State);
+        public CuriosityPhase Curiosity => State == null ? CuriosityPhase.Steady : simulation.Curiosity(State);
+
+        // The journal, as of the last refresh; null before adoption.
+        public JournalRecord Journal => State == null ? null : simulation.Journal(State);
+
+        // Photos left today (three a day).
+        public int PhotosLeft => State == null ? 0 : simulation.PhotosLeft(State);
+
+        // Whether a look can be put on: earned looks need their care rhythm unless earned looks are unlocked (developer
+        // mode).
+        public bool CanWear(BabyAppearance appearance, bool unlockEarned = false) =>
+            State != null && appearance != null && simulation.CanWear(State, appearance, unlockEarned);
+
         public BabySession(BabySimulation simulation, IBabySaveStore saves, Func<DateTimeOffset> now)
         {
             this.simulation = simulation ?? throw new ArgumentNullException(nameof(simulation));
@@ -84,6 +102,17 @@ namespace BAIby.Application
             return (visit.Reaction, elapsed.UnlockedSitting, elapsed.UnlockedCrawling, elapsed.UnlockedWalking);
         }
 
+        // A journal photo of the moment, at the current instant. Returns false (and writes nothing) once today's three
+        // photos are taken.
+        public (bool Taken, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) TakePhoto(PhotoMoment moment)
+        {
+            var current = simulation.Advance(GetAdoptedBaby(), now());
+            var photo = simulation.TakePhoto(current.State, moment);
+            if (photo.State != State)
+                Commit(photo.State);
+            return (photo.Taken, current.UnlockedSitting, current.UnlockedCrawling, current.UnlockedWalking);
+        }
+
         public (bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(TimeSpan elapsed)
         {
             var current = simulation.Advance(GetAdoptedBaby(), now());
@@ -126,8 +155,14 @@ namespace BAIby.Application
                 Commit(updated);
         }
 
-        public void SetAppearance(BabyAppearance appearance)
+        // Earned looks (a care rhythm's reward) can only be put on once earned, unless unlockEarned (developer mode).
+        public void SetAppearance(BabyAppearance appearance, bool unlockEarned = false)
         {
+            if (appearance == null)
+                throw new ArgumentNullException(nameof(appearance));
+            if (!simulation.CanWear(GetAdoptedBaby(), appearance, unlockEarned))
+                throw new InvalidOperationException("This look is earned with a longer care rhythm.");
+
             var updated = GetAdoptedBaby().WithAppearance(appearance);
             if (updated != State)
                 Commit(updated);

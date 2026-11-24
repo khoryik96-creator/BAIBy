@@ -122,8 +122,16 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Style tab Cut");
             Tap(view.gameObject, "Cut Coils");
             Tap(view.gameObject, "Style tab Outfit");
+            // The Midnight outfit is earned with a 7-day care rhythm: its badge says so and a tap only explains.
+            Assert.That(Child<Text>(view.gameObject, "Outfit Midnight Badge Label").text, Is.EqualTo("7 days"));
+            var saveBeforeEarned = PlayerPrefs.GetString(saveKey);
             Tap(view.gameObject, "Outfit Midnight");
+            Assert.That(Child<Text>(view.gameObject, "Style Feedback").text, Does.Contain("7-day care rhythm"));
+            Assert.That(Child<Image>(view.gameObject, "Outfit Midnight Selection").gameObject.activeInHierarchy, Is.False);
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeEarned));
+            Tap(view.gameObject, "Outfit Terracotta");
             Tap(view.gameObject, "Style tab Hat");
+            Assert.That(Child<Text>(view.gameObject, "Hat Daisy clip Badge Label").text, Is.EqualTo("3 days"));
             Tap(view.gameObject, "Hat Bear beanie");
             Assert.That(Child<Image>(view.gameObject, "Hat Bear beanie Selection").gameObject.activeInHierarchy, Is.True);
             Assert.That(Child<Image>(view.gameObject, "Hat None Selection").gameObject.activeInHierarchy, Is.False);
@@ -156,11 +164,24 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.Empty);
             Tap(view.gameObject, "Play with plush");
             Assert.That(Child<Text>(view.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
+            // Three journal photos a day, of the moment: the baby has just been playing.
+            var saveBeforePhotos = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Take a photo");
+            Assert.That(Reaction(view.gameObject), Does.Contain("A photo of Mia playing is in the journal"));
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.Not.EqualTo(saveBeforePhotos));
+            Tap(view.gameObject, "Take a photo");
+            Tap(view.gameObject, "Take a photo");
+            Assert.That(Reaction(view.gameObject), Does.Contain("That's today's three"));
+            Assert.That(Child<Button>(view.gameObject, "Take a photo").GetComponentInChildren<Text>().text, Is.EqualTo("Photos done"));
+            var saveAfterPhotos = PlayerPrefs.GetString(saveKey);
+            Tap(view.gameObject, "Take a photo");
+            Assert.That(Reaction(view.gameObject), Does.Contain("More tomorrow"));
+            Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveAfterPhotos), "a fourth photo saves nothing");
             Tap(view.gameObject, "Development");
             Assert.That(Child<Text>(view.gameObject, "Development Age").text, Does.Contain("Newborn"));
             Assert.That(Child<Button>(view.gameObject, "Stack blocks").interactable, Is.False);
             Assert.That(Child<Text>(view.gameObject, "Blocks Availability").gameObject.activeInHierarchy, Is.True);
-            Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("0"));
+            Assert.That(Child<Text>(view.gameObject, "Rhythm Value").text, Is.EqualTo("0 days"));
             Assert.That(Child<Text>(view.gameObject, "Growth Projection Text").text, Does.StartWith("Likely to sit up"));
             Assert.That(Child<Text>(view.gameObject, "Growth Pace Label").text, Is.Not.Empty);
             var saveBeforeReport = PlayerPrefs.GetString(saveKey);
@@ -175,12 +196,32 @@ namespace BAIby.Tests
             Assert.That(PlayerPrefs.GetString(saveKey), Is.EqualTo(saveBeforeReport));
             Assert.That(EventSystem.current.currentSelectedGameObject,
                 Is.EqualTo(Child<Button>(view.gameObject, "Baby report").gameObject));
-            var connection = Child<Text>(view.gameObject, "Connection Value");
+            var connection = Child<Text>(view.gameObject, "Bond Value");
             var previousConnection = connection.text;
             Tap(view.gameObject, "Read a story");
             Assert.That(Child<Text>(view.gameObject, "Development Feedback").text, Does.Contain("as you read together"));
-            Assert.That(Child<Text>(view.gameObject, "Story Sessions Value").text, Is.EqualTo("1"));
             Assert.That(connection.text, Is.Not.EqualTo(previousConnection));
+
+            // The journal opens from Growth: the arrival is the first moment, the sticker shelf waits for 3 days.
+            Tap(view.gameObject, "Journal");
+            Assert.That(Child<RectTransform>(view.gameObject, "Journal Panel").gameObject.activeInHierarchy, Is.True);
+            Assert.That(Child<Text>(view.gameObject, "Journal Heading").text, Is.EqualTo("Mia's journal"));
+            Assert.That(Child<Text>(view.gameObject, "Journal Summary").text, Does.Contain("Rhythm 0 days"));
+            Assert.That(JournalRow(view.gameObject, 1), Is.EqualTo("Day 1 · Playtime"));
+            var photo = Child<RectTransform>(view.gameObject, "Journal Row 1").Find("Journal Row Disc/Journal Row Photo")
+                .GetComponent<Image>();
+            Assert.That(photo.gameObject.activeSelf && photo.sprite != null, Is.True, "a photo is drawn from the pose art");
+            Assert.That(JournalRow(view.gameObject, 4), Does.Contain("Mia came home"));
+            Tap(view.gameObject, "Journal tab Stickers");
+            Assert.That(JournalRow(view.gameObject, 1), Is.EqualTo("Next sticker at 3 days"));
+            Tap(view.gameObject, "Journal tab Hard days");
+            Assert.That(JournalRow(view.gameObject, 1), Is.EqualTo("No hard days so far"));
+            // The journal sheet stays below the Report's height so the baby's face stays clear.
+            Assert.That(Child<RectTransform>(view.gameObject, "Journal Panel").rect.height,
+                Is.LessThanOrEqualTo(Child<RectTransform>(view.gameObject, "Report Panel").rect.height));
+            Tap(view.gameObject, "Close journal");
+            Assert.That(Child<RectTransform>(view.gameObject, "Development Panel").gameObject.activeInHierarchy, Is.True,
+                "Done goes back to Growth");
             var connectionAfterStory = connection.text;
             yield return new WaitForSecondsRealtime(0.15f);
             var storybook = Child<SpriteRenderer>(view.gameObject, "Nursery storybook");
@@ -247,7 +288,7 @@ namespace BAIby.Tests
             Tap(view.gameObject, "A new sound");
             Assert.That(Child<Text>(view.gameObject, "New Sound Scene").text, Does.Contain("window"));
             Assert.That(Child<Text>(view.gameObject, "Comfort them Effects").text, Does.Contain("Comfort +16"));
-            Assert.That(Child<Text>(view.gameObject, "Explore together Effects").text, Does.Contain("Connection +5"));
+            Assert.That(Child<Text>(view.gameObject, "Explore together Effects").text, Does.Contain("Bond +5"));
             yield return new WaitForSecondsRealtime(0.45f);
             var chime = Child<SpriteRenderer>(view.gameObject, "Nursery chime");
             Assert.That(chime.enabled, Is.True);
@@ -286,7 +327,7 @@ namespace BAIby.Tests
             Assert.That(Child<Image>(restored.gameObject, "Skin Warm Selection").gameObject.activeSelf, Is.False);
             Assert.That(Child<Image>(restored.gameObject, "Hair Honey Selection").gameObject.activeSelf, Is.True);
             Assert.That(Child<Image>(restored.gameObject, "Cut Coils Selection").gameObject.activeSelf, Is.True);
-            Assert.That(Child<Image>(restored.gameObject, "Outfit Midnight Selection").gameObject.activeSelf, Is.True);
+            Assert.That(Child<Image>(restored.gameObject, "Outfit Terracotta Selection").gameObject.activeSelf, Is.True);
             Assert.That(Child<Image>(restored.gameObject, "Hat Bear beanie Selection").gameObject.activeSelf, Is.True);
             var restoredSitter = Child<SpriteRenderer>(restored.gameObject, "Sitter artwork");
             Assert.That(restoredSitter.sprite != null && restoredSitter.sprite != originalSitter, Is.True);
@@ -301,8 +342,13 @@ namespace BAIby.Tests
             Assert.That(NeedValue(restored.gameObject, "Cleanliness"), Is.EqualTo(cleanlinessBeforeReload).Within(0.01f));
             Tap(restored.gameObject, "Development");
             Assert.That(Child<Text>(restored.gameObject, "Development Age").text, Does.Contain("Early sitter"));
-            Assert.That(Child<Text>(restored.gameObject, "Story Sessions Value").text, Is.EqualTo("1"));
-            Assert.That(Child<Text>(restored.gameObject, "Connection Value").text, Is.EqualTo(connectionAfterStory));
+            Assert.That(Child<Text>(restored.gameObject, "Rhythm Value").text, Does.Contain("day"));
+            Assert.That(Child<Text>(restored.gameObject, "Bond Value").text, Is.EqualTo(connectionAfterStory));
+            // A sitter's journal has the milestone, celebrated on the day it came.
+            Tap(restored.gameObject, "Journal");
+            Assert.That(string.Join(" | ", Enumerable.Range(1, 4).Select(row => JournalRow(restored.gameObject, row))),
+                Does.Contain("Sat up for the first time"));
+            Tap(restored.gameObject, "Close journal");
             Tap(restored.gameObject, "Done");
             Assert.That(Child<Text>(restored.gameObject, "Favorite Toy").text, Is.EqualTo("Favorite: Plush"));
             Tap(restored.gameObject, "Play with plush");
@@ -395,7 +441,7 @@ namespace BAIby.Tests
             Tap(walker.gameObject, "Development");
             Assert.That(Child<Text>(walker.gameObject, "Towers Value").text, Is.EqualTo("1"));
             Tap(walker.gameObject, "Read a story");
-            var expectedBond = Child<Text>(walker.gameObject, "Connection Value").text;
+            var expectedBond = Child<Text>(walker.gameObject, "Bond Value").text;
             Tap(walker.gameObject, "Baby report");
             Assert.That(Child<Text>(walker.gameObject, "Report Sitting").text, Is.EqualTo("Unlocked"));
             Assert.That(Child<Text>(walker.gameObject, "Report Crawling").text, Is.EqualTo("Unlocked"));
@@ -441,7 +487,7 @@ namespace BAIby.Tests
             Assert.That(Child<Text>(view.gameObject, "Health Action Caption").text, Is.EqualTo("Free visit"));
             Assert.That(Child<Button>(view.gameObject, "Doctor").transform.parent.name, Is.EqualTo("Care Actions"),
                 "a Doctor tile joins the care tiles");
-            Assert.That(CareTiles(view.gameObject), Is.EqualTo(7));
+            Assert.That(CareTiles(view.gameObject), Is.EqualTo(8));
             yield return new WaitForSecondsRealtime(1f);
             Assert.That(Child<SpriteRenderer>(view.gameObject, "Sniffle drop").enabled, Is.True);
 
@@ -493,7 +539,7 @@ namespace BAIby.Tests
             Assert.That(Reaction(restored.gameObject), Does.Contain("Well again"));
             Assert.That(Child<Image>(restored.gameObject, "Condition Chip").gameObject.activeInHierarchy, Is.False);
             Assert.That(Child<Button>(restored.gameObject, "Medicine").gameObject.activeInHierarchy, Is.False);
-            Assert.That(CareTiles(restored.gameObject), Is.EqualTo(6), "well again, the care tiles are back to six");
+            Assert.That(CareTiles(restored.gameObject), Is.EqualTo(7), "well again, the care tiles are back to seven");
         }
 
         [UnityTest]
@@ -872,6 +918,10 @@ namespace BAIby.Tests
             view.GetComponentsInChildren<T>(true).Single(component => component.name == name);
 
         private static string Reaction(GameObject view) => Child<Text>(view, "Reaction").text;
+
+        // The title of a journal row (1 to 4) on the page shown.
+        private static string JournalRow(GameObject view, int row) =>
+            Child<RectTransform>(view, "Journal Row " + row).Find("Journal Row Title").GetComponent<Text>().text;
 
         // Taps Next day until the header shows the stage and returns its day ("Day 7 · Crawler" is day 7).
         private static int PreviewUntil(GameObject view, string stage, int maxTaps)

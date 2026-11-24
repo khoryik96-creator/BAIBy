@@ -52,6 +52,9 @@ namespace BAIby.Character
         private const int CachedLooks = 2;
         private readonly List<Object> generatedAssets = new List<Object>();
         private readonly List<BuiltLook> builtLooks = new List<BuiltLook>();
+        // Journal photo poses in other looks, most recent first.
+        private const int CachedPhotos = 6;
+        private readonly List<(int Pose, BuiltLook Look)> photoSprites = new List<(int Pose, BuiltLook Look)>();
         // Decoded appearance art (RGBA, bottom-up rows) keyed by resource path, decoded once.
         private readonly Dictionary<string, byte[]> appearanceSources = new Dictionary<string, byte[]>();
         private AppearanceLayout appearanceLayout;
@@ -321,6 +324,58 @@ namespace BAIby.Character
             while (builtLooks.Count > CachedLooks)
                 DiscardLook(builtLooks[builtLooks.Count - 1]);
             return created;
+        }
+
+        // A journal photo's picture: the pose of a stage (0 newborn to 3 walker), awake or resting, in the look the photo
+        // kept. Drawn from the pose illustrations when the journal is read; nothing is captured from the screen. The
+        // on-screen look is reused, other looks are built once and a few are kept; when a look cannot be built the
+        // original art stands in.
+        public Sprite PhotoSprite(BabyAppearance appearance, int stage, bool rest)
+        {
+            var pose = Mathf.Clamp(stage, 0, 3) * 2 + (rest ? 1 : 0);
+            var layers = PoseLayers();
+            var original = originalPoseSprites != null ? originalPoseSprites[pose]
+                : layers[pose] != null && shownAppearance.Equals(BabyAppearance.Default) ? layers[pose].sprite : null;
+            if (original == null)
+                original = LoadSprite(Art + "Baby/" + AppearanceLayout.PoseNames[pose]);
+            if (appearance == null || appearance.Equals(BabyAppearance.Default) || layers[pose] == null)
+                return original;
+            if (currentLook != null && currentLook.Appearance.Equals(appearance) && currentLook.Sprites[pose] != null)
+                return currentLook.Sprites[pose];
+
+            for (int i = 0; i < photoSprites.Count; i++)
+            {
+                var kept = photoSprites[i];
+                if (kept.Pose == pose && kept.Look.Appearance.Equals(appearance))
+                    return kept.Look.Sprites[0] ?? original;
+            }
+
+            var built = new BuiltLook(appearance, 1);
+            try
+            {
+                var layout = LoadAppearanceLayout();
+                built.Sprites[0] = BuildPoseSprite(layout, AppearanceLayout.PoseNames[pose], appearance,
+                    AppearancePalette.Targets(appearance, layout.Reference), built.Assets);
+            }
+            catch (System.Exception exception)
+            {
+                Debug.LogWarning("A journal photo's look could not be drawn, so the original artwork is shown: " + exception.Message);
+            }
+            finally
+            {
+                ReleaseAppearanceDecoder();
+            }
+
+            photoSprites.Insert(0, (pose, built));
+            while (photoSprites.Count > CachedPhotos)
+            {
+                var last = photoSprites[photoSprites.Count - 1];
+                photoSprites.RemoveAt(photoSprites.Count - 1);
+                foreach (var asset in last.Look.Assets)
+                    Destroy(asset);
+            }
+
+            return built.Sprites[0] ?? original;
         }
 
         private void DiscardLook(BuiltLook look)
@@ -1360,6 +1415,13 @@ namespace BAIby.Character
                 Destroy(asset);
             while (builtLooks.Count > 0)
                 DiscardLook(builtLooks[0]);
+            foreach (var (_, look) in photoSprites)
+            {
+                foreach (var asset in look.Assets)
+                    Destroy(asset);
+            }
+
+            photoSprites.Clear();
             ReleaseAppearanceDecoder();
         }
 

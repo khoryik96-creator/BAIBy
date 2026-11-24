@@ -25,7 +25,11 @@ namespace BAIby.Simulation
         // The offline decay cap from the care retune: a missed day is felt without needs collapsing.
         public static readonly TimeSpan DefaultMaxNeedDecay = TimeSpan.FromHours(8);
         private readonly CareTunables careTunables;
+        private readonly BondTunables bondTunables;
         private readonly BabyGrowth growth;
+        private readonly TimeSpan sittingAge;
+        private readonly TimeSpan crawlingAge;
+        private readonly TimeSpan walkingAge;
         private readonly TimeSpan maxNeedDecay;
         private const double InitialEnergy = 80;
         private const double MilkFullness = 35;
@@ -35,7 +39,7 @@ namespace BAIby.Simulation
         // The three ages are each milestone's nominal age: readiness moves it to between 0.8x and 1.3x of it with care,
         // and always unlocks it by GrowthTunables.Guarantee (1.4x).
         public BabySimulation(TimeSpan sittingAge, TimeSpan maxNeedDecay, TimeSpan crawlingAge, TimeSpan walkingAge,
-            CareTunables careTunables = null, GrowthTunables growthTunables = null)
+            CareTunables careTunables = null, GrowthTunables growthTunables = null, BondTunables bondTunables = null)
         {
             if (sittingAge <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(sittingAge));
@@ -54,15 +58,23 @@ namespace BAIby.Simulation
             var growthRules = growthTunables ?? GrowthTunables.Default;
             growthRules.Validate();
             growth = new BabyGrowth(sittingAge, crawlingAge, walkingAge, this.careTunables, growthRules);
+            this.bondTunables = bondTunables ?? BondTunables.Default;
+            this.bondTunables.Validate();
+            this.sittingAge = sittingAge;
+            this.crawlingAge = crawlingAge;
+            this.walkingAge = walkingAge;
         }
+
+        public BondTunables BondTunables => bondTunables;
 
         public BabyState Adopt(string name, DateTimeOffset now)
         {
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Enter a name for the baby.", nameof(name));
 
+            var care = CareRules.Start(now, careTunables);
             var baby = new BabyState(name.Trim(), now, TimeSpan.Zero, 70, 75, InitialEnergy, 0, 0, false, false, 0, 0, 100, 100, false, NurseryTheme.Sage, false, 0,
-                BabyAppearance.Default, CareRules.Start(now, careTunables));
+                BabyAppearance.Default, care, null, BondRules.Seed(0, care), JournalRules.Start(now));
             return baby.With(development: growth.Seed(baby));
         }
 
@@ -79,22 +91,31 @@ namespace BAIby.Simulation
                 var due = growth.Settle(state);
                 if (!due.AnyUnlocked)
                     return (state, false, false, false);
-                return Develop(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care, due, due.Draft.Build());
+                state = Seeded(state);
+                var settled = Develop(state, state.TimeCheckpoint, TimeSpan.Zero, BabyNeeds.From(state), state.Care, due,
+                    due.Draft.Build());
+                return (settled.State.With(journal: Chronicle(state, settled.State, due, null, false)),
+                    settled.UnlockedSitting, settled.UnlockedCrawling, settled.UnlockedWalking);
             }
 
-            var care = CareRules.Advance(state.Care, now, careTunables);
+            state = Seeded(state);
+            // What the ledger resolved over the gap drives Bond, temperament and the rhythm, in time order.
+            var ledger = new List<LedgerEvent>();
+            var care = CareRules.Advance(state.Care, now, careTunables, ledger);
+            var bond = BondRules.Advance(state.Bond, state.Bonding, state.Care, ledger, now.UtcTicks, bondTunables, careTunables);
             var start = BabyNeeds.From(state);
-            var effects = HealthEffects(state.Care);
+            var effects = HealthEffects(state.Care, bond);
             var needs = BabyNeeds.Real(start, state.Care, care, maxNeedDecay, careTunables.AwayHoldLevel,
                 careTunables.DayStart, effects);
-            // Each sample sees the ledger and needs a pure advance from this state would reach at its instant.
+            // Each sample sees the ledger, needs and Bond a pure advance from this state would reach at its instant.
             var step = growth.Real(state, now, at =>
             {
                 if (at == now.UtcTicks)
-                    return (care, needs);
-                var ledger = CareRules.Advance(state.Care, new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset), careTunables);
-                return (ledger, BabyNeeds.Real(start, state.Care, ledger, maxNeedDecay, careTunables.AwayHoldLevel,
-                    careTunables.DayStart, effects));
+                    return (care, needs, bond.Bond);
+                var ledgerAt = CareRules.Advance(state.Care, new DateTimeOffset(at, TimeSpan.Zero).ToOffset(now.Offset), careTunables);
+                var bondAt = BondRules.Advance(state.Bond, state.Bonding, state.Care, ledger, at, bondTunables, careTunables).Bond;
+                return (ledgerAt, BabyNeeds.Real(start, state.Care, ledgerAt, maxNeedDecay, careTunables.AwayHoldLevel,
+                    careTunables.DayStart, effects), bondAt);
             });
             // The first advance of a migrated ledger excuses the whole gap and moves nobody on the ladder.
             if (!state.Care.AwaitingAnchor)
@@ -104,14 +125,13 @@ namespace BAIby.Simulation
             }
 
             if (step.ResampleAtEnd)
-                step.Draft.Sample = growth.SampleNow(needs, care, state.Connection, step.Draft.Engagement, now.UtcTicks);
+                step.Draft.Sample = growth.SampleNow(needs, care, bond.Bond, step.Draft.Engagement, now.UtcTicks);
             var development = step.Draft.Build();
             var advanced = Develop(state, now, now - state.TimeCheckpoint, needs, care, step, development);
             var setback = growth.Setback(development, advanced.State, state.Care, care);
-            return ReferenceEquals(setback, development)
-                ? advanced
-                : (advanced.State.With(development: setback), advanced.UnlockedSitting, advanced.UnlockedCrawling,
-                    advanced.UnlockedWalking);
+            var result = advanced.State.With(bond: bond.Bond, bonding: bond.Record, development: setback);
+            return (result.With(journal: Chronicle(state, result, step, bond, true)), advanced.UnlockedSitting,
+                advanced.UnlockedCrawling, advanced.UnlockedWalking);
         }
 
         public (BabyState State, bool UnlockedSitting, bool UnlockedCrawling, bool UnlockedWalking) AdvancePreview(BabyState state, TimeSpan elapsed)
@@ -123,11 +143,126 @@ namespace BAIby.Simulation
             // untouched (Covered), and the hours count as awake hours.
             // A recovering baby keeps its faster recovery while the visit's window is open at the checkpoint.
             // Readiness follows the needs as they fall through the preview hours; engagement and the ledger hold.
-            var effects = HealthEffects(state.Care);
+            // The care given since the last day mark first closes as a day for the rhythm and temperament.
+            state = Seeded(state);
+            var bond = BondRules.PreviewDay(state.Bond, state.Bonding, state.TimeCheckpoint.UtcTicks, bondTunables);
+            var comfort = BondRules.SecurityOf(bond.Record, bondTunables) == SecurityPhase.Clingy ? bondTunables.ClingyComfort : 1;
+            var effects = HealthEffects(state.Care, null);
             var boost = state.TimeCheckpoint.UtcTicks < effects.BoostUntil ? effects.RecoveryBoost : 1;
-            var step = growth.Preview(state, elapsed, maxNeedDecay, boost);
-            return Develop(state, state.TimeCheckpoint, elapsed,
-                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost), state.Care, step, step.Draft.Build());
+            var step = growth.Preview(state, elapsed, maxNeedDecay, boost, comfort);
+            var advanced = Develop(state, state.TimeCheckpoint, elapsed,
+                BabyNeeds.Awake(BabyNeeds.From(state), elapsed, maxNeedDecay, boost, comfort), state.Care, step, step.Draft.Build());
+            var result = advanced.State.With(bonding: bond.Record);
+            return (result.With(journal: Chronicle(state, result, step, bond, false)), advanced.UnlockedSitting,
+                advanced.UnlockedCrawling, advanced.UnlockedWalking);
+        }
+
+        // The relationship: Bond's high-water mark, temperament and the care rhythm (seeded for an older save).
+        public BondRecord Bonding(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return state.Bonding ?? BondRules.Seed(state.Bond, state.Care);
+        }
+
+        // The journal (seeded with the milestones already reached for an older save).
+        public JournalRecord Journal(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return state.Journal ?? JournalRules.Seed(state.TimeCheckpoint, state.Age, state.CanSitAndReach, state.CanCrawl,
+                state.CanWalk, sittingAge, crawlingAge, walkingAge, state.Care);
+        }
+
+        public SecurityPhase Security(BabyState state) => BondRules.SecurityOf(Bonding(state), bondTunables);
+
+        public CuriosityPhase Curiosity(BabyState state) => BondRules.CuriosityOf(Bonding(state), bondTunables);
+
+        // Photos the baby can still have taken today (three a day).
+        public int PhotosLeft(BabyState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return JournalRules.PhotosLeft(Journal(state), state.Age);
+        }
+
+        // A photo for the journal: the moment, the stage shown and today's look, drawn from the pose art when the
+        // journal is read. At most three a day; nothing changes past that. Advance to the current instant first.
+        public (BabyState State, bool Taken) TakePhoto(BabyState state, PhotoMoment moment)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (!Enum.IsDefined(typeof(PhotoMoment), moment))
+                throw new ArgumentOutOfRangeException(nameof(moment));
+
+            var journal = Journal(state);
+            var stage = state.ShowsWalking ? MotorSkill.Walking : state.ShowsCrawling ? MotorSkill.Crawling :
+                state.ShowsSitting ? MotorSkill.Sitting : MotorSkill.None;
+            var photo = JournalRules.Photo(journal, state.TimeCheckpoint, state.Age, moment, stage, state.Appearance);
+            if (ReferenceEquals(photo, journal))
+                return (state, false);
+
+            return (Seeded(state).With(journal: photo), true);
+        }
+
+        // Whether the look can be worn: earned looks need the care rhythm that earns them (or are already worn).
+        public bool CanWear(BabyState state, BabyAppearance look, bool unlockEarned = false)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (look == null)
+                throw new ArgumentNullException(nameof(look));
+
+            return unlockEarned || EarnedLooks.CanWear(state.Appearance, look, Bonding(state).LongestRhythm);
+        }
+
+        // A baby saved before Bond's record or the journal existed gets them on first use.
+        private BabyState Seeded(BabyState state) =>
+            state.Bonding != null && state.Journal != null ? state
+                : state.With(bonding: Bonding(state), journal: Journal(state));
+
+        // Journal entries for one step: milestones reached (on the day and at the instant they were reached), rhythm
+        // stickers, a hard spell that ended, and week pages. `before` is seeded; `bond` is null when no day closed.
+        private JournalRecord Chronicle(BabyState before, BabyState after, BabyGrowth.Step step, BondStep bond, bool real)
+        {
+            var from = before.TimeCheckpoint;
+            var entries = new List<JournalEntry>();
+            var unlocked = new[] { step.UnlockedSitting, step.UnlockedCrawling, step.UnlockedWalking };
+            for (var stage = 0; stage < unlocked.Length; stage++)
+            {
+                if (!unlocked[stage])
+                    continue;
+                var age = TimeSpan.FromTicks(step.UnlockAges[stage]);
+                entries.Add(JournalEntry.Milestone(real ? InstantAt(from, age - before.Age) : from, JournalRules.DayOf(age),
+                    (MotorSkill)(stage + 1)));
+            }
+
+            if (bond != null)
+            {
+                foreach (var (at, days) in bond.Stickers)
+                {
+                    var instant = new DateTimeOffset(at, TimeSpan.Zero);
+                    entries.Add(JournalEntry.Sticker(instant, JournalRules.DayOf(real ? before.Age + (instant - from) : before.Age), days));
+                }
+            }
+
+            var journal = before.Journal;
+            if (entries.Count > 0)
+                journal = journal.With(entries, journal.SpellSince, journal.SpellDay, journal.Weeks, journal.WeekStartCareDays);
+            journal = JournalRules.AfterCondition(journal, before.Care.Condition, after.Care.Condition, after.TimeCheckpoint,
+                after.Age);
+            journal = JournalRules.Weeks(journal, before.Age, after.Age, from, real, before.Bonding.TotalCareDays,
+                bond?.CountedDays);
+            return journal;
+        }
+
+        private static DateTimeOffset InstantAt(DateTimeOffset from, TimeSpan after)
+        {
+            var ticks = from.UtcTicks + Math.Max(0, Math.Min(after.Ticks, DateTimeOffset.MaxValue.UtcTicks - from.UtcTicks));
+            return new DateTimeOffset(ticks, TimeSpan.Zero);
         }
 
         // The baby's development for the Growth panel and the report: track qualities, the growth chart band, and
@@ -160,7 +295,10 @@ namespace BAIby.Simulation
 
             var visit = CareConsequences.VisitDoctor(state.Care, state.Health, Snapshot(BabyNeeds.From(state)), careTunables);
             var reaction = visit.Record.Condition == CareCondition.Recovering ? Reaction.DoctorVisited : Reaction.DoctorAllClear;
-            return (state.With(health: visit.Health, care: visit.Record), reaction);
+            state = Seeded(state);
+            var journal = JournalRules.AfterCondition(state.Journal, state.Care.Condition, visit.Record.Condition,
+                state.TimeCheckpoint, state.Age);
+            return (state.With(health: visit.Health, care: visit.Record, journal: journal), reaction);
         }
 
         // Whether a medicine dose would count now: only while recovering, one per meal window.
@@ -183,11 +321,15 @@ namespace BAIby.Simulation
 
             var report = growth.Report(state);
             var sample = report.Sample;
+            var bonding = Bonding(state);
             return CareDiagnostics.Summary(state.Care, careTunables) + string.Format(CultureInfo.InvariantCulture,
                 " | growth {0} {1:0.00} in {2:0.0}d | W {3:0.00} Q motor {4:0.00} learning {5:0.00} social {6:0.00} physical {7:0.00}{8}{9}",
                 report.Next, report.Readiness, report.ExpectedIn.TotalDays, sample.Wellbeing, sample.Motor, sample.Learning,
                 sample.Social, sample.Physical, sample.Mode == SampleMode.Normal ? "" : " " + sample.Mode,
-                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy);
+                report.Shy == MotorSkill.None ? "" : " | shy " + report.Shy) + string.Format(CultureInfo.InvariantCulture,
+                " | bond {0:0.0} high {1:0.0} today +{2:0}/-{3:0} | security {4:0} curiosity {5:0} | rhythm {6} best {7} days {8}",
+                state.Bond, bonding.HighWater, bonding.Gained, bonding.Lost, bonding.Security, bonding.Curiosity, bonding.Rhythm,
+                bonding.LongestRhythm, bonding.TotalCareDays);
         }
 
         // Today's routine windows at the state's checkpoint.
@@ -254,11 +396,16 @@ namespace BAIby.Simulation
         public (BabyState State, Reaction Reaction) ApplyCare(BabyState state, CareAction action,
             Toy toy = Toy.Rattle, Food food = Food.Milk)
         {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            state = Seeded(state);
             var satiety = state.Satiety;
             var comfort = state.Comfort;
             var energy = state.Energy;
             var cleanliness = state.Cleanliness;
-            var connection = state.Connection;
+            // Bond's raw gain from this action, before the day's cap and the doubling below the high-water mark.
+            var gain = 0.0;
             var storySessions = state.StorySessions;
             var blockTowers = state.BlockTowers;
             var newSoundResolved = state.NewSoundResolved;
@@ -308,7 +455,7 @@ namespace BAIby.Simulation
                     break;
                 case CareAction.Soothe:
                     comfort = Math.Min(100, comfort + 20 * comfortGain);
-                    connection += 3;
+                    gain += bondTunables.SootheGain;
                     reaction = Reaction.Calmed;
                     break;
                 case CareAction.Rest:
@@ -350,7 +497,7 @@ namespace BAIby.Simulation
                     }
 
                     energy = Math.Max(0, energy - 8);
-                    connection += 3;
+                    gain += 3;
                     blockTowers = IncrementCount(blockTowers);
                     reaction = Reaction.StackedBlocks;
                     break;
@@ -370,7 +517,7 @@ namespace BAIby.Simulation
                     }
 
                     energy = Math.Max(0, energy - 6);
-                    connection += 2;
+                    gain += bondTunables.StoryGain;
                     storySessions = IncrementCount(storySessions);
                     reaction = Reaction.EnjoysStory;
                     break;
@@ -389,13 +536,13 @@ namespace BAIby.Simulation
                     if (action == CareAction.ComfortNewSound)
                     {
                         comfort = Math.Min(100, comfort + 16 * comfortGain);
-                        connection += 2;
+                        gain += 2;
                         reaction = Reaction.NewSoundComforted;
                     }
                     else
                     {
                         energy = Math.Max(0, energy - 6);
-                        connection += 5;
+                        gain += 5;
                         reaction = Reaction.NewSoundExplored;
                     }
                     break;
@@ -416,7 +563,7 @@ namespace BAIby.Simulation
                         break;
                     }
 
-                    connection += 1;
+                    gain += bondTunables.PlayGain;
                     energy = Math.Max(0, energy - 12);
                     if (toy == Toy.Rattle)
                         rattleFamiliarity = IncrementCount(rattleFamiliarity);
@@ -453,34 +600,77 @@ namespace BAIby.Simulation
                     reaction = Reaction.MedicineDone;
             }
 
-            // Engagement, the day's variety, the setback's good day and a fresh quality sample.
-            var developed = growth.AfterCare(state, action, toy, reaction, care, cared, Math.Min(100, connection));
+            // Bond: an on-time meal, and fussing or upset answered within half an hour of it starting.
+            if (action == CareAction.Feed && care.LastReason == CareReason.MealOnTime)
+                gain += bondTunables.MealGain;
+            var answered = state.Care.Mood != CareMood.Content && care.Mood < state.Care.Mood &&
+                state.Care.Checkpoint - state.Care.MoodSince <= bondTunables.AnswerWindow;
+            if (answered)
+                gain += bondTunables.AnswerGain;
+            var careDay = care.CareDay;
+            var bonded = BondRules.Gain(state.Bond, state.Bonding, careDay, gain, bondTunables);
+
+            // Engagement (with the rhythm's bonus and a temperament's leaning), the day's variety, the setback's good
+            // day and a fresh quality sample with the new Bond.
+            var developed = growth.AfterCare(state, action, toy, reaction, care, cared,
+                BondRules.RhythmBonus(state.Bonding, bondTunables), BondRules.CuriosityOf(state.Bonding, bondTunables),
+                bondTunables.TemperamentEngagement, bonus =>
+                {
+                    if (bonus > 0)
+                        bonded = BondRules.Gain(bonded.Bond, bonded.Record, careDay, bonus, bondTunables);
+                    return bonded.Bond;
+                });
+            var journal = state.Journal;
             if (developed.Recovered)
+            {
                 reaction = Reaction.SkillBack;
+                journal = JournalRules.SkillBack(journal, state.TimeCheckpoint, state.Age, Newest(state),
+                    state.Development?.SetbackSince ?? state.TimeCheckpoint);
+            }
             else if (developed.Bored)
+            {
                 reaction = Reaction.Bored;
+            }
+
+            journal = JournalRules.AfterCondition(journal, state.Care.Condition, care.Condition, state.TimeCheckpoint, state.Age);
+            var meal = (tags & CareTags.Meal) != 0 && care.LastReason != CareReason.MealTooFull;
+            var playKind = developed.Kind.HasValue && developed.Kind != EngagementKind.Meal && developed.Kind != EngagementKind.Hygiene
+                ? developed.Kind : null;
+            var bonding = BondRules.Tally(bonded.Record, careDay, meal, (tags & CareTags.Together) != 0,
+                action == CareAction.Rest, answered, playKind);
 
             return (state.With(satiety: satiety, comfort: comfort, energy: energy,
                 toyFamiliarity: rattleFamiliarity, plushFamiliarity: plushFamiliarity,
-                connection: developed.Connection, storySessions: storySessions, cleanliness: cleanliness,
+                bond: bonded.Bond, storySessions: storySessions, cleanliness: cleanliness,
                 newSoundResolved: newSoundResolved, blockTowers: blockTowers, care: care,
-                development: developed.Record), reaction);
+                development: developed.Record, bonding: bonding, journal: journal), reaction);
         }
+
+        // The skill a setback makes shy and a good day brings back: the newest one reached.
+        private static MotorSkill Newest(BabyState state) =>
+            state.CanWalk ? MotorSkill.Walking : state.CanCrawl ? MotorSkill.Crawling :
+            state.CanSitAndReach ? MotorSkill.Sitting : MotorSkill.None;
 
         // Gains stop at the ceiling; a value already above it is kept.
         private static double Gain(double value, double amount, double ceiling) =>
             Math.Max(value, Math.Min(ceiling, value + amount));
 
-        private BabyNeeds.Effects HealthEffects(CareRecord care)
+        // What the condition at the start of a gap, and a clingy phase (which can begin or end when a care day closes
+        // inside the gap), do to the needs over it.
+        private BabyNeeds.Effects HealthEffects(CareRecord care, BondStep bond)
         {
             var ceiling = care.IsUnwell ? careTunables.UnwellEnergyCap : 100;
+            var clingy = bond != null && bond.ClingyAtStart;
+            var comfort = clingy ? bondTunables.ClingyComfort : 1;
+            var switchAt = bond?.ClingyChangeAt ?? long.MaxValue;
+            var after = switchAt == long.MaxValue ? comfort : clingy ? 1 : bondTunables.ClingyComfort;
             if (care.Condition != CareCondition.Recovering)
-                return new BabyNeeds.Effects(ceiling, 1, long.MinValue);
+                return new BabyNeeds.Effects(ceiling, 1, long.MinValue, comfort, after, switchAt);
 
             var since = care.ConditionSince.UtcTicks;
             var window = careTunables.RecoveryWindow.Ticks;
             var until = since > long.MaxValue - window ? long.MaxValue : since + window;
-            return new BabyNeeds.Effects(ceiling, careTunables.RecoveryBoost, until);
+            return new BabyNeeds.Effects(ceiling, careTunables.RecoveryBoost, until, comfort, after, switchAt);
         }
 
         private static NeedSnapshot Snapshot(BabyNeeds.Values needs) =>

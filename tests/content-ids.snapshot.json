@@ -175,12 +175,24 @@
     "Smooth": 2,
     "Tuft": 3
   },
+  "HardSpell": {
+    "Poorly": 0,
+    "Shy": 1
+  },
   "Headwear": {
     "None": 0,
     "Bow": 1,
     "BearBeanie": 2,
     "BucketHat": 3,
     "DaisyClip": 4
+  },
+  "JournalKind": {
+    "Arrival": 0,
+    "Milestone": 1,
+    "Photo": 2,
+    "Sticker": 3,
+    "HardDay": 4,
+    "Week": 5
   },
   "MomentStatus": {
     "Pending": 0,
@@ -338,6 +350,17 @@
     "Groom": 17,
     "FloorTime": 18,
     "Litter": 19
+  },
+  "PhotoMoment": {
+    "Calm": 0,
+    "Playing": 1,
+    "Napping": 2,
+    "Story": 3,
+    "Cuddle": 4,
+    "Meal": 5,
+    "Bath": 6,
+    "Poorly": 7,
+    "Blocks": 8
   },
   "RoutinePreset": {
     "SchoolDay": 0,

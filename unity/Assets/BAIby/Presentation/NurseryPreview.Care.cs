@@ -110,6 +110,8 @@ namespace BAIby.Presentation
             washUpButton = CareTile("Wash up", careActions, "Wash", "Wash", Mint, () => ShowPanel(NurseryPanel.Hygiene));
             CareTile("Play with rattle", careActions, "Rattle", "Rattle", Butter, () => Care(CareAction.Play, Toy.Rattle));
             CareTile("Play with plush", careActions, "Plush", "Plush", Blush, () => Care(CareAction.Play, Toy.Plush));
+            // Not care: a journal photo of the moment, three a day.
+            photoButton = CareTile("Take a photo", careActions, "Photo", "Photo", Mist, TakePhoto);
             careTiles.AddRange(careActions.GetComponentsInChildren<Button>(true));
 
             previewDayButton = ActionButton("Preview next day", panel, 0, 0.5f, 0, 0, NextPreviewDay, Paper, Ink);
@@ -387,13 +389,13 @@ namespace BAIby.Presentation
             }
         }
 
-        // Tiles in two rows (three on top at most), each row sharing the width by weight.
+        // Tiles in two rows (four on top at most, half of them rounded up), each row sharing the width by weight.
         private static void LayoutTiles(RectTransform grid, IReadOnlyList<(Button Button, float Weight)> tiles, float bottom,
             float tile, float gap)
         {
             grid.offsetMin = new Vector2(0, bottom);
             grid.offsetMax = new Vector2(0, bottom + 2 * tile + gap);
-            var first = tiles.Count > 3 ? Mathf.Min(3, (tiles.Count + 1) / 2) : tiles.Count;
+            var first = tiles.Count > 3 ? Mathf.Min(4, (tiles.Count + 1) / 2) : tiles.Count;
             PlaceTileRow(tiles, 0, first, tile + gap, tile, gap);
             PlaceTileRow(tiles, first, tiles.Count, 0, tile, gap);
         }

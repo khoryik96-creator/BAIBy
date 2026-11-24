@@ -60,9 +60,9 @@ namespace BAIby.Presentation
                 Scene = Label("New Sound Scene", content, Description, 26, Muted, TextAnchor.MiddleLeft,
                     new Vector2(0, 200), Vector2.right, new Vector2(0, Height - 86));
                 FitText(Scene, 18, 26);
-                Comfort = ChoiceRow(content, "Comfort them", "Comfort +16  ·  Connection +2", "Soothe", Lilac, 102,
+                Comfort = ChoiceRow(content, "Comfort them", "Comfort +16  ·  Bond +2", "Soothe", Lilac, 102,
                     () => choose(CareAction.ComfortNewSound));
-                ChoiceRow(content, "Explore together", "Connection +5  ·  Energy -6", "Explore", Sky, 6,
+                ChoiceRow(content, "Explore together", "Bond +5  ·  Energy -6", "Explore", Sky, 6,
                     () => choose(CareAction.ExploreNewSound));
                 Root.SetActive(false);
             }

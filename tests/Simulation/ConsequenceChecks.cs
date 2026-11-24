@@ -142,7 +142,7 @@ static class ConsequenceChecks
         var pushed = game.ApplyCare(upset, CareAction.Play);
         Equal(Reaction.PushesToyAway, pushed.Reaction, "an upset baby pushes toys away");
         Equal(upset.ToyFamiliarity, pushed.State.ToyFamiliarity, "refused play gives nothing");
-        Equal(upset.Connection, pushed.State.Connection, "refused play adds no connection");
+        Equal(upset.Bond, pushed.State.Bond, "refused play adds no connection");
         Equal(upset.Energy, pushed.State.Energy, "refused play costs no energy");
         Equal(false, pushed.State.Care.TogetherToday, "refused play is not together time");
         Equal(Reaction.PushesToyAway, game.ApplyCare(upset, CareAction.ReadStory).Reaction, "an upset baby refuses a story");
@@ -499,7 +499,7 @@ static class ConsequenceChecks
         Equal(CareReason.GapExcused, migrated.LastReason, "the first advance excuses the whole gap");
         Equal(0, migrated.Mess, "a migrated baby starts with a tidy room");
         Equal(CareTags.None, migrated.Owed, "a migrated baby owes nothing");
-        Equal(true, saves.Primary.Contains("version=\"15\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v15");
+        Equal(true, saves.Primary.Contains("version=\"16\"") && saves.Primary.Contains("<care v=\"3\""), "the migration saves v15");
         Equal(migrated, new BabySession(game, saves, () => clock).State.Care, "the migrated ledger survives a reload");
 
         var round = BabyState.Restore("Sam", checkpoint, TimeSpan.FromDays(3), 20, 30, 40, 2, 3, true, false, 34, 8, 51, 74, true,
