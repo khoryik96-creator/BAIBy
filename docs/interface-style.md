@@ -57,6 +57,9 @@ no hard outlines on interface surfaces. The only dark outline is the quilt's, wh
 - `CareTile`: a pastel tile with an icon badge and a label; `ChoiceRow` for a full-width choice with effects.
 - `Pill`, `PlacePill`: chips that hug their words. `Meter` and `PlaceMeters`: ring meters; `NeedMeter.SetFloor` puts a
   10-unit Ink dot (55%) on the ring's stroke at an active helper's floor, and nothing when no helper holds that need.
+- A premium cosmetic that is not owned carries a small butter **Special** chip (Butter ground, ButterInk text) where an
+  earned look shows its days; tapping it previews the item and the sheet's feedback line names the pack and Grown-ups.
+  Never a price, a lock icon or a shop link in a picker.
 - `IconAt`: a tinted line icon from `Resources/BAIby/UI/Icons`, rendered by
   [`tools/ui/render_icons.py`](../tools/ui/render_icons.py) (white, 96 px, tinted in game).
 

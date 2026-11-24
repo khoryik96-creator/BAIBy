@@ -132,9 +132,18 @@ namespace BAIby.Character
 
         public static string DarkMarkingsPath(PetBreed breed, string pose) => MarkingsPath(breed, pose) + DarkSuffix;
 
-        // Null when the accessory has no art yet; only the collar ships with the cat.
-        public static string AccessoryPath(PetAccessory accessory, string pose) =>
-            accessory == PetAccessory.Collar ? "Accessories/Collar/" + pose : null;
+        // Null when the accessory has no art yet. The cat ships the collar, and the bandana and bow of the
+        // "Cat bandanas & bows" pack (petwear.cat.bandanas-bows); the tank castle waits for the fish.
+        public static string AccessoryPath(PetAccessory accessory, string pose)
+        {
+            switch (accessory)
+            {
+                case PetAccessory.Collar: return "Accessories/Collar/" + pose;
+                case PetAccessory.Bandana: return "Accessories/Bandana/" + pose;
+                case PetAccessory.Bow: return "Accessories/Bow/" + pose;
+                default: return null;
+            }
+        }
 
         public static string RegionsPath(string imagePath) => imagePath + AppearanceLayout.RegionsSuffix;
 

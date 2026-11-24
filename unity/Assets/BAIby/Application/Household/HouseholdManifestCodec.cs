@@ -20,7 +20,7 @@ namespace BAIby.Application
         // Helpers the household switched off sit in a <helpers off="0 2"> element, written only when one is off, so a
         // household that never touches the setting keeps its manifest byte for byte; a build without helpers ignores it.
         // Talk time's typing, when a grown-up turned it on, is a <talk typing="true"/> element in the same way (absent
-        // means off, the default). First words waiting as a celebration sit in their own <talk-celebrations> element,
+        // means off, the default). The pet rooms' theme, when it is not Sage, is a <rooms pet-theme="2"/> element. First words waiting as a celebration sit in their own <talk-celebrations> element,
         // which a build without Talk time ignores (and drops: only the announcement is lost, the journal keeps them).
         private const int Version = 2;
         private const int VersionBeforePets = 1;
@@ -85,6 +85,9 @@ namespace BAIby.Application
             if (manifest.TalkTyping)
                 root.Add(new XElement("talk", new XAttribute("typing", true)));
 
+            if (manifest.PetRoomTheme != NurseryTheme.Sage)
+                root.Add(new XElement("rooms", new XAttribute("pet-theme", (int)manifest.PetRoomTheme)));
+
             return root.ToString(SaveOptions.DisableFormatting);
         }
 
@@ -139,6 +142,13 @@ namespace BAIby.Application
                 var talk = root.Element("talk");
                 if (talk != null && (bool)Attribute(talk, "typing"))
                     manifest = manifest.WithTalkTyping(true);
+                var rooms = root.Element("rooms");
+                if (rooms != null)
+                {
+                    // A theme a newer build added shows Sage here, and is kept only until this build rewrites the manifest.
+                    var theme = (NurseryTheme)(int)Attribute(rooms, "pet-theme");
+                    manifest = manifest.WithPetRoomTheme(Enum.IsDefined(typeof(NurseryTheme), theme) ? theme : NurseryTheme.Sage);
+                }
                 var helpers = root.Element("helpers");
                 if (helpers == null)
                     return manifest;

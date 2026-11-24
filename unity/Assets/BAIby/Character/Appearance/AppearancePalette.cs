@@ -134,6 +134,15 @@ namespace BAIby.Character
                 case Outfit.Lilac: return new AppearanceColor(236, 228, 244);
                 case Outfit.Terracotta: return new AppearanceColor(240, 222, 200);
                 case Outfit.Midnight: return new AppearanceColor(70, 82, 110);
+                case Outfit.OatmealKnit: return new AppearanceColor(240, 232, 214);
+                case Outfit.BerryKnit: return new AppearanceColor(246, 222, 228);
+                case Outfit.MossKnit: return new AppearanceColor(232, 236, 214);
+                case Outfit.FogKnit: return new AppearanceColor(226, 230, 236);
+                case Outfit.Rosebud: return new AppearanceColor(252, 232, 236);
+                case Outfit.Marigold: return new AppearanceColor(252, 240, 220);
+                case Outfit.GardenMint: return new AppearanceColor(228, 246, 236);
+                case Outfit.Bluebell: return new AppearanceColor(234, 240, 252);
+                case Outfit.FernGold: return new AppearanceColor(84, 118, 96);
                 default: throw new ArgumentOutOfRangeException(nameof(outfit));
             }
         }
@@ -150,6 +159,15 @@ namespace BAIby.Character
                 case Outfit.Lilac: return new AppearanceColor(170, 150, 200);
                 case Outfit.Terracotta: return new AppearanceColor(196, 116, 84);
                 case Outfit.Midnight: return new AppearanceColor(226, 190, 120);
+                case Outfit.OatmealKnit: return new AppearanceColor(122, 92, 78);
+                case Outfit.BerryKnit: return new AppearanceColor(170, 70, 96);
+                case Outfit.MossKnit: return new AppearanceColor(112, 132, 82);
+                case Outfit.FogKnit: return new AppearanceColor(110, 122, 140);
+                case Outfit.Rosebud: return new AppearanceColor(226, 120, 140);
+                case Outfit.Marigold: return new AppearanceColor(232, 140, 48);
+                case Outfit.GardenMint: return new AppearanceColor(78, 170, 140);
+                case Outfit.Bluebell: return new AppearanceColor(96, 126, 200);
+                case Outfit.FernGold: return new AppearanceColor(230, 196, 112);
                 default: throw new ArgumentOutOfRangeException(nameof(outfit));
             }
         }

@@ -98,6 +98,7 @@ namespace BAIby.Application
         // Helpers the household switched off; owned helpers are on otherwise.
         private readonly List<HelperKind> helpersOff = new List<HelperKind>();
         private bool talkTyping;
+        private NurseryTheme petRoomTheme;
         private int activeSlot;
         private string storedManifest;
         private string lastValidManifest;
@@ -211,6 +212,39 @@ namespace BAIby.Application
             }
         }
 
+        // Premium cosmetics (CosmeticCatalog): whether a look pack, room theme or pet wear item is unlocked. Computed from
+        // entitlements at runtime; a record only ever holds the content ID.
+        public bool IsCosmeticUnlocked(string contentId) => CosmeticCatalog.IsCosmeticUnlocked(entitlements, contentId);
+
+        public IEntitlements Entitlements => entitlements;
+
+        // The theme the pet rooms show, as saved (Sage by default). Draw CosmeticCatalog.Displayed(PetRoomTheme, ...).
+        public NurseryTheme PetRoomTheme => petRoomTheme;
+
+        // Decor in a pet's room: one theme for every pet room, saved in the manifest only while it is not Sage. A locked
+        // premium theme can't be chosen; one saved before a refund stays saved and shows Sage until owned again.
+        public void SetPetRoomTheme(NurseryTheme theme)
+        {
+            if (!Enum.IsDefined(typeof(NurseryTheme), theme))
+                throw new ArgumentOutOfRangeException(nameof(theme));
+            if (theme == petRoomTheme)
+                return;
+            if (!CosmeticCatalog.IsUnlocked(entitlements, theme))
+                throw new InvalidOperationException("This room theme is part of a pack the household doesn't own.");
+
+            var previous = petRoomTheme;
+            petRoomTheme = theme;
+            try
+            {
+                WriteManifest();
+            }
+            catch
+            {
+                petRoomTheme = previous;
+                throw;
+            }
+        }
+
         // What a companion's helpers did since the last call (the return summary); empty for a slot without a session.
         public IReadOnlyList<HelperEvent> TakeHelperEvents(int slot)
         {
@@ -297,6 +331,8 @@ namespace BAIby.Application
             if (!CanAdoptBreed(appearance.Breed))
                 throw new InvalidOperationException($"The {appearance.Breed} breed is not unlocked yet.");
             pets.Catalog.ValidateChoice(appearance);
+            if (!CosmeticCatalog.CanWear(null, appearance, entitlements))
+                throw new InvalidOperationException("This accessory is part of a pack the household doesn't own.");
             if (IsFull)
                 throw new InvalidOperationException("The household is full.");
 
@@ -374,6 +410,23 @@ namespace BAIby.Application
 
         // The pet's care style (Gentle or Standard). It writes the pet's record only.
         public void SetPetCareStyle(int slot, CareStyle style) => AwakePet(slot).PetSession.SetCareStyle(style);
+
+        // A new accessory or colour for a pet (Decor in its room). A locked premium item can't be chosen; one saved
+        // before a refund may stay while the other part changes, and shows the free default until owned again.
+        public void SetPetAppearance(int slot, PetAppearance appearance)
+        {
+            if (appearance == null)
+                throw new ArgumentNullException(nameof(appearance));
+
+            var companion = AwakePet(slot);
+            var current = companion.PetState.Appearance;
+            if (appearance.Breed != current.Breed || appearance.Coat != current.Coat || appearance.SpecialCoatId != current.SpecialCoatId)
+                throw new ArgumentException("Only a pet's accessory and its colour can change.", nameof(appearance));
+            pets.Catalog.ValidateChoice(appearance);
+            if (!CosmeticCatalog.CanWear(current, appearance, entitlements))
+                throw new InvalidOperationException("This accessory is part of a pack the household doesn't own.");
+            companion.PetSession.SetAppearance(appearance);
+        }
 
         // Playtest shortcut, like the nursery's Preview next day.
         public PetCareOutcome AdvancePetPreview(int slot, TimeSpan elapsed)
@@ -941,6 +994,7 @@ namespace BAIby.Application
             keepsakes.AddRange(manifest.Keepsakes);
             helpersOff.AddRange(manifest.HelpersOff);
             talkTyping = manifest.TalkTyping;
+            petRoomTheme = manifest.PetRoomTheme;
             foreach (var record in manifest.SpeciesRecords)
                 speciesRecords[record.Species] = record;
             var active = Find(manifest.ActiveSlot);
@@ -1063,6 +1117,8 @@ namespace BAIby.Application
                 manifest = manifest.WithHelpersOff(helpersOff);
             if (talkTyping)
                 manifest = manifest.WithTalkTyping(true);
+            if (petRoomTheme != NurseryTheme.Sage)
+                manifest = manifest.WithPetRoomTheme(petRoomTheme);
             var payload = HouseholdManifestCodec.Encode(manifest);
             if (payload != storedManifest)
             {

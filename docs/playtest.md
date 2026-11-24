@@ -237,4 +237,31 @@ This build has no shop. To own them in a Web, Editor or Development build, use a
 
 The developer read-out (`BabySession.CareSummary`) adds "helpers stock N today feeds/plays/tidies" once a helper has been used.
 
+## Looks and rooms (monetization M2b)
+
+The first premium cosmetics ([monetization](monetization.md#looks-and-rooms-built-in-m2b)): two baby look packs, two room themes, a cat accessory pack and the Founder pack. They change only how things look; care, growth and Bond are untouched, and the looks earned with a care rhythm (Daisy clip, Midnight, Bucket hat) stay earned-only.
+
+This build has no shop. To own them in a Web, Editor or Development build, use any of: **Developer mode** (Grown-ups gear, or `?dev=1`), **Grown-ups → Looks & rooms → Add test pack**, or URL flags, one product or several separated by commas:
+
+| Pack | URL flag | Where to see it |
+| --- | --- | --- |
+| Cozy knits | `?ent=look.cozy-knits` | **Style → More**: Oatmeal, Berry, Moss, Fog; **Style → Hat**: Pom-pom beanie |
+| Garden party | `?ent=look.garden-party` | **Style → More**: Rosebud, Marigold, Garden mint, Bluebell; **Style → Hat**: Sun hat |
+| Cloud nursery | `?ent=room.cloud-nursery` | **Decor** in the nursery or in a pet's room |
+| Starlight | `?ent=room.starlight` | **Decor** in the nursery or in a pet's room |
+| Cat bandanas & bows | `?ent=petwear.cat.bandanas-bows` | A cat's room → **Decor**: **Wears** (Bandana, Bow) and **Colour** (Butter, Lilac, Terracotta); the same two buttons on the adoption name page |
+| Founder pack | `?ent=supporter.founder` | **Style → More**: Fern & gold; **Decor**: Golden hour; Home: a **Founder** chip on the household card |
+
+For example `/nursery/?ent=look.cozy-knits,room.starlight`.
+
+| Step | Expected result |
+| --- | --- |
+| Without any pack, open **Style → More** | Nine outfits, each with a small butter **Special** chip; **Style → Hat** shows the Pom-pom beanie and Sun hat with the chip too. Free and earned looks are unchanged (earned looks still show their days or **Earned**). |
+| Tap a Special item | The baby shows it as a preview and the sheet says "Part of the Cozy knits pack — a grown-up can get it in Grown-ups." Nothing is saved: the selection ring stays on the saved look, and closing Style puts the saved look back. There is no price, buy button or shop link anywhere outside Grown-ups. |
+| Open **Decor** | Five room cards: Sage and Peach (free), Cloud nursery and Starlight, and Golden hour (Founder). Locked cards carry **Special**; tapping one shows it in the room with the calm line, and the saved card keeps **Selected**. |
+| Open **Grown-ups → Looks & rooms** (behind the parental gate) | Two tabs (**Baby looks**, **Rooms & pet wear**), three packs each with what is inside. A test build shows **Add test pack** / **Remove**; a release build shows **Owned** for owned packs and says they are coming to the app stores. |
+| Add a pack, then choose its items | The chips disappear and the items save like free ones. In a pet's room **Decor** sets one theme for every pet room; a cat's **Wears** and **Colour** step through what it can wear and save at once. |
+| Remove the pack (the refund path), or reload with the flag gone | The saved choice is kept (the Style ring stays on it) but the baby shows Sage and no hat, the room shows Sage, and a cat shows a Sage collar. Changing another part (say the hair) still works and keeps the saved premium ID. Adding the pack again shows the look again. |
+| Reopen a save from before this build | Byte for byte the same: looks and rooms are content IDs in the existing appearance and decor fields; a pet room theme is a `<rooms pet-theme="N"/>` manifest element written only when it is not Sage. |
+
 The included character is a prototype asset for checking animation and game feedback. Record short clips from the same camera for art reviews. Confirm mobile frame pacing and lifecycle separately on Android and iOS hardware.

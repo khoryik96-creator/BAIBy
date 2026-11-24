@@ -12,8 +12,8 @@ namespace BAIby.Application
         // A URL flag that turns developer mode on, for example /nursery/?dev=1.
         public const string UrlFlag = "dev=1";
 
-        // Every product this build can sell: the extra rooms, the helpers, each premium breed and each breed pack. Add
-        // new product families here as they ship (looks, room themes), so developer mode keeps covering everything.
+        // Every product this build can sell: the extra rooms, the helpers, each premium breed and breed pack, and the
+        // cosmetics (look packs, room themes, pet wear, the Founder pack). Add new families here as they ship.
         public static IReadOnlyList<string> Products(PetCatalog catalog)
         {
             if (catalog == null)
@@ -36,6 +36,13 @@ namespace BAIby.Application
             {
                 if (pack?.ProductId != null && !products.Contains(pack.ProductId))
                     products.Add(pack.ProductId);
+            }
+
+            // Look packs, room themes, pet wear and the Founder pack (earned looks are never products).
+            foreach (var product in CosmeticCatalog.Products)
+            {
+                if (!products.Contains(product))
+                    products.Add(product);
             }
 
             return products.AsReadOnly();

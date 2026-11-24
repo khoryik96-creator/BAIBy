@@ -436,7 +436,8 @@ def render(pose: str, breed: str | None = None, capture: str | None = None) -> C
     W, H = CANVAS[pose]
     set_tier("Grown" if pose.startswith("Grown") else "Young")
     cv = Canvas(W, H, capture=capture)
+    wear = {"collar": "Collar", "bandana": "Bandana", "bow": "Bow"}.get(capture)
     c = Ctx(cv=cv, breed=breed, marks_on=(capture in ("marking", "darkpatch") and breed is not None),
-            collar_on=(capture == "collar"))
+            collar_on=wear is not None, wear=wear or "Collar")
     POSE_FUNCS[pose](c)
     return cv

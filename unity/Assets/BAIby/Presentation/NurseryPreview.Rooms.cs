@@ -32,9 +32,11 @@ namespace BAIby.Presentation
             gate = new GatePanel(Tray("Parental Gate Panel", false, 420), CancelGate, SubmitGate);
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
             settings = new SettingsPanel(Tray("Household Settings Panel", false, SettingsPanel.Height), ShowHome, RestorePurchases,
-                ShowMoreRooms, ToggleDeveloperMode, ShowHelpersPanel, ToggleTalkTyping);
+                ShowMoreRooms, ToggleDeveloperMode, ShowHelpersPanel, ToggleTalkTyping, ShowLooksPanel);
             helpersPanel = new HelpersPanel(Tray("Helpers Panel", false, 500), ShowSettings, ToggleHelper, ToggleTestHelpers);
-            journal = new JournalPanel(Tray("Journal Panel", false, JournalPanel.PetHeight), CloseJournal, nursery.PhotoSprite);
+            looksPanel = new LooksPanel(Tray("Looks Panel", false, LooksPanel.Height), ShowSettings, ToggleTestPack);
+            journal = new JournalPanel(Tray("Journal Panel", false, JournalPanel.PetHeight), CloseJournal,
+                (look, stage, rest) => nursery.PhotoSprite(ShownLook(look), stage, rest));
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
         }
 
@@ -44,6 +46,7 @@ namespace BAIby.Presentation
             moreRooms.Root.SetActive(view == HouseholdView.MoreRooms);
             settings.Root.SetActive(view == HouseholdView.Settings);
             helpersPanel.Root.SetActive(view == HouseholdView.Helpers);
+            looksPanel.Root.SetActive(view == HouseholdView.Looks);
             journal.Root.SetActive(view == HouseholdView.Journal);
             wakePanel.Root.SetActive(view == HouseholdView.Wake);
         }
@@ -57,6 +60,7 @@ namespace BAIby.Presentation
                 case HouseholdView.MoreRooms: return moreRooms.Feedback;
                 case HouseholdView.Settings: return settings.Feedback;
                 case HouseholdView.Helpers: return helpersPanel.Feedback;
+                case HouseholdView.Looks: return looksPanel.Feedback;
                 case HouseholdView.Journal: return journal.Feedback;
                 case HouseholdView.Wake: return wakePanel.Feedback;
                 case HouseholdView.Choose: return choice.Feedback;
@@ -88,15 +92,29 @@ namespace BAIby.Presentation
                     break;
                 case HouseholdView.Nursery:
                     if (household.Active?.Session != session)
+                    {
                         ShowHome();
+                    }
                     else
+                    {
                         UpdatePanelVisibility(session?.State != null);
+                        // A grant shows a premium look again; a refund shows the free default and keeps the choice.
+                        RefreshCosmetics();
+                    }
                     break;
                 case HouseholdView.PetRoom:
                     if (household.Active == null || household.Active.Slot != petSlot || household.Active.PetSession == null)
+                    {
                         ShowHome();
+                    }
                     else
+                    {
                         UpdateHouseholdChips(true);
+                        RefreshCosmetics();
+                    }
+                    break;
+                case HouseholdView.Looks:
+                    looksPanel.Show(Owned, playtest);
                     break;
                 case HouseholdView.PetAdoption:
                     // A grant or refund can lock or unlock a premium breed in the picker.
@@ -382,7 +400,7 @@ namespace BAIby.Presentation
 
         private sealed class SettingsPanel
         {
-            public const float Height = 560;
+            public const float Height = 596;
 
             private readonly Text detail;
             private readonly Text typingLabel;
@@ -395,7 +413,7 @@ namespace BAIby.Presentation
             private readonly Text developerLabel;
 
             public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper,
-                Action helpers, Action toggleTyping)
+                Action helpers, Action toggleTyping, Action looks)
             {
                 Root = content.parent.gameObject;
                 var heading = Label("Settings Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
@@ -413,16 +431,20 @@ namespace BAIby.Presentation
                 detail.resizeTextMaxSize = 23;
                 PlaceFromTop(detail.rectTransform, 0, 1, 88, 200);
 
-                var restoreButton = ActionButton("Restore purchases", content, 0, 0.38f, 0, 0, restore, Fern, Color.white);
-                PlaceFromTop((RectTransform)restoreButton.transform, 0, 0.38f, 212, 296, 3, 3);
-                var roomsButton = ActionButton("Settings more rooms", content, 0.38f, 0.69f, 0, 0, moreRooms, Mist, Ink);
+                var restoreButton = ActionButton("Restore purchases", content, 0, 0.5f, 0, 0, restore, Fern, Color.white);
+                PlaceFromTop((RectTransform)restoreButton.transform, 0, 0.5f, 208, 284, 3, 3);
+                var roomsButton = ActionButton("Settings more rooms", content, 0.5f, 1, 0, 0, moreRooms, Mist, Ink);
                 roomsButton.GetComponentInChildren<Text>().text = "More rooms";
-                PlaceFromTop((RectTransform)roomsButton.transform, 0.38f, 0.69f, 212, 296, 3, 3);
+                PlaceFromTop((RectTransform)roomsButton.transform, 0.5f, 1, 208, 284, 3, 3);
                 // Switch each owned helper on or off for the household; nothing here sells them.
-                var helpersButton = ActionButton("Settings helpers", content, 0.69f, 1, 0, 0, helpers, Mist, Ink);
+                var helpersButton = ActionButton("Settings helpers", content, 0, 0.5f, 0, 0, helpers, Mist, Ink);
                 helpersButton.GetComponentInChildren<Text>().text = "Helpers";
-                PlaceFromTop((RectTransform)helpersButton.transform, 0.69f, 1, 212, 296, 3, 3);
-                foreach (var button in new[] { restoreButton, roomsButton, helpersButton })
+                PlaceFromTop((RectTransform)helpersButton.transform, 0, 0.5f, 292, 368, 3, 3);
+                // The look packs, room themes and pet wear, with what is inside each; nothing here sells them either.
+                var looksButton = ActionButton("Settings looks", content, 0.5f, 1, 0, 0, looks, Mist, Ink);
+                looksButton.GetComponentInChildren<Text>().text = "Looks & rooms";
+                PlaceFromTop((RectTransform)looksButton.transform, 0.5f, 1, 292, 368, 3, 3);
+                foreach (var button in new[] { restoreButton, roomsButton, helpersButton, looksButton })
                 {
                     var label = button.GetComponentInChildren<Text>();
                     label.resizeTextForBestFit = true;
@@ -438,7 +460,7 @@ namespace BAIby.Presentation
                 typingLabel.resizeTextForBestFit = true;
                 typingLabel.resizeTextMinSize = 16;
                 typingLabel.resizeTextMaxSize = 24;
-                PlaceFromTop((RectTransform)typing.transform, 0, 1, 306, 380, 3, 3);
+                PlaceFromTop((RectTransform)typing.transform, 0, 1, 376, 446, 3, 3);
                 SoftShapes.Round(typing.image, 1f);
 
                 // Developer mode: test builds only (the button stays hidden when there is no playtest toggle).
@@ -447,7 +469,7 @@ namespace BAIby.Presentation
                 developerLabel.resizeTextForBestFit = true;
                 developerLabel.resizeTextMinSize = 16;
                 developerLabel.resizeTextMaxSize = 24;
-                PlaceFromTop((RectTransform)developer.transform, 0, 1, 390, 464, 3, 3);
+                PlaceFromTop((RectTransform)developer.transform, 0, 1, 454, 524, 3, 3);
                 SoftShapes.Round(developer.image, 1f);
                 developer.gameObject.SetActive(false);
 
@@ -456,7 +478,7 @@ namespace BAIby.Presentation
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 15;
                 Feedback.resizeTextMaxSize = 21;
-                PlaceFromTop(Feedback.rectTransform, 0, 1, 472, 544);
+                PlaceFromTop(Feedback.rectTransform, 0, 1, 530, 592);
                 Root.SetActive(false);
             }
 

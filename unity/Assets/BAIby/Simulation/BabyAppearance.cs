@@ -6,8 +6,15 @@ namespace BAIby.Simulation
     public enum SkinTone { Warm = 0, Fair = 1, Light = 2, Tan = 3, Brown = 4, Deep = 5 }
     public enum HairColor { Chestnut = 0, Black = 1, Espresso = 2, Auburn = 3, Honey = 4, Platinum = 5 }
     public enum HairStyle { Curls = 0, Coils = 1, Smooth = 2, Tuft = 3 }
-    public enum Outfit { Sage = 0, Oat = 1, Sky = 2, Blush = 3, Butter = 4, Lilac = 5, Terracotta = 6, Midnight = 7 }
-    public enum Headwear { None = 0, Bow = 1, BearBeanie = 2, BucketHat = 3, DaisyClip = 4 }
+    public enum Outfit
+    {
+        Sage = 0, Oat = 1, Sky = 2, Blush = 3, Butter = 4, Lilac = 5, Terracotta = 6, Midnight = 7,
+        // Look packs (Application/Entitlements/CosmeticCatalog): Cozy knits, Garden party, then the Founder pack.
+        OatmealKnit = 8, BerryKnit = 9, MossKnit = 10, FogKnit = 11,
+        Rosebud = 12, Marigold = 13, GardenMint = 14, Bluebell = 15,
+        FernGold = 16
+    }
+    public enum Headwear { None = 0, Bow = 1, BearBeanie = 2, BucketHat = 3, DaisyClip = 4, PomBeanie = 5, SunHat = 6 }
 
     // The baby's chosen look. It has no effect on care rules or growth.
     public sealed class BabyAppearance : IEquatable<BabyAppearance>

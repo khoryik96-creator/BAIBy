@@ -13,6 +13,7 @@ Sheets:
   coats.png    every coat of every breed (Young and Grown awake), cycling the breed's allowed eye colours
   rest.png     every breed's rest poses with alternate coats
   collar.png   collar accessory with the baby outfit accent palette (palette COLLAR_ACCENTS overrides)
+  wear.png     collar, bandana and bow on every pose, in free and pack colours ("Cat bandanas & bows")
   raw.png      unrecoloured base + overlays and their region maps (debug)
   nursery.png  each pose on the nursery backdrop beside the Sitter baby, cat at layout runtimeScale
   detail.png   three cats at 1:1 for close inspection
@@ -55,7 +56,7 @@ class Cat:
         self.refs = [tuple(r["coat"]), tuple(r["markings"]), tuple(r["eyes"]), tuple(r["accent"])]
         self.overlays = {o["path"]: o for o in self.layout["overlays"]}
 
-    def layers(self, pose, breed=None, collar=False, dark_targets=None):
+    def layers(self, pose, breed=None, collar=False, dark_targets=None, wear="Collar"):
         """Composite base -> markings -> (Calico) dark patches -> collar.  Overlays with
         gTarget "dark" are recoloured on their own with ``dark_targets`` first and then
         composited with zero region weights; without targets they stay raw."""
@@ -67,7 +68,7 @@ class Cat:
             paths += [p for p, o in self.overlays.items()
                       if o["pose"] == pose and p.startswith(f"Markings/{breed}/") and o.get("gTarget") == "dark"]
         if collar:
-            paths.append(f"Accessories/Collar/{pose}")
+            paths.append(f"Accessories/{wear}/{pose}")
         for p in paths:
             o = self.overlays[p]
             oi = load(CAT / f"{p}.bytes")
@@ -78,7 +79,7 @@ class Cat:
             img, reg = baby.composite(img, reg, oi, orr, o["x"], o["y"])
         return img, reg
 
-    def draw(self, pose, breed="DomesticShorthair", coat=None, eyes=None, collar=None):
+    def draw(self, pose, breed="DomesticShorthair", coat=None, eyes=None, collar=None, wear="Collar"):
         coat = coat or next(iter(COATS[breed]))
         main, sec, dark = coat_colors(breed, coat)
         eye = EYES[eyes or DEFAULT_EYES[breed]]
@@ -86,7 +87,7 @@ class Cat:
             accent = COLLAR_ACCENTS[collar]
         else:
             accent = baby.OUTFIT[collar][1] if collar and baby.OUTFIT[collar] else self.refs[3]
-        img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent])
+        img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
         out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
         return Image.fromarray(out, "RGBA")
 
@@ -160,6 +161,14 @@ def main():
         p = POSES[i % 4]
         cells.append((cat.draw(p, b, collar=name), f"Collar {name} / {b}"))
     grid(cells, 4, 350, 340, 0.5, "Collar accessory (region A) with the outfit accent palette").save(out / "collar.png")
+
+    cells = []
+    colours = ["Sky", "Butter", "Lilac", "Terracotta"]
+    for i, p in enumerate(POSES):
+        for j, wear in enumerate(("Collar", "Bandana", "Bow")):
+            colour = colours[(i + j) % len(colours)]
+            cells.append((cat.draw(p, breeds[(i + j) % len(breeds)], collar=colour, wear=wear), f"{wear} {colour} / {p}"))
+    grid(cells, 3, 350, 340, 0.5, "Neck wear: collar (free), bandana and bow (Cat bandanas & bows)").save(out / "wear.png")
 
     cells = []
     for p in POSES:

@@ -129,6 +129,22 @@
    "height": 78
   },
   {
+   "path": "Headwear/PomBeanie/Newborn",
+   "pose": "Newborn",
+   "x": 14,
+   "y": 3,
+   "width": 361,
+   "height": 256
+  },
+  {
+   "path": "Headwear/SunHat/Newborn",
+   "pose": "Newborn",
+   "x": 5,
+   "y": 3,
+   "width": 350,
+   "height": 209
+  },
+  {
    "path": "Hair/Curls/NewbornRest",
    "pose": "NewbornRest",
    "x": 4,
@@ -191,6 +207,22 @@
    "y": 31,
    "width": 102,
    "height": 76
+  },
+  {
+   "path": "Headwear/PomBeanie/NewbornRest",
+   "pose": "NewbornRest",
+   "x": 11,
+   "y": 3,
+   "width": 354,
+   "height": 265
+  },
+  {
+   "path": "Headwear/SunHat/NewbornRest",
+   "pose": "NewbornRest",
+   "x": 5,
+   "y": 3,
+   "width": 355,
+   "height": 221
   },
   {
    "path": "Hair/Curls/Sitter",
@@ -257,6 +289,22 @@
    "height": 89
   },
   {
+   "path": "Headwear/PomBeanie/Sitter",
+   "pose": "Sitter",
+   "x": 31,
+   "y": 3,
+   "width": 356,
+   "height": 226
+  },
+  {
+   "path": "Headwear/SunHat/Sitter",
+   "pose": "Sitter",
+   "x": 6,
+   "y": 3,
+   "width": 396,
+   "height": 176
+  },
+  {
    "path": "Hair/Curls/SitterRest",
    "pose": "SitterRest",
    "x": 0,
@@ -319,6 +367,22 @@
    "y": 59,
    "width": 96,
    "height": 85
+  },
+  {
+   "path": "Headwear/PomBeanie/SitterRest",
+   "pose": "SitterRest",
+   "x": 30,
+   "y": 3,
+   "width": 351,
+   "height": 244
+  },
+  {
+   "path": "Headwear/SunHat/SitterRest",
+   "pose": "SitterRest",
+   "x": 4,
+   "y": 3,
+   "width": 401,
+   "height": 189
   },
   {
    "path": "Hair/Curls/Crawler",
@@ -385,6 +449,22 @@
    "height": 75
   },
   {
+   "path": "Headwear/PomBeanie/Crawler",
+   "pose": "Crawler",
+   "x": 130,
+   "y": 2,
+   "width": 361,
+   "height": 277
+  },
+  {
+   "path": "Headwear/SunHat/Crawler",
+   "pose": "Crawler",
+   "x": 132,
+   "y": 3,
+   "width": 370,
+   "height": 228
+  },
+  {
    "path": "Hair/Curls/CrawlerRest",
    "pose": "CrawlerRest",
    "x": 163,
@@ -447,6 +527,22 @@
    "y": 88,
    "width": 75,
    "height": 107
+  },
+  {
+   "path": "Headwear/PomBeanie/CrawlerRest",
+   "pose": "CrawlerRest",
+   "x": 251,
+   "y": 2,
+   "width": 319,
+   "height": 251
+  },
+  {
+   "path": "Headwear/SunHat/CrawlerRest",
+   "pose": "CrawlerRest",
+   "x": 259,
+   "y": 3,
+   "width": 314,
+   "height": 218
   },
   {
    "path": "Hair/Curls/Walker",
@@ -513,6 +609,22 @@
    "height": 74
   },
   {
+   "path": "Headwear/PomBeanie/Walker",
+   "pose": "Walker",
+   "x": 18,
+   "y": 2,
+   "width": 353,
+   "height": 247
+  },
+  {
+   "path": "Headwear/SunHat/Walker",
+   "pose": "Walker",
+   "x": 5,
+   "y": 2,
+   "width": 372,
+   "height": 201
+  },
+  {
    "path": "Hair/Curls/WalkerRest",
    "pose": "WalkerRest",
    "x": 202,
@@ -575,6 +687,22 @@
    "y": 96,
    "width": 73,
    "height": 105
+  },
+  {
+   "path": "Headwear/PomBeanie/WalkerRest",
+   "pose": "WalkerRest",
+   "x": 311,
+   "y": 2,
+   "width": 305,
+   "height": 249
+  },
+  {
+   "path": "Headwear/SunHat/WalkerRest",
+   "pose": "WalkerRest",
+   "x": 332,
+   "y": 3,
+   "width": 284,
+   "height": 234
   }
  ]
 }

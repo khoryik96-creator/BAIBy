@@ -1,4 +1,5 @@
-"""Procedurally drawn headwear overlays: Bow, BearBeanie, BucketHat, DaisyClip.
+"""Procedurally drawn headwear overlays: Bow, BearBeanie, BucketHat, DaisyClip, and the look-pack hats
+PomBeanie (Cozy knits) and SunHat (Garden party).
 
 Drawn in each pose's head-local frame. Hats are sized per pose so that they
 cover every hair style above the brim (hair is composited below headwear);
@@ -268,7 +269,9 @@ def bucket_brim_top(u):
 
 # hair above these curves (around the crown) must be hidden by the hat
 COVER_LINES = {"BearBeanie": lambda u: beanie_brim(u) + 0.12,
-               "BucketHat": lambda u: bucket_brim_top(u) - 0.02}
+               "BucketHat": lambda u: bucket_brim_top(u) - 0.02,
+               "PomBeanie": lambda u: beanie_brim(u) + 0.12,
+               "SunHat": lambda u: bucket_brim_top(u) - 0.02}
 
 def bear_beanie(ctx):
     fr = hat_frame(ctx); ref = ctx["ref"]
@@ -562,7 +565,196 @@ def daisy_clip(ctx):
     return cv.result()
 
 
-FUNCS = {"Bow": bow, "BearBeanie": bear_beanie, "BucketHat": bucket_hat, "DaisyClip": daisy_clip}
+# ------------------------------------------------- Pom-pom beanie (Cozy knits)
+
+def fuzzy_disc(cv, cu, cv_, r, lobes=11, amp=0.07, phase=0.3):
+    """A pom-pom: a disc with a soft scalloped (yarn-tuft) edge."""
+    pts = [(cu + r * (1 + amp * math.sin(lobes * t + phase)) * math.cos(t),
+            cv_ + r * (1 + amp * math.sin(lobes * t + phase)) * math.sin(t))
+           for t in np.linspace(0, 2 * math.pi, 120)]
+    return cv.polygon(pts)
+
+
+def pom_beanie(ctx):
+    """A knit beanie with a fold-up rib band, a knit stripe in the outfit's main colour
+    and a yarn pom-pom on top (main colour); the body is the bear beanie's."""
+    fr = hat_frame(ctx); ref = ctx["ref"]
+    A = ref["accent"]; M = ref["main"]
+
+    brim = beanie_brim
+    fr, prof = fit_hat(fr, ctx["hair_union"], COVER_LINES["PomBeanie"], ctx["shape"])
+    cv = Canvas(fr, ctx["shape"])
+    prof = cover_crown(cv, fr, prof, ctx["hair_union"], COVER_LINES["PomBeanie"])
+    dome = dome_mask(cv, fr, prof) & (cv.V > brim(cv.U) + 0.10)
+    big = prof + 0.035
+    ub = 0.0
+    for uu in np.linspace(0, 2.2, 221):
+        vv = float(brim(uu)) + 0.125
+        phi = math.degrees(math.atan2(vv / fr.top, uu)) % 360
+        if fr.skull_radius(uu, vv) < big[int(phi * NB / 360) % NB]:
+            ub = uu
+    ub -= 0.09
+
+    def make_band(ub):
+        m = (cv.V > brim(cv.U)) & (cv.V < brim(cv.U) + 0.25) & (np.abs(cv.U) < ub)
+        for s in (-1, 1):
+            m |= cv.ellipse(s * ub, float(brim(ub)) + 0.125, 0.10, 0.125, -s * math.degrees(math.atan(0.6 * ub)))
+        return m
+
+    band = make_band(ub)
+    while cv.touches_border(band, 3) and ub > 0.7:
+        ub -= 0.03
+        band = make_band(ub)
+
+    # the pom-pom sits on the crown; where the image is too tight above the head it
+    # slides down the dome and, if need be, shrinks and tucks onto the dome
+    # it is drawn in front of the dome, so it may sink into the crown where the image is tight
+    pom = None
+    for rad in (0.25, 0.22, 0.19):
+        for lift in (0.55, 0.35, 0.15, -0.05, -0.25, -0.45, -0.65, -0.85, -1.05):
+            for deg in (90, 84, 96, 78, 102):
+                u, v = dome_point(fr, prof, deg)
+                n = math.radians(deg)
+                ou, ov = u + rad * lift * math.cos(n), v + rad * lift * math.sin(n)
+                m = fuzzy_disc(cv, ou, ov, rad)
+                if not cv.touches_border(m, 3):
+                    pom = (ou, ov, rad, m)
+                    break
+            if pom:
+                break
+        if pom:
+            break
+
+    outline_fill(cv, dome, ref, A, ACCENT)
+    d_in = dome & ~cv.outline_band(dome, LINE_PX)
+    sh = d_in & (fr.skull_radius(cv.U + 0.18, cv.V + 0.05) > prof.mean() - 0.02)
+    cv.paint(sh, shade(A, 0.86), ACCENT)
+    w = DETAIL_PX / fr.rx
+    # a knit stripe in the outfit's main colour round the dome above the band, with
+    # a row of little knit "v" stitches in the accent colour
+    s0 = lambda u: brim(u) + 0.36
+    s1 = lambda u: brim(u) + 0.52
+    stripe = d_in & (cv.V > s0(cv.U)) & (cv.V < s1(cv.U))
+    cv.paint(stripe, M, MAIN)
+    for edge in (s0, s1):
+        line = cv.stroke([(u, edge(u)) for u in np.linspace(-1.7, 1.7, 80)], w * 0.9, w * 0.9) & d_in
+        cv.paint(line, shade(A, 0.80), ACCENT)
+    for k in np.arange(-1.6, 1.61, 0.16):
+        mid = (s0(k) + s1(k)) / 2
+        vv = cv.stroke([(k - 0.045, mid + 0.035), (k, mid - 0.03), (k + 0.045, mid + 0.035)], w * 0.8, w * 0.8)
+        cv.paint(vv & stripe, shade(A, 0.95), ACCENT)
+    # soft vertical knit ribs above and below the stripe
+    for k in np.linspace(-0.88, 0.88, 11):
+        top = dome_point(fr, prof, 90 - k * 62)
+        pts = bezier((k * 1.05, brim(k * 1.05) + 0.26), (k * 1.10, 0.95), (top[0] * 0.90, top[1] * 0.90), n=30)
+        rib = cv.stroke(pts, 0, 0, taper=lambda t: w * (1.0 - 0.55 * t)) & d_in & ~stripe
+        cv.paint(rib, shade(A, 0.82), ACCENT, opacity=0.85)
+    lit = d_in & ~stripe & (fr.skull_radius(cv.U + 0.25, cv.V - 0.05) < prof.mean() - 0.30)
+    cv.paint(lit, shade(A, 1.04), ACCENT, opacity=0.6)
+    # rib band (fold-up cuff)
+    outline_fill(cv, band, ref, shade(A, 0.95), ACCENT)
+    b_in = band & ~cv.outline_band(band, LINE_PX)
+    for k in np.arange(-1.6, 1.61, 0.115):
+        pts = [(k, brim(k) + 0.03), (k * 1.03, brim(k) + 0.22)]
+        cv.paint(cv.stroke(pts, w * 0.9, w * 0.9) & b_in, shade(A, 0.78), ACCENT)
+    cv.paint(b_in & (cv.V < brim(cv.U) + 0.07), shade(A, 0.82), ACCENT, opacity=0.6)
+    # the pom-pom: main colour, a cel shadow on the far side and a few yarn tufts
+    if pom is not None:
+        ou, ov, rad, m = pom
+        outline_fill(cv, m, ref, M, MAIN)
+        p_in = m & ~cv.outline_band(m, LINE_PX)
+        cv.paint(p_in & ((cv.U - ou + 0.10) ** 2 + (cv.V - ov - 0.08) ** 2 > (rad * 0.92) ** 2), shade(M, 0.84), MAIN)
+        for k in range(7):
+            a = 2 * math.pi * k / 7 + 0.5
+            r0, r1 = rad * 0.25, rad * 0.62
+            tuft = cv.stroke([(ou + r0 * math.cos(a), ov + r0 * math.sin(a)),
+                              (ou + r1 * math.cos(a + 0.25), ov + r1 * math.sin(a + 0.25))], 0, 0,
+                             taper=lambda t: w * 0.9 * math.sin(math.pi * max(t, 0.05)))
+            cv.paint(tuft & p_in, shade(M, 0.78), MAIN)
+    return cv.result()
+
+
+# ------------------------------------------------------ Sun hat (Garden party)
+
+STRAW = np.array([238.0, 210.0, 148.0])
+ROSE = np.array([240.0, 150.0, 160.0])
+LEAF = np.array([150.0, 176.0, 112.0])
+
+
+def sun_hat(ctx):
+    """A straw sun hat: a rounded crown on a wide, flat brim seen from just below eye
+    level (the brim's back half shows behind the crown), a ribbon band in the outfit
+    accent and a small rose on the side. Straw, rose and leaf keep their own colours."""
+    fr = hat_frame(ctx); ref = ctx["ref"]
+    A = ref["accent"]
+    vb = BUCKET_VB
+    fr, prof = fit_hat(fr, ctx["hair_union"], COVER_LINES["SunHat"], ctx["shape"], margin=0.04)
+    cv = Canvas(fr, ctx["shape"])
+    prof = cover_crown(cv, fr, prof, ctx["hair_union"], COVER_LINES["SunHat"])
+    half = 0.0
+    for uu in np.linspace(0, 2.0, 201):
+        k = fr.skull_radius(uu, vb)
+        phi = math.degrees(math.atan2(vb / fr.top, uu)) % 360
+        if k < prof[int(phi * NB / 360) % NB]:
+            half = uu
+    vc = vb + 0.04          # brim centre line (where the crown sits)
+    rb = 0.25               # brim depth (half height of the brim ellipse)
+
+    def droop(u, Wb):
+        return 0.10 * np.clip(np.asarray(u) / Wb, -1, 1) ** 2
+
+    def make_brim(Wb):
+        pts = [(Wb * math.cos(t), vc + rb * math.sin(t) - float(droop(Wb * math.cos(t), Wb)))
+               for t in np.linspace(0, 2 * math.pi, 160)]
+        return cv.polygon(pts)
+
+    Wb = half + 0.46
+    brim = make_brim(Wb)
+    while cv.touches_border(brim, 4) and Wb > half + 0.12:
+        Wb -= 0.02
+        brim = make_brim(Wb)
+    brim = inside_image(cv, brim, margin_px=4.0, round_px=9.0)
+    crown = dome_mask(cv, fr, prof) & (cv.V > vc + 0.01 - droop(cv.U, Wb))
+    w = DETAIL_PX / fr.rx
+    # brim first (its back half shows behind the crown), with concentric straw rows
+    outline_fill(cv, brim, ref, STRAW, FIXED)
+    b_in = brim & ~cv.outline_band(brim, LINE_PX)
+    for f in (0.45, 0.72):
+        pts = [(Wb * f * math.cos(t), vc + rb * f * math.sin(t) - float(droop(Wb * f * math.cos(t), Wb)))
+               for t in np.linspace(math.pi * 1.04, math.pi * 1.96, 90)]
+        cv.paint(cv.stroke(pts, w * 0.8, w * 0.8) & b_in, shade(STRAW, 0.80), FIXED)
+    under = b_in & (cv.V < vc - rb * 0.55 - droop(cv.U, Wb))
+    cv.paint(under, shade(STRAW, 0.90), FIXED)
+    # crown over the brim's back half; woven straw texture and a cel shadow
+    outline_fill(cv, crown, ref, STRAW, FIXED)
+    c_in = crown & ~cv.outline_band(crown, LINE_PX)
+    cv.paint(c_in & (fr.skull_radius(cv.U + 0.18, cv.V + 0.04) > prof.mean() - 0.01), shade(STRAW, 0.88), FIXED)
+    for k in np.arange(-1.5, 1.51, 0.14):
+        top = dome_point(fr, prof - 0.08, 90 - k * 55)
+        pts = bezier((k, vc + 0.05), (k * 1.05, vc + 0.30), (top[0], top[1]), n=24)
+        cv.paint(cv.stroke(pts, 0, 0, taper=lambda t: w * 0.75 * (1 - 0.5 * t)) & c_in, shade(STRAW, 0.82), FIXED)
+    # ribbon band in the outfit accent, with a little rose where it meets the brim
+    ribbon = c_in & (cv.V < vc + 0.20 - droop(cv.U, Wb))
+    cv.paint(ribbon, A, ACCENT)
+    cv.paint(ribbon & (cv.V < vc + 0.08 - droop(cv.U, Wb)), shade(A, 0.85), ACCENT)
+    edge = [(u, vc + 0.20 - float(droop(u, Wb))) for u in np.linspace(-1.7, 1.7, 80)]
+    cv.paint(cv.stroke(edge, w, w) & c_in, ref["outline"], FIXED)
+    side = 1 if fr.h["tilt"] < 15 else -1
+    ru = side * min(half * 0.72, Wb - 0.25)
+    rv = vc + 0.11 - float(droop(ru, Wb))
+    leaf = cv.ellipse(ru + side * 0.18, rv - 0.04, 0.14, 0.065, side * -20)
+    outline_fill(cv, leaf, ref, LEAF, FIXED, LINE_PX * 0.7)
+    rose = fuzzy_disc(cv, ru, rv, 0.15, lobes=5, amp=0.10, phase=0.0)
+    outline_fill(cv, rose, ref, ROSE, FIXED, LINE_PX * 0.75)
+    r_in = rose & ~cv.outline_band(rose, LINE_PX * 0.75)
+    swirl = [(ru + 0.085 * (1 - t * 0.7) * math.cos(5.5 * t + 1.0), rv + 0.085 * (1 - t * 0.7) * math.sin(5.5 * t + 1.0))
+             for t in np.linspace(0, 1, 40)]
+    cv.paint(cv.stroke(swirl, w * 0.7, w * 0.5) & r_in, shade(ROSE, 0.70), FIXED)
+    return cv.result()
+
+
+FUNCS = {"Bow": bow, "BearBeanie": bear_beanie, "BucketHat": bucket_hat, "DaisyClip": daisy_clip,
+         "PomBeanie": pom_beanie, "SunHat": sun_hat}
 
 
 def draw(kind, ctx):
