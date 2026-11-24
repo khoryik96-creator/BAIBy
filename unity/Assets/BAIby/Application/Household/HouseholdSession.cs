@@ -236,14 +236,25 @@ namespace BAIby.Application
         // current pet of the species shows.
         public SpeciesGoalProgress ProgressFor(Species species) => RecordFor(species).Progress;
 
+        // Developer mode (Web, Editor and Development builds only): earned breeds count as earned. It is never
+        // saved, so the household's real progress is untouched; premium breeds still come from entitlements,
+        // which developer mode grants separately.
+        public bool UnlockEarnedBreeds { get; set; }
+
         // Owned or earned, whether or not the art has shipped.
         public bool IsBreedUnlocked(PetBreed breed) =>
-            PetUnlocks.IsUnlocked(pets.Catalog, breed, ProgressFor(PetIds.SpeciesOf(breed)), OwnedProducts());
+            PetUnlocks.IsUnlocked(pets.Catalog, breed, UnlockProgress(PetIds.SpeciesOf(breed)), OwnedProducts());
 
         // Unlocked and its art is available now.
         public bool CanAdoptBreed(PetBreed breed) =>
             PetIds.IsDefined(breed) && pets.Catalog.TryGet(breed, out _) &&
-            PetUnlocks.CanAdopt(pets.Catalog, breed, ProgressFor(PetIds.SpeciesOf(breed)), OwnedProducts());
+            PetUnlocks.CanAdopt(pets.Catalog, breed, UnlockProgress(PetIds.SpeciesOf(breed)), OwnedProducts());
+
+        // Every goal met while developer mode unlocks earned breeds; otherwise the household's real progress.
+        private SpeciesGoalProgress UnlockProgress(Species species) =>
+            UnlockEarnedBreeds ? EveryGoalMet : ProgressFor(species);
+
+        private static readonly SpeciesGoalProgress EveryGoalMet = new SpeciesGoalProgress(int.MaxValue, 100, true, int.MaxValue);
 
         // Cares for a pet: time and care commit in one record write. Care that counts toward the species'
         // care day is saved in the manifest, and earned breeds unlocked by it are returned once.

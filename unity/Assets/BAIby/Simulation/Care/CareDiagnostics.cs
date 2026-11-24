@@ -37,6 +37,8 @@ namespace BAIby.Simulation
         WashLate = 27,
         WashExcused = 28,
         WashOutsideWindow = 29,
+        DoctorVisited = 30,
+        MedicineDose = 31,
     }
 
     // Developer read-outs of the care ledger. Never shown to players.
@@ -76,6 +78,8 @@ namespace BAIby.Simulation
                 case CareReason.WashLate: return "wash late";
                 case CareReason.WashExcused: return "wash in an excused window";
                 case CareReason.WashOutsideWindow: return "wash outside the window";
+                case CareReason.DoctorVisited: return "visited the doctor";
+                case CareReason.MedicineDose: return "medicine dose with a meal";
                 default: throw new ArgumentOutOfRangeException(nameof(reason));
             }
         }
@@ -119,6 +123,15 @@ namespace BAIby.Simulation
                 .Append(" mess ").Append(record.Mess.ToString(invariant))
                 .Append(record.Style == CareStyle.Standard ? "" : " " + record.Style)
                 .Append(record.IsAway ? " away" : "")
+                .Append(" | ").Append(record.Condition)
+                .Append(record.ConditionCause == CareConditionCause.None ? "" : " (" + record.ConditionCause + ")")
+                .Append(record.Condition == CareCondition.UnderTheWeather
+                    ? " " + record.UnwellTime.TotalHours.ToString("0.0", invariant) + "h in " +
+                      record.UnwellSessions.ToString(invariant) + " visits"
+                    : "")
+                .Append(record.Condition == CareCondition.Recovering
+                    ? " doses " + record.MedicineDoses.ToString(invariant) + "/" + tunables.RecoveryDoses.ToString(invariant)
+                    : "")
                 .Append(" | ").Append(Describe(record.LastReason));
             return line.ToString();
         }

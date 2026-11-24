@@ -7,6 +7,7 @@ BAIby is a virtual baby raising game. The Android and iOS restart focuses on a c
 - [Mobile architecture](docs/architecture.md)
 - [Regression guardrails](docs/regression.md)
 - [Nursery playtest checklist](docs/playtest.md)
+- [Interface style](docs/interface-style.md)
 - [Original browser prototype](legacy/BAIby_v5.3.html) — download and open locally in a browser.
 
 Run the browser baseline and assembly checks with Node.js 22 using `node --test tests/*.test.mjs`.
@@ -28,11 +29,11 @@ gh run download RUN_ID --name baiby-web --dir build/Web
 python3 tools/check-web-build.py build/Web
 ```
 
-Open port **8000** to play: the front page goes straight to `/nursery/`. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
+Open port **8000** to play: the front page goes straight to `/nursery/`. To try everything without locks, open **Home → Grown-ups** and turn on **Developer mode** (or add `?dev=1` to the address): every room, premium breed and earned breed opens. Test builds only. If using a downloaded zip, extract it so that `build/Web/index.html` exists.
 
 ## Mobile restart development
 
-Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash up menu, and both toys, and use **Preview next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → + Adopt**) to raise a cat with placeholder art; see the [cat playtest](docs/playtest.md#cats-p1).
+Open the `unity/` folder with the Editor version listed in [ProjectVersion.txt](unity/ProjectSettings/ProjectVersion.txt). In Unity, open the Nursery scene and enter Play Mode. Choose **A baby** and adopt one, try Feed, Soothe, Rest, the Wash menu, and both toys (Rattle and Plush), and use **Next day** to exercise the first milestone. Open **Style** to change the baby's skin tone, hair, outfit, and headwear. Choose **A pet** instead (or from **Home → Adopt**) to raise a cat with placeholder art; see the [cat playtest](docs/playtest.md#cats-p1).
 
 Install the Web Build Support module for the pinned Editor to export a browser build. From the repository root, run:
 

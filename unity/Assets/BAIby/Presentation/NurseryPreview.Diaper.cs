@@ -35,17 +35,19 @@ namespace BAIby.Presentation
             {
                 Root = content.parent.gameObject;
                 this.change = change;
-                Label("Diaper title", content, "Diaper cleanup", 29, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 331), Vector2.right, new Vector2(0, 370), FontStyle.Bold);
+                Label("Diaper title", content, "Diaper cleanup", 36, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 328), Vector2.right, new Vector2(0, 374), FontStyle.Bold);
                 Label("Diaper instructions", content, "Tap or swipe across all three spots.", 23, Secondary,
                     TextAnchor.MiddleLeft, new Vector2(0, 301), Vector2.right, new Vector2(0, 332));
                 mat = Box("Diaper wipe mat", content, Vector2.zero, Vector2.right,
                     new Vector2(0, 129), new Vector2(0, 298));
                 var image = Surface(mat, Mist);
+                SoftShapes.Radius(image, Px(20));
                 var illustration = Resources.Load<Sprite>("BAIby/Baby/CleanupMat");
                 if (illustration != null)
                 {
                     image.sprite = illustration;
+                    image.type = Image.Type.Simple;
                     image.color = Color.white;
                 }
                 else

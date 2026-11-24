@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using BAIby.Application;
 using BAIby.Character;
 using BAIby.Simulation;
@@ -10,12 +11,6 @@ namespace BAIby.Presentation
 {
     public sealed partial class NurseryPreview : MonoBehaviour
     {
-        private static readonly Color Ink = new Color32(43, 51, 44, 255);
-        private static readonly Color Secondary = new Color32(75, 85, 74, 255);
-        private static readonly Color Paper = new Color32(250, 247, 234, 255);
-        private static readonly Color Fern = new Color32(58, 89, 70, 255);
-        private static readonly Color Mist = new Color32(224, 232, 217, 255);
-
         // The active companion's session; the household owns and caches every companion's session.
         private BabySession session;
         private NurseryVisuals nursery;
@@ -59,7 +54,9 @@ namespace BAIby.Presentation
         private void Update()
         {
             FitSafeArea();
+            FitInterface();
             FitRoutineStrip();
+            FrameStage();
             if (Input.GetKeyDown(KeyCode.Escape))
                 GoBack();
 
@@ -267,7 +264,8 @@ namespace BAIby.Presentation
             var visibleToy = playedToy ?? ambientToy;
             nursery.Present(adopted, state?.CanSitAndReach ?? false, reaction, visibleToy, ambientToy,
                 canCrawl: state?.CanCrawl ?? false, food: food, canWalk: state?.CanWalk ?? false);
-            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0);
+            nursery.SetCondition(state?.Care.Mood ?? CareMood.Content, state?.Care.Mess ?? 0,
+                state?.Care.Condition ?? CareCondition.Well);
             // After Present, so the look is built first for the stage that is actually shown.
             ApplyBabyAppearance(state?.Appearance ?? BabyAppearance.Default);
 
@@ -277,21 +275,22 @@ namespace BAIby.Presentation
                 wake.text = "BAIby";
                 age.text = string.Empty;
                 favorite.text = string.Empty;
+                LayoutTopStack();
                 return;
             }
 
             title.text = state.Name;
-            wake.text = "NURSERY";
-            var days = (int)state.Age.TotalDays;
-            var stage = StageName(state);
-            age.text = days == 1 ? $"1 day old  ·  {stage}" : $"{days} days old  ·  {stage}";
+            // The day line sits where this label would; an adopted companion's header shows only the day line.
+            wake.text = string.Empty;
+            age.text = DayLine(state.Age, StageName(state));
+            careTitle.text = "Care for " + state.Name;
             favorite.text = state.FavoriteToy is Toy favored ? $"Favorite: {ToyName(favored)}" : string.Empty;
             satiety.Set(state.Satiety);
             comfort.Set(state.Comfort);
             energy.Set(state.Energy);
             health.Set(state.Health);
             cleanliness.Set(state.Cleanliness);
-            var reactionText = DescribeReaction(state.Name, reaction, visibleToy, food);
+            var reactionText = DescribeHealthReaction(state, reaction) ?? DescribeReaction(state.Name, reaction, visibleToy, food);
             if (unlocked.UnlockedWalking)
                 status.text = $"{state.Name} can take a few steps now. " +
                     (reaction == Reaction.None ? "Try offering a familiar toy." : reactionText);
@@ -310,7 +309,17 @@ namespace BAIby.Presentation
             development.UpdateDetails(state, age.text, status.text);
             report.UpdateDetails(BabyReport.From(state));
             feeding.UpdateDetails(state, status.text);
+            UpdateHealthControls(state, reaction, reactionText);
+            UpdateMood(state.Care.Mood);
+            LayoutTopStack();
+            LayoutCareSheet();
         }
+
+        // "Day 1" is the day a little one arrives.
+        private static string DayLine(TimeSpan age, string stage) => $"Day {(int)age.TotalDays + 1} · {stage}";
+
+        // The same, stage first, for Home cards: "Early sitter · Day 5".
+        private static string StageDay(string stage, TimeSpan age) => $"{stage} · Day {(int)age.TotalDays + 1}";
 
         private static string StageName(BabyState state)
         {
@@ -352,7 +361,7 @@ namespace BAIby.Presentation
         {
             const double low = 45;
             if (state.Health < low)
-                return $"{state.Name} seems under the weather and could use some care.";
+                return $"{state.Name} looks a little pale and could use some care.";
             if (state.Cleanliness < low)
                 return $"{state.Name} could use a fresh diaper.";
             if (state.Energy < low && state.Energy <= state.Satiety && state.Energy <= state.Comfort)
@@ -391,6 +400,8 @@ namespace BAIby.Presentation
                 feeding.Feedback.text = message;
             else if (development.Root.activeSelf)
                 development.Feedback.text = message;
+            else if (doctor.Root.activeSelf)
+                doctor.Feedback.text = message;
             else if (controls.activeSelf)
                 status.text = message;
             else
@@ -417,72 +428,33 @@ namespace BAIby.Presentation
             safeArea = Box("Safe Area", canvas.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             FitSafeArea();
 
-            var top = Tray("Header", true, 239);
-            header = top.parent.gameObject;
-            wake = Label("Header Label", top, "BAIby", 19, Fern, TextAnchor.MiddleLeft,
-                new Vector2(0, 195), new Vector2(1, 1), new Vector2(0, -15));
-            title = Label("Baby Name", top, "Your nursery", 48, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 135), new Vector2(0.56f, 1), new Vector2(0, -52), FontStyle.Bold);
-            title.resizeTextForBestFit = true;
-            title.resizeTextMinSize = 27;
-            title.resizeTextMaxSize = 48;
-            decorButton = ActionButton("Decor", top, 0.79f, 1, 143, 231, () => ShowPanel(NurseryPanel.Decor), Mist, Ink);
-            decorButton.gameObject.SetActive(false);
-            BuildStyleButton(top);
-            BuildHouseholdChips(top);
-            age = Label("Age", top, "", 22, Secondary, TextAnchor.MiddleLeft,
-                new Vector2(0, 108), new Vector2(1, 1), new Vector2(0, -101));
-            favorite = Label("Favorite Toy", top, "", 22, Fern, TextAnchor.MiddleRight,
-                new Vector2(0, 108), Vector2.one, new Vector2(0, -101));
-            satiety = Meter("Fullness", top, 0, 1f / 3, 61);
-            comfort = Meter("Comfort", top, 1f / 3, 2f / 3, 61);
-            energy = Meter("Energy", top, 2f / 3, 1, 61);
-            cleanliness = Meter("Cleanliness", top, 0, 0.5f, 12);
-            health = Meter("Health", top, 0.5f, 1, 12);
+            BuildHeader();
 
-            var starter = Tray("Welcome", false, 250);
+            var starter = Tray("Welcome", false, 300);
             welcome = starter.parent.gameObject;
-            Label("Prompt", starter, "What’s your baby’s name?", 29, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 165), new Vector2(0.72f, 1), new Vector2(0, -24), FontStyle.Bold);
-            backToHome = ActionButton("Back to home", starter, 0.73f, 1, 170, 230, ShowHome, Mist, Ink);
-            backToHome.GetComponentInChildren<Text>().fontSize = 21;
+            var prompt = Label("Prompt", starter, "What’s your baby’s name?", 36, Ink, TextAnchor.MiddleLeft,
+                new Vector2(0, 222), new Vector2(0.7f, 1), new Vector2(0, -6), FontStyle.Bold);
+            FitText(prompt, 26, 36);
+            backToHome = ActionButton("Back to home", starter, 0.72f, 1, 222, 294, ShowHome, Mist, Ink);
+            backToHome.GetComponentInChildren<Text>().text = "Home";
             backToHome.gameObject.SetActive(false);
-            var field = Box("Name", starter, Vector2.zero, Vector2.right, new Vector2(0, 104), new Vector2(0, 165));
+            var field = Box("Name", starter, Vector2.zero, Vector2.right, new Vector2(3, 126), new Vector2(-3, 210));
             nameField = field.gameObject.AddComponent<InputField>();
-            nameField.targetGraphic = Surface(field, Mist);
-            nameField.targetGraphic.raycastTarget = true;
+            nameField.targetGraphic = TextField(field);
             nameField.characterLimit = 28;
             nameField.lineType = InputField.LineType.SingleLine;
-            nameField.textComponent = Label("Entered Name", field, "", 28, Ink, TextAnchor.MiddleLeft,
-                new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
-            nameField.placeholder = Label("Placeholder", field, "Baby name", 28, Secondary,
-                TextAnchor.MiddleLeft, new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
-            adopt = ActionButton("Start raising", starter, 0, 1, 31, 94, Adopt, Fern, Color.white);
+            nameField.textComponent = Label("Entered Name", field, "", 30, Ink, TextAnchor.MiddleLeft,
+                new Vector2(26, 0), Vector2.one, new Vector2(-26, 0), FontStyle.Bold);
+            nameField.placeholder = Label("Placeholder", field, "Baby name", 30, Secondary,
+                TextAnchor.MiddleLeft, new Vector2(26, 0), Vector2.one, new Vector2(-26, 0));
+            adopt = ActionButton("Start raising", starter, 0, 1, 34, 114, Adopt, Fern, Color.white);
             adopt.interactable = false;
-            saveError = Label("Save Message", starter, "", 17, Ink, TextAnchor.MiddleLeft,
-                Vector2.zero, Vector2.right, new Vector2(0, 30));
+            saveError = Label("Save Message", starter, "", 20, Ink, TextAnchor.MiddleLeft,
+                Vector2.zero, Vector2.right, new Vector2(0, 32));
 
             var panel = Tray("Care", false, 378);
             controls = panel.parent.gameObject;
-            newSoundNotice = BuildNewSoundNotice(panel);
-            status = Label("Reaction", panel, "", 25, Ink, TextAnchor.MiddleLeft,
-                new Vector2(0, 283), Vector2.right, new Vector2(0, 365));
-            status.resizeTextForBestFit = true;
-            status.resizeTextMinSize = 19;
-            status.resizeTextMaxSize = 25;
-            feedButton = ActionButton("Feed", panel, 0, 1f / 3, 195, 283,
-                () => ShowPanel(NurseryPanel.Feeding), Fern, Color.white);
-            ActionButton("Soothe", panel, 1f / 3, 2f / 3, 195, 283, () => Care(CareAction.Soothe), Fern, Color.white);
-            ActionButton("Rest", panel, 2f / 3, 1, 195, 283, () => Care(CareAction.Rest), Fern, Color.white);
-            washUpButton = ActionButton("Wash up", panel, 0, 1f / 3, 99, 187,
-                () => ShowPanel(NurseryPanel.Hygiene), Fern, Color.white);
-            ActionButton("Play with rattle", panel, 1f / 3, 2f / 3, 99, 187,
-                () => Care(CareAction.Play, Toy.Rattle), Fern, Color.white);
-            ActionButton("Play with plush", panel, 2f / 3, 1, 99, 187,
-                () => Care(CareAction.Play, Toy.Plush), Fern, Color.white);
-            ActionButton("Preview next day", panel, 0, 0.5f, 7, 91, NextPreviewDay, Mist, Ink);
-            developmentButton = ActionButton("Development", panel, 0.5f, 1, 7, 91,
-                () => ShowPanel(NurseryPanel.Development), Mist, Ink);
+            BuildCareSheet(panel);
             development = new DevelopmentPanel(Tray("Development Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), () => Care(CareAction.ReadStory), OpenBlocks,
                 () => ShowPanel(NurseryPanel.Report));
@@ -500,6 +472,7 @@ namespace BAIby.Presentation
             decor = new DecorPanel(Tray("Decor Panel", false, 360),
                 () => ShowPanel(NurseryPanel.Care), ChooseNurseryTheme);
             style = new StylePanel(Tray("Style Panel", false, 378), () => ShowPanel(NurseryPanel.Care), ChooseAppearance);
+            BuildHealth(panel);
             BuildRoutine();
             BuildHome();
             controls.SetActive(false);
@@ -508,9 +481,12 @@ namespace BAIby.Presentation
             energy.Root.gameObject.SetActive(false);
             health.Root.gameObject.SetActive(false);
             cleanliness.Root.gameObject.SetActive(false);
+            SettleText(canvas.transform);
+            LayoutTopStack();
+            LayoutCareSheet();
         }
 
-        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine }
+        private enum NurseryPanel { Care, Development, Blocks, Report, Feeding, NewSound, Hygiene, Diaper, Decor, Style, Routine, Doctor }
 
         private void ShowPanel(NurseryPanel next)
         {
@@ -553,6 +529,9 @@ namespace BAIby.Presentation
                 case NurseryPanel.Routine:
                     (session.State.Care.Style == CareStyle.Gentle ? routine.GentleButton : routine.StandardButton).Select();
                     break;
+                case NurseryPanel.Doctor:
+                    (doctor.Visit.gameObject.activeSelf ? doctor.Visit : doctor.Done).Select();
+                    break;
                 case NurseryPanel.Style:
                     style.Open(session.State.Appearance);
                     // Shows the failure note again if the saved look's art could not be built.
@@ -568,6 +547,9 @@ namespace BAIby.Presentation
                         case NurseryPanel.Decor: decorButton.Select(); break;
                         case NurseryPanel.Style: styleButton.Select(); break;
                         case NurseryPanel.Routine: RoutineOpener.Select(); break;
+                        case NurseryPanel.Doctor:
+                            (healthButton.gameObject.activeSelf && healthButton.interactable ? healthButton : developmentButton).Select();
+                            break;
                         case NurseryPanel.NewSound:
                             (newSoundNotice.gameObject.activeSelf ? newSoundNotice : feedButton).Select();
                             break;
@@ -588,6 +570,7 @@ namespace BAIby.Presentation
             decor.Root.SetActive(adopted && activePanel == NurseryPanel.Decor);
             style.Root.SetActive(adopted && activePanel == NurseryPanel.Style);
             routine.Root.SetActive(adopted && activePanel == NurseryPanel.Routine);
+            doctor.Root.SetActive(adopted && activePanel == NurseryPanel.Doctor);
             routineStripWanted = adopted && (activePanel == NurseryPanel.Care || activePanel == NurseryPanel.Routine);
             decorButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
             styleButton.gameObject.SetActive(adopted && activePanel == NurseryPanel.Care);
@@ -596,16 +579,85 @@ namespace BAIby.Presentation
             newSound.Root.SetActive(hasPendingSound && activePanel == NurseryPanel.NewSound);
             UpdateNewSoundNotice(hasPendingSound);
             UpdateRoutineEntry();
+            LayoutTopStack();
+            LayoutCareSheet();
         }
 
+        // A bottom sheet as wide as a phone screen: rounded top corners, a soft shadow above, a grabber, and a
+        // Content box height units tall whose bottom sits SheetBottomPad above the safe area's bottom edge.
         private RectTransform Tray(string label, bool top, float height)
         {
-            float edge = top ? 1 : 0;
-            float bottom = top ? -height - 17 : 17;
-            var root = Box(label, safeArea, new Vector2(0.5f, edge), new Vector2(0.5f, edge),
-                new Vector2(-332, bottom), new Vector2(332, bottom + height));
-            Surface(root, Paper);
-            return Box("Content", root, Vector2.zero, Vector2.one, new Vector2(20, 0), new Vector2(-20, 0));
+            var root = Box(label, safeArea, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                new Vector2(-360, 0), new Vector2(360, height + SheetChrome));
+            sheets.Add(root);
+            Sheet(root);
+            return Box("Content", root, Vector2.zero, Vector2.one, new Vector2(SideMargin, SheetBottomPad),
+                new Vector2(-SideMargin, -SheetTopPad));
+        }
+
+        // Every bottom sheet, so the stage can keep the baby or pet above whichever one is open.
+        private readonly List<RectTransform> sheets = new List<RectTransform>();
+        private readonly Vector3[] stageCorners = new Vector3[4];
+
+        // Tells the stage which part of the screen is open: above the tallest open sheet and below the header
+        // cards and routine strip. The overlay canvas reports corners in screen pixels.
+        private void FrameStage()
+        {
+            if (nursery == null || Screen.height < 1)
+                return;
+
+            var bottom = 0f;
+            foreach (var sheet in sheets)
+            {
+                if (sheet == null || !sheet.gameObject.activeInHierarchy)
+                    continue;
+                sheet.GetWorldCorners(stageCorners);
+                bottom = Mathf.Max(bottom, stageCorners[1].y);
+            }
+
+            // A pet is small beside its speech bubble, so its room keeps the pet above the bubble too.
+            if (petBubbleRect != null && petBubbleRect.gameObject.activeInHierarchy)
+            {
+                petBubbleRect.GetWorldCorners(stageCorners);
+                bottom = Mathf.Max(bottom, stageCorners[1].y);
+            }
+
+            var top = (float)Screen.height;
+            if (header != null && header.activeInHierarchy)
+            {
+                ((RectTransform)header.transform).GetWorldCorners(stageCorners);
+                top = Mathf.Min(top, stageCorners[0].y);
+            }
+
+            if (routineStrip != null && routineStrip.Root.activeInHierarchy)
+            {
+                ((RectTransform)routineStrip.Root.transform).GetWorldCorners(stageCorners);
+                top = Mathf.Min(top, stageCorners[0].y);
+            }
+
+            nursery.SetOpenBand(bottom / Screen.height, top / Screen.height);
+        }
+
+        private static void Sheet(RectTransform root)
+        {
+            var below = Box("Sheet Shadow", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            SoftShapes.Shadow(Surface(below, WithAlpha(ShadowInk, 0.14f)), Px(28), below, -Px(8));
+            // Fills the space under the safe area, such as a phone's home indicator, in the sheet's white.
+            Surface(Box("Sheet Bleed", root, Vector2.zero, Vector2.right, new Vector2(0, -600), new Vector2(0, 60)), Paper);
+            SoftShapes.TopRadius(Surface(Box("Sheet Surface", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
+                Paper), Px(28));
+            var grabber = Box("Grabber", root, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                new Vector2(-Px(20), -Px(10) - Px(5)), new Vector2(Px(20), -Px(10)));
+            SoftShapes.Pill(Surface(grabber, Divider));
+        }
+
+        // A rounded entry field on the soft neutral ground.
+        private static Image TextField(RectTransform field)
+        {
+            var image = Surface(field, Mist);
+            image.raycastTarget = true;
+            SoftShapes.Radius(image, Px(16));
+            return image;
         }
 
         private void FitSafeArea()
@@ -620,36 +672,68 @@ namespace BAIby.Presentation
             previousScreen = screen;
         }
 
-        private static NeedMeter Meter(string label, Transform parent, float left, float right, float bottom)
+        // A ring meter: the value in the middle, the label below. Bar is the track and Bar/Fill sweeps clockwise
+        // from the top. The root is named for the need; label is what it reads.
+        private static NeedMeter Meter(string objectName, Transform parent, string label, Color color)
         {
-            var root = Box(label, parent, new Vector2(left, 0), new Vector2(right, 0),
-                new Vector2(0, bottom), new Vector2(-12, bottom + 44));
-            Label("Label", root, label, 20, Ink, TextAnchor.UpperLeft,
-                new Vector2(0, 12), Vector2.one, Vector2.zero);
-            var bar = Box("Bar", root, Vector2.zero, Vector2.right, Vector2.zero, new Vector2(0, 8));
-            Surface(bar, Mist);
-            var fill = Box("Fill", bar, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-            Surface(fill, Fern);
-            return new NeedMeter(root, fill);
+            var root = Box(objectName, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            var bar = Box("Bar", root, new Vector2(0.5f, 1), new Vector2(0.5f, 1), Vector2.zero, Vector2.zero);
+            SoftShapes.Ring(Surface(bar, RingTrack), false);
+            var fill = Surface(Box("Fill", bar, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero), color);
+            SoftShapes.Ring(fill, true);
+            var value = Label("Value", bar, "", 24, Ink, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero,
+                FontStyle.Bold);
+            SetRole(value, TextRole.Heading);
+            var name = Label("Label", root, label, 20, Muted, TextAnchor.MiddleCenter, Vector2.zero, Vector2.right,
+                Vector2.zero, FontStyle.Bold);
+            FitText(name, 15, 20);
+            return new NeedMeter(root, bar, fill, value, name);
         }
 
         private sealed class NeedMeter
         {
             public readonly RectTransform Root;
-            private readonly RectTransform fill;
+            private readonly RectTransform bar;
+            private readonly Image fill;
+            private readonly Text value;
 
-            public NeedMeter(RectTransform root, RectTransform fill)
+            public NeedMeter(RectTransform root, RectTransform bar, Image fill, Text value, Text label)
             {
                 Root = root;
+                this.bar = bar;
                 this.fill = fill;
+                this.value = value;
+                Label = label;
             }
 
-            public void Set(double value)
+            public Text Label { get; }
+
+            public void Tint(Color color) => fill.color = color;
+
+            public void Set(double amount)
             {
-                fill.anchorMax = new Vector2((float)(value / 100), 1);
+                fill.fillAmount = Mathf.Clamp01((float)(amount / 100));
+                value.text = Mathf.RoundToInt((float)amount).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            // Fills one column of the needs card: the ring at the top, the label under it.
+            public void Place(float left, float right, float ring, float top, float labelHeight)
+            {
+                Root.anchorMin = new Vector2(left, 0);
+                Root.anchorMax = new Vector2(right, 1);
+                Root.offsetMin = Vector2.zero;
+                Root.offsetMax = Vector2.zero;
+                bar.offsetMin = new Vector2(-ring / 2, -top - ring);
+                bar.offsetMax = new Vector2(ring / 2, -top);
+                var name = Label.rectTransform;
+                name.anchorMin = new Vector2(0, 1);
+                name.anchorMax = new Vector2(1, 1);
+                name.offsetMin = new Vector2(2, -top - ring - 4 - labelHeight);
+                name.offsetMax = new Vector2(-2, -top - ring - 4);
             }
         }
 
+        // A rounded button: primary sage (white text), soft neutral, or outlined white.
         private static Button ActionButton(string label, Transform parent, float left, float right,
             float bottom, float top, Action action, Color background, Color foreground)
         {
@@ -657,12 +741,44 @@ namespace BAIby.Presentation
                 new Vector2(3, bottom), new Vector2(-3, top));
             var image = Surface(root, background);
             image.raycastTarget = true;
+            if (background == Paper)
+                SoftShapes.Outline(Surface(Box("Border", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero), Outline));
+            SoftShapes.Radius(image, Px(16));
             var button = root.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+            button.colors = Pressable();
             button.onClick.AddListener(() => action());
-            Label("Label", root, label, 25, foreground, TextAnchor.MiddleCenter,
+            Label("Label", root, label, 26, foreground, TextAnchor.MiddleCenter,
                 Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
             return button;
+        }
+
+        // A square icon button on the soft neutral ground, 44 px on the phone target, as in the header.
+        private static Button IconButton(string objectName, Transform parent, string icon, Action action,
+            Color background)
+        {
+            var root = Box(objectName, parent, Vector2.zero, Vector2.zero, Vector2.zero, Vector2.zero);
+            var image = Surface(root, background);
+            image.raycastTarget = true;
+            SoftShapes.Radius(image, Px(16));
+            var button = root.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.colors = Pressable();
+            button.onClick.AddListener(() => action());
+            IconAt(objectName + " Icon", root, icon, Ink, new Vector2(0.5f, 0.5f), Vector2.zero, Px(22));
+            return button;
+        }
+
+        private static ColorBlock Pressable()
+        {
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.97f, 0.97f, 0.97f, 1);
+            colors.selectedColor = new Color(0.97f, 0.97f, 0.97f, 1);
+            colors.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1);
+            colors.disabledColor = new Color(1, 1, 1, 0.5f);
+            colors.fadeDuration = 0.08f;
+            return colors;
         }
 
         private static Image Surface(RectTransform target, Color color)
@@ -673,20 +789,22 @@ namespace BAIby.Presentation
             return image;
         }
 
+        // Bold labels of 30 units and up are headings (Fredoka); other bold labels are strong (Nunito ExtraBold);
+        // the rest are body text (Nunito Bold).
         private static Text Label(string objectName, Transform parent, string value, int size,
             Color color, TextAnchor alignment, Vector2 inset, Vector2 anchorMax, Vector2 end,
             FontStyle weight = FontStyle.Normal)
         {
             var root = Box(objectName, parent, Vector2.zero, anchorMax, inset, end);
             var text = root.gameObject.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            SetRole(text, weight == FontStyle.Normal ? TextRole.Body : size >= 30 ? TextRole.Heading : TextRole.Strong);
             text.text = value;
             text.color = color;
             text.alignment = alignment;
             text.fontSize = size;
-            text.fontStyle = weight;
             text.raycastTarget = false;
             text.supportRichText = false;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             return text;
         }
 

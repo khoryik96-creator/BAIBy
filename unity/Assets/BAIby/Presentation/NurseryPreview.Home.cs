@@ -11,8 +11,6 @@ namespace BAIby.Presentation
 {
     public sealed partial class NurseryPreview
     {
-        private static readonly Color Amber = new Color32(201, 132, 62, 255);
-
         // Choose is "Who's joining your home?"; PetAdoption picks species, breed and name; PetRoom is a pet's room.
         private enum HouseholdView { Adoption, Nursery, Home, Goodbye, Gate, MoreRooms, Settings, Journal, Wake, Choose, PetAdoption, PetRoom }
 
@@ -72,40 +70,50 @@ namespace BAIby.Presentation
                 ReportUnlessAnnounced(failure, "Your progress couldn't be saved. Please try again.", launch);
         }
 
-        private void BuildHouseholdChips(RectTransform top)
+        // The switch pill sits in the heading row of whichever room's sheet is open (UpdateHouseholdChips moves it).
+        private void BuildSwitchChip(RectTransform heading)
         {
-            homeChip = ActionButton("Home", top, 0, 0.17f, 190, 232, ShowHome, Mist, Ink);
-            homeChip.GetComponentInChildren<Text>().fontSize = 21;
-            SoftShapes.Round(homeChip.image, 1f);
-            SoftShapes.Lift(homeChip.gameObject);
-            var dot = Box("Home Attention", homeChip.transform, Vector2.one, Vector2.one,
-                new Vector2(-17, -17), new Vector2(-3, -3));
-            homeDot = Surface(dot, Amber);
-            SoftShapes.Disc(homeDot);
-            dot.gameObject.SetActive(false);
-            homeChip.gameObject.SetActive(false);
-
-            switchChip = ActionButton("Switch companion", top, 0.18f, 0.56f, 190, 232, SwitchToNext, Mist, Ink);
+            switchChip = ActionButton("Switch companion", heading, 0, 1, 0, 0, SwitchToNext, Mist, Ink);
+            SoftShapes.Pill(switchChip.image);
             switchLabel = switchChip.GetComponentInChildren<Text>();
-            switchLabel.rectTransform.offsetMin = new Vector2(10, 0);
-            switchLabel.rectTransform.offsetMax = new Vector2(-10, 0);
-            switchLabel.resizeTextForBestFit = true;
-            switchLabel.resizeTextMinSize = 15;
-            switchLabel.resizeTextMaxSize = 21;
-            SoftShapes.Round(switchChip.image, 1f);
-            SoftShapes.Lift(switchChip.gameObject);
+            switchLabel.rectTransform.offsetMin = new Vector2(Px(10), 0);
+            switchLabel.rectTransform.offsetMax = new Vector2(-Px(10), 0);
+            FitText(switchLabel, 16, 22);
             switchChip.gameObject.SetActive(false);
         }
 
         private void BuildHome()
         {
-            home = new HomePanel(Tray("Home Panel", true, 700), ShowActiveCompanion, OpenCompanion, StartAdoption, AskGoodbye,
+            home = new HomePanel(HomePage(), ShowActiveCompanion, OpenCompanion, StartAdoption, AskGoodbye,
                 OpenJournal, AskWake, () => RequestGate(ShowMoreRooms), () => RequestGate(ShowSettings));
             goodbye = new GoodbyePanel(Tray("Goodbye Panel", false, 340), ShowHome, ContinueGoodbye, ConfirmGoodbye);
             BuildRoomPanels();
             BuildAdoptionPanels();
             BuildPetRoom();
             home.PetPortrait = PetPortrait;
+        }
+
+        // Home is a page on the cream ground over the whole screen; its content scrolls when there are many rooms.
+        private RectTransform HomePage()
+        {
+            var root = Box("Home Panel", safeArea, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Surface(Box("Home Ground", root, Vector2.zero, Vector2.one, new Vector2(-800, -800), new Vector2(800, 800)), Cream);
+            var viewport = Box("Home Viewport", root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var catcher = Surface(viewport, Color.clear);
+            catcher.raycastTarget = true;
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var content = Box("Content", viewport, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                new Vector2(-StackWidth / 2, -1200), new Vector2(StackWidth / 2, 0));
+            content.pivot = new Vector2(0.5f, 1);
+            var scroll = root.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Elastic;
+            scroll.scrollSensitivity = 30;
+            scroll.inertia = true;
+            return content;
         }
 
         // Shows the chosen view's trays and hides the others. The nursery's own panels follow activePanel.
@@ -121,6 +129,8 @@ namespace BAIby.Presentation
             goodbye.Root.SetActive(view == HouseholdView.Goodbye);
             ApplyRoomPanels();
             UpdatePanelVisibility(nurseryShown);
+            if (!nurseryShown)
+                HideHealthChip();
             ApplyPetViews();
         }
 
@@ -132,6 +142,9 @@ namespace BAIby.Presentation
             switchChip.gameObject.SetActive(next != null);
             if (next != null)
                 switchLabel.text = "Switch to " + next.Name;
+            var heading = view == HouseholdView.PetRoom ? petHead : careHead;
+            if (heading != null && switchChip.transform.parent != heading)
+                switchChip.transform.SetParent(heading, false);
             homeDot.gameObject.SetActive(visible && AnotherNeedsAttention());
         }
 
@@ -142,7 +155,7 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Home;
             ApplyHouseholdView();
-            var first = home.Show(household, PlaytestOn);
+            var first = home.Show(household, PlaytestOn, DeveloperModeOn);
             if (first != null)
                 first.Select();
         }
@@ -387,8 +400,15 @@ namespace BAIby.Presentation
         {
             const double low = 45;
             needsCare = true;
+            switch (state.Care.Condition)
+            {
+                case CareCondition.Sick: return "Poorly, would love the doctor";
+                case CareCondition.UnderTheWeather: return "A bit under the weather";
+                case CareCondition.Recovering: return "Getting better";
+            }
+
             if (state.Health < low)
-                return "Feeling under the weather";
+                return "Looking a little pale";
             if (state.Cleanliness < low)
                 return "Ready for a fresh diaper";
             if (state.Energy < low)
@@ -414,19 +434,27 @@ namespace BAIby.Presentation
             rect.offsetMax = new Vector2(-insetRight, -top);
         }
 
+
+        // Home: "Your home" and the rooms in use, the Grown-ups gear, two columns of companion cards (a round pastel
+        // portrait, name, stage and day, a mood pill and Visit), the "Your home is full" row and the keepsakes.
         private sealed partial class HomePanel
         {
-            private const float CardsTop = 112;
-            private const float CardHeight = 360;
-            private const float Gap = 16;
+            private const float TopPad = 30;
+            private const float CardHeight = 536;
+            private const float Gap = 22;
+            private const float Inner = 26;
 
-            private readonly RectTransform tray;
+            private readonly RectTransform content;
             private readonly RectTransform cards;
+            private readonly RectTransform headingArea;
             private readonly Button close;
             private readonly RectTransform full;
             private readonly Text fullDetail;
+            private readonly RectTransform kept;
             private readonly Text keepsakes;
+            private readonly Text rooms;
             private readonly Text playtestBadge;
+            private readonly RectTransform playtestChip;
             private readonly Action<int> open;
             private readonly Action adopt;
             private readonly Action<int> farewell;
@@ -440,69 +468,77 @@ namespace BAIby.Presentation
             public HomePanel(RectTransform content, Action closeHome, Action<int> open, Action adopt, Action<int> farewell,
                 Action<int> journal, Action<int> wake, Action moreRooms, Action settings)
             {
+                this.content = content;
                 this.open = open;
                 this.adopt = adopt;
                 this.farewell = farewell;
                 this.journal = journal;
                 this.wake = wake;
-                tray = (RectTransform)content.parent;
-                Root = tray.gameObject;
+                Root = content.parent.parent.gameObject;
 
-                var heading = Box("Home Heading Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(heading, 0, 0.44f, 18, 90);
-                Label("Home Heading", heading, "Home", 40, Ink, TextAnchor.MiddleLeft,
-                    Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
-                playtestBadge = Label("Home playtest badge", content, "Playtest unlocks", 17, Fern, TextAnchor.MiddleLeft,
-                    Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
-                PlaceFromTop(playtestBadge.rectTransform, 0, 0.44f, 86, 108);
-                playtestBadge.gameObject.SetActive(false);
+                close = IconButton("Close home", content, "Back", closeHome, Paper);
+                PlaceFromTop((RectTransform)close.transform, 0, 0, TopPad, TopPad + 82, 0, -82);
+                SoftShapes.Lift(close.gameObject);
+                headingArea = Box("Home Heading Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                Label("Home Heading", headingArea, "Your home", 55, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 34), Vector2.one, Vector2.zero, FontStyle.Bold);
+                rooms = Label("Home Rooms", headingArea, "", 26, Secondary, TextAnchor.MiddleLeft,
+                    Vector2.zero, Vector2.right, new Vector2(0, 34));
 
                 // Household settings sit behind the parental gate; they hold Restore Purchases.
-                var grownUps = ActionButton("Household settings", content, 0.45f, 0.72f, 0, 0, settings, Paper, Secondary);
-                var grownUpsLabel = grownUps.GetComponentInChildren<Text>();
-                grownUpsLabel.text = "Grown-ups";
-                grownUpsLabel.fontSize = 20;
-                grownUpsLabel.fontStyle = FontStyle.Normal;
-                PlaceFromTop((RectTransform)grownUps.transform, 0.45f, 0.72f, 30, 84, 3, 3);
-                SoftShapes.Round(grownUps.image, 1f);
-                close = ActionButton("Close home", content, 0.73f, 1, 0, 0, closeHome, Mist, Ink);
-                close.GetComponentInChildren<Text>().text = "Back";
-                PlaceFromTop((RectTransform)close.transform, 0.73f, 1, 20, 96, 3, 3);
-                SoftShapes.Round(close.image, 1f);
-                SoftShapes.Lift(close.gameObject);
+                var grownUps = IconButton("Household settings", content, "Gear", settings, Paper);
+                PlaceFromTop((RectTransform)grownUps.transform, 1, 1, TopPad, TopPad + 82, -82, 0);
+                SoftShapes.Lift(grownUps.gameObject);
+
+                playtestChip = Box("Home playtest chip", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                SoftShapes.Pill(Surface(playtestChip, FernSoft));
+                playtestBadge = Label("Home playtest badge", playtestChip, "Playtest unlocks", 20, FernDeep,
+                    TextAnchor.MiddleCenter, new Vector2(Px(10), 0), Vector2.one, new Vector2(-Px(10), 0), FontStyle.Bold);
+                playtestChip.gameObject.SetActive(false);
 
                 cards = Box("Home Cards", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
                 full = Box("Home full", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                SoftShapes.Round(Surface(full, Mist), 0.7f);
-                Label("Home full Title", full, "Your home is full", 27, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(22, 62), new Vector2(0.64f, 1), new Vector2(0, -10), FontStyle.Bold);
-                fullDetail = Label("Home full Detail", full, "", 20, Secondary, TextAnchor.MiddleLeft,
-                    new Vector2(22, 10), Vector2.right, new Vector2(-22, 62));
-                fullDetail.resizeTextForBestFit = true;
-                fullDetail.resizeTextMinSize = 15;
-                fullDetail.resizeTextMaxSize = 20;
+                Card(full, Paper, Px(22), 0.06f);
+                var fullIcon = Box("Home full Icon", full, new Vector2(0, 0.5f), new Vector2(0, 0.5f),
+                    new Vector2(Px(16), -Px(24)), new Vector2(Px(16) + Px(48), Px(24)));
+                SoftShapes.Radius(Surface(fullIcon, Lilac), Px(16));
+                IconAt("Icon", fullIcon, "HomeAdd", Ink, new Vector2(0.5f, 0.5f), Vector2.zero, Px(24));
+                var textLeft = Px(16) + Px(48) + Px(14);
+                var fullTitle = Label("Home full Title", full, "Your home is full", 31, Ink, TextAnchor.LowerLeft,
+                    new Vector2(textLeft, 0), Vector2.one, new Vector2(-190, -24), FontStyle.Bold);
+                fullTitle.rectTransform.anchorMin = new Vector2(0, 0.62f);
+                FitText(fullTitle, 24, 31);
+                fullDetail = Label("Home full Detail", full, "", 24, Secondary, TextAnchor.UpperLeft,
+                    new Vector2(textLeft, 18), new Vector2(1, 0.62f), new Vector2(-190, -4));
+                FitText(fullDetail, 15, 24);
                 // A small, quiet link behind the parental gate. Nothing like it appears in a care flow.
-                var more = ActionButton("More rooms", full, 0.66f, 1, 66, 112, moreRooms, Paper, Fern);
-                var moreLabel = more.GetComponentInChildren<Text>();
-                moreLabel.fontSize = 19;
-                moreLabel.fontStyle = FontStyle.Normal;
-                ((RectTransform)more.transform).offsetMax = new Vector2(-16, 112);
-                SoftShapes.Round(more.image, 1f);
+                var more = ActionButton("More rooms", full, 1, 1, 0, 0, moreRooms, Color.clear, Fern);
+                var moreRect = (RectTransform)more.transform;
+                moreRect.anchorMin = new Vector2(1, 0.5f);
+                moreRect.anchorMax = new Vector2(1, 0.5f);
+                moreRect.offsetMin = new Vector2(-180, -41);
+                moreRect.offsetMax = new Vector2(-10, 41);
 
-                var kept = Box("Home Keepsakes Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                keepsakes = Label("Home keepsakes", kept, "", 20, Secondary, TextAnchor.MiddleLeft,
-                    Vector2.zero, Vector2.one, Vector2.zero);
-                keepsakes.resizeTextForBestFit = true;
-                keepsakes.resizeTextMinSize = 14;
-                keepsakes.resizeTextMaxSize = 20;
+                kept = Box("Home Keepsakes Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                Label("Home Keepsakes Heading", kept, "Keepsakes", 33, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, -44), new Vector2(1, 1), Vector2.zero, FontStyle.Bold).rectTransform.anchorMin = new Vector2(0, 1);
+                var box = Box("Home Keepsakes Box", kept, Vector2.zero, Vector2.one, Vector2.zero, new Vector2(0, -60));
+                SoftShapes.Radius(Surface(box, new Color(1, 1, 1, 0.6f)), Px(20));
+                SoftShapes.Dashed(Surface(Box("Home Keepsakes Edge", box, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
+                    Divider), Px(20));
+                var heart = Box("Home Keepsakes Mark", box, new Vector2(0, 0.5f), new Vector2(0, 0.5f),
+                    new Vector2(Px(14), -Px(20)), new Vector2(Px(14) + Px(40), Px(20)));
+                SoftShapes.Disc(Surface(heart, Mist));
+                IconAt("Icon", heart, "Soothe", Secondary, new Vector2(0.5f, 0.5f), Vector2.zero, Px(20));
+                keepsakes = Label("Home keepsakes", box, "", 24, Secondary, TextAnchor.MiddleLeft,
+                    new Vector2(Px(14) + Px(40) + Px(12), 12), Vector2.one, new Vector2(-Px(14), -12));
+                FitText(keepsakes, 15, 24);
 
                 var feedback = Box("Home Feedback Area", content, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                Feedback = Label("Home Feedback", feedback, "", 21, Ink, TextAnchor.MiddleLeft,
+                Feedback = Label("Home Feedback", feedback, "", 24, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 15;
-                Feedback.resizeTextMaxSize = 21;
+                FitText(Feedback, 16, 24);
                 Root.SetActive(false);
             }
 
@@ -522,19 +558,35 @@ namespace BAIby.Presentation
             }
 
             // Rebuilds the cards from the household and returns the first card for focus.
-            public Button Show(HouseholdSession household, bool playtestOn)
+            public Button Show(HouseholdSession household, bool playtestOn, bool developerMode)
             {
                 ClearCards();
                 Feedback.text = string.Empty;
-                playtestBadge.gameObject.SetActive(playtestOn);
+                playtestBadge.text = developerMode ? "Developer mode" : "Playtest unlocks";
+                playtestChip.gameObject.SetActive(playtestOn || developerMode);
                 var active = household.Active;
                 close.gameObject.SetActive(active != null);
+                var awake = Math.Min(household.Companions.Count, household.Capacity);
+                rooms.text = $"{awake} of {household.Capacity} rooms" +
+                    (household.Capacity == HouseholdRules.FreeCompanions ? " · free" : string.Empty);
 
+                var left = active != null ? 82 + Gap : 0;
+                PlaceFromTop(headingArea, 0, 1, TopPad + 2, TopPad + 98, left, 82 + Gap);
+                var y = TopPad + 106f;
+                if (playtestChip.gameObject.activeSelf)
+                {
+                    var chipWidth = PillWidth(playtestBadge, Px(10));
+                    PlaceFromTop(playtestChip, 0, 0, y, y + 44, left, -left - chipWidth);
+                    y += 56;
+                }
+
+                y += 18;
+                var cardsTop = y;
                 Button first = null;
                 var companions = household.Companions;
                 for (var i = 0; i < companions.Count; i++)
                 {
-                    var cell = Cell(i);
+                    var cell = Cell(i, cardsTop);
                     var companion = companions[i];
                     var resting = household.IsResting(companion.Slot);
                     var card = !companion.IsReadable
@@ -551,46 +603,42 @@ namespace BAIby.Presentation
                 var items = companions.Count;
                 if (household.CanAdopt || household.CanAdoptPet)
                 {
-                    var card = AdoptCard(Cell(items));
+                    var card = AdoptCard(Cell(items, cardsTop));
                     if (first == null)
                         first = card;
                     items++;
                 }
 
-                var y = CardsTop + (items + 1) / 2 * (CardHeight + Gap);
+                y = cardsTop + (items + 1) / 2 * (CardHeight + Gap) + 6;
                 full.gameObject.SetActive(household.IsFull);
                 fullDetail.text = household.HasResting
                     ? "Some little ones are resting. They're safe, and their needs don't drop while they rest. Choose Wake to swap who has a room."
-                    : "Every room has a little one to care for. Enjoy your time together.";
+                    : "Every room has a little one to care for.";
                 if (household.IsFull)
                 {
-                    PlaceFromTop(full, 0, 1, y, y + 124, 3, 3);
-                    y += 124 + Gap;
+                    PlaceFromTop(full, 0, 1, y, y + 190);
+                    y += 190 + Gap + 8;
                 }
 
                 keepsakes.text = DescribeKeepsakes(household.Keepsakes);
-                var keptArea = (RectTransform)keepsakes.transform.parent;
-                keptArea.gameObject.SetActive(keepsakes.text.Length > 0);
-                if (keepsakes.text.Length > 0)
-                {
-                    PlaceFromTop(keptArea, 0, 1, y, y + 40, 6, 6);
-                    y += 44;
-                }
+                PlaceFromTop(kept, 0, 1, y, y + 60 + 120);
+                y += 180 + Gap;
 
-                PlaceFromTop((RectTransform)Feedback.transform.parent, 0, 1, y, y + 40, 6, 6);
-                y += 48;
-                tray.offsetMin = new Vector2(tray.offsetMin.x, -y - 17);
-                tray.offsetMax = new Vector2(tray.offsetMax.x, -17);
+                PlaceFromTop((RectTransform)Feedback.transform.parent, 0, 1, y, y + 56, 6, 6);
+                y += 56 + 40;
+                content.sizeDelta = new Vector2(content.sizeDelta.x, y);
+                content.anchoredPosition = Vector2.zero;
+                SettleText(content);
                 return first;
             }
 
-            private RectTransform Cell(int index)
+            private RectTransform Cell(int index, float top)
             {
                 var column = index % 2;
-                var top = CardsTop + index / 2 * (CardHeight + Gap);
+                var cellTop = top + index / 2 * (CardHeight + Gap);
                 var cell = Box("Home cell " + index, cards, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(cell, column * 0.5f, (column + 1) * 0.5f, top, top + CardHeight,
-                    column == 0 ? 3 : Gap / 2, column == 0 ? Gap / 2 : 3);
+                PlaceFromTop(cell, column * 0.5f, (column + 1) * 0.5f, cellTop, cellTop + CardHeight,
+                    column == 0 ? 0 : Gap / 2, column == 0 ? Gap / 2 : 0);
                 return cell;
             }
 
@@ -607,91 +655,116 @@ namespace BAIby.Presentation
                 }
             }
 
-            // A resting companion's card opens its journal instead of its room, looks quieter, and offers Wake
-            // instead of Say goodbye.
-            private Button CompanionCard(int slot, BabyState state, RectTransform cell, bool isActive, bool isNew,
-                bool canSayGoodbye, bool resting)
+            // A white card that is itself a button: a soft shadow, a rounded surface, and the name as its first text.
+            private static Button CardButton(string objectName, RectTransform cell, Action tap, string title)
+            {
+                var root = Box(objectName, cell, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                var surface = Card(root, Paper, Px(26), 0.08f);
+                surface.raycastTarget = true;
+                var button = root.gameObject.AddComponent<Button>();
+                button.targetGraphic = surface;
+                button.colors = Pressable();
+                button.onClick.AddListener(() => tap());
+                var name = Label("Label", root, title, 37, Ink, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero,
+                    FontStyle.Bold);
+                FitText(name, 24, 37);
+                PlaceFromTop(name.rectTransform, 0, 1, 232, 278, Inner, Inner);
+                return button;
+            }
+
+            // A baby's or a pet's card. A resting companion's card opens its journal instead of its room, looks
+            // quieter, and offers Wake instead of Visit and Say goodbye.
+            private CardDetails BuildCard(int slot, string name, RectTransform cell, bool isActive, bool isNew,
+                bool canSayGoodbye, bool resting, Color portraitTint, bool isPet, out Button card)
             {
                 Action tap = resting ? (Action)(() => journal(slot)) : () => open(slot);
-                var card = ActionButton("Home card " + state.Name, cell, 0, 1, 0, 0, tap, resting ? Paper : Mist, Ink);
-                Fill((RectTransform)card.transform);
-                SoftShapes.Round(card.image, 0.7f);
-                SoftShapes.Lift(card.gameObject);
+                card = CardButton("Home card " + name, cell, tap, name);
 
-                var frame = Box(card.name + " Portrait", card.transform, Vector2.zero, Vector2.one,
-                    new Vector2(16, 178), new Vector2(-16, -14));
+                var circle = Box(card.name + " Frame", card.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                    new Vector2(-100, -224), new Vector2(100, -24));
+                var disc = Surface(circle, resting ? Mist : portraitTint);
+                SoftShapes.Disc(disc);
+                circle.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+                var frame = Box(card.name + " Portrait", circle, Vector2.zero, Vector2.one,
+                    isPet ? new Vector2(30, 30) : new Vector2(14, -34), isPet ? new Vector2(-30, -30) : new Vector2(-14, -8));
                 var portrait = Surface(frame, resting ? new Color(1, 1, 1, 0.55f) : Color.white);
                 portrait.preserveAspect = true;
 
-                var name = card.GetComponentInChildren<Text>();
-                name.text = state.Name;
-                name.rectTransform.anchorMax = Vector2.right;
-                name.rectTransform.offsetMin = new Vector2(10, 132);
-                name.rectTransform.offsetMax = new Vector2(-10, 174);
-                name.fontSize = 28;
-                name.resizeTextForBestFit = true;
-                name.resizeTextMinSize = 18;
-                name.resizeTextMaxSize = 28;
-                var stageLabel = Label(card.name + " Stage", card.transform, "", 21, Secondary, TextAnchor.MiddleCenter,
-                    new Vector2(10, 100), Vector2.right, new Vector2(-10, 130));
+                var stageLabel = Label(card.name + " Stage", card.transform, "", 24, Secondary, TextAnchor.MiddleCenter,
+                    Vector2.zero, Vector2.one, Vector2.zero);
+                FitText(stageLabel, 17, 24);
+                PlaceFromTop(stageLabel.rectTransform, 0, 1, 278, 310, Inner, Inner);
 
-                var dot = Box(card.name + " Mood Dot", card.transform, Vector2.zero, Vector2.zero,
-                    new Vector2(18, 76), new Vector2(32, 90));
+                var pill = Box(card.name + " Mood Pill", card.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                    new Vector2(-120, -366), new Vector2(120, -322));
+                var pillImage = Surface(pill, FernSoft);
+                SoftShapes.Pill(pillImage);
+                var dot = Box(card.name + " Mood Dot", pill, new Vector2(0, 0.5f), new Vector2(0, 0.5f),
+                    new Vector2(Px(10), -Px(4)), new Vector2(Px(18), Px(4)));
                 var moodDot = Surface(dot, Fern);
                 SoftShapes.Disc(moodDot);
-                var moodLabel = Label(card.name + " Mood", card.transform, "", 20, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(40, 66), Vector2.right, new Vector2(-10, 100));
-                moodLabel.resizeTextForBestFit = true;
-                moodLabel.resizeTextMinSize = 14;
-                moodLabel.resizeTextMaxSize = 20;
+                var moodLabel = Label(card.name + " Mood", pill, "", 22, FernDeep, TextAnchor.MiddleLeft,
+                    new Vector2(Px(24), 0), Vector2.one, new Vector2(-Px(10), 0), FontStyle.Bold);
+                FitText(moodLabel, 14, 22);
 
                 if (isActive)
                 {
                     var selection = Box(card.name + " Selection", card.transform, Vector2.zero, Vector2.one,
                         Vector2.zero, Vector2.zero);
-                    SoftShapes.Outline(Surface(selection, Fern));
+                    SoftShapes.Outline(Surface(selection, Fern), Px(26));
                 }
 
                 var badge = Box(card.name + " New", card.transform, Vector2.up, Vector2.up,
-                    new Vector2(12, -50), new Vector2(92, -14));
-                SoftShapes.Round(Surface(badge, Fern), 1f);
-                Label("New Label", badge, "New!", 19, Color.white, TextAnchor.MiddleCenter,
+                    new Vector2(16, -60), new Vector2(104, -16));
+                SoftShapes.Pill(Surface(badge, Fern));
+                Label("New Label", badge, "New!", 20, Color.white, TextAnchor.MiddleCenter,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 badge.gameObject.SetActive(isNew);
 
                 if (resting)
                 {
                     var restBadge = Box(card.name + " Resting", card.transform, Vector2.up, Vector2.up,
-                        new Vector2(12, -50), new Vector2(122, -14));
-                    SoftShapes.Round(Surface(restBadge, Mist), 1f);
-                    Label("Resting Label", restBadge, "Resting", 19, Secondary, TextAnchor.MiddleCenter,
+                        new Vector2(16, -60), new Vector2(136, -16));
+                    SoftShapes.Pill(Surface(restBadge, Mist));
+                    Label("Resting Label", restBadge, "Resting", 20, Muted, TextAnchor.MiddleCenter,
                         Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 }
 
-                var details = new CardDetails(slot, portrait, stageLabel, moodDot, moodLabel, badge.gameObject, resting);
-                Describe(details, state);
-                companionCards.Add(details);
-
                 if (resting)
                 {
-                    var wakeButton = ActionButton("Wake " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
-                        () => wake(slot), Mist, Fern);
-                    var wakeLabel = wakeButton.GetComponentInChildren<Text>();
-                    wakeLabel.text = "Wake";
-                    wakeLabel.fontSize = 19;
-                    SoftShapes.Round(wakeButton.image, 1f);
+                    var wakeButton = ActionButton("Wake " + name, card.transform, 0, 1, 0, 0, () => wake(slot), FernSoft, FernDeep);
+                    wakeButton.GetComponentInChildren<Text>().text = "Wake";
+                    SoftShapes.Radius(wakeButton.image, Px(14));
+                    PlaceFromTop((RectTransform)wakeButton.transform, 0, 1, 384, 464, Inner, Inner);
                 }
-                else if (canSayGoodbye)
+                else
                 {
-                    var bye = ActionButton("Say goodbye to " + state.Name, card.transform, 0.12f, 0.88f, 14, 60,
-                        () => farewell(slot), Paper, Secondary);
-                    var byeLabel = bye.GetComponentInChildren<Text>();
-                    byeLabel.text = "Say goodbye";
-                    byeLabel.fontSize = 19;
-                    byeLabel.fontStyle = FontStyle.Normal;
-                    SoftShapes.Round(bye.image, 1f);
+                    var visit = ActionButton(card.name + " Visit", card.transform, 0, 1, 0, 0, tap,
+                        isActive ? Fern : Paper, isActive ? Color.white : Ink);
+                    visit.GetComponentInChildren<Text>().text = "Visit";
+                    SoftShapes.Radius(visit.image, Px(14));
+                    PlaceFromTop((RectTransform)visit.transform, 0, 1, 384, 464, Inner, Inner);
+                    if (canSayGoodbye)
+                    {
+                        var bye = ActionButton("Say goodbye to " + name, card.transform, 0, 1, 0, 0,
+                            () => farewell(slot), Color.clear, Secondary);
+                        var byeLabel = bye.GetComponentInChildren<Text>();
+                        byeLabel.text = "Say goodbye";
+                        byeLabel.fontSize = 22;
+                        PlaceFromTop((RectTransform)bye.transform, 0, 1, 470, 522, Inner, Inner);
+                    }
                 }
 
+                return new CardDetails(slot, portrait, stageLabel, pillImage, moodDot, moodLabel, badge.gameObject, resting);
+            }
+
+            private Button CompanionCard(int slot, BabyState state, RectTransform cell, bool isActive, bool isNew,
+                bool canSayGoodbye, bool resting)
+            {
+                var details = BuildCard(slot, state.Name, cell, isActive, isNew, canSayGoodbye, resting, FernSoft, false,
+                    out var card);
+                Describe(details, state);
+                companionCards.Add(details);
                 return card;
             }
 
@@ -701,45 +774,67 @@ namespace BAIby.Presentation
                 var stage = HouseholdRules.StageOf(state);
                 card.Picture.sprite = Portrait(stage);
                 card.Picture.enabled = card.Picture.sprite != null;
-                card.Stage.text = StageTitle(stage);
+                card.Stage.text = StageDay(StageTitle(stage), state.Age);
                 if (card.Resting)
                 {
-                    card.Mood.text = "Resting quietly";
-                    card.MoodDot.color = Mist;
+                    ShowMood(card, "Resting quietly", Mist, Muted, Divider);
                     return;
                 }
 
-                card.Mood.text = MoodLine(state, out var needsCare);
-                card.MoodDot.color = needsCare ? Amber : Fern;
+                var mood = MoodLine(state, out var needsCare);
+                if (needsCare)
+                    ShowMood(card, mood, Butter, ButterInk, Hex(0xC99520));
+                else
+                    ShowMood(card, mood, FernSoft, FernDeep, Fern);
+            }
+
+            // A pill that hugs its words, centred under the stage line.
+            private static void ShowMood(CardDetails card, string text, Color background, Color ink, Color dot)
+            {
+                card.Mood.text = text;
+                card.Mood.color = ink;
+                card.MoodPill.color = background;
+                card.MoodDot.color = dot;
+                var width = Mathf.Min(TextWidth(card.Mood) + Px(24) + Px(10) + 4, 319 - 2 * Inner);
+                var rect = card.MoodPill.rectTransform;
+                rect.offsetMin = new Vector2(-width / 2, rect.offsetMin.y);
+                rect.offsetMax = new Vector2(width / 2, rect.offsetMax.y);
             }
 
             private static Button UnreadableCard(int slot, RectTransform cell)
             {
                 var card = Box("Home card slot " + slot, cell, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                SoftShapes.Round(Surface(card, Mist), 0.7f);
-                var title = Label("Unreadable Title", card, "Couldn't open this save", 25, Ink, TextAnchor.MiddleCenter,
-                    new Vector2(16, 190), Vector2.right, new Vector2(-16, 270), FontStyle.Bold);
-                title.resizeTextForBestFit = true;
-                title.resizeTextMinSize = 17;
-                title.resizeTextMaxSize = 25;
-                Label("Unreadable Detail", card, "It's kept safe and still uses a room.", 20, Secondary,
-                    TextAnchor.MiddleCenter, new Vector2(16, 110), Vector2.right, new Vector2(-16, 186));
+                Card(card, Paper, Px(26), 0.08f);
+                var title = Label("Unreadable Title", card, "Couldn't open this save", 31, Ink, TextAnchor.MiddleCenter,
+                    new Vector2(Inner, 270), Vector2.right, new Vector2(-Inner, 360), FontStyle.Bold);
+                FitText(title, 20, 31);
+                var detail = Label("Unreadable Detail", card, "It's kept safe and still uses a room.", 24, Secondary,
+                    TextAnchor.UpperCenter, new Vector2(Inner, 150), Vector2.right, new Vector2(-Inner, 262));
+                FitText(detail, 16, 24);
                 return null;
             }
 
+            // Adding someone: the same card shape with a dashed edge.
             private Button AdoptCard(RectTransform cell)
             {
-                var card = ActionButton("+ Adopt", cell, 0, 1, 0, 0, adopt, Paper, Fern);
+                var card = ActionButton("+ Adopt", cell, 0, 1, 0, 0, adopt, new Color(1, 1, 1, 0.6f), Ink);
                 Fill((RectTransform)card.transform);
-                SoftShapes.Round(card.image, 0.7f);
+                SoftShapes.Radius(card.image, Px(26));
                 var outline = Box("+ Adopt Outline", card.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                SoftShapes.Dashed(Surface(outline, Fern));
+                SoftShapes.Dashed(Surface(outline, Divider), Px(26));
+                var plus = Box("+ Adopt Mark", card.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                    new Vector2(-70, -224), new Vector2(70, -84));
+                SoftShapes.Disc(Surface(plus, FernSoft));
+                IconAt("Icon", plus, "Plus", Fern, new Vector2(0.5f, 0.5f), Vector2.zero, 64);
                 var title = card.GetComponentInChildren<Text>();
-                title.fontSize = 34;
-                title.rectTransform.offsetMin = new Vector2(10, 170);
-                title.rectTransform.offsetMax = new Vector2(-10, -120);
-                Label("+ Adopt Detail", card.transform, "Welcome a baby or a pet", 21, Secondary, TextAnchor.MiddleCenter,
-                    new Vector2(10, 124), Vector2.right, new Vector2(-10, 166));
+                title.text = "Adopt";
+                title.fontSize = 37;
+                SetRole(title, TextRole.Heading);
+                PlaceFromTop(title.rectTransform, 0, 1, 250, 296, Inner, Inner);
+                var detail = Label("+ Adopt Detail", card.transform, "Welcome a baby or a pet", 24, Secondary,
+                    TextAnchor.UpperCenter, Vector2.zero, Vector2.one, Vector2.zero);
+                FitText(detail, 16, 24);
+                PlaceFromTop(detail.rectTransform, 0, 1, 300, 370, Inner, Inner);
                 return card;
             }
 
@@ -751,10 +846,11 @@ namespace BAIby.Presentation
                 rect.offsetMax = Vector2.zero;
             }
 
+            // Names and dates of little ones who moved on, or a quiet note while there are none.
             private static string DescribeKeepsakes(IReadOnlyList<Keepsake> kept)
             {
                 if (kept.Count == 0)
-                    return string.Empty;
+                    return "Memories of little ones who moved on will live here.";
 
                 var names = new List<string>();
                 foreach (var keepsake in kept)
@@ -762,7 +858,7 @@ namespace BAIby.Presentation
                     var species = keepsake.Species is Species kind ? SpeciesName(kind).ToLowerInvariant() + ", " : string.Empty;
                     names.Add($"{keepsake.Name} ({species}{Day(keepsake.AdoptedAt)} – {Day(keepsake.FarewellAt)})");
                 }
-                return "Keepsakes · " + string.Join(" · ", names);
+                return string.Join(" · ", names);
             }
 
             private static string Day(DateTimeOffset instant) =>
@@ -770,13 +866,14 @@ namespace BAIby.Presentation
 
             private sealed class CardDetails
             {
-                public CardDetails(int slot, Image picture, Text stage, Image moodDot, Text mood, GameObject badge,
+                public CardDetails(int slot, Image picture, Text stage, Image moodPill, Image moodDot, Text mood, GameObject badge,
                     bool resting)
                 {
                     Resting = resting;
                     Slot = slot;
                     Picture = picture;
                     Stage = stage;
+                    MoodPill = moodPill;
                     MoodDot = moodDot;
                     Mood = mood;
                     Badge = badge;
@@ -786,12 +883,14 @@ namespace BAIby.Presentation
                 public bool Resting { get; }
                 public Image Picture { get; }
                 public Text Stage { get; }
+                public Image MoodPill { get; }
                 public Image MoodDot { get; }
                 public Text Mood { get; }
                 public GameObject Badge { get; }
             }
         }
 
+        // Saying goodbye takes two steps on a calm sheet: what stays behind, then the confirmation.
         private sealed class GoodbyePanel
         {
             private readonly Text heading;
@@ -807,36 +906,29 @@ namespace BAIby.Presentation
             public GoodbyePanel(RectTransform content, Action keep, Action proceed, Action confirm)
             {
                 Root = content.parent.gameObject;
-                heading = Label("Goodbye Heading", content, "", 34, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 262), Vector2.right, new Vector2(0, 330), FontStyle.Bold);
-                heading.resizeTextForBestFit = true;
-                heading.resizeTextMinSize = 22;
-                heading.resizeTextMaxSize = 34;
-                detail = Label("Goodbye Detail", content, "", 23, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 150), Vector2.right, new Vector2(0, 260));
-                detail.resizeTextForBestFit = true;
-                detail.resizeTextMinSize = 17;
-                detail.resizeTextMaxSize = 23;
-                Keep = ActionButton("Keep companion", content, 0, 0.5f, 54, 142, keep, Mist, Ink);
+                heading = Label("Goodbye Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 262), Vector2.right, new Vector2(0, 334), FontStyle.Bold);
+                FitText(heading, 26, 38);
+                detail = Label("Goodbye Detail", content, "", 26, Muted, TextAnchor.UpperLeft,
+                    new Vector2(0, 150), Vector2.right, new Vector2(0, 254));
+                FitText(detail, 17, 26);
+                Keep = ActionButton("Keep companion", content, 0, 0.5f, 56, 142, keep, Mist, Ink);
                 keepLabel = Keep.GetComponentInChildren<Text>();
-                keepLabel.resizeTextForBestFit = true;
-                keepLabel.resizeTextMinSize = 16;
-                keepLabel.resizeTextMaxSize = 25;
-                this.proceed = ActionButton("Continue goodbye", content, 0.5f, 1, 54, 142, proceed, Fern, Color.white);
+                FitText(keepLabel, 16, 26);
+                this.proceed = ActionButton("Continue goodbye", content, 0.5f, 1, 56, 142, proceed, Blush, BlushInk);
                 this.proceed.GetComponentInChildren<Text>().text = "Continue";
-                this.confirm = ActionButton("Confirm goodbye", content, 0.5f, 1, 54, 142, confirm, Fern, Color.white);
+                this.confirm = ActionButton("Confirm goodbye", content, 0.5f, 1, 56, 142, confirm, Blush, BlushInk);
                 this.confirm.GetComponentInChildren<Text>().text = "Say goodbye";
                 foreach (var button in new[] { Keep, this.proceed, this.confirm })
                 {
-                    SoftShapes.Round(button.image, 1f);
-                    SoftShapes.Lift(button.gameObject);
+                    var rect = (RectTransform)button.transform;
+                    rect.offsetMin = new Vector2(button == Keep ? 0 : 9, rect.offsetMin.y);
+                    rect.offsetMax = new Vector2(button == Keep ? -9 : 0, rect.offsetMax.y);
                 }
 
-                Feedback = Label("Goodbye Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(0, 6), Vector2.right, new Vector2(0, 50));
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 15;
-                Feedback.resizeTextMaxSize = 21;
+                Feedback = Label("Goodbye Feedback", content, "", 22, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(0, 4), Vector2.right, new Vector2(0, 50));
+                FitText(Feedback, 15, 22);
                 Root.SetActive(false);
             }
 

@@ -66,7 +66,7 @@ namespace BAIby.Application
 
             return state.Satiety < LowNeedThreshold || state.Comfort < LowNeedThreshold ||
                 state.Energy < LowNeedThreshold || state.Cleanliness < LowNeedThreshold ||
-                state.Health < LowNeedThreshold;
+                state.Health < LowNeedThreshold || state.Care.Condition == CareCondition.Sick;
         }
 
         // A pet needs attention when Health or any meter its room shows is below the threshold.

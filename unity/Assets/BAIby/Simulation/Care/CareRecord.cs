@@ -20,6 +20,20 @@ namespace BAIby.Simulation
         MissedMeals = 5,
         LowCareScore = 6,
     }
+    // The health axis of the consequence ladder (docs/care-and-growth.md). Saved as numbers: append, never renumber.
+    public enum CareCondition { Well = 0, UnderTheWeather = 1, Sick = 2, Recovering = 3 }
+    // Why the companion last moved on the health axis. Saved as numbers: append, never renumber.
+    public enum CareConditionCause
+    {
+        None = 0,
+        LowHealth = 1,
+        LowCareScore = 2,
+        StayedUnwell = 3,
+        DoctorVisit = 4,
+        GoodCareDay = 5,
+        MedicineCourse = 6,
+        RecoveredWithTime = 7,
+    }
     // How strongly consequences bite. Saved as numbers: append, never renumber. Realistic is stored but
     // behaves as Standard until its own rules exist.
     public enum CareStyle { Standard = 0, Gentle = 1, Realistic = 2 }
@@ -132,6 +146,8 @@ namespace BAIby.Simulation
         // A stored care day stays this close to its checkpoint's calendar day, whatever the offsets.
         private const long CareDayTolerance = 3;
         public const int MaxMess = 3;
+        // Medicine doses a record can hold; the tunables ask for fewer.
+        public const int MaxDoses = 8;
         public static readonly TimeSpan MaxAway = TimeSpan.FromDays(14);
         private const CareTags OwedTags = CareTags.Meal | CareTags.Bedtime;
         private readonly MomentStatus[] moments;
@@ -181,7 +197,26 @@ namespace BAIby.Simulation
         // night it was. That night's sleep restores Energy to 100 (on time) or 85 (late); other nights to 65.
         public MomentStatus BedtimeRest { get; }
         public long BedtimeRestDay { get; }
+        // The health axis: Well, Under the weather, Sick or Recovering, why it last moved, and since when.
+        public CareCondition Condition { get; }
+        public CareConditionCause ConditionCause { get; }
+        public DateTimeOffset ConditionSince { get; }
+        // Counted time under the weather in the current spell (not away, not past the absence ceiling), and the
+        // sessions the player has seen it in. Both reset when the companion becomes unwell.
+        public TimeSpan UnwellTime { get; }
+        public int UnwellSessions { get; }
+        // When the player's current visit began: an advance over a gap longer than the presence gap starts one.
+        public DateTimeOffset SessionStart { get; }
+        // A meal was missed since the companion was last well, so a low CareScore can make it unwell again.
+        public bool MissedSinceWell { get; }
+        // Medicine doses given while recovering, and the meal window of the last one (care day x moments +
+        // moment, 0 for none), so two doses in one meal count once.
+        public int MedicineDoses { get; }
+        public long LastDoseWindow { get; }
+        // The last care day that closed as a good care day (0 for none).
+        public long GoodDay { get; }
         public bool IsAway => IsAwayAt(Checkpoint);
+        public bool IsUnwell => Condition == CareCondition.UnderTheWeather || Condition == CareCondition.Sick;
         public bool IsMessy => Mess > 0;
 
         public bool IsAwayAt(DateTimeOffset instant) =>
@@ -258,6 +293,16 @@ namespace BAIby.Simulation
             AwayUntil = source.AwayUntil.ToUniversalTime();
             BedtimeRest = source.BedtimeRest;
             BedtimeRestDay = source.BedtimeRestDay;
+            Condition = source.Condition;
+            ConditionCause = source.ConditionCause;
+            ConditionSince = source.ConditionSince.ToUniversalTime();
+            UnwellTime = source.UnwellTime;
+            UnwellSessions = source.UnwellSessions;
+            SessionStart = source.SessionStart.ToUniversalTime();
+            MissedSinceWell = source.MissedSinceWell;
+            MedicineDoses = source.MedicineDoses;
+            LastDoseWindow = source.LastDoseWindow;
+            GoodDay = source.GoodDay;
         }
 
         public Builder ToBuilder() => new Builder
@@ -293,6 +338,16 @@ namespace BAIby.Simulation
             AwayUntil = AwayUntil,
             BedtimeRest = BedtimeRest,
             BedtimeRestDay = BedtimeRestDay,
+            Condition = Condition,
+            ConditionCause = ConditionCause,
+            ConditionSince = ConditionSince,
+            UnwellTime = UnwellTime,
+            UnwellSessions = UnwellSessions,
+            SessionStart = SessionStart,
+            MissedSinceWell = MissedSinceWell,
+            MedicineDoses = MedicineDoses,
+            LastDoseWindow = LastDoseWindow,
+            GoodDay = GoodDay,
         };
 
         public bool Equals(CareRecord other)
@@ -320,7 +375,11 @@ namespace BAIby.Simulation
                 MoodSince.UtcTicks == other.MoodSince.UtcTicks && MoodCause == other.MoodCause && Owed == other.Owed &&
                 Style == other.Style && AwayFrom.UtcTicks == other.AwayFrom.UtcTicks &&
                 AwayUntil.UtcTicks == other.AwayUntil.UtcTicks && BedtimeRest == other.BedtimeRest &&
-                BedtimeRestDay == other.BedtimeRestDay;
+                BedtimeRestDay == other.BedtimeRestDay && Condition == other.Condition &&
+                ConditionCause == other.ConditionCause && ConditionSince.UtcTicks == other.ConditionSince.UtcTicks &&
+                UnwellTime == other.UnwellTime && UnwellSessions == other.UnwellSessions &&
+                SessionStart.UtcTicks == other.SessionStart.UtcTicks && MissedSinceWell == other.MissedSinceWell &&
+                MedicineDoses == other.MedicineDoses && LastDoseWindow == other.LastDoseWindow && GoodDay == other.GoodDay;
         }
 
         public override bool Equals(object obj) => Equals(obj as CareRecord);
@@ -362,6 +421,16 @@ namespace BAIby.Simulation
             public DateTimeOffset AwayUntil { get; set; }
             public MomentStatus BedtimeRest { get; set; }
             public long BedtimeRestDay { get; set; }
+            public CareCondition Condition { get; set; }
+            public CareConditionCause ConditionCause { get; set; }
+            public DateTimeOffset ConditionSince { get; set; }
+            public TimeSpan UnwellTime { get; set; }
+            public int UnwellSessions { get; set; }
+            public DateTimeOffset SessionStart { get; set; }
+            public bool MissedSinceWell { get; set; }
+            public int MedicineDoses { get; set; }
+            public long LastDoseWindow { get; set; }
+            public long GoodDay { get; set; }
 
             public CareRecord Build()
             {
@@ -414,6 +483,24 @@ namespace BAIby.Simulation
                     throw new ArgumentOutOfRangeException(nameof(BedtimeRest));
                 if (BedtimeRestDay < 0 || BedtimeRestDay > LastCareDay)
                     throw new ArgumentOutOfRangeException(nameof(BedtimeRestDay));
+                if (!Enum.IsDefined(typeof(CareCondition), Condition))
+                    throw new ArgumentOutOfRangeException(nameof(Condition));
+                if (!Enum.IsDefined(typeof(CareConditionCause), ConditionCause))
+                    throw new ArgumentOutOfRangeException(nameof(ConditionCause));
+                if (ConditionSince > Checkpoint)
+                    throw new ArgumentException("A condition cannot begin after the checkpoint.", nameof(ConditionSince));
+                if (UnwellTime < TimeSpan.Zero)
+                    throw new ArgumentOutOfRangeException(nameof(UnwellTime));
+                if (UnwellSessions < 0)
+                    throw new ArgumentOutOfRangeException(nameof(UnwellSessions));
+                if (SessionStart > Checkpoint)
+                    throw new ArgumentException("A session cannot begin after the checkpoint.", nameof(SessionStart));
+                if (MedicineDoses < 0 || MedicineDoses > MaxDoses)
+                    throw new ArgumentOutOfRangeException(nameof(MedicineDoses));
+                if (LastDoseWindow < 0 || LastDoseWindow / RoutineCalendar.MomentCount > LastCareDay)
+                    throw new ArgumentOutOfRangeException(nameof(LastDoseWindow));
+                if (GoodDay < 0 || GoodDay > LastCareDay)
+                    throw new ArgumentOutOfRangeException(nameof(GoodDay));
 
                 return new CareRecord(this);
             }

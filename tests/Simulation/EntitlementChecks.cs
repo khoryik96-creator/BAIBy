@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using BAIby.Application;
 using BAIby.Simulation;
+using BAIby.Simulation.Pets;
 
 static class EntitlementChecks
 {
@@ -27,7 +28,53 @@ static class EntitlementChecks
         CheckStoreAnswers();
         CheckParentalGate();
         CheckPlaytestFlagsAndStoreFront();
+        CheckDeveloperMode(game);
         Console.WriteLine("Entitlement checks passed.");
+    }
+
+    // Developer mode (test builds): every product granted and every earned breed open, without touching
+    // saved progress, and fully reversible.
+    private static void CheckDeveloperMode(BabySimulation game)
+    {
+        var pets = new PetSimulation();
+        var products = DeveloperUnlocks.Products(pets.Catalog);
+        Equal(true, products.Contains(ProductIds.HomeRooms2), "developer mode grants the extra rooms");
+        Equal(true, products.Contains("breed.dog.corgi"), "developer mode grants premium breeds such as the Corgi");
+        Equal(true, products.Contains("breed.cat.bengal"), "developer mode grants the premium cats");
+        Equal(products.Count, products.Distinct().Count(), "each product is granted once");
+        foreach (var product in products)
+            Equal(true, ProductIds.IsKnownFamily(product), $"{product} is a catalogue product");
+        foreach (var breed in pets.Catalog.AllBreeds.Where(breed => breed.Unlock == BreedUnlock.Premium))
+            Equal(true, pets.Catalog.ProductsGranting(breed.Breed).Any(products.Contains), $"developer mode covers {breed.Breed}");
+
+        Equal(true, DeveloperUnlocks.RequestedBy("https://x.app.github.dev/nursery/?dev=1"), "?dev=1 asks for developer mode");
+        Equal(true, DeveloperUnlocks.RequestedBy("/nursery/?ent=home.rooms2&dev=1#top"), "dev=1 among other flags");
+        Equal(false, DeveloperUnlocks.RequestedBy("/nursery/?dev=0"), "dev=0 does not");
+        Equal(false, DeveloperUnlocks.RequestedBy("/nursery/?devmode=1"), "only the exact flag counts");
+        Equal(false, DeveloperUnlocks.RequestedBy("/nursery/#dev=1"), "a fragment is not a query");
+        Equal(false, DeveloperUnlocks.RequestedBy(null), "no URL, no developer mode");
+
+        var owned = new FakeEntitlements();
+        var household = new HouseholdSession(game, pets, new MemoryHouseholdStore(), () => Start, owned);
+        var progress = household.ProgressFor(Species.Cat);
+        Equal(false, household.CanAdoptBreed(PetBreed.Tabby), "an earned breed starts locked");
+        Equal(false, household.CanAdoptBreed(PetBreed.Bengal), "a premium breed starts locked");
+
+        household.UnlockEarnedBreeds = true;
+        foreach (var product in products)
+            owned.Grant(product);
+        Equal(true, household.CanAdoptBreed(PetBreed.Tabby), "developer mode opens earned breeds");
+        Equal(true, household.CanAdoptBreed(PetBreed.Bengal), "developer mode opens premium breeds");
+        Equal(HouseholdRules.FreeCompanions + 2, household.Capacity, "developer mode opens the extra rooms");
+        Equal(progress.FullCareDays, household.ProgressFor(Species.Cat).FullCareDays, "real progress is untouched");
+        Equal(progress.HighestBond, household.ProgressFor(Species.Cat).HighestBond, "real Bond progress is untouched");
+
+        household.UnlockEarnedBreeds = false;
+        foreach (var product in products)
+            owned.Revoke(product);
+        Equal(false, household.CanAdoptBreed(PetBreed.Tabby), "turning developer mode off locks earned breeds again");
+        Equal(false, household.CanAdoptBreed(PetBreed.Bengal), "turning developer mode off locks premium breeds again");
+        Equal(HouseholdRules.FreeCompanions, household.Capacity, "turning developer mode off returns to the free rooms");
     }
 
     private static void CheckProductIds()

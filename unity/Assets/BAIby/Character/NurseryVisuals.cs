@@ -30,6 +30,24 @@ namespace BAIby.Character
         private static readonly float[] MessX = { -.42f, -.30f, .43f };
         private static readonly float[] MessY = { -1.40f, -1.56f, -1.52f };
         private static readonly float[] MessAngle = { -12f, 9f, 16f };
+        // The health axis uses simple shapes over the existing art: under the weather a paler tint, a droop and a
+        // sniffle bubble; sick the nap pose tucked under a quilt with a thermometer bubble; recovering the quilt
+        // and a medicine bubble.
+        private static readonly Color PoorlyTint = new Color(.96f, .89f, .85f, 1);
+        private static readonly Color BlanketTrimColor = new Color32(241, 236, 249, 255);
+        // The quilt: lilac with lighter diagonal checks, a light fold along the top, a stitch line, and the baby
+        // art's dark-brown outline.
+        private static readonly Color32 QuiltFill = new Color32(217, 204, 240, 255);
+        private static readonly Color32 QuiltOutline = new Color32(77, 41, 23, 255);
+        private const int QuiltTexture = 128;
+        private const float QuiltBorder = 48;
+        private const float QuiltPixelsPerUnit = 180;
+        private static readonly Color BubbleColor = new Color(1, 1, 1, .94f);
+        private static readonly Color SniffleColor = new Color32(146, 194, 228, 255);
+        private static readonly Color TubeColor = new Color32(228, 232, 238, 255);
+        private static readonly Color FeverColor = new Color32(224, 104, 92, 255);
+        private static readonly Color CapsuleWarm = new Color32(240, 172, 112, 255);
+        private static readonly Color CapsuleLight = new Color32(250, 245, 232, 255);
         // Looks whose pose sprites are kept, most recent first, so switching back costs nothing.
         private const int CachedLooks = 2;
         private readonly List<Object> generatedAssets = new List<Object>();
@@ -80,6 +98,10 @@ namespace BAIby.Character
         private Transform baby;
         private float visibleWidth;
         private float aspect;
+        // The open part of the screen, between the interface's top cards and its bottom sheet, as fractions of
+        // the screen height (see SetOpenBand). The full screen until the interface reports otherwise.
+        private float bandBottom;
+        private float bandTop = 1;
         private float reactionStarted;
         private Reaction reaction;
         private bool hasPresented;
@@ -90,6 +112,22 @@ namespace BAIby.Character
         private float distress;
         private int messItems;
         private readonly SpriteRenderer[] messSpots = new SpriteRenderer[CareRecord.MaxMess];
+        private CareCondition condition;
+        private bool snapHealthLook = true;
+        private float unwellLook;
+        private float sickLook;
+        private float recoveringLook;
+        private SpriteRenderer blanket;
+        private SpriteRenderer blanketTrim;
+        private Transform healthBadge;
+        private SpriteRenderer badgeBubble;
+        private SpriteRenderer sniffle;
+        private SpriteRenderer sniffleShine;
+        private SpriteRenderer thermometer;
+        private SpriteRenderer thermometerFill;
+        private SpriteRenderer thermometerBulb;
+        private SpriteRenderer capsuleWarm;
+        private SpriteRenderer capsuleLight;
 
         // The screen-space y (pixels from the bottom) of the pose ceiling at the current aspect.
         public float PoseCeilingScreenY =>
@@ -101,6 +139,40 @@ namespace BAIby.Character
         public float PosePixelScale => sitter == null || sitter.sprite == null ? .62f : sitter.transform.localScale.x;
         public float VisibleWidth => visibleWidth;
 
+        // Fits the stage into the part of the screen the interface leaves open: bottom and top are that band's
+        // edges as fractions of the screen height. The camera moves down (and zooms out a little when the band is
+        // short) so the quilt sits just above the bottom sheet and the tallest pose stays under the top cards.
+        // The room's backdrop still covers everything the sheet does not.
+        public void SetOpenBand(float bottom, float top)
+        {
+            bottom = Mathf.Clamp(bottom, 0, .7f);
+            top = Mathf.Clamp(top, bottom + .2f, 1);
+            if (Mathf.Abs(bottom - bandBottom) < .002f && Mathf.Abs(top - bandTop) < .002f)
+                return;
+
+            bandBottom = bottom;
+            bandTop = top;
+            ApplyOpenBand();
+        }
+
+        private void ApplyOpenBand()
+        {
+            if (nurseryCamera == null)
+                return;
+
+            const float roomSize = 3.60f;
+            const float floor = QuiltSurface - .14f;
+            const float span = PoseCeiling + .06f - floor;
+            var open = Mathf.Max(.25f, bandTop - bandBottom - .02f);
+            var size = Mathf.Clamp(span / (2 * open), roomSize, roomSize * 1.32f);
+            // The floor lands on the band's bottom edge; the camera never rises above the room's centre, so the
+            // backdrop always covers the top of the screen.
+            var y = Mathf.Min(0, floor + size - bandBottom * 2 * size);
+            nurseryCamera.orthographicSize = size;
+            nurseryCamera.transform.localPosition = new Vector3(0, y, -10);
+            Frame();
+        }
+
         // Hides the baby and its contact shade while a pet's room is shown. Toys and cues follow Present.
         public void SetBabyShown(bool shown)
         {
@@ -108,6 +180,8 @@ namespace BAIby.Character
                 baby.gameObject.SetActive(shown);
             if (shade.gameObject.activeSelf != shown)
                 shade.gameObject.SetActive(shown);
+            if (healthBadge.gameObject.activeSelf != shown)
+                healthBadge.gameObject.SetActive(shown);
         }
 
         public static NurseryVisuals Create()
@@ -159,6 +233,7 @@ namespace BAIby.Character
             reaction = Reaction.None;
             playedSoundPreview = false;
             distress = -1;
+            snapHealthLook = true;
         }
 
         public void SetTheme(NurseryTheme theme)
@@ -166,12 +241,13 @@ namespace BAIby.Character
             targetPeachOpacity = theme == NurseryTheme.Peach ? 1 : 0;
         }
 
-        // The baby's place on the needs axis and the room's mess, shown with the existing art: a fussy
-        // fidget, an upset droop and tint, and up to three spots on the floor.
-        public void SetCondition(CareMood newMood, int mess)
+        // The baby's place on the needs axis and the health axis and the room's mess, shown with the existing art: a
+        // fussy fidget, an upset droop and tint, up to three spots on the floor, and the health cues (BuildHealthCues).
+        public void SetCondition(CareMood newMood, int mess, CareCondition health = CareCondition.Well)
         {
             mood = newMood;
             messItems = Mathf.Clamp(mess, 0, messSpots.Length);
+            condition = health;
         }
 
         // Shows the baby's chosen look on all eight pose illustrations. The default look keeps the
@@ -450,6 +526,7 @@ namespace BAIby.Character
                 messSpots[i].enabled = false;
             }
 
+            BuildHealthCues();
             ShowToy(Toy.Rattle);
             toy.gameObject.SetActive(false);
             Frame();
@@ -645,6 +722,113 @@ namespace BAIby.Character
             return bytes;
         }
 
+        // Shapes only, no new art: a blanket on the baby rig and a small bubble beside the baby holding a sniffle
+        // drop, a thermometer or a medicine capsule.
+        private void BuildHealthCues()
+        {
+            var disc = Shape(.5f, false);
+            var soft = Shape(.22f, false);
+            blanket = AddLayer(baby, "Health blanket", Quilt(), Color.white, 8);
+            blanket.drawMode = SpriteDrawMode.Tiled;
+            blanket.tileMode = SpriteTileMode.Adaptive;
+            blanket.adaptiveModeThreshold = 0.5f;
+            blanketTrim = AddLayer(baby, "Health blanket trim", soft, BlanketTrimColor, 9);
+
+            healthBadge = new GameObject("Health badge").transform;
+            healthBadge.SetParent(transform, false);
+            badgeBubble = AddLayer(healthBadge, "Health badge bubble", disc, BubbleColor, 12);
+            badgeBubble.transform.localScale = new Vector3(.56f, .56f, 1);
+
+            sniffle = AddLayer(healthBadge, "Sniffle drop", disc, SniffleColor, 13);
+            sniffle.transform.localPosition = new Vector3(0, -.02f, 0);
+            sniffle.transform.localScale = new Vector3(.17f, .23f, 1);
+            sniffleShine = AddLayer(healthBadge, "Sniffle shine", disc, Color.white, 14);
+            sniffleShine.transform.localPosition = new Vector3(-.035f, .02f, 0);
+            sniffleShine.transform.localScale = new Vector3(.05f, .07f, 1);
+
+            var fever = new GameObject("Fever icon").transform;
+            fever.SetParent(healthBadge, false);
+            fever.localRotation = Quaternion.Euler(0, 0, -28);
+            thermometer = AddLayer(fever, "Fever thermometer", soft, TubeColor, 13);
+            thermometer.transform.localPosition = new Vector3(0, .04f, 0);
+            thermometer.transform.localScale = new Vector3(.10f, .34f, 1);
+            thermometerFill = AddLayer(fever, "Fever thermometer fill", soft, FeverColor, 14);
+            thermometerFill.transform.localPosition = new Vector3(0, -.03f, 0);
+            thermometerFill.transform.localScale = new Vector3(.045f, .19f, 1);
+            thermometerBulb = AddLayer(fever, "Fever thermometer bulb", disc, FeverColor, 14);
+            thermometerBulb.transform.localPosition = new Vector3(0, -.14f, 0);
+            thermometerBulb.transform.localScale = new Vector3(.12f, .12f, 1);
+
+            var medicine = new GameObject("Medicine icon").transform;
+            medicine.SetParent(healthBadge, false);
+            medicine.localRotation = Quaternion.Euler(0, 0, 35);
+            capsuleWarm = AddLayer(medicine, "Medicine capsule", soft, CapsuleWarm, 13);
+            capsuleWarm.transform.localPosition = new Vector3(-.065f, 0, 0);
+            capsuleWarm.transform.localScale = new Vector3(.15f, .12f, 1);
+            capsuleLight = AddLayer(medicine, "Medicine capsule light", soft, CapsuleLight, 13);
+            capsuleLight.transform.localPosition = new Vector3(.065f, 0, 0);
+            capsuleLight.transform.localScale = new Vector3(.15f, .12f, 1);
+            PoseHealth(0, 0);
+        }
+
+        // The health cues follow the pose on screen: the blanket covers the lower body (the legs of a nap pose,
+        // the lap of an awake one) and the bubble floats beside the head, inside the room.
+        private void PoseHealth(float now, float resting)
+        {
+            float badge = Mathf.Max(unwellLook, Mathf.Max(sickLook, recoveringLook));
+            SetShade(badgeBubble, BubbleColor, badge);
+            SetShade(sniffle, SniffleColor, unwellLook);
+            SetShade(sniffleShine, Color.white, unwellLook);
+            SetShade(thermometer, TubeColor, sickLook);
+            SetShade(thermometerFill, FeverColor, sickLook);
+            SetShade(thermometerBulb, FeverColor, sickLook);
+            SetShade(capsuleWarm, CapsuleWarm, recoveringLook);
+            SetShade(capsuleLight, CapsuleLight, recoveringLook);
+            float cover = Mathf.Max(sickLook, recoveringLook * .9f);
+            SetShade(blanket, Color.white, cover);
+            // The quilt draws its own fold; the old trim strip stays hidden.
+            SetShade(blanketTrim, BlanketTrimColor, 0);
+
+            var pose = ShownPose(resting > .5f);
+            if (pose == null || (badge <= 0 && cover <= 0))
+                return;
+
+            var size = pose.sprite.bounds.size;
+            float width = size.x * pose.transform.localScale.x;
+            float height = size.y * pose.transform.localScale.y;
+            bool napping = resting > .5f;
+            var blanketCenter = napping ? new Vector2(-.10f * width, .19f * height) : new Vector2(0, .14f * height);
+            var blanketSize = napping ? new Vector2(.70f * width, .38f * height) : new Vector2(.76f * width, .30f * height);
+            blanket.transform.localPosition = new Vector3(blanketCenter.x, blanketCenter.y, 0);
+            blanket.transform.localScale = Vector3.one;
+            // Tiled, so the outline and checks keep their size whatever the quilt's shape.
+            blanket.size = blanketSize;
+            float trim = Mathf.Min(.12f, blanketSize.y * .24f);
+            blanketTrim.transform.localPosition = new Vector3(blanketCenter.x, blanketCenter.y + (blanketSize.y - trim) * .5f, 0);
+            blanketTrim.transform.localScale = new Vector3(blanketSize.x * .98f, trim, 1);
+
+            float left = Mathf.Max(baby.localPosition.x - .5f * width - .05f, -.5f * visibleWidth + .32f);
+            float bob = Mathf.Sin(now * 1.6f) * .03f;
+            healthBadge.localPosition = new Vector3(left, baby.localPosition.y + .80f * height + bob, 0);
+        }
+
+        // The awake or nap layer of the stage being shown, or null without art.
+        private SpriteRenderer ShownPose(bool napping)
+        {
+            var layers = PoseLayers();
+            int stage = Mathf.Clamp(Mathf.RoundToInt(stageBlend), 0, 3);
+            var layer = napping && layers[stage * 2 + 1] != null ? layers[stage * 2 + 1] : layers[stage * 2];
+            return layer == null || layer.sprite == null ? null : layer;
+        }
+
+        private static void SetShade(SpriteRenderer layer, Color color, float opacity)
+        {
+            if (layer == null)
+                return;
+            layer.enabled = opacity > 0;
+            layer.color = new Color(color.r, color.g, color.b, color.a * opacity);
+        }
+
         private void BuildFallbackToy()
         {
             var shape = Shape(.47f, false);
@@ -673,7 +857,7 @@ namespace BAIby.Character
             float fresh = reaction == Reaction.FreshDiaper ? Window(elapsed, 0, .32f, 1.66f, DiaperCueDuration) : 0;
             float bath = reaction == Reaction.FreshBath ? Window(elapsed, 0, .36f, 1.90f, BathCueDuration) : 0;
             float blocks = reaction == Reaction.StackedBlocks ? Window(elapsed, 0, .30f, 1.75f, BlocksCueDuration) : 0;
-            bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull;
+            bool refusing = reaction == Reaction.PushesToyAway || reaction == Reaction.TooFull || reaction == Reaction.TooPoorly;
             float refuse = refusing ? Window(elapsed, 0, .18f, 1.15f, RefuseCueDuration) : 0;
             float refuseShake = Mathf.Sin(elapsed * 17f) * 5.5f * refuse;
             float pushAway = reaction == Reaction.PushesToyAway ? refuse : 0;
@@ -681,8 +865,11 @@ namespace BAIby.Character
             float targetDistress = !adopted ? 0 : mood == CareMood.Upset ? 1 : mood == CareMood.Fussy ? .5f : 0;
             // A new baby on screen snaps to its mood; a change in mood eases in.
             distress = distress < 0 ? targetDistress : Mathf.MoveTowards(distress, targetDistress, Time.unscaledDeltaTime * 1.2f);
+            EaseHealthLook();
+            // A sick baby stays in bed: the nap pose holds while the condition lasts.
+            float resting = Mathf.Max(rest, sickLook);
             float upset = Mathf.Max(0, distress - .5f) * 2;
-            float fidget = (Mathf.Sin(now * 6.1f) * 2.2f + Mathf.Sin(now * 14.3f) * 1.6f * upset) * distress * (1 - rest);
+            float fidget = (Mathf.Sin(now * 6.1f) * 2.2f + Mathf.Sin(now * 14.3f) * 1.6f * upset) * distress * (1 - resting);
             bool playing = IsPlayReaction(reaction) && elapsed < ReactionDuration(reaction);
             bool crawling = playing && reaction == Reaction.CrawlsToToy;
             bool walking = playing && reaction == Reaction.WalksToToy;
@@ -694,9 +881,9 @@ namespace BAIby.Character
             float step = Mathf.Sin(walk * Mathf.PI * 6);
 
             stageBlend = Mathf.MoveTowards(stageBlend, targetStage, Time.unscaledDeltaTime * 2.45f);
-            SetStageOpacity(Mathf.SmoothStep(0, 1, rest));
+            SetStageOpacity(Mathf.SmoothStep(0, 1, resting));
 
-            float breath = Mathf.Sin(now * 2.25f) * Mathf.Lerp(.008f, .004f, Mathf.Max(rest, bath));
+            float breath = Mathf.Sin(now * 2.25f) * Mathf.Lerp(.008f, .004f, Mathf.Max(resting, bath));
             float walkerWeight = StageOpacity(3);
             float stageOffset = -.04f * StageOpacity(2) - .085f * walkerWeight;
             // Leave the walker's feet above the expanded nursery card.
@@ -704,14 +891,15 @@ namespace BAIby.Character
             float travel = visibleWidth * (stageOffset + .13f * (crawl + stride * .022f) + .215f * (walk + step * .023f));
             float lift = Mathf.Abs(stride) * .055f + Mathf.Abs(step) * .075f;
             baby.localPosition = new Vector3(.08f * play + .10f * reach + travel - .05f * pushAway,
-                stageGround - .024f * (rest + soundComfort) - .018f * bath + .022f * feed + lift - .03f * upset, 0);
+                stageGround - .024f * Mathf.Min(1, resting + soundComfort) - .018f * bath + .022f * feed + lift - .03f * upset
+                - .02f * unwellLook, 0);
             baby.localRotation = Quaternion.Euler(0, 0,
-                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * rest - 4 * reach - stride * 1.65f
+                Mathf.Sin(now * 1.25f) * soothe * 4 - 4 * resting - 4 * reach - stride * 1.65f
                 - 2.6f * reading + 2.8f * soundComfort - 3.8f * soundExplore + 1.7f * bath - 2.8f * step
-                - 2.8f * blocks + fidget + refuseShake + 3.5f * upset * (1 - rest));
+                - 2.8f * blocks + fidget + refuseShake + 3.5f * upset * (1 - resting) + 2.4f * unwellLook * (1 - resting));
             baby.localScale = new Vector3(1 + breath * .5f,
                 1 + breath + .022f * feed + .016f * (reading + soundExplore) + .010f * fresh + .014f * blocks
-                - .025f * upset, 1);
+                - .025f * upset - .018f * unwellLook, 1);
             shade.transform.localPosition = new Vector3(travel, stageGround - .06f, 0);
             shade.transform.localScale = new Vector3(visibleWidth * Mathf.Lerp(.75f, .45f, walkerWeight * (1 - rest)), .46f, 1);
 
@@ -725,7 +913,21 @@ namespace BAIby.Character
             PoseBlockTower(elapsed, blocks);
             PoseFeeding(elapsed, Mathf.Max(feed, tooFull * .85f));
             PoseMess();
+            PoseHealth(now, resting);
             PoseChime(now, elapsed, soundComfort, soundExplore);
+        }
+
+        // A new baby on screen snaps to its condition; a change eases in.
+        private void EaseHealthLook()
+        {
+            float targetUnwell = adopted && condition == CareCondition.UnderTheWeather ? 1 : 0;
+            float targetSick = adopted && condition == CareCondition.Sick ? 1 : 0;
+            float targetRecovering = adopted && condition == CareCondition.Recovering ? 1 : 0;
+            float step = snapHealthLook ? 1 : Time.unscaledDeltaTime * 1.4f;
+            snapHealthLook = false;
+            unwellLook = Mathf.MoveTowards(unwellLook, targetUnwell, step);
+            sickLook = Mathf.MoveTowards(sickLook, targetSick, step);
+            recoveringLook = Mathf.MoveTowards(recoveringLook, targetRecovering, step);
         }
 
         private void UpdateTheme()
@@ -915,7 +1117,8 @@ namespace BAIby.Character
                 EnsurePoseBuilt(stage * 2);
             if (napOpacity > 0 && nap != null)
                 EnsurePoseBuilt(stage * 2 + 1);
-            var tint = Color.Lerp(Color.white, UpsetTint, Mathf.Clamp01(distress));
+            var poorly = Mathf.Clamp01(.6f * unwellLook + sickLook + .3f * recoveringLook);
+            var tint = Color.Lerp(Color.white, UpsetTint, Mathf.Clamp01(distress)) * Color.Lerp(Color.white, PoorlyTint, poorly);
             SetTinted(awake, awakeOpacity, tint);
             SetTinted(nap, napOpacity, tint);
         }
@@ -1075,6 +1278,62 @@ namespace BAIby.Character
             texture.SetPixels32(pixels);
             texture.Apply(false, true);
             var sprite = SpriteFrom(texture, size);
+            generatedAssets.Add(sprite);
+            generatedAssets.Add(texture);
+            return sprite;
+        }
+
+        // A nine-slice quilt tile: rounded top corners, softer bottom ones, a 4 px outline, diagonal checks whose
+        // period matches the tiled centre, a light fold along the top and a dashed stitch inside the edge.
+        private Sprite Quilt()
+        {
+            const int size = QuiltTexture;
+            const float outline = 4;
+            const float topRadius = 44;
+            const float bottomRadius = 30;
+            const float check = 32;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "Quilt",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear
+            };
+            var pixels = new Color32[size * size];
+            var half = size / 2f;
+            for (var y = 0; y < size; y++)
+            {
+                for (var x = 0; x < size; x++)
+                {
+                    float px = x + .5f - half;
+                    float py = y + .5f - half;
+                    float radius = py > 0 ? topRadius : bottomRadius;
+                    float qx = Mathf.Abs(px) - (half - radius);
+                    float qy = Mathf.Abs(py) - (half - radius);
+                    float distance = new Vector2(Mathf.Max(qx, 0), Mathf.Max(qy, 0)).magnitude +
+                        Mathf.Min(Mathf.Max(qx, qy), 0) - radius;
+                    float coverage = Mathf.Clamp01(.5f - distance);
+                    var fill = (Color)QuiltFill;
+                    bool light = (Mathf.FloorToInt((x + y) / check) + Mathf.FloorToInt((x - y + size) / check)) % 2 == 0;
+                    if (light)
+                        fill = Color.Lerp(fill, Color.white, .35f);
+                    float fromTop = size - y;
+                    if (fromTop > outline && fromTop < outline + 11)
+                        fill = Color.Lerp(fill, Color.white, .45f);
+                    float inside = -distance;
+                    if (inside > 11 && inside < 13.5f && (x + y) % 16 < 7)
+                        fill = Color.Lerp(fill, Color.white, .6f);
+                    float edge = Mathf.Clamp01(outline + .5f - inside);
+                    var color = Color.Lerp(fill, (Color)QuiltOutline, edge);
+                    color.a = coverage;
+                    pixels[y * size + x] = color;
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(.5f, .5f), QuiltPixelsPerUnit, 0,
+                SpriteMeshType.FullRect, new Vector4(QuiltBorder, QuiltBorder, QuiltBorder, QuiltBorder), false);
+            sprite.name = "Quilt";
             generatedAssets.Add(sprite);
             generatedAssets.Add(texture);
             return sprite;

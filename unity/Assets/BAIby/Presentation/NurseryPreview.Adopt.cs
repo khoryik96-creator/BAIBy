@@ -340,24 +340,16 @@ namespace BAIby.Presentation
             return builder.ToString();
         }
 
-        // A paw built from soft discs: one pad and four toes, inside the given square.
+        // The paw line icon, filling the given square.
         private static void PawGlyph(RectTransform area, string name, Color color)
         {
-            var pad = Box(name + " pad", area, new Vector2(0.27f, 0.06f), new Vector2(0.73f, 0.52f), Vector2.zero, Vector2.zero);
-            SoftShapes.Disc(Surface(pad, color));
-            var toes = new[]
-            {
-                new Vector4(0.06f, 0.44f, 0.30f, 0.70f), new Vector4(0.26f, 0.64f, 0.48f, 0.92f),
-                new Vector4(0.52f, 0.64f, 0.74f, 0.92f), new Vector4(0.70f, 0.44f, 0.94f, 0.70f),
-            };
-            for (var i = 0; i < toes.Length; i++)
-            {
-                var toe = Box(name + " toe " + (i + 1), area, new Vector2(toes[i].x, toes[i].y), new Vector2(toes[i].z, toes[i].w),
-                    Vector2.zero, Vector2.zero);
-                SoftShapes.Disc(Surface(toe, color));
-            }
+            var paw = Surface(Box(name, area, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero), color);
+            paw.sprite = Icon("Paw");
+            paw.preserveAspect = true;
+            paw.enabled = paw.sprite != null;
         }
 
+        // "Who's joining your home?" as two big pastel cards.
         private sealed class ChoicePanel
         {
             private readonly Button back;
@@ -372,30 +364,29 @@ namespace BAIby.Presentation
             public ChoicePanel(RectTransform content, Action backToHome, Action baby, Action pet)
             {
                 Root = content.parent.gameObject;
-                var heading = Label("Choice Heading", content, "Who's joining your home?", 30, Ink, TextAnchor.MiddleLeft,
+                var heading = Label("Choice Heading", content, "Who's joining your home?", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
-                heading.resizeTextForBestFit = true;
-                heading.resizeTextMinSize = 20;
-                heading.resizeTextMaxSize = 30;
-                PlaceFromTop(heading.rectTransform, 0, 0.72f, 10, 70);
-                back = ActionButton("Choice back to home", content, 0.73f, 1, 0, 0, backToHome, Mist, Ink);
+                FitText(heading, 26, 38);
+                PlaceFromTop(heading.rectTransform, 0, 0.72f, 4, 70);
+                back = ActionButton("Choice back to home", content, 0.74f, 1, 0, 0, backToHome, Mist, Ink);
                 back.GetComponentInChildren<Text>().text = "Home";
-                PlaceFromTop((RectTransform)back.transform, 0.73f, 1, 14, 70, 3, 3);
-                SoftShapes.Round(back.image, 1f);
+                PlaceFromTop((RectTransform)back.transform, 0.74f, 1, 4, 70, 3, 3);
 
-                Baby = Card("Adopt a baby", "A baby", "Raise a little one", content, 0, 0.5f, baby, out babyDetail, out var babyIcon);
+                Baby = Card("Adopt a baby", "A baby", "Raise a little one", content, 0, 0.5f, baby, FernSoft,
+                    out babyDetail, out var babyIcon);
                 var portrait = Surface(babyIcon, Color.white);
                 portrait.sprite = Resources.Load<Sprite>("BAIby/Baby/Newborn");
                 portrait.preserveAspect = true;
                 portrait.enabled = portrait.sprite != null;
-                Pet = Card("Adopt a pet", "A pet", "A kitten to love", content, 0.5f, 1, pet, out petDetail, out var petIcon);
-                PawGlyph(petIcon, "Adopt a pet paw", Fern);
+                Pet = Card("Adopt a pet", "A pet", "A kitten to love", content, 0.5f, 1, pet, Peach,
+                    out petDetail, out var petIcon);
+                var paw = Box("Adopt a pet paw area", petIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(-30, -30), new Vector2(30, 30));
+                PawGlyph(paw, "Adopt a pet paw", Ink);
 
-                Feedback = Label("Choice Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 15;
-                Feedback.resizeTextMaxSize = 21;
-                PlaceFromTop(Feedback.rectTransform, 0, 1, 322, 370);
+                Feedback = Label("Choice Feedback", content, "", 22, Ink, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
+                FitText(Feedback, 15, 22);
+                PlaceFromTop(Feedback.rectTransform, 0, 1, 326, 376);
                 Root.SetActive(false);
             }
 
@@ -410,24 +401,25 @@ namespace BAIby.Presentation
             }
 
             private static Button Card(string name, string title, string detail, RectTransform content, float left, float right,
-                Action action, out Text detailText, out RectTransform icon)
+                Action action, Color tint, out Text detailText, out RectTransform icon)
             {
-                var card = ActionButton(name, content, left, right, 0, 0, action, Mist, Ink);
-                PlaceFromTop((RectTransform)card.transform, left, right, 80, 316, left == 0 ? 3 : 8, left == 0 ? 8 : 3);
-                SoftShapes.Round(card.image, 0.7f);
-                SoftShapes.Lift(card.gameObject);
+                var card = ActionButton(name, content, left, right, 0, 0, action, tint, Ink);
+                PlaceFromTop((RectTransform)card.transform, left, right, 82, 320, left == 0 ? 0 : 9, left == 0 ? 9 : 0);
+                SoftShapes.Radius(card.image, Px(26));
                 var label = card.GetComponentInChildren<Text>();
                 label.text = title;
-                label.fontSize = 30;
-                PlaceFromTop(label.rectTransform, 0, 1, 138, 180);
-                detailText = Label(name + " Detail", card.transform, detail, 21, Secondary, TextAnchor.MiddleCenter,
+                label.fontSize = 37;
+                SetRole(label, TextRole.Heading);
+                PlaceFromTop(label.rectTransform, 0, 1, 150, 194);
+                detailText = Label(name + " Detail", card.transform, detail, 22, Muted, TextAnchor.MiddleCenter,
                     Vector2.zero, Vector2.one, Vector2.zero);
-                detailText.resizeTextForBestFit = true;
-                detailText.resizeTextMinSize = 15;
-                detailText.resizeTextMaxSize = 21;
-                PlaceFromTop(detailText.rectTransform, 0, 1, 182, 224, 10, 10);
+                FitText(detailText, 15, 22);
+                PlaceFromTop(detailText.rectTransform, 0, 1, 196, 230, 12, 12);
                 icon = Box(name + " Icon", card.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                    new Vector2(-56, -130), new Vector2(56, -14));
+                    new Vector2(-60, -140), new Vector2(60, -20));
+                SoftShapes.Disc(Surface(Box(name + " Icon Ground", card.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                    new Vector2(-60, -140), new Vector2(60, -20)), new Color(1, 1, 1, 0.8f)));
+                icon.SetAsLastSibling();
                 return card;
             }
         }
@@ -469,17 +461,15 @@ namespace BAIby.Presentation
                 this.chooseBreed = chooseBreed;
                 this.chooseCoat = chooseCoat;
                 Root = content.parent.gameObject;
-                heading = Label("Pet Adoption Heading", content, "", 30, Ink, TextAnchor.MiddleLeft,
+                heading = Label("Pet Adoption Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
-                heading.resizeTextForBestFit = true;
-                heading.resizeTextMinSize = 20;
-                heading.resizeTextMaxSize = 30;
-                PlaceFromTop(heading.rectTransform, 0, 0.72f, 8, 60);
-                this.back = ActionButton("Pet adoption back", content, 0.73f, 1, 0, 0, back, Mist, Ink);
+                FitText(heading, 26, 38);
+                PlaceFromTop(heading.rectTransform, 0, 0.72f, 0, 62);
+                this.back = ActionButton("Pet adoption back", content, 0.74f, 1, 0, 0, back, Mist, Ink);
                 this.back.GetComponentInChildren<Text>().text = "Back";
-                PlaceFromTop((RectTransform)this.back.transform, 0.73f, 1, 10, 62, 3, 3);
-                SoftShapes.Round(this.back.image, 1f);
+                PlaceFromTop((RectTransform)this.back.transform, 0.74f, 1, 0, 62, 3, 3);
 
+                // Rounded species tiles: the cat is here (peach), the others are dimmed with "Arriving soon".
                 speciesGroup = Group("Pet species page", content);
                 for (var i = 0; i < SpeciesOrder.Length; i++)
                 {
@@ -488,92 +478,79 @@ namespace BAIby.Presentation
                     var left = i / (float)SpeciesOrder.Length;
                     var right = (i + 1) / (float)SpeciesOrder.Length;
                     var tile = ActionButton("Species " + SpeciesName(species), speciesGroup, left, right, 0, 0,
-                        () => chooseSpecies(species), shipped ? Mist : Paper, shipped ? Ink : Secondary);
-                    PlaceFromTop((RectTransform)tile.transform, left, right, 76, 250, 4, 4);
-                    SoftShapes.Round(tile.image, 1f);
+                        () => chooseSpecies(species), shipped ? Peach : Mist, shipped ? Ink : Muted);
+                    PlaceFromTop((RectTransform)tile.transform, left, right, 78, 252, i == 0 ? 0 : 6, i == SpeciesOrder.Length - 1 ? 0 : 6);
+                    SoftShapes.Radius(tile.image, Px(20));
                     var label = tile.GetComponentInChildren<Text>();
                     label.text = SpeciesName(species);
-                    label.resizeTextForBestFit = true;
-                    label.resizeTextMinSize = 15;
-                    label.resizeTextMaxSize = 24;
-                    PlaceFromTop(label.rectTransform, 0, 1, 104, 140, 4, 4);
+                    FitText(label, 15, 24);
+                    PlaceFromTop(label.rectTransform, 0, 1, 100, 134, 4, 4);
+                    var ground = Box(tile.name + " Glyph Ground", tile.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
+                        new Vector2(-34, -90), new Vector2(34, -22));
+                    SoftShapes.Disc(Surface(ground, new Color(1, 1, 1, shipped ? 0.8f : 0.6f)));
                     var glyph = Box(tile.name + " Glyph", tile.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
-                        new Vector2(-34, -96), new Vector2(34, -24));
-                    PawGlyph(glyph, tile.name + " paw", shipped ? Fern : new Color(Secondary.r, Secondary.g, Secondary.b, 0.35f));
-                    var note = Label(tile.name + " Note", tile.transform, shipped ? "Here now" : "Arriving soon", 16, Secondary,
-                        TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero);
-                    note.resizeTextForBestFit = true;
-                    note.resizeTextMinSize = 12;
-                    note.resizeTextMaxSize = 16;
-                    PlaceFromTop(note.rectTransform, 0, 1, 140, 168, 4, 4);
+                        new Vector2(-18, -74), new Vector2(18, -38));
+                    PawGlyph(glyph, tile.name + " paw", shipped ? Ink : WithAlpha(Secondary, 0.5f));
+                    var chip = Box(tile.name + " Note Chip", tile.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+                    PlaceFromTop(chip, 0, 1, 140, 168, 8, 8);
+                    SoftShapes.Pill(Surface(chip, shipped ? FernSoft : new Color(1, 1, 1, 0.7f)));
+                    var note = Label(tile.name + " Note", chip, shipped ? "Here now" : "Arriving soon", 16,
+                        shipped ? FernDeep : Muted, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
+                    FitText(note, 11, 16);
                     if (!shipped)
                     {
                         // Dimmed, with no lock or price: these friends simply haven't arrived yet.
                         tile.interactable = false;
-                        label.color = new Color(Secondary.r, Secondary.g, Secondary.b, 0.6f);
+                        label.color = WithAlpha(Muted, 0.7f);
                     }
 
                     speciesTiles.Add(species, tile);
                 }
 
-                var speciesNote = Label("Pet species detail", speciesGroup, "Cats are here now. More friends are on their way.", 21,
+                var speciesNote = Label("Pet species detail", speciesGroup, "Cats are here now. More friends are on their way.", 22,
                     Secondary, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
-                speciesNote.resizeTextForBestFit = true;
-                speciesNote.resizeTextMinSize = 15;
-                speciesNote.resizeTextMaxSize = 21;
-                PlaceFromTop(speciesNote.rectTransform, 0, 1, 258, 300);
+                FitText(speciesNote, 15, 22);
+                PlaceFromTop(speciesNote.rectTransform, 0, 1, 262, 304);
 
                 breedGroup = Group("Pet breed page", content);
                 breedGrid = Box("Pet breed grid", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(breedGrid, 0, 1, 62, 190);
+                PlaceFromTop(breedGrid, 0, 1, 66, 194);
                 coatRow = Box("Pet coat row", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(coatRow, 0, 1, 194, 250);
-                breedDetail = Label("Pet breed detail", breedGroup, "", 20, Ink, TextAnchor.MiddleLeft,
+                PlaceFromTop(coatRow, 0, 1, 198, 252);
+                breedDetail = Label("Pet breed detail", breedGroup, "", 21, Muted, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
-                breedDetail.resizeTextForBestFit = true;
-                breedDetail.resizeTextMinSize = 14;
-                breedDetail.resizeTextMaxSize = 20;
-                PlaceFromTop(breedDetail.rectTransform, 0, 1, 254, 306);
+                FitText(breedDetail, 14, 21);
+                PlaceFromTop(breedDetail.rectTransform, 0, 1, 256, 306);
                 this.next = ActionButton("Breed next", breedGroup, 0.5f, 1, 0, 0, next, Fern, Color.white);
                 this.next.GetComponentInChildren<Text>().text = "Choose a name";
-                PlaceFromTop((RectTransform)this.next.transform, 0.5f, 1, 312, 372, 3, 3);
-                SoftShapes.Round(this.next.image, 1f);
-                SoftShapes.Lift(this.next.gameObject);
+                PlaceFromTop((RectTransform)this.next.transform, 0.5f, 1, 312, 378, 3, 0);
 
                 nameGroup = Group("Pet name page", content);
-                nameHeading = Label("Pet name prompt", nameGroup, "", 23, Secondary, TextAnchor.MiddleLeft,
+                nameHeading = Label("Pet name prompt", nameGroup, "", 24, Muted, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
-                PlaceFromTop(nameHeading.rectTransform, 0, 1, 64, 100);
+                PlaceFromTop(nameHeading.rectTransform, 0, 1, 68, 104);
                 var field = Box("Pet Name", nameGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(field, 0, 1, 104, 184);
+                PlaceFromTop(field, 0, 1, 108, 190);
                 NameField = field.gameObject.AddComponent<InputField>();
-                NameField.targetGraphic = Surface(field, Mist);
-                NameField.targetGraphic.raycastTarget = true;
+                NameField.targetGraphic = TextField(field);
                 NameField.characterLimit = 28;
                 NameField.lineType = InputField.LineType.SingleLine;
-                NameField.textComponent = Label("Entered Pet Name", field, "", 28, Ink, TextAnchor.MiddleLeft,
-                    new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
-                namePlaceholder = Label("Pet Name Placeholder", field, "Name", 28, Secondary, TextAnchor.MiddleLeft,
-                    new Vector2(18, 0), Vector2.one, new Vector2(-18, 0));
+                NameField.textComponent = Label("Entered Pet Name", field, "", 30, Ink, TextAnchor.MiddleLeft,
+                    new Vector2(26, 0), Vector2.one, new Vector2(-26, 0), FontStyle.Bold);
+                namePlaceholder = Label("Pet Name Placeholder", field, "Name", 30, Secondary, TextAnchor.MiddleLeft,
+                    new Vector2(26, 0), Vector2.one, new Vector2(-26, 0));
                 NameField.placeholder = namePlaceholder;
                 collar = ActionButton("Pet collar", nameGroup, 0, 0.42f, 0, 0, cycleCollar, Mist, Ink);
                 collarLabel = collar.GetComponentInChildren<Text>();
-                collarLabel.resizeTextForBestFit = true;
-                collarLabel.resizeTextMinSize = 15;
-                collarLabel.resizeTextMaxSize = 23;
-                PlaceFromTop((RectTransform)collar.transform, 0, 0.42f, 194, 270, 3, 3);
-                SoftShapes.Round(collar.image, 1f);
+                FitText(collarLabel, 15, 24);
+                PlaceFromTop((RectTransform)collar.transform, 0, 0.42f, 200, 278, 0, 9);
                 this.adopt = ActionButton("Adopt pet", nameGroup, 0.42f, 1, 0, 0, adopt, Fern, Color.white);
                 this.adopt.GetComponentInChildren<Text>().text = "Welcome home";
-                PlaceFromTop((RectTransform)this.adopt.transform, 0.42f, 1, 194, 270, 3, 3);
-                SoftShapes.Round(this.adopt.image, 1f);
-                SoftShapes.Lift(this.adopt.gameObject);
+                PlaceFromTop((RectTransform)this.adopt.transform, 0.42f, 1, 200, 278, 9, 0);
 
-                Feedback = Label("Pet Adoption Feedback", content, "", 20, Ink, TextAnchor.MiddleLeft,
+                Feedback = Label("Pet Adoption Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
-                Feedback.resizeTextForBestFit = true;
-                Feedback.resizeTextMinSize = 14;
-                Feedback.resizeTextMaxSize = 20;
+                FitText(Feedback, 14, 21);
                 Root.SetActive(false);
             }
 
@@ -586,7 +563,7 @@ namespace BAIby.Presentation
                 nameGroup.gameObject.SetActive(Page == 2);
                 heading.text = Page == 0 ? "Which pet?" : Page == 1 ? "Choose a breed" : "Welcome home";
                 // On the breed page the feedback shares the bottom row with the Next button.
-                PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 278 : 312, 372);
+                PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 288 : 314, 378);
             }
 
             public void FocusPage()
@@ -608,7 +585,7 @@ namespace BAIby.Presentation
             public void ShowSpecies(Species species)
             {
                 foreach (var pair in speciesTiles)
-                    pair.Value.image.color = pair.Key == species ? Paper : pair.Value.interactable ? Mist : Paper;
+                    pair.Value.image.color = pair.Key == species ? Peach : Mist;
             }
 
             public void ShowBreeds(Species species, IReadOnlyList<BreedDefinition> breeds, IReadOnlyList<string> statuses,
@@ -692,12 +669,15 @@ namespace BAIby.Presentation
             }
         }
 
-        // One rounded choice in the pet picker: a breed (with its unlock status) or a coat (with a color chip).
+        // One rounded choice in the pet picker: a breed tile (with its unlock status as a small chip) or a coat pill
+        // (with a colour disc). The chosen one turns soft sage with a sage outline.
         private sealed class PickerTile
         {
             private readonly Image ring;
             private readonly Text label;
+            private readonly Image statusChip;
             private readonly Text status;
+            private readonly Image lockMark;
 
             public PickerTile(string name, string title, RectTransform parent, Vector2 anchorMin, Vector2 anchorMax, Action choose,
                 Color? chip)
@@ -706,36 +686,44 @@ namespace BAIby.Presentation
                 var rect = (RectTransform)Button.transform;
                 rect.anchorMin = anchorMin;
                 rect.anchorMax = anchorMax;
-                rect.offsetMin = new Vector2(4, 3);
-                rect.offsetMax = new Vector2(-4, -3);
-                SoftShapes.Round(Button.image, 1f);
+                rect.offsetMin = new Vector2(5, 4);
+                rect.offsetMax = new Vector2(-5, -4);
                 label = Button.GetComponentInChildren<Text>();
                 label.text = title;
-                label.resizeTextForBestFit = true;
-                label.resizeTextMinSize = 13;
-                label.resizeTextMaxSize = 20;
+                FitText(label, 13, 21);
+                var radius = chip.HasValue ? 26f : Px(16);
                 if (chip is Color color)
                 {
+                    SoftShapes.Pill(Button.image);
                     label.rectTransform.anchorMin = Vector2.zero;
                     label.rectTransform.anchorMax = Vector2.one;
                     label.rectTransform.offsetMin = new Vector2(40, 2);
-                    label.rectTransform.offsetMax = new Vector2(-4, -2);
+                    label.rectTransform.offsetMax = new Vector2(-6, -2);
                     label.alignment = TextAnchor.MiddleLeft;
                     var swatch = Box(name + " Color", Button.transform, new Vector2(0, 0.5f), new Vector2(0, 0.5f),
-                        new Vector2(8, -14), new Vector2(36, 14));
+                        new Vector2(9, -13), new Vector2(35, 13));
                     SoftShapes.Disc(Surface(swatch, color));
+                    SoftShapes.Edge(Surface(Box(name + " Edge", swatch, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero),
+                        WithAlpha(ShadowInk, 0.16f)));
                 }
                 else
                 {
-                    label.rectTransform.offsetMin = new Vector2(4, 20);
-                    label.rectTransform.offsetMax = new Vector2(-4, -2);
-                    status = Label(name + " Status", Button.transform, "", 15, Secondary, TextAnchor.MiddleCenter,
-                        new Vector2(4, 2), Vector2.right, new Vector2(-4, 24));
+                    SoftShapes.Radius(Button.image, radius);
+                    label.rectTransform.offsetMin = new Vector2(4, 30);
+                    label.rectTransform.offsetMax = new Vector2(-4, -4);
+                    var chipRect = Box(name + " Status Chip", Button.transform, new Vector2(0.5f, 0), new Vector2(0.5f, 0),
+                        new Vector2(-48, 6), new Vector2(48, 32));
+                    statusChip = Surface(chipRect, Paper);
+                    SoftShapes.Pill(statusChip);
+                    status = Label(name + " Status", chipRect, "", 16, Secondary, TextAnchor.MiddleCenter,
+                        new Vector2(6, 0), Vector2.one, new Vector2(-6, 0), FontStyle.Bold);
+                    FitText(status, 11, 16);
+                    lockMark = IconAt(name + " Lock", chipRect, "Lock", Muted, new Vector2(0, 0.5f), new Vector2(12, 0), 16);
                 }
 
                 var selection = Box(name + " Selection", Button.transform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
                 ring = Surface(selection, Fern);
-                SoftShapes.Outline(ring);
+                SoftShapes.Outline(ring, radius);
             }
 
             public Button Button { get; }
@@ -746,14 +734,18 @@ namespace BAIby.Presentation
             {
                 Selected = selected;
                 ring.gameObject.SetActive(selected);
-                Button.image.color = selected ? Paper : Mist;
-                label.fontStyle = selected ? FontStyle.Bold : FontStyle.Normal;
-                label.color = unlocked ? (selected ? Fern : Ink) : Secondary;
-                if (status != null)
-                {
-                    status.text = statusText ?? string.Empty;
-                    status.color = unlocked ? Secondary : Amber;
-                }
+                Button.image.color = selected ? FernSoft : Mist;
+                SetRole(label, selected ? TextRole.Strong : TextRole.Body);
+                label.color = unlocked ? (selected ? FernDeep : Ink) : Muted;
+                if (status == null)
+                    return;
+
+                status.text = statusText ?? string.Empty;
+                var premium = statusText == "Premium";
+                statusChip.color = premium ? Butter : unlocked ? Paper : new Color(1, 1, 1, 0.7f);
+                status.color = premium ? ButterInk : unlocked ? Muted : Muted;
+                lockMark.gameObject.SetActive(!unlocked && !premium);
+                status.rectTransform.offsetMin = new Vector2(lockMark.gameObject.activeSelf ? 22 : 6, 0);
             }
         }
     }

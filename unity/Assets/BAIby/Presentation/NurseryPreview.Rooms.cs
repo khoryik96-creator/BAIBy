@@ -24,11 +24,15 @@ namespace BAIby.Presentation
         // Any playtest grant, from the toggle or a ?ent= URL flag, shows the badge.
         private bool PlaytestOn => playtest != null && playtest.HasGrants;
 
+        // Developer mode: every product granted and every earned breed open (Web, Editor and Development builds).
+        private bool DeveloperModeOn => playtest != null && playtest.DeveloperMode;
+
         private void BuildRoomPanels()
         {
             gate = new GatePanel(Tray("Parental Gate Panel", false, 420), CancelGate, SubmitGate);
             moreRooms = new MoreRoomsPanel(Tray("More Rooms Panel", false, 400), ShowHome, ToggleTestRooms);
-            settings = new SettingsPanel(Tray("Household Settings Panel", false, 400), ShowHome, RestorePurchases, ShowMoreRooms);
+            settings = new SettingsPanel(Tray("Household Settings Panel", false, 480), ShowHome, RestorePurchases, ShowMoreRooms,
+                ToggleDeveloperMode);
             journal = new JournalPanel(Tray("Journal Panel", false, 470), ShowHome);
             wakePanel = new WakePanel(Tray("Wake Panel", false, 360), ShowHome, ConfirmWake);
         }
@@ -102,7 +106,7 @@ namespace BAIby.Presentation
                     moreRooms.Show(playtest, household);
                     break;
                 case HouseholdView.Settings:
-                    settings.Show(household, PlaytestOn);
+                    settings.Show(household, PlaytestOn, playtest);
                     break;
             }
         }
@@ -125,7 +129,7 @@ namespace BAIby.Presentation
 
             view = HouseholdView.Settings;
             ApplyHouseholdView();
-            settings.Show(household, PlaytestOn);
+            settings.Show(household, PlaytestOn, playtest);
             settings.Close.Select();
         }
 
@@ -151,6 +155,34 @@ namespace BAIby.Presentation
                 : household.HasResting
                     ? "Test rooms removed. Little ones beyond the free rooms are resting."
                     : "Test rooms removed.";
+        }
+
+        // Opens every room, breed and premium item for testing, or returns the game to what is really owned and
+        // earned. Only reachable behind the parental gate, and only in builds that compile the playtest toggle.
+        private void ToggleDeveloperMode()
+        {
+            if (playtest == null || household == null)
+                return;
+
+            var on = !playtest.DeveloperMode;
+            try
+            {
+                household.UnlockEarnedBreeds = on;
+                playtest.SetDeveloperMode(on, DeveloperUnlocks.Products(household.PetCatalog));
+            }
+            catch (Exception error)
+            {
+                household.UnlockEarnedBreeds = playtest.DeveloperMode;
+                ReportFailure(error, "Developer mode couldn't be changed. Please try again.");
+                return;
+            }
+
+            settings.Show(household, PlaytestOn, playtest);
+            settings.Feedback.text = on
+                ? "Developer mode is on: every room, breed and premium item is open."
+                : household.HasResting
+                    ? "Developer mode is off. Little ones beyond the free rooms are resting."
+                    : "Developer mode is off. The game is back to what you own and have earned.";
         }
 
         private void RestorePurchases()
@@ -262,7 +294,7 @@ namespace BAIby.Presentation
             public MoreRoomsPanel(RectTransform content, Action close, Action toggleRooms)
             {
                 Root = content.parent.gameObject;
-                heading = Label("More Rooms Heading", content, "More rooms", 34, Ink, TextAnchor.MiddleLeft,
+                heading = Label("More Rooms Heading", content, "More rooms", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 PlaceFromTop(heading.rectTransform, 0, 0.72f, 14, 76);
                 Close = ActionButton("Close more rooms", content, 0.73f, 1, 0, 0, close, Mist, Ink);
@@ -322,10 +354,13 @@ namespace BAIby.Presentation
             public Button Close { get; }
             public Text Feedback { get; }
 
-            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms)
+            private readonly Button developer;
+            private readonly Text developerLabel;
+
+            public SettingsPanel(RectTransform content, Action close, Action restore, Action moreRooms, Action toggleDeveloper)
             {
                 Root = content.parent.gameObject;
-                var heading = Label("Settings Heading", content, "For grown-ups", 34, Ink, TextAnchor.MiddleLeft,
+                var heading = Label("Settings Heading", content, "For grown-ups", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 PlaceFromTop(heading.rectTransform, 0, 0.72f, 14, 76);
                 Close = ActionButton("Close settings", content, 0.73f, 1, 0, 0, close, Mist, Ink);
@@ -355,17 +390,32 @@ namespace BAIby.Presentation
                     SoftShapes.Lift(button.gameObject);
                 }
 
+                // Developer mode: test builds only (the button stays hidden when there is no playtest toggle).
+                developer = ActionButton("Developer mode", content, 0, 1, 0, 0, toggleDeveloper, Paper, Ink);
+                developerLabel = developer.GetComponentInChildren<Text>();
+                developerLabel.resizeTextForBestFit = true;
+                developerLabel.resizeTextMinSize = 16;
+                developerLabel.resizeTextMaxSize = 24;
+                PlaceFromTop((RectTransform)developer.transform, 0, 1, 306, 380, 3, 3);
+                SoftShapes.Round(developer.image, 1f);
+                developer.gameObject.SetActive(false);
+
                 Feedback = Label("Settings Feedback", content, "", 21, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
                 Feedback.resizeTextForBestFit = true;
                 Feedback.resizeTextMinSize = 15;
                 Feedback.resizeTextMaxSize = 21;
-                PlaceFromTop(Feedback.rectTransform, 0, 1, 308, 384);
+                PlaceFromTop(Feedback.rectTransform, 0, 1, 388, 460);
                 Root.SetActive(false);
             }
 
-            public void Show(HouseholdSession household, bool playtestOn)
+            public void Show(HouseholdSession household, bool playtestOn, IPlaytestUnlocks playtest)
             {
+                developer.gameObject.SetActive(playtest != null);
+                if (playtest != null)
+                    developerLabel.text = playtest.DeveloperMode
+                        ? "Developer mode: on · tap to turn off"
+                        : "Developer mode: off · unlock everything";
                 Feedback.text = string.Empty;
                 var rooms = $"Your home has {household.Capacity} rooms.";
                 if (household.HasResting)
@@ -396,7 +446,7 @@ namespace BAIby.Presentation
             public JournalPanel(RectTransform content, Action close)
             {
                 Root = content.parent.gameObject;
-                heading = Line("Journal Heading", content, 34, 0.72f, 8, 66, FontStyle.Bold);
+                heading = Line("Journal Heading", content, 38, 0.72f, 6, 66, FontStyle.Bold);
                 Close = ActionButton("Close journal", content, 0.73f, 1, 0, 0, close, Mist, Ink);
                 Close.GetComponentInChildren<Text>().text = "Done";
                 PlaceFromTop((RectTransform)Close.transform, 0.73f, 1, 10, 66, 3, 3);
@@ -405,16 +455,16 @@ namespace BAIby.Presentation
                 state = Line("Journal Status", content, 21, 1, 70, 110);
                 state.color = Secondary;
                 age = Line("Journal Age", content, 23, 1, 112, 146);
-                Line("Journal Milestones", content, 26, 1, 152, 186, FontStyle.Bold).text = "Milestones";
+                Line("Journal Milestones", content, 30, 1, 150, 186, FontStyle.Bold).text = "Milestones";
                 sitting = Line("Journal Sitting", content, 22, 1, 188, 218);
                 crawling = Line("Journal Crawling", content, 22, 1, 218, 248);
                 walking = Line("Journal Walking", content, 22, 1, 248, 278);
-                Line("Journal Interests", content, 26, 1, 284, 318, FontStyle.Bold).text = "Interests";
+                Line("Journal Interests", content, 30, 1, 282, 318, FontStyle.Bold).text = "Interests";
                 favoriteToy = Line("Journal Favorite Toy", content, 22, 1, 320, 350);
                 stories = Line("Journal Stories", content, 22, 1, 350, 380);
                 blocks = Line("Journal Blocks", content, 22, 1, 380, 410);
                 connection = Line("Journal Connection", content, 23, 1, 414, 448, FontStyle.Bold);
-                connection.color = Fern;
+                connection.color = FernDeep;
                 Feedback = Line("Journal Feedback", content, 19, 1, 448, 468);
                 Root.SetActive(false);
             }
@@ -472,11 +522,11 @@ namespace BAIby.Presentation
                 this.choose = choose;
                 tray = (RectTransform)content.parent;
                 Root = tray.gameObject;
-                heading = Label("Wake Heading", content, "", 32, Ink, TextAnchor.MiddleLeft,
+                heading = Label("Wake Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 heading.resizeTextForBestFit = true;
-                heading.resizeTextMinSize = 22;
-                heading.resizeTextMaxSize = 32;
+                heading.resizeTextMinSize = 24;
+                heading.resizeTextMaxSize = 38;
                 PlaceFromTop(heading.rectTransform, 0, 1, 12, 66);
                 detail = Label("Wake Detail", content, "", 22, Ink, TextAnchor.UpperLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
@@ -523,23 +573,24 @@ namespace BAIby.Presentation
                     var label = companion.Name;
                     var slot = companion.Slot;
                     var button = ActionButton(label == null ? $"Rest slot {slot} instead" : $"Rest {label} instead",
-                        choices, 0, 1, 0, 0, () => choose(slot), Fern, Color.white);
+                        choices, 0, 1, 0, 0, () => choose(slot), Lilac, Ink);
                     var text = button.GetComponentInChildren<Text>();
                     text.text = label == null ? "The unopened save rests" : $"{label} rests";
                     text.resizeTextForBestFit = true;
                     text.resizeTextMinSize = 15;
                     text.resizeTextMaxSize = 24;
                     PlaceFromTop((RectTransform)button.transform, column * 0.5f, (column + 1) * 0.5f, top, top + RowHeight - 8, 3, 3);
-                    SoftShapes.Round(button.image, 1f);
+                    SoftShapes.Radius(button.image, Px(20));
                 }
 
+                SettleText(choices);
                 var rows = (awake.Count + 1) / 2;
                 var y = ChoicesTop + rows * RowHeight;
                 PlaceFromTop((RectTransform)keepResting.transform, 0, 1, y, y + 76, 3, 3);
                 y += 84;
                 PlaceFromTop(Feedback.rectTransform, 0, 1, y, y + 44);
                 y += 52;
-                tray.offsetMax = new Vector2(tray.offsetMax.x, tray.offsetMin.y + y);
+                tray.offsetMax = new Vector2(tray.offsetMax.x, tray.offsetMin.y + y + SheetChrome);
                 return keepResting;
             }
         }
