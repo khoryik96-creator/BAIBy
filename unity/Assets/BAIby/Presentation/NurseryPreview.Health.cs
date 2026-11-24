@@ -165,11 +165,11 @@ namespace BAIby.Presentation
             {
                 case MedicineState.Ready: return "With this meal";
                 case MedicineState.GivenThisMeal: return "Given · next meal";
-                default: return NextMeal(state);
+                default: return "At " + NextMeal(state);
             }
         }
 
-        // "At snack 14:00", or "At breakfast" when today's meals are over.
+        // "snack 14:00", or "breakfast" when today's meals are over.
         private static string NextMeal(BabyState state)
         {
             foreach (var slot in BabySimulation.Routine(state))
@@ -177,11 +177,11 @@ namespace BAIby.Presentation
                 var meal = slot.Kind == RoutineSlotKind.MorningMeal || slot.Kind == RoutineSlotKind.AfternoonMeal ||
                     slot.Kind == RoutineSlotKind.EveningMeal;
                 if (meal && slot.Open > state.TimeCheckpoint)
-                    return "At " + SlotName(slot.Kind, state.Care.Preset).ToLowerInvariant() + " " +
+                    return SlotName(slot.Kind, state.Care.Preset).ToLowerInvariant() + " " +
                         slot.Open.ToString("HH:mm", CultureInfo.InvariantCulture);
             }
 
-            return "At breakfast";
+            return "breakfast";
         }
 
         // Reactions of the health axis, or null for the others.
@@ -209,7 +209,7 @@ namespace BAIby.Presentation
                         case MedicineState.GivenThisMeal:
                             return $"{name} already had medicine with this meal. The next dose goes with another meal.";
                         case MedicineState.WaitForMeal:
-                            return "Medicine goes with a meal. " + NextMeal(state) + " is the next one.";
+                            return $"Medicine goes with a meal. The next dose is at {NextMeal(state)}.";
                         default:
                             return $"{name} is well and doesn't need any medicine.";
                     }
