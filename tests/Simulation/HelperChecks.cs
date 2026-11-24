@@ -521,13 +521,14 @@ static class HelperChecks
         Equal(true, payload.Contains("<helpers "), "the pet record saves its helpers");
         Equal(payload, PetSaveCodec.Encode(PetSaveCodec.Decode(payload, Catalog)), "and round-trips");
 
-        var dog = sim.Adopt("Rex", PetAppearance.Default(Catalog, Catalog.BreedsOf(Species.Dog).First(b => b.Unlock == BreedUnlock.Free).Breed),
-            At(3, 8, 0));
+        // The dog has helpers from P3 (DogCareChecks); a rabbit keeps the simple rules.
+        var rabbit = sim.Adopt("Clover", PetAppearance.Default(Catalog,
+            Catalog.BreedsOf(Species.Rabbit).First(b => b.Unlock == BreedUnlock.Free).Breed), At(3, 8, 0));
         events.Clear();
-        var dogHelped = sim.Step(dog, At(3, 20, 0), HelperSettings.All, events).State;
-        Equal(0, events.Count, "a dog keeps its simple rules: no helpers yet");
-        Equal(PetSaveCodec.Encode(sim.Step(dog, At(3, 20, 0)).State), PetSaveCodec.Encode(dogHelped), "and the same record");
-        Equal(dog, sim.StockFeeder(dog), "a dog has no feeder to stock");
+        var rabbitHelped = sim.Step(rabbit, At(3, 20, 0), HelperSettings.All, events).State;
+        Equal(0, events.Count, "a rabbit keeps its simple rules: no helpers yet");
+        Equal(PetSaveCodec.Encode(sim.Step(rabbit, At(3, 20, 0)).State), PetSaveCodec.Encode(rabbitHelped), "and the same record");
+        Equal(rabbit, sim.StockFeeder(rabbit), "a rabbit has no feeder to stock");
     }
 
     // Entitlements, developer mode, the household setting and the sessions.

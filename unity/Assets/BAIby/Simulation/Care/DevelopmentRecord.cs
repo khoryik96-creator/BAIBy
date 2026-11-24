@@ -4,8 +4,13 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // The motor skills that readiness unlocks, in order. Saved as numbers: append, never renumber.
-    // A cat's milestones follow the baby's: pounce, climb, high jump.
-    public enum MotorSkill { None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6, Wheel = 7, Tunnel = 8, HandTame = 9 }
+    // A cat's milestones follow the baby's: pounce, climb, high jump. A hamster's: wheel, tunnel, hand-tame. A dog's
+    // (P3): fetch, leash walk, agility.
+    public enum MotorSkill
+    {
+        None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6, Wheel = 7, Tunnel = 8, HandTame = 9,
+        Fetch = 10, LeashWalk = 11, Agility = 12,
+    }
 
     // The four development tracks (docs/care-and-growth.md). Saved as numbers: append, never renumber.
     public enum DevelopmentTrack { Motor = 0, Learning = 1, Social = 2, Physical = 3 }
@@ -26,6 +31,9 @@ namespace BAIby.Simulation
         PlayWand = 9,
         // Talk time, the day's first talk once First words is reached (Learning and Social).
         Talk = 10,
+        // A dog's game of fetch (P3): running after the ball (Motor) and learning its tricks (Learning). A walk counts as
+        // play (PlayWand, Motor), as a hamster's wheel does.
+        Fetch = 11,
     }
 
     // How a quality sample paces readiness: with its own qualities, held by Away mode at the nominal pace, or by a

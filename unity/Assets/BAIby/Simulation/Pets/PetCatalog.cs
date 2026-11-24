@@ -432,19 +432,22 @@ namespace BAIby.Simulation.Pets
                         Verb(PetVerb.Nap, 0, -1, 0, Effect(PetMeter.Energy, 35)),
                     },
                     new[] { PetMoment.Kneading, PetMoment.Purring, PetMoment.BringsToy }, collarSet),
+                // P3 tuned the dog for two meals and two walks a day (docs/care-and-growth.md, Pets and household): a meal
+                // gives 40 against 72 Fullness a day; two walks (40 each) or the evening walk and a game of fetch keep
+                // Exercise up against 48 a day; a walk's muddy paws cost 3 Cleanliness and the daily brush gives 35.
                 new SpeciesDefinition(Species.Dog, TimeSpan.FromDays(10),
                     new[]
                     {
-                        Meter(PetMeter.Fullness, 7, 70), Meter(PetMeter.Energy, 6, 80),
-                        Meter(PetMeter.Exercise, 6, 70), Meter(PetMeter.Cleanliness, 6, 90),
+                        Meter(PetMeter.Fullness, 4, 70), Meter(PetMeter.Energy, 2, 80),
+                        Meter(PetMeter.Exercise, 3, 70), Meter(PetMeter.Cleanliness, 1.5, 90),
                     },
                     new[]
                     {
-                        Verb(PetVerb.Feed, 1, 0, 0, Effect(PetMeter.Fullness, 30)),
-                        Verb(PetVerb.Walk, 2, 0, 2, Effect(PetMeter.Exercise, 35), Effect(PetMeter.Energy, -10),
-                            Effect(PetMeter.Cleanliness, -5)),
-                        Verb(PetVerb.Fetch, 3, 2, 0, Effect(PetMeter.Exercise, 20), Effect(PetMeter.Energy, -12)),
-                        Verb(PetVerb.Brush, 2, -1, 0, Effect(PetMeter.Cleanliness, 30)),
+                        Verb(PetVerb.Feed, 1, 0, 0, Effect(PetMeter.Fullness, 40)),
+                        Verb(PetVerb.Walk, 3, 0, 2, Effect(PetMeter.Exercise, 40), Effect(PetMeter.Energy, -8),
+                            Effect(PetMeter.Cleanliness, -3)),
+                        Verb(PetVerb.Fetch, 2, 2, 1, Effect(PetMeter.Exercise, 15), Effect(PetMeter.Energy, -10)),
+                        Verb(PetVerb.Brush, 2, -1, 0, Effect(PetMeter.Cleanliness, 35)),
                         Verb(PetVerb.Rest, 0, -1, 0, Effect(PetMeter.Energy, 35)),
                     },
                     new[] { PetMoment.ReunionGreeting }, collarSet),
@@ -523,30 +526,35 @@ namespace BAIby.Simulation.Pets
                 Premium(PetBreed.Sphynx, "sphynx", silhouette, Coats(PetCoat.Cream, PetCoat.Gray, PetCoat.Black),
                     Trade(PetMeter.Cleanliness, 16, PetMeter.Comfort, 12), 10, 10),
 
+                // Rates: Fullness 4, Exercise 3, Energy 2, Cleanliness 1.5 per hour, so 12% of 4 = 16% of 3, 10% of 4 =
+                // 20% of 2, 12% of 3 = 18% of 2, 10% of 3 = 20% of 1.5 and 12% of 2 = 16% of 1.5. Every dog breed ships
+                // with the species (P3) by recolour, a markings overlay or a feature overlay, the Corgi too (its short
+                // legs and big ears are a scale and a feature overlay on the base); only the Dachshund's long body needs a
+                // new silhouette, so it is listed as arriving soon.
                 Free(PetBreed.MixedBreed, recolor, Coats(PetCoat.Tan, PetCoat.Black, PetCoat.Brown, PetCoat.Cream, PetCoat.White),
-                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 5, 5),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Energy, 18), 5, 5),
                 Earned(PetBreed.Golden, EarnedGoal.FirstFullCareDay, overlay, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Red),
-                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 10), 10, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Exercise, 16), 10, 10),
                 Earned(PetBreed.Beagle, EarnedGoal.Bond40, overlay, Coats(PetCoat.Tricolor, PetCoat.Tan),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 14), 10, 5),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Energy, 20), 10, 5),
                 Earned(PetBreed.Shiba, EarnedGoal.RaisedToGrown, recolor, Coats(PetCoat.Red, PetCoat.Sable, PetCoat.Cream, PetCoat.Black),
-                    Trade(PetMeter.Exercise, 15, PetMeter.Cleanliness, 15), 5, 0),
+                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 20), 5, 0),
                 Premium(PetBreed.Corgi, "corgi", silhouette, Coats(PetCoat.Red, PetCoat.Sable, PetCoat.Tricolor),
-                    Trade(PetMeter.Exercise, 10, PetMeter.Energy, 10), 10, 10),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Energy, 20), 10, 10, availableNow: true),
                 Premium(PetBreed.Poodle, "poodle", overlay, Coats(PetCoat.White, PetCoat.Black, PetCoat.Chocolate, PetCoat.Cream),
-                    Trade(PetMeter.Cleanliness, 15, PetMeter.Exercise, 15), 5, 5),
+                    Trade(PetMeter.Cleanliness, 20, PetMeter.Exercise, 10), 5, 5, availableNow: true),
                 Premium(PetBreed.Dachshund, "dachshund", silhouette, Coats(PetCoat.Red, PetCoat.Chocolate, PetCoat.Black),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Exercise, 14), 0, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Exercise, 16), 0, 10),
                 Premium(PetBreed.Husky, "husky", recolor, Coats(PetCoat.Gray, PetCoat.Black, PetCoat.Red),
-                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 15, 10),
+                    Trade(PetMeter.Exercise, 12, PetMeter.Energy, 18), 15, 10),
                 Premium(PetBreed.Samoyed, "samoyed", overlay, Coats(PetCoat.White, PetCoat.Cream),
-                    Trade(PetMeter.Cleanliness, 15, PetMeter.Energy, 15), 10, 10),
+                    Trade(PetMeter.Cleanliness, 16, PetMeter.Energy, 12), 10, 10, availableNow: true),
                 Premium(PetBreed.Pomeranian, "pomeranian", overlay, Coats(PetCoat.Orange, PetCoat.Cream, PetCoat.Black),
-                    Trade(PetMeter.Energy, 10, PetMeter.Exercise, 10), 15, 5),
+                    Trade(PetMeter.Energy, 12, PetMeter.Cleanliness, 16), 15, 5, availableNow: true),
                 Premium(PetBreed.Dalmatian, "dalmatian", recolor, Coats(PetCoat.White),
-                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 10), 10, 5),
+                    Trade(PetMeter.Exercise, 10, PetMeter.Cleanliness, 20), 10, 5),
                 Premium(PetBreed.BorderCollie, "border_collie", overlay, Coats(PetCoat.Black, PetCoat.Red, PetCoat.Blue),
-                    Trade(PetMeter.Exercise, 14, PetMeter.Fullness, 12), 15, 5),
+                    Trade(PetMeter.Exercise, 16, PetMeter.Fullness, 12), 15, 5, availableNow: true),
 
                 Free(PetBreed.Goldfish, recolor, Coats(PetCoat.Orange, PetCoat.Red, PetCoat.White, PetCoat.Yellow),
                     Trade(PetMeter.Water, 16, PetMeter.Calm, 12), 0, 5),

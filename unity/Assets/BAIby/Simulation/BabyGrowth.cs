@@ -645,16 +645,18 @@ namespace BAIby.Simulation
 
         private static bool IsPlay(EngagementKind kind) =>
             kind == EngagementKind.PlayRattle || kind == EngagementKind.PlayPlush || kind == EngagementKind.Story ||
-            kind == EngagementKind.Blocks || kind == EngagementKind.ExploreSound || kind == EngagementKind.PlayWand;
+            kind == EngagementKind.Blocks || kind == EngagementKind.ExploreSound || kind == EngagementKind.PlayWand ||
+            kind == EngagementKind.Fetch;
 
-        // A cat's wand is its first toy (the rattle's bit).
+        // A cat's wand is its first toy (the rattle's bit), and a dog's ball its second (the plush's).
         private static int ToyBit(EngagementKind kind)
         {
             switch (kind)
             {
                 case EngagementKind.PlayRattle:
                 case EngagementKind.PlayWand: return 1;
-                case EngagementKind.PlayPlush: return 2;
+                case EngagementKind.PlayPlush:
+                case EngagementKind.Fetch: return 2;
                 case EngagementKind.Blocks: return 4;
                 default: return 0;
             }

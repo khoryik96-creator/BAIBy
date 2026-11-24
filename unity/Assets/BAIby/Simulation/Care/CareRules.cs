@@ -10,7 +10,9 @@ namespace BAIby.Simulation
     // absence ceiling counts from its planned end, so an overdue return is an ordinary absence.
     //
     // Routines: the record's CareRoutine picks its windows. A routine with a play window (a cat's) feeds its together
-    // ring from that window (on time, late or missed, like a meal) instead of from the whole day, and never owes it.
+    // ring from that window (on time, late or missed, like a meal) instead of from the whole day, and never owes it. A
+    // dog's two walk windows do the same with a walk (CareTags.Walk), and its morning walk is a grace window that closes
+    // excused when school gets in the way.
     //
     // Helpers: a meal window the feeder served in (and nobody fed by hand) is Helped. It stays out of the rings and is
     // not owed, like Covered, so the needs axis holds; Bond, temperament and the rhythm still count it as missed.
@@ -44,6 +46,7 @@ namespace BAIby.Simulation
                 ConditionSince = now,
                 SessionStart = now,
                 Routine = routine,
+                Moments = new MomentStatus[RoutineCalendar.MomentsOf(routine)],
             };
             CloseWindows(draft, instant, false, tunables, new GapSummary());
             return draft.Build();
@@ -55,6 +58,7 @@ namespace BAIby.Simulation
         public static CareRecord Unanchored(DateTimeOffset checkpoint, CareRoutine routine) => new CareRecord.Builder
         {
             Routine = routine,
+            Moments = new MomentStatus[RoutineCalendar.MomentsOf(routine)],
             Checkpoint = checkpoint,
             ExcusedUntil = checkpoint,
             LastCareAt = checkpoint,
@@ -163,9 +167,13 @@ namespace BAIby.Simulation
                 reason = MarkWash(draft, at);
             if ((tags & CareTags.Together) != 0)
                 reason = MarkTogether(draft, at, tunables);
-            if ((tags & CareTags.Play) != 0 && RoutineCalendar.HasPlayWindow(draft.Routine))
+            if ((tags & CareTags.Play) != 0 && RoutineCalendar.HasPlayWindow(draft.Routine) &&
+                !RoutineCalendar.HasWalks(draft.Routine))
                 reason = MarkMoment(draft, CareTags.Play, at, CareReason.PlayOnTime, CareReason.PlayLate,
                     CareReason.PlayExcused, CareReason.PlayOutsideWindow, tunables);
+            if ((tags & CareTags.Walk) != 0 && RoutineCalendar.HasWalks(draft.Routine))
+                reason = MarkMoment(draft, CareTags.Walk, at, CareReason.WalkOnTime, CareReason.WalkLate,
+                    CareReason.WalkExcused, CareReason.WalkOutsideWindow, tunables);
             if ((tags & CareTags.Bedtime) != 0)
                 reason = MarkMoment(draft, CareTags.Bedtime, at, CareReason.BedtimeOnTime, CareReason.BedtimeLate,
                     CareReason.BedtimeExcused, CareReason.BedtimeOutsideWindow, tunables);
@@ -301,9 +309,14 @@ namespace BAIby.Simulation
             return RoutineCalendar.IsNapTime(record.Routine, record.Preset, record.WakeTime, timeOfDay);
         }
 
-        // A stable key for one meal window of one care day; never 0.
-        public static long WindowKey(long careDay, CareMoment moment) =>
-            careDay * RoutineCalendar.MomentCount + (int)moment + 1;
+        // A stable key for one meal window of one care day; never 0. Meals sit in the first four moments (a dog's Dawn
+        // moment is its morning walk), so keys never collide.
+        public static long WindowKey(long careDay, CareMoment moment)
+        {
+            if ((int)moment >= RoutineCalendar.MomentCount)
+                throw new ArgumentOutOfRangeException(nameof(moment), "Only the first four moments hold meals.");
+            return careDay * RoutineCalendar.MomentCount + (int)moment + 1;
+        }
 
         // Whether the advance from `before` to `after` began a new visit (the gap was longer than the presence gap).
         public static bool StartedSession(CareRecord before, CareRecord after)
@@ -375,7 +388,7 @@ namespace BAIby.Simulation
             draft.Offset = draft.NextOffset;
             draft.Preset = draft.NextPreset;
             draft.WakeTime = draft.NextWakeTime;
-            draft.Moments = new MomentStatus[RoutineCalendar.MomentCount];
+            draft.Moments = new MomentStatus[RoutineCalendar.MomentsOf(draft.Routine)];
             draft.Wash = MomentStatus.Pending;
             draft.TogetherToday = false;
             draft.DayExcused = false;
@@ -394,7 +407,7 @@ namespace BAIby.Simulation
 
             var skipped = target - draft.CareDay;
             // Each skipped day holds its moments, together time (unless a play window is one of them) and the wash.
-            var perDay = RoutineCalendar.MomentCount + (RoutineCalendar.HasPlayWindow(draft.Routine) ? 1 : 2);
+            var perDay = RoutineCalendar.MomentsOf(draft.Routine) + (RoutineCalendar.HasPlayWindow(draft.Routine) ? 1 : 2);
             draft.CoveredCount = Add(draft.CoveredCount, Multiply(skipped, perDay));
             gap.Events?.Add(new LedgerEvent(LedgerEventKind.HelperDays,
                 RoutineCalendar.CareDayStart(draft.CareDay + 1, draft.Offset, tunables.DayStart), draft.CareDay,
@@ -437,6 +450,10 @@ namespace BAIby.Simulation
                     bedtime = true;
                     continue;
                 }
+
+                // A grace walk that closed undone asks nothing more of the day and excuses nothing.
+                if (window.Grace && status == MomentStatus.Excused)
+                    continue;
 
                 if (window.Core == CareTags.Meal)
                 {
@@ -486,7 +503,7 @@ namespace BAIby.Simulation
                 var core = window.Core;
                 var fed = core == CareTags.Meal && Fed(draft, open, closeAt, gap.Served);
                 draft.Moments[index] = Resolve(draft, open, closeAt, tunables, gap, () => PushMissed(draft, core, tunables),
-                    fed);
+                    fed, window.Grace);
                 // A helped meal is still a missed meal for Bond.
                 if (core == CareTags.Meal &&
                     (draft.Moments[index] == MomentStatus.Missed || draft.Moments[index] == MomentStatus.Helped))
@@ -503,8 +520,9 @@ namespace BAIby.Simulation
             }
         }
 
+        // A grace window (a dog's morning walk) that would be missed closes excused instead: never counted or owed.
         private static MomentStatus Resolve(CareRecord.Builder draft, long open, long closeAt, CareTunables tunables,
-            GapSummary gap, Action pushMissed, bool fed = false)
+            GapSummary gap, Action pushMissed, bool fed = false, bool grace = false)
         {
             if (IsExcused(draft, open))
             {
@@ -530,6 +548,12 @@ namespace BAIby.Simulation
                 draft.CoveredCount = Add(draft.CoveredCount, 1);
                 gap.Helped = true;
                 return MomentStatus.Helped;
+            }
+
+            if (grace)
+            {
+                draft.ExcusedCount = Add(draft.ExcusedCount, 1);
+                return MomentStatus.Excused;
             }
 
             pushMissed();
@@ -565,9 +589,9 @@ namespace BAIby.Simulation
                 draft.Meals = draft.Meals.Push(CareMark.Missed, tunables.MealRing);
                 draft.MissedSinceWell = true;
             }
-            else if (core == CareTags.Play)
+            else if (core == CareTags.Play || core == CareTags.Walk)
             {
-                // A missed play window is a missed together day; play is never owed.
+                // A missed play or walk window is a missed together day; play and walks are never owed.
                 draft.TogetherDays = draft.TogetherDays.Push(CareMark.Missed, tunables.TogetherRing);
                 return;
             }
@@ -629,7 +653,7 @@ namespace BAIby.Simulation
                     draft.Moments[index] = lateWindow ? MomentStatus.Late : MomentStatus.OnTime;
                     if (core == CareTags.Meal)
                         draft.Meals = draft.Meals.Push(mark, tunables.MealRing);
-                    else if (core == CareTags.Play)
+                    else if (core == CareTags.Play || core == CareTags.Walk)
                         draft.TogetherDays = draft.TogetherDays.Push(mark, tunables.TogetherRing);
                     else
                         draft.Bedtimes = draft.Bedtimes.Push(mark, tunables.BedtimeRing);

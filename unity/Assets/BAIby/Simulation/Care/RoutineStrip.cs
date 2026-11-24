@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BAIby.Simulation
 {
     // Display-only; never saved.
-    public enum RoutineSlotKind { MorningMeal, AfternoonMeal, EveningMeal, Play, Bedtime, Wash, Nap }
+    public enum RoutineSlotKind { MorningMeal, AfternoonMeal, EveningMeal, Play, Bedtime, Wash, Nap, Walk }
 
     // Later: the window has not opened. Due: open now. Overdue: past due, still waiting (late if done now). Helped: a
     // helper served the meal (it still waits for a hands-on meal while the window is open). Napping: a day nap is under
@@ -42,6 +42,8 @@ namespace BAIby.Simulation
             var windows = RoutineCalendar.Windows(record.Routine, record.Preset, record.WakeTime);
             if (RoutineCalendar.NapsByDay(record.Routine))
                 return NapDay(record, windows);
+            if (RoutineCalendar.HasWalks(record.Routine))
+                return WalkDay(record, windows);
 
             var slots = new List<RoutineSlot>(6);
             foreach (var window in windows)
@@ -87,6 +89,24 @@ namespace BAIby.Simulation
             {
                 var window = windows[(int)moment];
                 var kind = window.Core == CareTags.Play ? RoutineSlotKind.Play : (RoutineSlotKind)(int)window.Moment;
+                slots.Add(Slot(record, kind, record.StatusOf(moment), window.Open, window.Due, window.LateUntil));
+            }
+
+            var wash = RoutineCalendar.WashWindow(record.Routine, record.Preset, record.WakeTime);
+            slots.Add(Slot(record, RoutineSlotKind.Wash, record.Wash, wash.Open, wash.Due, wash.LateUntil));
+            return slots.AsReadOnly();
+        }
+
+        // A dog's day in time order: the morning walk, breakfast, the evening walk, dinner, bed and the brush.
+        private static IReadOnlyList<RoutineSlot> WalkDay(CareRecord record, IReadOnlyList<CareWindow> windows)
+        {
+            var slots = new List<RoutineSlot>(6);
+            foreach (var moment in new[] { CareMoment.Dawn, CareMoment.Morning, CareMoment.Afternoon, CareMoment.Evening,
+                CareMoment.Bedtime })
+            {
+                var window = windows[(int)moment];
+                var kind = window.Core == CareTags.Walk ? RoutineSlotKind.Walk
+                    : window.Core == CareTags.Bedtime ? RoutineSlotKind.Bedtime : (RoutineSlotKind)(int)window.Moment;
                 slots.Add(Slot(record, kind, record.StatusOf(moment), window.Open, window.Due, window.LateUntil));
             }
 

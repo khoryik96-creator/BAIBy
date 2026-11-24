@@ -340,6 +340,10 @@ namespace BAIby.Simulation.Pets
                     return bonded.Bond;
                 });
 
+            // A game of fetch that was not one too many is familiarity towards the dog's next trick.
+            var tricks = state.Tricks;
+            if (verb.HasValue && verb == profile.TrickVerb && !refused && !developed.Bored)
+                tricks = DogTricks.Next(tricks);
             var journal = state.Journal;
             if (developed.Recovered)
             {
@@ -351,6 +355,10 @@ namespace BAIby.Simulation.Pets
             {
                 cue = PetCue.Bored;
             }
+            else if (DogTricks.Learned(tricks) > DogTricks.Learned(state.Tricks))
+            {
+                cue = PetCue.NewTrick;
+            }
 
             journal = JournalRules.AfterCondition(journal, state.Care.Condition, record.Condition, state.TimeCheckpoint, state.Age);
             var playKind = developed.Kind.HasValue && developed.Kind != EngagementKind.Meal && developed.Kind != EngagementKind.Hygiene
@@ -359,7 +367,7 @@ namespace BAIby.Simulation.Pets
                 (tags & CareTags.Together) != 0, (tags & CareTags.Bedtime) != 0, answered, playKind);
             var updated = state.With(meters: Meters(state, values), bond: bonded.Bond,
                 highestBond: Math.Max(state.HighestBond, bonded.Bond), liveliness: liveliness, boldness: boldness, care: record,
-                development: developed.Record, bonding: bonding, journal: journal);
+                development: developed.Record, bonding: bonding, journal: journal, tricks: tricks);
             return new PetStep(updated, false, null, cue);
         }
 

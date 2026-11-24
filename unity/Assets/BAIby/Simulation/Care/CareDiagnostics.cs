@@ -44,6 +44,10 @@ namespace BAIby.Simulation
         PlayExcused = 34,
         PlayOutsideWindow = 35,
         MealHelped = 36,
+        WalkOnTime = 37,
+        WalkLate = 38,
+        WalkExcused = 39,
+        WalkOutsideWindow = 40,
     }
 
     // Developer read-outs of the care ledger. Never shown to players.
@@ -90,6 +94,10 @@ namespace BAIby.Simulation
                 case CareReason.PlayExcused: return "play in an excused window";
                 case CareReason.PlayOutsideWindow: return "play outside the window";
                 case CareReason.MealHelped: return "a helper served the meal (counted as missed for Bond)";
+                case CareReason.WalkOnTime: return "walk on time";
+                case CareReason.WalkLate: return "walk late";
+                case CareReason.WalkExcused: return "walk excused";
+                case CareReason.WalkOutsideWindow: return "walk outside a walk window";
                 default: throw new ArgumentOutOfRangeException(nameof(reason));
             }
         }

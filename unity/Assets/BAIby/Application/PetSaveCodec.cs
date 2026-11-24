@@ -14,7 +14,8 @@ namespace BAIby.Application
     // of <unlocks>), a <care> element (its routine comes from the species), and, once seeded, <development>, <bonding>
     // and <journal> elements, the elements a baby's save uses (its <bond> is <bonding> here, beside the pet's own <bond>). A v1 pet decodes as before: its stage, Bond, look and
     // meters are kept, the milestones its age passed are reached (all of them once grown), and its records are seeded
-    // on first use, the ledger excusing the whole gap on its first advance (as the baby's v1 migration did).
+    // on first use, the ledger excusing the whole gap on its first advance (as the baby's v1 migration did). A dog
+    // (P3) adds its familiarity with fetch as a tricks attribute of <unlocks> once it has played.
     internal static class PetSaveCodec
     {
         public const int Version = 2;
@@ -47,6 +48,9 @@ namespace BAIby.Application
             var care = state.Care ?? (cared ? CareRules.Unanchored(state.TimeCheckpoint, profile.Routine) : null);
             if (cared)
                 unlocks.Add(new XAttribute("milestones", state.Milestones));
+            // A dog's familiarity with fetch (its tricks, P3), only once it has played.
+            if (state.Tricks > 0)
+                unlocks.Add(new XAttribute("tricks", state.Tricks));
             return new XElement("pet",
                     new XAttribute("version", Version),
                     new XElement("name", state.Name),
@@ -118,8 +122,11 @@ namespace BAIby.Application
                 var checkpoint = new DateTimeOffset((long)Field(root, "checkpoint"), TimeSpan.Zero);
                 var age = TimeSpan.FromTicks((long)Field(root, "age"));
                 var profile = PetCareProfile.For(species);
-                // A v1 pet, or a species without care records yet: the simple record.
-                if (version == VersionBeforeCare || profile == null)
+                // A v1 pet, or a species without care records yet: the simple record. A v2 record of a species that gained
+                // its care profile later (a dog saved before P3) has neither, and migrates as a v1 pet does.
+                var simple = species == Species.Dog && root.Element(CareRecordCodec.ElementName) == null &&
+                    unlocks.Attribute("milestones") == null;
+                if (version == VersionBeforeCare || profile == null || simple)
                 {
                     if (profile == null && (root.Element(CareRecordCodec.ElementName) != null || unlocks.Attribute("milestones") != null))
                         throw new InvalidDataException($"A {species} save cannot hold care records yet.");
@@ -140,7 +147,8 @@ namespace BAIby.Application
                     development == null ? null : DevelopmentRecordCodec.Decode(development),
                     bonding == null ? null : BondRecordCodec.Decode(new XElement(bonding) { Name = BondRecordCodec.ElementName }),
                     journal == null ? null : JournalRecordCodec.Decode(journal),
-                    (int)Attribute(unlocks, "milestones"));
+                    (int)Attribute(unlocks, "milestones"),
+                    (int?)unlocks.Attribute("tricks") ?? 0);
             }
             catch (Exception exception) when (exception is XmlException || exception is FormatException ||
                 exception is ArgumentException || exception is OverflowException)

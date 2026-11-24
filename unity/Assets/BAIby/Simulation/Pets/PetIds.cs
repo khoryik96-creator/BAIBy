@@ -108,11 +108,12 @@ namespace BAIby.Simulation.Pets
 
     // How a pet answered care. A species with a care profile uses the ladder's answers too: too full, swatting the
     // toy away when grumpy, too poorly to play, bored of the same game, medicine and the vet, and a shy skill back.
-    // Napping: a hamster in its day nap sleeps on and the wheel waits for the evening (never a failure).
+    // Napping: a hamster in its day nap sleeps on and the wheel waits for the evening (never a failure). NewTrick: a
+    // dog's game of fetch taught it a trick (P3, DogTricks).
     public enum PetCue
     {
         Content = 0, IgnoredFlakes = 1, TooFull = 2, PushesToyAway = 3, TooPoorly = 4, Bored = 5, MedicineTaken = 6,
-        MedicineNotNow = 7, MedicineDone = 8, VetVisited = 9, VetAllClear = 10, SkillBack = 11, Napping = 12,
+        MedicineNotNow = 7, MedicineDone = 8, VetVisited = 9, VetAllClear = 10, SkillBack = 11, Napping = 12, NewTrick = 13,
     }
 
     public static class PetIds
