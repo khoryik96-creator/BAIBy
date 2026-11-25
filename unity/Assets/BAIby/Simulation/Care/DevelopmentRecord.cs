@@ -5,11 +5,11 @@ namespace BAIby.Simulation
 {
     // The motor skills that readiness unlocks, in order. Saved as numbers: append, never renumber.
     // A cat's milestones follow the baby's: pounce, climb, high jump. A hamster's: wheel, tunnel, hand-tame. A dog's
-    // (P3): fetch, leash walk, agility.
+    // (P3): fetch, leash walk, agility. A fish's (P4): darts to the glass, follows a finger, swims through a hoop.
     public enum MotorSkill
     {
         None = 0, Sitting = 1, Crawling = 2, Walking = 3, Pounce = 4, Climb = 5, HighJump = 6, Wheel = 7, Tunnel = 8, HandTame = 9,
-        Fetch = 10, LeashWalk = 11, Agility = 12,
+        Fetch = 10, LeashWalk = 11, Agility = 12, DartsToGlass = 13, FollowsFinger = 14, HoopSwim = 15,
     }
 
     // The four development tracks (docs/care-and-growth.md). Saved as numbers: append, never renumber.

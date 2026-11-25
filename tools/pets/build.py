@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the PLACEHOLDER pet art: base poses, region maps, breed marking overlays,
-accessory overlays, layout.json and Unity .meta files, for the cat (P1) and the
-hamster (P2).
+accessory overlays, layout.json and Unity .meta files, for the cat (P1), the
+hamster (P2), the dog (P3) and the fish (P4).
 
     python3 tools/pets/build.py                    # every species (a couple of minutes on 4 cores)
     python3 tools/pets/build.py --species Hamster  # one species
@@ -11,7 +11,9 @@ Cat: markings for the Tabby, Tuxedo, Siamese and Calico (and Calico's dark
 patches), and the neck wear (Collar, and the Bandana and Bow of the "Cat
 bandanas & bows" pack).  Hamster: the dorsal stripe and Panda patches (dark
 overlays), the Roborovski's brow spots, the Teddy bear's long coat, a tiny
-bow, and its habitat (``Habitat/Back`` and ``Habitat/Front``, habitat.py).
+bow, and its habitat (``Habitat/Back`` and ``Habitat/Front``, habitat.py).  Dog: dog.py.  Fish: every
+breed's fins, the dark bars, patches and bands, the Neon tetra school's own base, and the tank (tank.py) with its
+haze and castle layers.
 
 Deterministic: fixed geometry and seeds, fixed PNG encoder settings; existing
 .meta GUIDs are kept, so a rerun without changes produces no diff.
@@ -34,8 +36,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from cat import BREEDS, POSES, REF_ACCENT, REF_COAT, REF_IRIS, REF_MARK, RUNTIME_SCALE, WEAR  # noqa: E402
-from palette import (breed_entries, collar_entries, dog_entries, dog_eye_entries, eye_entries, hamster_entries,  # noqa: E402
-                     hamster_eye_entries)
+from palette import (breed_entries, collar_entries, dog_entries, dog_eye_entries, eye_entries, fish_entries,  # noqa: E402
+                     fish_eye_entries, hamster_entries, hamster_eye_entries)
 
 sys.path.insert(0, str(HERE.parent / "appearance"))
 from recolor import composite  # noqa: E402  (the baby contract composite)
@@ -44,7 +46,7 @@ ROOT = HERE.parent.parent
 PETS_DIR = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets"
 OUT_DIR = PETS_DIR / "Cat"
 MARGIN = 4
-SPECIES = ["Cat", "Hamster", "Dog"]
+SPECIES = ["Cat", "Hamster", "Dog", "Fish"]
 HAB_W, HAB_H, HAB_FLOOR = 760, 480, 64   # habitat.W, habitat.H, habitat.FLOOR
 
 FILE_META = """fileFormatVersion: 2
@@ -256,8 +258,76 @@ class DogSpec:
         return {"coats": dog_entries(), "eyes": dog_eye_entries(), "collarAccents": collar_entries()}
 
 
+class FishSpec:
+    """The fish (P4): every breed's fins are a feature overlay (the Discus's tall disc too), the Angelfish's bars, the
+    Koi's patches, the Clownfish's bands and the Neon tetras' red are dark overlays, and the Neon tetra school stands on
+    its own base (``Base/NeonTetraSchool{Pose}``: four little fish).  No neck wear: the tank castle is a habitat layer.
+    The tank is the habitat (tank.py), with a haze layer for cloudy water and the castle."""
+    name = "Fish"
+
+    def __init__(self):
+        import fish
+        self.f = fish
+        self.poses = fish.ALL_POSES
+        self.features = ("Markings/",)
+
+    def _breeds(self, pose):
+        return [self.f.VARIANT] if pose.startswith(self.f.VARIANT) else [b for b in self.f.BREEDS if b != self.f.VARIANT]
+
+    def _plain(self, pose):
+        return pose[len(self.f.VARIANT):] if pose.startswith(self.f.VARIANT) else pose
+
+    def jobs(self, pose):
+        jobs = [(pose, "marking", b) for b in self._breeds(pose)]
+        jobs += [(pose, "darkpatch", b) for b in self._breeds(pose) if b in self.f.DARK]
+        return jobs
+
+    def overlays(self, pose):
+        plain = self._plain(pose)
+        out = [(f"Markings/{b}/{plain}", (pose, "marking", b), "secondary") for b in self._breeds(pose)]
+        out += [(f"Markings/{b}/{plain}Dark", (pose, "darkpatch", b), "dark") for b in self._breeds(pose)
+                if b in self.f.DARK]
+        return out
+
+    def kinds(self):
+        return [f"Markings/{b}" for b in self.f.BREEDS]
+
+    def layout_head(self):
+        import tank
+        f = self.f
+        return {
+            "placeholder": True,
+            "species": "Fish",
+            "reference": {
+                "coat": list(f.REF_COAT),
+                "markings": list(f.REF_MARK),
+                "eyes": list(f.REF_IRIS),
+                "accent": list(f.REF_ACCENT),
+            },
+            "runtimeScale": {"young": f.RUNTIME_SCALE["Young"], "grown": f.RUNTIME_SCALE["Grown"]},
+            # the tank round the fish (tank.py), at the baby's pose-pixel scale: the fish swims `swim` px above the
+            # floor line; `haze` is the cloudy water and `castle` the TankCastle accessory
+            "habitat": {"back": "Habitat/Back", "front": "Habitat/Front", "width": tank.W, "height": tank.H,
+                        "floor": tank.FLOOR, "swim": tank.SWIM, "haze": "Habitat/Haze", "castle": "Habitat/Castle"},
+            "breedBases": [f.VARIANT],
+        }
+
+    @staticmethod
+    def extras(out_dir):
+        import tank
+        write_png(out_dir / "Habitat" / "Back.bytes", tank.back().image()[0])
+        write_png(out_dir / "Habitat" / "Front.bytes", tank.front().image()[0])
+        write_png(out_dir / "Habitat" / "Haze.bytes", tank.haze().image()[0])
+        write_png(out_dir / "Habitat" / "Castle.bytes", tank.castle().image()[0])
+
+    @staticmethod
+    def palette():
+        return {"coats": fish_entries(), "eyes": fish_eye_entries(), "collarAccents": []}
+
+
 def spec_for(name):
-    return CatSpec() if name == "Cat" else HamsterSpec() if name == "Hamster" else DogSpec()
+    return (CatSpec() if name == "Cat" else HamsterSpec() if name == "Hamster" else DogSpec() if name == "Dog"
+            else FishSpec())
 
 
 def render_job(job):
@@ -267,8 +337,10 @@ def render_job(job):
         from poses import render
     elif species == "Hamster":
         from hamster import render
-    else:
+    elif species == "Dog":
         from dog import render
+    else:
+        from fish import render
     if kind == "base":
         cv = render(pose)
         return job, cv.image()

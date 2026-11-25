@@ -149,7 +149,10 @@
     "HandTame": 10,
     "Fetch": 11,
     "LeashWalk": 12,
-    "Agility": 13
+    "Agility": 13,
+    "DartsToGlass": 14,
+    "FollowsFinger": 15,
+    "HoopSwim": 16
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -262,7 +265,10 @@
     "HandTame": 9,
     "Fetch": 10,
     "LeashWalk": 11,
-    "Agility": 12
+    "Agility": 12,
+    "DartsToGlass": 13,
+    "FollowsFinger": 14,
+    "HoopSwim": 15
   },
   "NurseryTheme": {
     "Sage": 0,
@@ -429,7 +435,8 @@
     "Greens": 16,
     "Groom": 17,
     "FloorTime": 18,
-    "Litter": 19
+    "Litter": 19,
+    "FollowFinger": 20
   },
   "PhotoMoment": {
     "Calm": 0,

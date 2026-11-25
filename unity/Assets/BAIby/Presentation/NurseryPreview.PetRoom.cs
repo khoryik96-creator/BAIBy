@@ -59,6 +59,7 @@ namespace BAIby.Presentation
             petNextDay = ActionButton("Pet preview next day", panel, 0, 1, 0, 0, PreviewPetNextDay, Paper, Ink);
             WithIcon(petNextDay, "Next day", "NextDay", Ink);
             BuildPetCareControls(panel);
+            BuildGlassPanel();
 
             petBubbleRect = Box("Pet Speech Bubble", petCare.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 Vector2.zero, Vector2.zero);
@@ -170,11 +171,23 @@ namespace BAIby.Presentation
         }
 
         // A dog's welcome when the player comes back (its signature moment, PetReunion): the line and a happy bounce scale
-        // with the time since the last hands-on care. Played once per return; any care ends it. Never guilt, always joy.
+        // with the time since the last hands-on care. Played once per return; any care ends it. Never guilt, always joy. A
+        // fish's signature moment plays the same way: back after a while, it swims to the glass to say hello (awake only:
+        // with the lights off it sleeps on).
         private string ReunionLine(PetState state)
         {
             if (state == null || household == null || household.IsResting(petSlot))
                 return null;
+            if (PetReunion.SwimsToGlass(state, household.PetCatalog) && !IsSleepy(state) && !IsPoorly(state))
+            {
+                var hello = (petSlot, state.Care.LastCareAt.UtcTicks);
+                if (reunionPlayed == hello)
+                    return null;
+                reunionPlayed = hello;
+                petStage.PlaySwimToGlass();
+                return PetReunion.GlassLine(state.Name);
+            }
+
             var scale = PetReunion.Of(state, household.PetCatalog);
             if (scale == ReunionScale.None || state.Care == null)
                 return null;
@@ -326,6 +339,7 @@ namespace BAIby.Presentation
 
             petStage.Show(decorPreview && petWearDraft != null ? petWearDraft : ShownPet(state.Appearance), household.PetCatalog,
                 state.Stage, IsSleepy(state) || IsPoorly(state));
+            petStage.SetWater(Cloudiness(state));
             // What the helpers did comes first; with nothing else to say, the return summary ends with the attention line.
             var helperLine = TakeHelperLine(petSlot, state.Name, true);
             if (helperLine != null)
@@ -359,8 +373,10 @@ namespace BAIby.Presentation
             for (var i = 0; i < verbs.Count && i < 6; i++)
             {
                 var verb = verbs[i].Verb;
-                var button = CareTile("Pet care " + verb, petVerbArea, VerbTitle(verb), VerbIcon(verb),
-                    TileTints[i % TileTints.Length], () => CarePet(verb));
+                // A fish's wipe of the glass is a little wipe gesture (with a one-tap Quick wipe); every other verb is a tap.
+                Action act = verb == PetVerb.WipeGlass ? (Action)OpenGlassWipe : () => CarePet(verb);
+                var button = CareTile("Pet care " + verb, petVerbArea, VerbTitle(verb, species), VerbIcon(verb),
+                    TileTints[i % TileTints.Length], act);
                 petVerbButtons.Add(button);
             }
 
@@ -380,6 +396,7 @@ namespace BAIby.Presentation
                 case PetVerb.Hay:
                     return "Bowl";
                 case PetVerb.Pet:
+                case PetVerb.FollowFinger:
                     return "Pet";
                 case PetVerb.Wand:
                     return "Wand";
@@ -395,8 +412,9 @@ namespace BAIby.Presentation
                     return "Play";
                 case PetVerb.GentleHold:
                     return "Soothe";
-                case PetVerb.WipeGlass:
                 case PetVerb.WaterChange:
+                    return "Bath";
+                case PetVerb.WipeGlass:
                 case PetVerb.Litter:
                     return "Wash";
                 case PetVerb.Greens:
@@ -429,14 +447,27 @@ namespace BAIby.Presentation
             }
         }
 
+        // How cloudy a fish's water looks (0 to 1): it clouds as Water drops below 60 and a little more for each missed
+        // wipe. Other species have no water.
+        private static float Cloudiness(PetState state)
+        {
+            if (state == null || !state.HasMeter(PetMeter.Water))
+                return 0;
+            var low = Mathf.Clamp01((60f - (float)state.Meter(PetMeter.Water)) / 45f) * .65f;
+            var messy = (state.Care?.Mess ?? 0) * .12f;
+            return Mathf.Clamp01(Mathf.Min(.8f, low + messy));
+        }
+
         // Low on Energy, or a hamster in its day nap (a cosy, normal sleep): the rest pose shows.
         private static bool IsSleepy(PetState state) =>
             (state.HasMeter(PetMeter.Energy) && state.Meter(PetMeter.Energy) < SleepyEnergy) || PetSimulation.IsNapping(state);
 
-        private static string VerbTitle(PetVerb verb)
+        private static string VerbTitle(PetVerb verb, Species species)
         {
             switch (verb)
             {
+                case PetVerb.Rest when species == Species.Fish: return "Lights off";
+                case PetVerb.FollowFinger: return "Follow finger";
                 case PetVerb.Wand: return "Wand play";
                 case PetVerb.Bowl: return "Dinner";
                 case PetVerb.FluffBedding: return "Fluff bedding";
@@ -470,6 +501,8 @@ namespace BAIby.Presentation
                 return stage == PetStage.Grown ? "Grown hamster" : "Hamster pup";
             if (species == Species.Dog)
                 return stage == PetStage.Grown ? "Grown dog" : "Puppy";
+            if (species == Species.Fish)
+                return stage == PetStage.Grown ? "Grown fish" : "Little fish";
 
             var name = SpeciesName(species).ToLowerInvariant();
             return stage == PetStage.Grown ? "Grown " + name : "Young " + name;
@@ -503,6 +536,20 @@ namespace BAIby.Presentation
                     return PetSimulation.IsNapping(state)
                         ? $"{name} is already snoozing in the nest. Peek quietly!"
                         : $"{name} curls into a little ball for a quick snooze and wakes up bright-eyed.";
+                case PetVerb.Rest when state.Species == Species.Fish:
+                    return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
+                        ? $"Lights off. {name} drifts down among the plants and settles for the night, right on time."
+                        : $"Lights off. {name} drifts down among the plants for a quiet rest.";
+                case PetVerb.SprinkleFood:
+                    return $"{name} zips up to the surface and gobbles the flakes.";
+                case PetVerb.FollowFinger:
+                    return tier == BondTier.BestFriends ? $"{name} follows your finger in a happy loop and gives the glass a little kiss."
+                        : tier == BondTier.Trusting ? $"{name} swims to the glass and follows your finger up and down."
+                        : $"{name} watches your finger, then swims over for a closer look.";
+                case PetVerb.WipeGlass:
+                    return $"Squeak, squeak! The glass is clean and {name} peeks out at you.";
+                case PetVerb.WaterChange:
+                    return $"Fresh, clear water! {name} swims a happy loop through it.";
                 case PetVerb.Rest when state.Species == Species.Dog:
                     return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
                         ? $"{name} circles three times and settles in the basket for the night, right on time."
@@ -558,6 +605,18 @@ namespace BAIby.Presentation
                     return $"{name}'s nest could use some fresh, fluffy bedding.";
                 return state.IsGrown ? $"{name} is busy stashing seeds in a corner." : $"{name} is exploring the cage, nose twitching.";
             }
+            if (state.Species == Species.Fish)
+            {
+                if (IsSleepy(state))
+                    return $"{name} is drifting slowly by the plants. Lights off would help.";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return $"{name} is nosing at the surface, looking for flakes.";
+                if (state.Meter(PetMeter.Water) < low)
+                    return $"{name}'s water is getting cloudy. A water change will make it fresh.";
+                if (state.Meter(PetMeter.Calm) < low)
+                    return $"{name} is swimming in quick little circles. Glass time will help.";
+                return state.IsGrown ? $"{name} is gliding slowly past the castle." : $"{name} is exploring the plants, fins fluttering.";
+            }
             if (state.Species == Species.Dog)
             {
                 if (IsSleepy(state))
@@ -610,6 +669,20 @@ namespace BAIby.Presentation
                     return "Could use fresh bedding";
                 needsCare = false;
                 return state.IsGrown ? "Stashing seeds" : "Happy and curious";
+            }
+
+            if (state.Species == Species.Fish)
+            {
+                if (IsSleepy(state))
+                    return "Ready for lights off";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return "A little peckish";
+                if (state.Meter(PetMeter.Water) < low)
+                    return "Water getting cloudy";
+                if (state.Meter(PetMeter.Calm) < low)
+                    return "Would love glass time";
+                needsCare = false;
+                return state.IsGrown ? "Gliding round the tank" : "Bubbly and curious";
             }
 
             if (state.Species == Species.Dog)
@@ -676,7 +749,9 @@ namespace BAIby.Presentation
                 crawling.text = "Breed · " + BreedName(pet.Breed) + ", " + pet.Appearance.Coat.ToString().ToLowerInvariant() + " coat";
                 walking.text = "Bond · " + BondTierName(pet.BondTier);
                 favoriteToy.text = "Temperament · " + Temperament(pet);
-                stories.text = pet.Appearance.Accessory == PetAccessory.None ? "No collar"
+                stories.text = pet.Species == Species.Fish
+                    ? pet.Appearance.Accessory == PetAccessory.TankCastle ? "Swims round a little castle" : "A tank of plants and pebbles"
+                    : pet.Appearance.Accessory == PetAccessory.None ? "No collar"
                     : "Wears a " + OutfitName(pet.Appearance.AccessoryAccent).ToLowerInvariant() + " " +
                       WearName(pet.Appearance.Accessory).ToLowerInvariant();
                 blocks.text = string.Empty;

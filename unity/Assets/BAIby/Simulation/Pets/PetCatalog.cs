@@ -451,14 +451,26 @@ namespace BAIby.Simulation.Pets
                         Verb(PetVerb.Rest, 0, -1, 0, Effect(PetMeter.Energy, 35)),
                     },
                     new[] { PetMoment.ReunionGreeting }, collarSet),
+                // P4 tuned the fish to be the lowest-effort companion (docs/care-and-growth.md, Pets and household): one
+                // sprinkle a day (+50) against about 42 Fullness a day; follow-finger (+12 Calm), the wipe (+4) and lights
+                // off (+8) against about 17 Calm a day; Water drifts under 10 a day, the daily wipe gives back 3 and a
+                // water change (+70) about once a week tops it up. Energy is the mechanism's rest meter: lights off
+                // restores it. The fish needs it for its care profile (the room's fourth ring).
                 new SpeciesDefinition(Species.Fish, TimeSpan.FromDays(5),
-                    new[] { Meter(PetMeter.Fullness, 5, 70), Meter(PetMeter.Water, 3, 90), Meter(PetMeter.Calm, 4, 70) },
                     new[]
                     {
-                        Verb(PetVerb.SprinkleFood, 1, 0, 0, Effect(PetMeter.Fullness, 25)),
-                        Verb(PetVerb.WipeGlass, 1, 0, 1, Effect(PetMeter.Water, 15), Effect(PetMeter.Calm, 5)),
-                        Verb(PetVerb.WaterChange, 0, 0, 0, Effect(PetMeter.Water, 100), Effect(PetMeter.Calm, -5)),
-                        Verb(PetVerb.Rest, 0, -1, 0, Effect(PetMeter.Calm, 30)),
+                        Meter(PetMeter.Fullness, 2, 85), Meter(PetMeter.Energy, 1.5, 80),
+                        Meter(PetMeter.Calm, 1, 80), Meter(PetMeter.Water, 0.5, 100),
+                    },
+                    new[]
+                    {
+                        Verb(PetVerb.SprinkleFood, 1, 0, 0, Effect(PetMeter.Fullness, 50)),
+                        // A finger traced along the glass, which the fish follows: play, together time and a calm moment.
+                        Verb(PetVerb.FollowFinger, 3, 1, 1, Effect(PetMeter.Calm, 12), Effect(PetMeter.Energy, -6)),
+                        Verb(PetVerb.WipeGlass, 1, 0, 0, Effect(PetMeter.Water, 3), Effect(PetMeter.Calm, 4)),
+                        Verb(PetVerb.WaterChange, 1, 0, 0, Effect(PetMeter.Water, 70), Effect(PetMeter.Calm, 10)),
+                        // Lights off: the fish drifts down to rest among the plants.
+                        Verb(PetVerb.Rest, 0, -1, 0, Effect(PetMeter.Energy, 35), Effect(PetMeter.Calm, 8)),
                     },
                     new[] { PetMoment.SwimsToGlass }, new[] { PetAccessory.None, PetAccessory.TankCastle }),
                 new SpeciesDefinition(Species.Rabbit, TimeSpan.FromDays(7),
@@ -556,22 +568,26 @@ namespace BAIby.Simulation.Pets
                 Premium(PetBreed.BorderCollie, "border_collie", overlay, Coats(PetCoat.Black, PetCoat.Red, PetCoat.Blue),
                     Trade(PetMeter.Exercise, 16, PetMeter.Fullness, 12), 15, 5, availableNow: true),
 
+                // Rates: Fullness 2, Energy 1.5, Calm 1, Water 0.5 per hour, so 10% of 2 = 20% of 1, 12% of 2 = 16% of 1.5,
+                // 10% of 1.5 = 15% of 1, 12% of 1.5 = 18% of 1 and 20% of 0.5 = 10% of 1. Every fish breed ships with the
+                // species (P4): procedural fish draw the Guppy's fan tail, the Betta's flowing fins, the Angelfish's and the
+                // Discus's tall fins as feature overlays, and the Neon tetra school as its own base (a little school).
                 Free(PetBreed.Goldfish, recolor, Coats(PetCoat.Orange, PetCoat.Red, PetCoat.White, PetCoat.Yellow),
-                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), 0, 5),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Calm, 20), 0, 5),
                 Earned(PetBreed.Guppy, EarnedGoal.FirstFullCareDay, overlay, Coats(PetCoat.Blue, PetCoat.Orange, PetCoat.Yellow, PetCoat.Purple),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), 15, 5),
+                    Trade(PetMeter.Energy, 10, PetMeter.Calm, 15), 15, 5),
                 Earned(PetBreed.Betta, EarnedGoal.Bond40, overlay, Coats(PetCoat.Red, PetCoat.Blue, PetCoat.Purple, PetCoat.White),
-                    Trade(PetMeter.Calm, 12, PetMeter.Water, 16), 5, 15),
+                    Trade(PetMeter.Water, 20, PetMeter.Calm, 10), 5, 15),
                 Premium(PetBreed.NeonTetraSchool, "neon_tetra_school", silhouette, Coats(PetCoat.Blue, PetCoat.Red),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), 10, -10),
+                    Trade(PetMeter.Energy, 12, PetMeter.Calm, 18), 10, -10, availableNow: true),
                 Premium(PetBreed.Angelfish, "angelfish", overlay, Coats(PetCoat.Silver, PetCoat.Black, PetCoat.Golden),
-                    Trade(PetMeter.Calm, 12, PetMeter.Water, 16), -10, 5),
+                    Trade(PetMeter.Calm, 20, PetMeter.Fullness, 10), -10, 5, availableNow: true),
                 Premium(PetBreed.Koi, "koi", recolor, Coats(PetCoat.White, PetCoat.Orange, PetCoat.Red, PetCoat.Black),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Calm, 15), -5, 10),
+                    Trade(PetMeter.Fullness, 12, PetMeter.Energy, 16), -5, 10),
                 Premium(PetBreed.Clownfish, "clownfish", recolor, Coats(PetCoat.Orange, PetCoat.Black),
-                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), 10, 10),
+                    Trade(PetMeter.Energy, 16, PetMeter.Fullness, 12), 10, 10),
                 Premium(PetBreed.Discus, "discus", overlay, Coats(PetCoat.Blue, PetCoat.Red, PetCoat.Brown),
-                    Trade(PetMeter.Water, 16, PetMeter.Calm, 12), -10, 0),
+                    Trade(PetMeter.Water, 20, PetMeter.Calm, 10), -10, 0, availableNow: true),
 
                 Free(PetBreed.Dutch, recolor, Coats(PetCoat.Black, PetCoat.Brown, PetCoat.Gray, PetCoat.Chocolate),
                     Trade(PetMeter.Hay, 15, PetMeter.Litter, 15), 5, 5),

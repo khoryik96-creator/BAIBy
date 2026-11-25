@@ -9,13 +9,15 @@ using BAIby.Simulation.Pets;
 
 namespace BAIby.Tests.Appearance
 {
-    // The cat, hamster and dog layouts, palettes and compositing (tools/pets/README.md), checked against the shipped art.
+    // The cat, hamster, dog and fish layouts, palettes and compositing (tools/pets/README.md), checked against the shipped
+    // art.
     internal static class PetArtChecks
     {
         private static readonly string CatFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
             "unity", "Assets", "Resources", "BAIby", "Pets", "Cat"));
         private static readonly string HamsterFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Hamster"));
         private static readonly string DogFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Dog"));
+        private static readonly string FishFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Fish"));
 
         public static void Run(Action<bool, string> check)
         {
@@ -27,6 +29,92 @@ namespace BAIby.Tests.Appearance
             InvalidLayoutsAreRejected(check);
             Hamster(LoadLayout(HamsterFolder), check);
             Dog(LoadLayout(DogFolder), check);
+            Fish(LoadLayout(FishFolder), check);
+        }
+
+        // P4: every fish breed ships, each composes from the shipped art in every pose with its fins (its markings
+        // overlay), the Neon tetra school on its own base, and the Koi's patches keep their own dark color. The tank is a
+        // habitat the fish swims in, with its haze and castle layers; the tank castle has no pose art.
+        private static void Fish(PetLayout layout, Action<bool, string> check)
+        {
+            check(layout.YoungScale > 0 && layout.YoungScale < layout.GrownScale, "a young fish is drawn smaller than a grown one");
+            var tank = layout.Habitat;
+            check(tank != null && tank.Swim > 0 && tank.Swim < tank.Height - tank.Floor, "the fish swims in its tank");
+            check(LoadLayout(HamsterFolder).Habitat.Swim == 0, "a hamster stands on its cage floor");
+            check(tank?.Haze != null && tank.Castle != null, "the tank has its haze and castle layers");
+            if (tank != null)
+            {
+                foreach (var path in new[] { tank.Back, tank.Front, tank.Haze, tank.Castle })
+                    check(Png.Read(Path.Combine(FishFolder, path + ".bytes"), tank.Width, tank.Height).Length > 0,
+                        "the tank layer " + path + " is the declared size");
+            }
+
+            check(PetLayout.AccessoryPath(PetAccessory.TankCastle, "YoungAwake") == null, "the tank castle is no pose art");
+            check(layout.HasOwnBase(PetBreed.NeonTetraSchool), "the Neon tetra school has its own base");
+            check(!layout.HasOwnBase(PetBreed.Goldfish), "other fish share the base");
+            var dark = new[] { PetBreed.NeonTetraSchool, PetBreed.Angelfish, PetBreed.Koi, PetBreed.Clownfish };
+            var composer = new PetComposer(layout);
+            var loads = new List<string>();
+            PetArtSource source = (path, width, height) =>
+            {
+                loads.Add(path);
+                return Png.Read(Path.Combine(FishFolder, path + ".bytes"), width, height);
+            };
+            foreach (var breed in PetCatalog.Default.BreedsOf(Species.Fish))
+            {
+                check(breed.AvailableNow, breed.Breed + " ships with the fish");
+                foreach (var coat in breed.Coats)
+                    check(layout.TryGetCoat(breed.Breed, coat, out _), "the fish palette lists " + breed.Breed + " " + coat);
+                foreach (PetStage stage in Enum.GetValues(typeof(PetStage)))
+                {
+                    foreach (var resting in new[] { false, true })
+                    {
+                        var pose = PetLayout.PoseName(stage, resting);
+                        var shown = layout.ShownPose(breed.Breed, pose);
+                        check(layout.TryGetOverlay(PetLayout.MarkingsPath(breed.Breed, pose), out var fins) && fins.Pose == shown,
+                            breed.Breed + " " + pose + " has its fins over its own base");
+                        loads.Clear();
+                        var pixels = composer.Compose(breed.Breed, breed.DefaultCoat, PetAccessory.TankCastle, Outfit.Sky, pose, source,
+                            PixelRowOrder.TopDown, out var width, out var height);
+                        var visible = 0;
+                        for (var i = 3; i < width * height * 4; i += 4)
+                            if (pixels[i] > 0)
+                                visible++;
+                        check(visible > width * height / 5, breed.Breed + " " + pose + " composes a visible fish");
+                        var marked = Array.IndexOf(dark, breed.Breed) >= 0 ? 4 : 2;
+                        check(loads.Count == 2 + marked, breed.Breed + " " + pose + " loads base, fins and markings, no wear (" +
+                            string.Join(", ", loads) + ")");
+                        check(loads[0] == PetLayout.BasePath(shown), breed.Breed + " " + pose + " swims on " + shown);
+                    }
+                }
+            }
+
+            var koi = (byte[])composer.Compose(PetBreed.Koi, PetCoat.White, PetAccessory.None, Outfit.Sage, "GrownAwake",
+                source, PixelRowOrder.TopDown, out var w, out _).Clone();
+            layout.TryGetOverlay(PetLayout.DarkMarkingsPath(PetBreed.Koi, "GrownAwake"), out var patches);
+            var patchPixels = Png.Read(Path.Combine(FishFolder, patches.Path + ".bytes"), patches.Width, patches.Height);
+            var patchRegions = Png.Read(Path.Combine(FishFolder, patches.Path + "Regions.bytes"), patches.Width, patches.Height);
+            AppearanceRecolor.Recolor(patchPixels, patchRegions, patches.Width * patches.Height, layout.Reference,
+                PetPalette.DarkTargets(layout, PetBreed.Koi, PetCoat.White, Outfit.Sage));
+            var matched = 0;
+            var opaque = 0;
+            for (var y = 0; y < patches.Height; y++)
+            {
+                for (var x = 0; x < patches.Width; x++)
+                {
+                    var at = (y * patches.Width + x) * 4;
+                    if (patchPixels[at + 3] != 255)
+                        continue;
+                    opaque++;
+                    var target = ((patches.YFromTop + y) * w + patches.X + x) * 4;
+                    if (koi[target] == patchPixels[at] && koi[target + 1] == patchPixels[at + 1] && koi[target + 2] == patchPixels[at + 2])
+                        matched++;
+                }
+            }
+
+            check(opaque > 0 && matched > opaque * 9 / 10, "the Koi's patches keep their own recolor (" + matched + "/" + opaque + ")");
+            var orange = PetPalette.Targets(layout, PetBreed.Goldfish, PetCoat.Orange, Outfit.Sage);
+            check(orange.Region(0).R > orange.Region(0).B, "the goldfish is orange");
         }
 
         // P3: every dog breed but the Dachshund ships; each composes from the shipped art in every pose with its ears

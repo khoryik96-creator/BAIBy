@@ -1,4 +1,4 @@
-# Pet art pipeline (PLACEHOLDER cat, hamster and dog)
+# Pet art pipeline (PLACEHOLDER cat, hamster, dog and fish)
 
 > **Everything this tool produces is PLACEHOLDER art.** It exists so pet mode
 > (P1 Cat, `docs/pet-mode.md`) is playable before the commissioned cat
@@ -77,6 +77,35 @@ only; the bandana sits on the side of the neck when the dog lies down; the Husky
 outline's anti-aliased rim by a few pixels (`build.py` prints the worst case); the Dalmatian's spots stay between its
 ears, since the spots overlay composites after them; there is no head-anchor data.
 
+## Fish (P4)
+
+`fish.py` draws the fish with the cat's helpers (`cat.py`), procedurally: a chubby side-view body swimming to the
+right with one big glossy eye, the baby's blush, a small round mouth, a light belly and a little side fin; at rest
+(lights off) it tilts its nose down a little, its fins relax and its eyes close. `tank.py` draws its habitat. Outputs
+go to `unity/Assets/Resources/BAIby/Pets/Fish/` with the same contract and a `layout.json` saying
+`"placeholder": true`. `runtimeScale` is `young` 0.42 and `grown` 0.5.
+
+| Path | What |
+| --- | --- |
+| `Base/{Pose}` (+`Regions`) | the fish **without its tail, dorsal or anal fin**: the body is R, the light belly and the side fin are G (the palette's `secondary`) |
+| `Base/NeonTetraSchool{Pose}` (+`Regions`) | the Neon tetra school's own base: four slim little fish (`breedBases: ["NeonTetraSchool"]`) |
+| `Markings/{Breed}/{Pose}` | every breed's fins, a **feature overlay** in G that may reach past the silhouette: the Goldfish's twin fan tail, the Guppy's big spotted fan, the Betta's flowing veil and long fins, the Angelfish's tall swept fins and streamers, the Koi's soft fins and barbels, the Clownfish's rounded fins, the Discus's tall round disc (R) with its fringe and wavy lines, and the Neon tetras' tails, fins and neon stripe |
+| `Markings/{Angelfish,Koi,Clownfish,NeonTetraSchool}/{Pose}Dark` | the Angelfish's bars, the Koi's patches, the Clownfish's bands (its coats' `dark` is white) and the tetras' red rear (gTarget `dark`) |
+| `Habitat/Back`, `Front`, `Haze`, `Castle` | the tank at the baby's pose-pixel scale (820 x 600, fixed colours, no region map): behind the fish the lid and its light, the water, plants, a bubbler and the pebble bed; in front the pebbles' edge, the base rail, two corner plants and the glass highlights; `Haze` is the cloudy water (a milky tint over the water only, shown at an alpha that follows the water); `Castle` is the `TankCastle` accessory, a pastel castle on the pebbles behind the fish. `layout.json` `habitat` adds `swim` (the fish swims 150 px above the floor line), `haze` and `castle` |
+
+There is no neck wear: the tank castle is a habitat layer, and the composer leaves an accessory without pose art off.
+Every breed ships, the Neon tetra school included (its own base, as the Corgi's). The palette (`palette.py`
+`FISH_COATS`) has every catalog coat of the eight breeds, `Dark` eyes by default (`Ruby` allowed for the Betta and the
+Neon tetras, `Amber` for the others). `check.py` checks the fish's eight poses, the school's base, that every breed's
+overlay has its fins (G), that the dark overlays stay inside the silhouette, the tank's four layers and its `swim`
+height, that there is no `Accessories` folder, and a 2.5 MB budget (about 2.4 MB). `preview.py` writes
+`fish-breeds.png`, `fish-coats.png`, `fish-tank.png` (the castle, lights off and cloudy water) and `fish-detail.png`.
+
+Known limitations: the fish is a side view only, so turning round is a mirror the room does not do; the Angelfish's
+body is the base's (a real angelfish is taller and flatter); the Koi's barbels are small strokes; the school is four
+fixed fish rather than separately animated ones; the scales are a few soft arcs; the tank does not follow the room
+theme and the bubbles are painted, not animated.
+
 ## Requirements
 
 * Python 3.10+
@@ -91,8 +120,8 @@ pip install -r tools/pets/requirements.txt
 ## Usage
 
 ```
-python3 tools/pets/build.py     # regenerate every cat and hamster asset + layout.json + .meta files (~4 min, 4 processes)
-python3 tools/pets/build.py --species Dog       # one species (about 5 minutes for the dog)
+python3 tools/pets/build.py     # regenerate every species (cat, hamster, dog, fish) + layout.json + .meta files (about 15 min, 4 processes)
+python3 tools/pets/build.py --species Dog       # one species (about 5 minutes for the dog, 4 for the fish)
 python3 tools/pets/check.py     # self-check of the shipped files (exit code 1 on failure)
 python3 tools/pets/preview.py   # contact sheets (default: the session scratchpad; --out DIR)
 ```

@@ -15,7 +15,9 @@ namespace BAIby.Application
     // and <journal> elements, the elements a baby's save uses (its <bond> is <bonding> here, beside the pet's own <bond>). A v1 pet decodes as before: its stage, Bond, look and
     // meters are kept, the milestones its age passed are reached (all of them once grown), and its records are seeded
     // on first use, the ledger excusing the whole gap on its first advance (as the baby's v1 migration did). A dog
-    // (P3) adds its familiarity with fetch as a tricks attribute of <unlocks> once it has played.
+    // (P3) adds its familiarity with fetch as a tricks attribute of <unlocks> once it has played. A fish saved before P4
+    // (with the simple rules, so no care records and no Energy meter) migrates like a v1 pet, its Energy starting at the
+    // species' initial value.
     internal static class PetSaveCodec
     {
         public const int Version = 2;
@@ -116,6 +118,17 @@ namespace BAIby.Application
                     meters.Add(id, (double)Attribute(meter, "value"));
                 }
 
+                // A fish saved before P4 has no Energy (its care profile's rest meter): it starts at the species' initial
+                // value, as a newly adopted fish's does.
+                if (species == Species.Fish && !meters.ContainsKey(PetMeter.Energy))
+                {
+                    foreach (var definition in catalog.Get(species).Meters)
+                    {
+                        if (definition.Meter == PetMeter.Energy)
+                            meters.Add(PetMeter.Energy, definition.Initial);
+                    }
+                }
+
                 var bond = Field(root, "bond");
                 var personality = Field(root, "personality");
                 var unlocks = Field(root, "unlocks");
@@ -123,9 +136,10 @@ namespace BAIby.Application
                 var age = TimeSpan.FromTicks((long)Field(root, "age"));
                 var profile = PetCareProfile.For(species);
                 // A v1 pet, or a species without care records yet: the simple record. A v2 record of a species that gained
-                // its care profile later (a dog saved before P3) has neither, and migrates as a v1 pet does.
-                var simple = species == Species.Dog && root.Element(CareRecordCodec.ElementName) == null &&
-                    unlocks.Attribute("milestones") == null;
+                // its care profile later (a dog saved before P3, a fish before P4) has neither, and migrates as a v1 pet
+                // does.
+                var simple = (species == Species.Dog || species == Species.Fish) &&
+                    root.Element(CareRecordCodec.ElementName) == null && unlocks.Attribute("milestones") == null;
                 if (version == VersionBeforeCare || profile == null || simple)
                 {
                     if (profile == null && (root.Element(CareRecordCodec.ElementName) != null || unlocks.Attribute("milestones") != null))

@@ -15,7 +15,8 @@ namespace BAIby.Character
         public AppearancePoseData[] poses;
         public PetOverlayData[] overlays;
         public PetPaletteData palette;
-        // The hamster's cage (P2), drawn round the pet in the shared room; absent for the cat.
+        // The hamster's cage (P2) or the fish's tank (P4), drawn round the pet in the shared room; absent for the cat and
+        // the dog.
         public PetHabitatData habitat;
         // Breeds drawn on their own base poses, named breed + pose (the dog's short-legged Corgi, P3); absent elsewhere.
         public string[] breedBases;
@@ -31,19 +32,35 @@ namespace BAIby.Character
         public int width;
         public int height;
         public int floor;
+        // A fish's tank (P4): how far above the floor line the pet swims (0: it stands on the floor), the cloudy water
+        // drawn over the pet at an alpha that follows the water, and the tank castle drawn behind the pet when it is the
+        // pet's accessory. Absent for the hamster's cage.
+        public int swim;
+        public string haze;
+        public string castle;
     }
 
     // A species' habitat: two fixed-colour layers the size of Width x Height pose pixels, the pet standing on the line
-    // Floor pixels above their bottom edge, between them.
+    // Floor pixels above their bottom edge, between them. A tank (the fish's) lets the pet swim Swim pixels above the
+    // floor line and has two optional layers of the same size: Haze, the cloudy water over the pet, and Castle, the tank
+    // castle behind it.
     public sealed class PetHabitat
     {
         public PetHabitat(string back, string front, int width, int height, int floor)
+            : this(back, front, width, height, floor, 0, null, null)
+        {
+        }
+
+        public PetHabitat(string back, string front, int width, int height, int floor, int swim, string haze, string castle)
         {
             Back = back;
             Front = front;
             Width = width;
             Height = height;
             Floor = floor;
+            Swim = swim;
+            Haze = string.IsNullOrEmpty(haze) ? null : haze;
+            Castle = string.IsNullOrEmpty(castle) ? null : castle;
         }
 
         public string Back { get; }
@@ -51,6 +68,9 @@ namespace BAIby.Character
         public int Width { get; }
         public int Height { get; }
         public int Floor { get; }
+        public int Swim { get; }
+        public string Haze { get; }
+        public string Castle { get; }
     }
 
     [Serializable]
@@ -183,8 +203,9 @@ namespace BAIby.Character
 
         public static string DarkMarkingsPath(PetBreed breed, string pose) => MarkingsPath(breed, pose) + DarkSuffix;
 
-        // Null when the accessory has no art yet. The cat ships the collar, and the bandana and bow of the
-        // "Cat bandanas & bows" pack (petwear.cat.bandanas-bows); the tank castle waits for the fish.
+        // Null when the accessory has no pose art. The cat ships the collar, and the bandana and bow of the
+        // "Cat bandanas & bows" pack (petwear.cat.bandanas-bows); the tank castle is a layer of the fish's tank
+        // (PetHabitat.Castle), not pose art.
         public static string AccessoryPath(PetAccessory accessory, string pose)
         {
             switch (accessory)
@@ -272,7 +293,9 @@ namespace BAIby.Character
             {
                 if (string.IsNullOrEmpty(h.front) || h.width <= 0 || h.height <= 0 || h.floor < 0 || h.floor >= h.height)
                     throw new FormatException("The pet habitat needs both layers, a positive size and a floor inside it.");
-                habitat = new PetHabitat(h.back, h.front, h.width, h.height, h.floor);
+                if (h.swim < 0 || h.swim >= h.height - h.floor)
+                    throw new FormatException("The pet habitat's swim height must lie inside it.");
+                habitat = new PetHabitat(h.back, h.front, h.width, h.height, h.floor, h.swim, h.haze, h.castle);
             }
 
             var bases = new HashSet<string>(StringComparer.Ordinal);

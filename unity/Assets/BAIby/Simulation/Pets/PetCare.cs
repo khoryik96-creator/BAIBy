@@ -88,7 +88,8 @@ namespace BAIby.Simulation.Pets
 
         public PetStep Advance(PetState state, DateTimeOffset now) => Advance(state, now, null, null);
 
-        // With the household's helpers (an auto-feeder, a ball launcher and a self-cleaning litter box), as for the baby.
+        // With the household's helpers (an auto-feeder, a ball launcher and a self-cleaning litter box, or a fish's
+        // auto feeder, bubbler and filter), as for the baby.
         public PetStep Advance(PetState state, DateTimeOffset now, HelperSettings settings, ICollection<HelperEvent> events)
         {
             var species = catalog.Get(state.Species);
@@ -283,13 +284,24 @@ namespace BAIby.Simulation.Pets
             }
             else
             {
-                foreach (var effect in definition.Effects)
-                    values = Apply(values, profile.RoleOf(effect.Meter), effect.Delta, comfortGain, ceiling);
-                if ((tags & CareTags.Meal) != 0 && IsFull(state))
+                var overfed = (tags & CareTags.Meal) != 0 && IsFull(state);
+                if (overfed && profile.IgnoresExtraFood)
                 {
-                    values.Comfort = Math.Max(0, values.Comfort - rules.OverfeedComfort);
-                    values.Cleanliness = Math.Max(0, values.Cleanliness - rules.OverfeedCleanliness);
-                    cue = PetCue.TooFull;
+                    // A full fish leaves the extra flakes: they add nothing and cloud the water slightly.
+                    values.Cleanliness = Math.Max(0,
+                        values.Cleanliness - Math.Min(PetSimulation.CloudedWater, rules.OverfeedCleanliness));
+                    cue = PetCue.IgnoredFlakes;
+                }
+                else
+                {
+                    foreach (var effect in definition.Effects)
+                        values = Apply(values, profile.RoleOf(effect.Meter), effect.Delta, comfortGain, ceiling);
+                    if (overfed)
+                    {
+                        values.Comfort = Math.Max(0, values.Comfort - rules.OverfeedComfort);
+                        values.Cleanliness = Math.Max(0, values.Cleanliness - rules.OverfeedCleanliness);
+                        cue = PetCue.TooFull;
+                    }
                 }
 
                 // Meals build Bond only when on time (below); other care builds its species' Bond.
@@ -441,7 +453,8 @@ namespace BAIby.Simulation.Pets
             return state.With(care: CareRules.ChangeRoutine(state.Care, preset, wakeTime));
         }
 
-        // Whether feeding now would overfeed: a mild Comfort and Cleanliness drop, never harm.
+        // Whether feeding now would overfeed: a mild Comfort and Cleanliness drop, never harm (a fish leaves the flakes,
+        // which cloud the water slightly).
         public bool IsFull(PetState state) => state.Meter(PetMeter.Fullness) >= care.FullMealThreshold;
 
         // Developer read-out of the ledger, growth and Bond, as for the baby.

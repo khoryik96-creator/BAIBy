@@ -10,16 +10,16 @@ namespace BAIby.Simulation
     public enum CareMoment { Morning = 0, Afternoon = 1, Evening = 2, Bedtime = 3, Dawn = 4 }
     // Whose routine a ledger keeps: a species' windows (docs/care-and-growth.md, Pets and household). Not saved: a
     // baby's ledger is always Baby, and a pet's codec names the routine from its species.
-    public enum CareRoutine { Baby, Cat, Hamster, Dog }
+    public enum CareRoutine { Baby, Cat, Hamster, Dog, Fish }
 
     // One moment of the routine as local times of day. On time is [Open, Due), late is [Due, LateUntil).
     //
     // A nap block (a hamster's day nap) is a Bedtime moment the companion keeps by itself: nothing is asked of the
     // player, so it never counts, is never missed and is never owed. It closes Excused, and care during it is gentle.
     //
-    // A grace window (a dog's morning walk, P3) can be done on time or late like any window, but when it closes undone
-    // it closes Excused, never missed, owed or counted, and it never excuses the day: school mornings are busy, and the
-    // evening walk keeps the day.
+    // A grace window (a dog's morning walk, P3, or a fish's morning hello at the glass, P4) can be done on time or late
+    // like any window, but when it closes undone it closes Excused, never missed, owed or counted, and it never excuses
+    // the day: school mornings are busy, and the evening keeps the day.
     public sealed class CareWindow
     {
         public CareMoment Moment { get; }
@@ -156,6 +156,28 @@ namespace BAIby.Simulation
             GraceWalk(CareMoment.Dawn, 7, 0, 9, 30, 10, 30),
         };
 
+        // A fish (P4, docs/care-and-growth.md, Pets and household) is the lowest-effort companion: one visit after school
+        // keeps its whole day. Its one meal (the Evening moment) may be sprinkled any time from the morning until the
+        // evening; glass time (the Afternoon slot, a play window that keeps the together ring) runs from after school into
+        // the evening; lights off is its bedtime. The Morning moment is a morning hello at the glass before school, a grace
+        // window: if school gets in the way it closes excused. The same four moments as a cat, so the ledger and its saves
+        // keep four letters. The daily wipe of the glass is the wash. The wake time moves only the morning hello.
+        private static readonly CareWindow[] FishSchoolDay =
+        {
+            GracePlay(CareMoment.Morning, 7, 0, 9, 0, 10, 0),
+            Window(CareMoment.Afternoon, CareTags.Play, 15, 0, 20, 0, 21, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 7, 0, 20, 0, 21, 30),
+            Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 30, 21, 30, 22, 30),
+        };
+
+        private static readonly CareWindow[] FishHome =
+        {
+            GracePlay(CareMoment.Morning, 7, 0, 9, 30, 10, 30),
+            Window(CareMoment.Afternoon, CareTags.Play, 12, 0, 17, 0, 18, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 7, 0, 18, 0, 19, 30),
+            Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 0, 20, 30, 21, 30),
+        };
+
         // The wake time moves only the morning window (and a dog's morning walk); the rest of the day stays
         // school-friendly.
         public static IReadOnlyList<CareWindow> Windows(RoutinePreset preset, TimeSpan wakeTime) =>
@@ -185,6 +207,7 @@ namespace BAIby.Simulation
                 case CareRoutine.Cat: return home ? CatHome : CatSchoolDay;
                 case CareRoutine.Hamster: return home ? HamsterHome : HamsterSchoolDay;
                 case CareRoutine.Dog: return home ? DogHome : DogSchoolDay;
+                case CareRoutine.Fish: return home ? FishHome : FishSchoolDay;
                 default: return home ? Home : SchoolDay;
             }
         }
@@ -237,7 +260,8 @@ namespace BAIby.Simulation
             return timeOfDay >= night.Start && timeOfDay < night.End;
         }
 
-        // How many meal windows a care day of the routine has (three for a baby, two for a cat, one for a hamster).
+        // How many meal windows a care day of the routine has (three for a baby, two for a cat, one for a hamster or a
+        // fish).
         public static int MealWindows(CareRoutine routine)
         {
             var meals = 0;
@@ -250,10 +274,18 @@ namespace BAIby.Simulation
             return meals;
         }
 
-        // Whether the routine has a timed play window (or a dog's walk windows). Its together ring then follows those
-        // windows, not the whole day.
+        // Whether the routine has a timed play window (or a dog's walk windows, or a fish's glass time). Its together ring
+        // then follows those windows, not the whole day.
         public static bool HasPlayWindow(CareRoutine routine) =>
-            routine == CareRoutine.Cat || routine == CareRoutine.Hamster || routine == CareRoutine.Dog;
+            routine == CareRoutine.Cat || routine == CareRoutine.Hamster || routine == CareRoutine.Dog ||
+            routine == CareRoutine.Fish;
+
+        // Whether the routine's Morning moment is a morning hello: a grace play window before school (a fish's).
+        public static bool HasMorningHello(CareRoutine routine)
+        {
+            var morning = Windows(routine, RoutinePreset.SchoolDay, DefaultWakeTime)[(int)CareMoment.Morning];
+            return morning.Grace && morning.Core == CareTags.Play;
+        }
 
         // Whether the routine has walk windows (a dog's two walks).
         public static bool HasWalks(CareRoutine routine) => routine == CareRoutine.Dog;
@@ -293,6 +325,11 @@ namespace BAIby.Simulation
             int lateHour, int lateMinute) =>
             new CareWindow(moment, CareTags.Bedtime, new TimeSpan(openHour, openMinute, 0), new TimeSpan(dueHour, dueMinute, 0),
                 new TimeSpan(lateHour, lateMinute, 0), true);
+
+        private static CareWindow GracePlay(CareMoment moment, int openHour, int openMinute, int dueHour, int dueMinute,
+            int lateHour, int lateMinute) =>
+            new CareWindow(moment, CareTags.Play, new TimeSpan(openHour, openMinute, 0), new TimeSpan(dueHour, dueMinute, 0),
+                new TimeSpan(lateHour, lateMinute, 0), false, true);
 
         private static CareWindow GraceWalk(CareMoment moment, int openHour, int openMinute, int dueHour, int dueMinute,
             int lateHour, int lateMinute) =>

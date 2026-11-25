@@ -17,7 +17,10 @@ namespace BAIby.Presentation
         private static readonly NurseryTheme[] Themes =
             { NurseryTheme.Sage, NurseryTheme.Peach, NurseryTheme.CloudNursery, NurseryTheme.Starlight, NurseryTheme.GoldenHour };
         // What a cat can wear, in the order the Wear button cycles.
-        private static readonly PetAccessory[] CatWear = { PetAccessory.None, PetAccessory.Collar, PetAccessory.Bandana, PetAccessory.Bow };
+        // The wear a pet steps through, skipping what its species cannot have: a cat's or a dog's neck wear, a hamster's bow,
+        // a fish's tank castle.
+        private static readonly PetAccessory[] PetWearOrder =
+            { PetAccessory.None, PetAccessory.Collar, PetAccessory.Bandana, PetAccessory.Bow, PetAccessory.TankCastle };
 
         private Button decorButton;
         private DecorPanel decor;
@@ -115,8 +118,8 @@ namespace BAIby.Presentation
             decor.UpdateSelection(household.PetRoomTheme, household.PetRoomTheme, Owned);
         }
 
-        // Steps what the cat wears (None, Collar, Bandana, Bow) or its colour. An open item is saved at once; a locked
-        // one is previewed on the cat with the calm line, and the next tap carries on from it.
+        // Steps what the pet wears (None, Collar, Bandana, Bow, or a fish's tank castle) or its colour. An open item is saved
+        // at once; a locked one is previewed on the pet with the calm line, and the next tap carries on from it.
         private void CyclePetWear(bool colour)
         {
             var companion = FindCompanion(petSlot);
@@ -156,10 +159,10 @@ namespace BAIby.Presentation
         private static PetAppearance NextWear(PetAppearance look, PetCatalog catalog)
         {
             var species = catalog.Get(look.Species);
-            var at = Array.IndexOf(CatWear, look.Accessory);
-            for (var step = 1; step <= CatWear.Length; step++)
+            var at = Array.IndexOf(PetWearOrder, look.Accessory);
+            for (var step = 1; step <= PetWearOrder.Length; step++)
             {
-                var wear = CatWear[(at + step + CatWear.Length) % CatWear.Length];
+                var wear = PetWearOrder[(at + step + PetWearOrder.Length) % PetWearOrder.Length];
                 if (species.Offers(wear))
                     return look.WithAccessory(wear);
             }
