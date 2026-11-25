@@ -775,12 +775,13 @@ namespace BAIby.Tests
             var view = NurseryStartup.StartPreview(saveKey);
             yield return null;
 
-            // Who's joining your home? A pet: the cat, the hamster and the dog have arrived, the others are dimmed.
+            // Who's joining your home? A pet: the cat, the hamster, the dog and the fish have arrived, the rabbit is dimmed.
             Tap(view.gameObject, "Adopt a pet");
             Assert.That(Child<RectTransform>(view.gameObject, "Pet Adoption Panel").gameObject.activeInHierarchy, Is.True);
-            Assert.That(Child<Button>(view.gameObject, "Species Fish").interactable, Is.False, "an unshipped species is dimmed");
-            Assert.That(Child<Text>(view.gameObject, "Species Fish Note").text, Is.EqualTo("Arriving soon"));
+            Assert.That(Child<Button>(view.gameObject, "Species Rabbit").interactable, Is.False, "an unshipped species is dimmed");
+            Assert.That(Child<Text>(view.gameObject, "Species Rabbit Note").text, Is.EqualTo("Arriving soon"));
             Assert.That(Child<Text>(view.gameObject, "Species Dog Note").text, Is.EqualTo("Here now"));
+            Assert.That(Child<Text>(view.gameObject, "Species Fish Note").text, Is.EqualTo("Here now"));
             Tap(view.gameObject, "Species Cat");
 
             // Locked breeds can be previewed but not chosen; the free starter can.
@@ -1120,6 +1121,110 @@ namespace BAIby.Tests
             Tap(view.gameObject, "Home");
             Assert.That(Child<Image>(view.gameObject, "Home card Biscuit Portrait").sprite, Is.Not.Null);
             Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet version=\"2\"><name>Biscuit</name><species>1</species>"));
+        }
+
+        // P4 on a fake clock: a fish adopted through the species row and the breed picker (an earned Guppy, the premium Neon
+        // tetra school previewed, the free Goldfish adopted), its tank, its one-visit routine strip, swimming to the glass to
+        // say hello the next morning, a morning hello and the day's sprinkle on time, extra flakes ignored, glass time, a
+        // wipe, a water change and lights off, its first dart to the glass in the bubble and the journal, and its Home card.
+        [UnityTest]
+        public IEnumerator FishSwimsToTheGlassAndKeepsItsWaterFresh()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 7, 30, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Tap(view.gameObject, "Adopt a pet");
+            Assert.That(Child<Button>(view.gameObject, "Species Fish").interactable, Is.True, "the fish has arrived");
+            Tap(view.gameObject, "Species Fish");
+            Tap(view.gameObject, "Breed Guppy");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "an earned fish waits for its goal");
+            Assert.That(Child<Text>(view.gameObject, "Pet breed detail").text, Does.Contain("glass time"));
+            Tap(view.gameObject, "Breed Neon tetra school");
+            Assert.That(Child<Text>(view.gameObject, "Breed Neon tetra school Status").text, Is.EqualTo("Premium"),
+                "the Neon tetra school is premium");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "a premium breed is not owned on the Web");
+            var school = Child<SpriteRenderer>(view.gameObject, "Pet awake artwork");
+            Assert.That(school.enabled && school.sprite != null, Is.True, "the school can be previewed");
+            Tap(view.gameObject, "Breed Goldfish");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Bubbles";
+            Tap(view.gameObject, "Adopt pet");
+
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Bubbles"));
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Does.Contain("Little fish"));
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet need 3").Find("Label").GetComponent<Text>().text,
+                Is.EqualTo("Calm"), "the room shows the fish's own meters");
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet need 4").Find("Label").GetComponent<Text>().text,
+                Is.EqualTo("Water"));
+            var tank = Child<SpriteRenderer>(view.gameObject, "Pet habitat back");
+            Assert.That(tank.enabled && tank.sprite != null, Is.True, "the fish swims in its tank");
+            Assert.That(HasObject(view.gameObject, "Routine Hello") && HasObject(view.gameObject, "Routine Food") &&
+                HasObject(view.gameObject, "Routine Glass time") && HasObject(view.gameObject, "Routine Lights off") &&
+                HasObject(view.gameObject, "Routine Wipe"), Is.True, "the strip shows the fish's one-visit day");
+            Assert.That(Child<Button>(view.gameObject, "Pet care Rest").GetComponentInChildren<Text>().text, Is.EqualTo("Lights off"),
+                "a fish's bedtime is lights off");
+
+            // The next morning: the fish swims to the glass to say hello, then the morning hello at the glass and the day's
+            // sprinkle on time; extra flakes are ignored.
+            clock = new DateTimeOffset(2026, 3, 3, 7, 10, 0, TimeSpan.Zero);
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Home card Bubbles");
+            var bubbles = new List<string> { Child<Text>(view.gameObject, "Pet Reaction").text };
+            Assert.That(bubbles[0], Does.Contain("swims straight to the glass"), "its signature hello");
+            bubbles.Add(Said(view.gameObject, "Pet care FollowFinger"));
+            Assert.That(bubbles.Last(), Does.Contain("Good morning"));
+            bubbles.Add(Said(view.gameObject, "Pet care SprinkleFood"));
+            Assert.That(bubbles.Last(), Does.Contain("A sprinkle of flakes"));
+            bubbles.Add(Said(view.gameObject, "Pet care SprinkleFood"));
+            Assert.That(bubbles.Last(), Does.Contain("ignores the extra flakes"));
+
+            // After school: glass time, a wipe and a water change; at bedtime, lights off.
+            clock = new DateTimeOffset(2026, 3, 3, 16, 0, 0, TimeSpan.Zero);
+            bubbles.Add(Said(view.gameObject, "Pet care FollowFinger"));
+            Assert.That(bubbles.Last(), Does.Contain("Glass time!"));
+            bubbles.Add(Said(view.gameObject, "Pet care WipeGlass"));
+            Assert.That(bubbles.Last(), Does.Contain("sparkly clean"));
+            bubbles.Add(Said(view.gameObject, "Pet care WaterChange"));
+            Assert.That(bubbles.Last(), Does.Contain("Fresh, clear water"));
+            clock = new DateTimeOffset(2026, 3, 3, 20, 0, 0, TimeSpan.Zero);
+            bubbles.Add(Said(view.gameObject, "Pet care Rest"));
+            Assert.That(bubbles.Last(), Does.Contain("Lights off"));
+
+            for (var day = 0; day < 5 && !bubbles.Any(text => text.Contains("darted right up to the glass")); day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Pet preview next day");
+                bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            }
+
+            Assert.That(bubbles.Any(text => text.Contains("darted right up to the glass")), Is.True, "the first dart is celebrated");
+            Tap(view.gameObject, "Pet growth");
+            Tap(view.gameObject, "Journal");
+            var titles = Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)).ToList();
+            if (Child<Button>(view.gameObject, "Older journal page").interactable)
+                Tap(view.gameObject, "Older journal page");
+            titles.AddRange(Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)));
+            Assert.That(titles.Any(title => title.Contains("Darted to the glass")), Is.True, "the first dart is in the journal");
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Done");
+
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<Image>(view.gameObject, "Home card Bubbles Portrait").sprite, Is.Not.Null);
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet version=\"2\"><name>Bubbles</name><species>2</species>"));
+        }
+
+        // Taps a care tile and returns what the pet's bubble says after it.
+        private static string Said(GameObject root, string button)
+        {
+            Tap(root, button);
+            return Child<Text>(root, "Pet Reaction").text;
         }
 
         // Helpers (monetization M4) on a fake clock: Grown-ups, behind the gate, adds the test helpers; the Routine sheet

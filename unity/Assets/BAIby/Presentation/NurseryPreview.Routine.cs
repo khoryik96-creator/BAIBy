@@ -237,19 +237,22 @@ namespace BAIby.Presentation
         }
 
         // A cat's bedtime is its evening nap and its wash is the daily brush; a hamster's play is the wheel, its wash the
-        // bedding, and its day nap a slot of its own; a dog has two walks, and its bedtime is the evening rest.
+        // bedding, and its day nap a slot of its own; a dog has two walks, and its bedtime is the evening rest; a fish says
+        // hello in the morning, has one sprinkle of food, glass time, lights off and a wipe of the glass.
         private static string SlotName(RoutineSlotKind kind, RoutinePreset preset, bool pet = false)
         {
+            var fish = pet && FishShown;
             switch (kind)
             {
                 case RoutineSlotKind.MorningMeal: return "Breakfast";
                 case RoutineSlotKind.AfternoonMeal: return preset == RoutinePreset.Home ? "Lunch" : "Snack";
-                case RoutineSlotKind.EveningMeal: return "Dinner";
-                case RoutineSlotKind.Play: return pet && HamsterShown ? "Wheel" : "Play";
-                case RoutineSlotKind.Bedtime: return pet && !DogShown ? "Nap" : "Bed";
+                case RoutineSlotKind.EveningMeal: return fish ? "Food" : "Dinner";
+                case RoutineSlotKind.Play: return pet && HamsterShown ? "Wheel" : fish ? "Glass time" : "Play";
+                case RoutineSlotKind.Bedtime: return fish ? "Lights off" : pet && !DogShown ? "Nap" : "Bed";
                 case RoutineSlotKind.Walk: return "Walk";
                 case RoutineSlotKind.Nap: return "Day nap";
-                default: return pet ? HamsterShown ? "Bedding" : "Brush" : "Wash";
+                case RoutineSlotKind.Hello: return "Hello";
+                default: return pet ? HamsterShown ? "Bedding" : fish ? "Wipe" : "Brush" : "Wash";
             }
         }
 
