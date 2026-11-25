@@ -234,11 +234,17 @@ namespace BAIby.Presentation
             var text = CueText(state, verb, outcome.Cue);
             if (outcome.CompletedCareDay)
                 text += $" That's a full day of care for {state.Name}.";
-            foreach (var breed in outcome.UnlockedBreeds)
+            foreach (var breed in AnnouncedBreeds(outcome))
                 text += $" New breed to adopt: {BreedName(breed)}!";
             var grown = TakePetCelebrations(out _);
             PaintPetRoom(grown != null ? grown + " " + text : text);
         }
+
+        private static string DaysOld(int days) => days == 1 ? "1 day" : $"{days} days";
+
+        // Developer mode already opens every earned breed, so earning one there is not news.
+        private IEnumerable<PetBreed> AnnouncedBreeds(PetCareOutcome outcome) =>
+            household.UnlockEarnedBreeds ? Array.Empty<PetBreed>() : outcome.UnlockedBreeds;
 
         private void PreviewPetNextDay()
         {
@@ -255,11 +261,11 @@ namespace BAIby.Presentation
             }
 
             var state = FindCompanion(petSlot)?.PetState;
-            var text = state == null ? null : $"A day later, {state.Name} is {(int)state.Age.TotalDays} days old.";
+            var text = state == null ? null : $"A day later, {state.Name} is {DaysOld((int)state.Age.TotalDays)} old.";
             var sticker = state == null ? null : PetStickerLine(state);
             if (sticker != null)
                 text += " " + sticker;
-            foreach (var breed in outcome.UnlockedBreeds)
+            foreach (var breed in AnnouncedBreeds(outcome))
                 text += $" New breed to adopt: {BreedName(breed)}!";
             var grown = TakePetCelebrations(out _);
             PaintPetRoom(grown ?? text);
