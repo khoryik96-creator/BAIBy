@@ -53,7 +53,7 @@ namespace BAIby.Simulation.Pets
 
         // A fish's signature moment (P4, docs/pet-mode.md: "Swims to the glass"): back after a while (the dog's first step,
         // two hours since the last hands-on care), the fish swims straight to the glass to say hello. Display only, like
-        // the dog's welcome, and never about how long anyone was gone. A resting fish (lights off) stays asleep.
+        // the dog's welcome, and never about how long anyone was gone. The room lets a sleepy or poorly fish rest instead.
         public static bool SwimsToGlass(PetState state, PetCatalog catalog)
         {
             if (state == null || catalog == null)
