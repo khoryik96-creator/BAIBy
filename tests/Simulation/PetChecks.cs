@@ -106,12 +106,12 @@ static class PetChecks
         ExpectMeters(Species.Cat, PetMeter.Fullness, PetMeter.Energy, PetMeter.Comfort, PetMeter.Cleanliness);
         ExpectMeters(Species.Dog, PetMeter.Fullness, PetMeter.Energy, PetMeter.Exercise, PetMeter.Cleanliness);
         ExpectMeters(Species.Hamster, PetMeter.Fullness, PetMeter.Energy, PetMeter.Bedding, PetMeter.Exercise);
-        ExpectMeters(Species.Fish, PetMeter.Fullness, PetMeter.Water, PetMeter.Calm);
+        ExpectMeters(Species.Fish, PetMeter.Fullness, PetMeter.Energy, PetMeter.Calm, PetMeter.Water);
         ExpectMeters(Species.Rabbit, PetMeter.Hay, PetMeter.Fullness, PetMeter.Litter, PetMeter.Comfort);
         ExpectVerbs(Species.Cat, PetVerb.Feed, PetVerb.Pet, PetVerb.Wand, PetVerb.Brush, PetVerb.Nap);
         ExpectVerbs(Species.Dog, PetVerb.Feed, PetVerb.Walk, PetVerb.Fetch, PetVerb.Brush, PetVerb.Rest);
         ExpectVerbs(Species.Hamster, PetVerb.Bowl, PetVerb.Wheel, PetVerb.FluffBedding, PetVerb.GentleHold, PetVerb.Nap);
-        ExpectVerbs(Species.Fish, PetVerb.SprinkleFood, PetVerb.WipeGlass, PetVerb.WaterChange, PetVerb.Rest);
+        ExpectVerbs(Species.Fish, PetVerb.SprinkleFood, PetVerb.FollowFinger, PetVerb.WipeGlass, PetVerb.WaterChange, PetVerb.Rest);
         ExpectVerbs(Species.Rabbit, PetVerb.Hay, PetVerb.Greens, PetVerb.Groom, PetVerb.FloorTime, PetVerb.Litter);
 
         var grownDays = new Dictionary<Species, int>
@@ -212,10 +212,11 @@ static class PetChecks
                 Equal(BreedUnlock.Premium, breed.Unlock, $"{name} is premium");
                 Equal(expected.ProductId, breed.ProductId, $"{name} product ID");
                 Equal(expected.Art, breed.Art, $"{name} art tier");
-                // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2), and
-                // every dog but the Dachshund, whose overlays (the Corgi's scaled legs and ears too) ship with the dog (P3).
+                // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2), every dog
+                // but the Dachshund, whose overlays (the Corgi's scaled legs and ears too) ship with the dog (P3), and every
+                // fish, drawn procedurally with the fish (P4), the Neon tetra school on its own base.
                 var shipsWithSpecies = breed.Breed == PetBreed.TeddyBear ||
-                    breed.Species == Species.Dog && breed.Breed != PetBreed.Dachshund;
+                    breed.Species == Species.Dog && breed.Breed != PetBreed.Dachshund || breed.Species == Species.Fish;
                 Equal(expected.Art == BreedArtTier.Recolor || shipsWithSpecies, breed.AvailableNow,
                     $"{name} availability follows its art tier");
                 Equal<EarnedGoal?>(null, breed.Goal, $"{name} needs no goal");
@@ -633,10 +634,14 @@ static class PetChecks
             "floor time builds Bond fastest");
         Equal(100.0, sim.ApplyCare(rabbit, PetVerb.Litter).State.Meter(PetMeter.Litter), "litter change is complete");
 
+        // P4: the fish has its own care profile (FishCareChecks).
         var fish = sim.Adopt("Bubbles", PetAppearance.Default(Catalog, PetBreed.Goldfish), Start);
-        var murky = sim.Advance(fish, Start.AddHours(8)).State;
-        Equal(100.0, sim.ApplyCare(murky, PetVerb.WaterChange).State.Meter(PetMeter.Water), "water change clears the tank");
-        Equal(murky.Meter(PetMeter.Water) + 15, sim.ApplyCare(murky, PetVerb.WipeGlass).State.Meter(PetMeter.Water), "wiping helps a little");
+        var murky = fish;
+        for (var hours = 6; hours <= 72; hours += 6)
+            murky = sim.Advance(murky, Start.AddHours(hours)).State;
+        Equal(true, murky.Meter(PetMeter.Water) < 96, "the water drifts down slowly");
+        Equal(100.0, sim.ApplyCare(murky, PetVerb.WaterChange).State.Meter(PetMeter.Water), "water change freshens the tank");
+        Equal(murky.Meter(PetMeter.Water) + 3, sim.ApplyCare(murky, PetVerb.WipeGlass).State.Meter(PetMeter.Water), "wiping helps a little");
 
         // The simple rules have no daily cap (a hamster now follows its care profile, with the baby's caps).
         var friend = rabbit;
@@ -664,7 +669,9 @@ static class PetChecks
         Equal(PetCue.Content, fed.Cue, "a hungry fish eats");
         Equal(100.0, fed.State.Meter(PetMeter.Fullness), "flakes fill Fullness");
         Equal(80.0, fed.State.Meter(PetMeter.Water), "eaten flakes keep the water clear");
-        Equal(6.0, fed.State.Bond, "feeding builds Bond");
+        // P4: a fish on its care profile gains Bond for a meal on time; this restored fish's ledger still waits for its
+        // anchor, so its first meal counts for nothing.
+        Equal(5.0, fed.State.Bond, "a meal before the ledger's anchor builds no Bond");
 
         var extra = sim.ApplyCare(fed.State, PetVerb.SprinkleFood);
         Equal(PetCue.IgnoredFlakes, extra.Cue, "a full fish ignores flakes");
@@ -679,7 +686,7 @@ static class PetChecks
         var cloudy = sim.ApplyCare(atThreshold, PetVerb.SprinkleFood);
         Equal(PetCue.IgnoredFlakes, cloudy.Cue, "Fullness 90 already counts as full");
         Equal(0.0, cloudy.State.Meter(PetMeter.Water), "clouding stops at 0");
-        Equal(100.0, sim.ApplyCare(cloudy.State, PetVerb.WaterChange).State.Meter(PetMeter.Water), "a water change clears the haze");
+        Equal(70.0, sim.ApplyCare(cloudy.State, PetVerb.WaterChange).State.Meter(PetMeter.Water), "a water change clears the haze");
 
         var fullCat = PetState.Restore(Catalog, "Pip", PetAppearance.Default(Catalog, PetBreed.DomesticShorthair), Start, TimeSpan.Zero,
             Meters(Species.Cat, 100, 100), 0, 0, 0, 0, false);

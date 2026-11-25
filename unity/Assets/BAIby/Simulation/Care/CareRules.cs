@@ -12,7 +12,8 @@ namespace BAIby.Simulation
     // Routines: the record's CareRoutine picks its windows. A routine with a play window (a cat's) feeds its together
     // ring from that window (on time, late or missed, like a meal) instead of from the whole day, and never owes it. A
     // dog's two walk windows do the same with a walk (CareTags.Walk), and its morning walk is a grace window that closes
-    // excused when school gets in the way.
+    // excused when school gets in the way. A fish's two play windows are a morning hello at the glass (a grace window
+    // too) and glass time after school, and its water change (CareTags.Tidy) clears the mess without answering the wash.
     //
     // Helpers: a meal window the feeder served in (and nobody fed by hand) is Helped. It stays out of the rings and is
     // not owed, like Covered, so the needs axis holds; Bond, temperament and the rhythm still count it as missed.
@@ -152,7 +153,9 @@ namespace BAIby.Simulation
                 draft.Owed &= ~CareTags.Meal;
             if ((tags & CareTags.Bedtime) != 0)
                 draft.Owed &= ~CareTags.Bedtime;
-            if ((tags & CareTags.Hygiene) != 0)
+            // The daily wash clears the mess, and so does a tidy (a fish's water change clears the cloudy water), which
+            // answers no window.
+            if ((tags & (CareTags.Hygiene | CareTags.Tidy)) != 0)
                 draft.Mess = 0;
             if ((tags & CareTags.Bedtime) != 0 && !draft.AwaitingAnchor)
                 MarkBedtimeRest(draft, at);

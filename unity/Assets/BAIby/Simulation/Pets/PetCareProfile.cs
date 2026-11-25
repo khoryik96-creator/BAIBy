@@ -6,8 +6,8 @@ namespace BAIby.Simulation.Pets
     // What a species brings to the shared care systems (docs/care-and-growth.md, Core model and Pets and household): its
     // care verbs and the care tags they carry, its routine, its three milestones at their nominal ages, its night
     // rates, and which of its meters plays each of the four need roles the shared rules know (Fullness, Comfort, Energy
-    // and Cleanliness). The cat and the hamster have one; other species keep PetSimulation's simple rules until their
-    // slice.
+    // and Cleanliness). The cat, the hamster, the dog and the fish have one; the rabbit keeps PetSimulation's simple
+    // rules until its slice.
     //
     // The cat: meals Morning and Evening, a play window in the afternoon and the evening nap (RoutineCalendar), a daily
     // brush in the wash window, and a scratched rug for mess. Milestones Pounce (day 2), Climb (day 3.5) and High jump
@@ -29,6 +29,17 @@ namespace BAIby.Simulation.Pets
     // brush is its wash, and a missed brush leaves a chewed slipper. Milestones Fetch (day 3), Leash walk (day 6) and
     // Agility (day 9) follow Milestone timing; the dog grows up on day 10, so only care slow enough to pass the nominal
     // pace makes agility a grown-up's (guaranteed by day 12.6).
+    //
+    // The fish (P4): the lowest-effort companion, and school-day friendly. One sprinkle of food a day (any time from the
+    // morning until the evening), glass time after school (a finger traced along the glass, which the fish follows: its
+    // together time and play, and it comforts), lights off for the night, and a daily wipe of the glass as the wash. A
+    // morning hello at the glass before school is a grace window. Calm plays the Comfort role and Water the Cleanliness
+    // role: Water drifts down slowly over days, the daily wipe slows it and a water change (CareTags.Tidy: hands-on, no
+    // window) restores it, so a missed water change is a gentle consequence, never a cliff. A water change also settles
+    // the fish (Comfort), so it calms a sulky fish and a poorly one can still have fresh water. A full fish ignores extra
+    // flakes, which cloud the water slightly. A missed wipe leaves the water a little cloudy (the mess). Milestones Darts
+    // to glass (day 1.5), Follows finger (day 3) and Hoop swim (day 4.5) follow Milestone timing; the fish grows up on
+    // day 5, so care slow enough to pass the nominal pace makes the hoop a grown-up's (guaranteed by day 6.3).
     public sealed class PetCareProfile
     {
         public static readonly PetCareProfile Cat = new PetCareProfile(Species.Cat, CareRoutine.Cat,
@@ -99,6 +110,29 @@ namespace BAIby.Simulation.Pets
             nightFullness: 1.5, nightComfort: 0.5, nightEnergy: 9, nightCleanliness: 0.5,
             comfort: PetMeter.Exercise, playKind: EngagementKind.Fetch, trickVerb: PetVerb.Fetch);
 
+        public static readonly PetCareProfile Fish = new PetCareProfile(Species.Fish, CareRoutine.Fish,
+            new CareProfile("fish", new Dictionary<string, CareTags>
+            {
+                ["sprinkle-food"] = CareTags.Meal,
+                ["follow-finger"] = CareTags.Together | CareTags.Play | CareTags.Comfort,
+                ["wipe-glass"] = CareTags.Hygiene,
+                ["water-change"] = CareTags.Tidy | CareTags.Comfort,
+                ["rest"] = CareTags.Bedtime,
+                ["medicine"] = CareTags.Medicine,
+            }),
+            new Dictionary<PetVerb, string>
+            {
+                [PetVerb.SprinkleFood] = "sprinkle-food",
+                [PetVerb.FollowFinger] = "follow-finger",
+                [PetVerb.WipeGlass] = "wipe-glass",
+                [PetVerb.WaterChange] = "water-change",
+                [PetVerb.Rest] = "rest",
+            },
+            new[] { MotorSkill.DartsToGlass, MotorSkill.FollowsFinger, MotorSkill.HoopSwim },
+            new[] { TimeSpan.FromDays(1.5), TimeSpan.FromDays(3), TimeSpan.FromDays(4.5) },
+            nightFullness: 1.4, nightComfort: 0.3, nightEnergy: 9, nightCleanliness: 0.25,
+            comfort: PetMeter.Calm, cleanliness: PetMeter.Water, ignoresExtraFood: true);
+
         private readonly Dictionary<PetVerb, string> verbs;
         private readonly MotorSkill[] skills;
         private readonly TimeSpan[] skillAges;
@@ -128,6 +162,9 @@ namespace BAIby.Simulation.Pets
         public EngagementKind PlayKind { get; }
         // The verb whose familiarity teaches tricks (a dog's fetch), or null.
         public PetVerb? TrickVerb { get; }
+        // A full fish ignores extra food: the flakes are left (Fullness is unchanged) and cloud the water slightly
+        // (PetSimulation.CloudedWater, never more than the care style's overfeeding), with no Comfort drop.
+        public bool IgnoresExtraFood { get; }
         // How many meals a full care day asks for (two for a cat, one for a hamster's dinner), and whether it asks for
         // a bedtime (a hamster's day nap is its own).
         public int MealsPerDay => RoutineCalendar.MealWindows(Routine);
@@ -136,8 +173,10 @@ namespace BAIby.Simulation.Pets
         private PetCareProfile(Species species, CareRoutine routine, CareProfile profile, Dictionary<PetVerb, string> verbs,
             MotorSkill[] skills, TimeSpan[] skillAges, double nightFullness, double nightComfort, double nightEnergy,
             double nightCleanliness, PetMeter comfort = PetMeter.Comfort, PetMeter cleanliness = PetMeter.Cleanliness,
-            bool restsAlone = false, EngagementKind playKind = EngagementKind.PlayWand, PetVerb? trickVerb = null)
+            bool restsAlone = false, EngagementKind playKind = EngagementKind.PlayWand, PetVerb? trickVerb = null,
+            bool ignoresExtraFood = false)
         {
+            IgnoresExtraFood = ignoresExtraFood;
             PlayKind = playKind;
             TrickVerb = trickVerb;
             ComfortMeter = comfort;
@@ -157,7 +196,8 @@ namespace BAIby.Simulation.Pets
 
         // The species' care profile, or null when the species keeps PetSimulation's simple rules.
         public static PetCareProfile For(Species species) =>
-            species == Species.Cat ? Cat : species == Species.Hamster ? Hamster : species == Species.Dog ? Dog : null;
+            species == Species.Cat ? Cat : species == Species.Hamster ? Hamster : species == Species.Dog ? Dog
+                : species == Species.Fish ? Fish : null;
 
         // The need role a meter plays, as the shared rules name it, or null when the meter has none.
         public PetMeter? RoleOf(PetMeter meter)
