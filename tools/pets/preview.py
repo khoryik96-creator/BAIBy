@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Contact sheets for the PLACEHOLDER pet art (cat and hamster), built only from the shipped files.
+"""Contact sheets for the PLACEHOLDER pet art (cat, hamster, dog, fish and rabbit), built only from the shipped files.
 
-    python3 tools/pets/preview.py [--out DIR] [--species Cat,Hamster]
+    python3 tools/pets/preview.py [--out DIR] [--species Cat,Hamster,Dog,Fish,Rabbit]
 
 Recolouring and compositing use tools/appearance/recolor.py (the baby contract
 math, mirroring AppearanceRecolor.cs): composite base -> markings -> Calico dark
@@ -20,6 +20,10 @@ Sheets:
 
 Fish sheets (fish-*.png): breeds x poses, every coat, the fish in its tank (with the castle, at rest and with cloudy
 water), and a 1:1 detail sheet.
+
+Rabbit sheets (rabbit-*.png): breeds x poses, every coat, the rest poses, the neck wear, the rabbit in its pen
+(with and without scattered hay), the young and grown rabbit and the Flemish giant beside the Sitter baby, and a 1:1
+detail sheet.
 
 Hamster sheets (hamster-*.png): breeds x poses, every coat, the rest poses, the
 tiny bow, the young and grown hamster beside the Sitter baby and a kitten at their
@@ -43,13 +47,15 @@ sys.path.insert(0, str(HERE))
 
 import recolor as baby  # noqa: E402  (tools/appearance/recolor.py)
 from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, DOG_COATS, DOG_EYES, EYES, FISH_COATS, FISH_EYES,  # noqa: E402
-                     HAMSTER_COATS, HAMSTER_EYES, allowed_eyes, coat_colors, dog_allowed_eyes, dog_coat_colors,
-                     fish_allowed_eyes, fish_coat_colors, hamster_allowed_eyes, hamster_coat_colors)
+                     HAMSTER_COATS, HAMSTER_EYES, RABBIT_COATS, RABBIT_EYES, allowed_eyes, coat_colors, dog_allowed_eyes,
+                     dog_coat_colors, fish_allowed_eyes, fish_coat_colors, hamster_allowed_eyes, hamster_coat_colors,
+                     rabbit_allowed_eyes, rabbit_coat_colors)
 
 CAT = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets" / "Cat"
 HAMSTER = CAT.parent / "Hamster"
 DOG = CAT.parent / "Dog"
 FISH = CAT.parent / "Fish"
+RABBIT = CAT.parent / "Rabbit"
 RES = ROOT / "unity" / "Assets" / "Resources" / "BAIby"
 DEFAULT_OUT = Path("/tmp/claude-0/-home-user-BAIBy/729cdbf9-e760-56a7-bde4-d84d73210b9a/scratchpad/cat-preview")
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
@@ -193,6 +199,104 @@ class Fish(Dog):
             sheet.alpha_composite(Image.fromarray(h, "RGBA"))
         sheet.alpha_composite(self.tank("Front"))
         return sheet
+
+
+class Rabbit(Dog):
+    """The rabbit: the Flemish giant stands on its own larger base ("FlemishGiant" + pose); the neck wear follows the
+    shown pose."""
+
+    def __init__(self):
+        Cat.__init__(self, RABBIT)
+        self.variants = set(self.layout.get("breedBases", []))
+
+    def draw(self, pose, breed="Dutch", coat=None, eyes=None, collar=None, wear="Collar"):
+        coat = coat or next(iter(RABBIT_COATS[breed]))
+        main, sec, dark = rabbit_coat_colors(breed, coat)
+        eye = RABBIT_EYES[eyes or "Dark"]
+        accent = (baby.OUTFIT[collar][1] if collar and baby.OUTFIT[collar] else self.refs[3]) if collar else self.refs[3]
+        img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
+        out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
+        return Image.fromarray(out, "RGBA")
+
+    def pen(self, layer):
+        return Image.open(self.folder / f"Habitat/{layer}.bytes").convert("RGBA")
+
+    def in_pen(self, pose, breed, coat=None, hay=0.0):
+        """The rabbit in its pen at its runtime scale, as the room draws it: back, rabbit, scattered hay, front."""
+        hab = self.layout["habitat"]
+        k = self.layout["runtimeScale"]["grown" if pose.startswith("Grown") else "young"]
+        im = self.draw(pose, breed, coat)
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        sheet = self.pen("Back").copy()
+        y = hab["height"] - hab["floor"] - im.height + 8
+        sheet.alpha_composite(im, ((hab["width"] - im.width) // 2, y))
+        if hay > 0:
+            h = np.asarray(self.pen("Hay")).copy()
+            h[..., 3] = (h[..., 3] * hay).astype(np.uint8)
+            sheet.alpha_composite(Image.fromarray(h, "RGBA"))
+        sheet.alpha_composite(self.pen("Front"))
+        return sheet
+
+
+def rabbit_sheets(out):
+    rab = Rabbit()
+    breeds = list(RABBIT_COATS)
+    cells = []
+    for b in breeds:
+        for p in POSES:
+            cells.append((rab.draw(p, b), f"{b} / {p}"))
+    grid(cells, 4, 360, 400, 0.45, "Placeholder rabbit: breed x pose (default coat)").save(out / "rabbit-breeds.png")
+
+    cells = []
+    for b in breeds:
+        eyes = rabbit_allowed_eyes(b)
+        for k, coat in enumerate(RABBIT_COATS[b]):
+            e = eyes[k % len(eyes)]
+            cells.append((rab.draw("YoungAwake" if k % 2 == 0 else "GrownAwake", b, coat, e), f"{b} {coat} / {e}"))
+    grid(cells, 6, 260, 330, 0.36, "Rabbit coats per breed (recoloured with the baby formula)").save(out / "rabbit-coats.png")
+
+    cells = []
+    for b in breeds:
+        for p in ("YoungRest", "GrownRest"):
+            cells.append((rab.draw(p, b, list(RABBIT_COATS[b])[-1]), f"{b} / {p}"))
+    grid(cells, 4, 380, 240, 0.45, "Rabbit rest poses (a loaf, ears laid back)").save(out / "rabbit-rest.png")
+
+    cells = []
+    colours = ["Sky", "Butter", "Lilac", "Terracotta"]
+    for i, p in enumerate(POSES):
+        for j, wear in enumerate(("Collar", "Bandana", "Bow")):
+            b = ("Dutch", "HollandLop", "FlemishGiant")[j]
+            cells.append((rab.draw(p, b, collar=colours[(i + j) % 4], wear=wear), f"{wear} / {b} {p}"))
+    grid(cells, 3, 360, 400, 0.45, "Neck wear (region A) in the outfit accent palette").save(out / "rabbit-wear.png")
+
+    cells = [(rab.in_pen("YoungAwake", "Dutch"), "Dutch, young, in its pen"),
+             (rab.in_pen("GrownAwake", "HollandLop"), "Holland lop, grown"),
+             (rab.in_pen("GrownRest", "Lionhead"), "Lionhead, resting"),
+             (rab.in_pen("GrownAwake", "FlemishGiant"), "Flemish giant"),
+             (rab.in_pen("YoungAwake", "Angora", hay=0.5), "Angora, a little scattered hay"),
+             (rab.in_pen("GrownAwake", "Harlequin", hay=1.0), "Harlequin, scattered hay (full)")]
+    grid(cells, 3, 450, 300, 0.5, "The pen (habitat) and the scattered hay").save(out / "rabbit-pen.png")
+
+    rs = rab.layout["runtimeScale"]
+    sitter = Image.open(RES / "Baby" / "Sitter.png").convert("RGBA")
+
+    def scaled(im, k):
+        return im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+
+    young = scaled(rab.draw("YoungAwake", "Dutch"), rs["young"])
+    grown = scaled(rab.draw("GrownAwake", "HollandLop"), rs["grown"])
+    giant = scaled(rab.draw("GrownAwake", "FlemishGiant"), rs["grown"])
+    h = max(sitter.height, young.height, grown.height, giant.height)
+    sheet = Image.new("RGBA", (sitter.width + young.width + grown.width + giant.width + 80, h + 20), BG)
+    x = 0
+    for im in (sitter, young, grown, giant):
+        sheet.alpha_composite(im, (x, h - im.height))
+        x += im.width + 20
+    sheet.resize((sheet.width // 2, sheet.height // 2), Image.LANCZOS).save(out / "rabbit-nursery.png")
+
+    cells = [(rab.draw("YoungAwake", "Dutch"), "Dutch Black"), (rab.draw("GrownAwake", "Lionhead"), "Lionhead Cream"),
+             (rab.draw("YoungAwake", "Angora"), "Angora White"), (rab.draw("GrownRest", "HollandLop"), "Holland lop asleep")]
+    grid(cells, 2, 700, 860, 1.0, "Rabbit 1:1 detail").save(out / "rabbit-detail.png")
 
 
 def fish_sheets(out):
@@ -397,7 +501,7 @@ def grid(cells, cols, cell_w, cell_h, scale, title=None, pad=12):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--species", default="Cat,Hamster,Dog,Fish")
+    ap.add_argument("--species", default="Cat,Hamster,Dog,Fish,Rabbit")
     args = ap.parse_args()
     out = args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -408,6 +512,8 @@ def main():
         dog_sheets(out)
     if "Fish" in species:
         fish_sheets(out)
+    if "Rabbit" in species:
+        rabbit_sheets(out)
     if "Cat" not in species:
         print("wrote", out)
         return

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the PLACEHOLDER pet art: base poses, region maps, breed marking overlays,
 accessory overlays, layout.json and Unity .meta files, for the cat (P1), the
-hamster (P2), the dog (P3) and the fish (P4).
+hamster (P2), the dog (P3), the fish (P4) and the rabbit (P5).
 
     python3 tools/pets/build.py                    # every species (a couple of minutes on 4 cores)
     python3 tools/pets/build.py --species Hamster  # one species
@@ -13,7 +13,10 @@ bandanas & bows" pack).  Hamster: the dorsal stripe and Panda patches (dark
 overlays), the Roborovski's brow spots, the Teddy bear's long coat, a tiny
 bow, and its habitat (``Habitat/Back`` and ``Habitat/Front``, habitat.py).  Dog: dog.py.  Fish: every
 breed's fins, the dark bars, patches and bands, the Neon tetra school's own base, and the tank (tank.py) with its
-haze and castle layers.
+haze and castle layers.  Rabbit: rabbit.py: every breed's ears (and the Dutch's
+markings, the Lionhead's mane, the Angora's fluff), the Harlequin's dark half face
+and bands, the Flemish giant's own larger base, the neck wear, and the pen
+(hutch.py) with its scattered-hay layer.
 
 Deterministic: fixed geometry and seeds, fixed PNG encoder settings; existing
 .meta GUIDs are kept, so a rerun without changes produces no diff.
@@ -37,7 +40,7 @@ sys.path.insert(0, str(HERE))
 
 from cat import BREEDS, POSES, REF_ACCENT, REF_COAT, REF_IRIS, REF_MARK, RUNTIME_SCALE, WEAR  # noqa: E402
 from palette import (breed_entries, collar_entries, dog_entries, dog_eye_entries, eye_entries, fish_entries,  # noqa: E402
-                     fish_eye_entries, hamster_entries, hamster_eye_entries)
+                     fish_eye_entries, hamster_entries, hamster_eye_entries, rabbit_entries, rabbit_eye_entries)
 
 sys.path.insert(0, str(HERE.parent / "appearance"))
 from recolor import composite  # noqa: E402  (the baby contract composite)
@@ -46,7 +49,7 @@ ROOT = HERE.parent.parent
 PETS_DIR = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets"
 OUT_DIR = PETS_DIR / "Cat"
 MARGIN = 4
-SPECIES = ["Cat", "Hamster", "Dog", "Fish"]
+SPECIES = ["Cat", "Hamster", "Dog", "Fish", "Rabbit"]
 HAB_W, HAB_H, HAB_FLOOR = 760, 480, 64   # habitat.W, habitat.H, habitat.FLOOR
 
 FILE_META = """fileFormatVersion: 2
@@ -325,9 +328,55 @@ class FishSpec:
         return {"coats": fish_entries(), "eyes": fish_eye_entries(), "collarAccents": []}
 
 
+class RabbitSpec(DogSpec):
+    """The rabbit (P5): every breed's ears are a feature overlay (with the Dutch's markings, the Lionhead's mane and the
+    Angora's fluff), the Harlequin's half face and bands are a dark overlay, and the Flemish giant stands on its own
+    larger base (``Base/FlemishGiant{Pose}``), with the neck wear drawn for those poses too.  The pen is the habitat
+    (hutch.py); its scattered hay (the mess) fills the habitat's ``haze`` slot."""
+    name = "Rabbit"
+
+    def __init__(self):
+        import rabbit
+        self.d = rabbit
+        self.poses = rabbit.ALL_POSES
+        self.features = ("Markings/",)
+
+    def layout_head(self):
+        import hutch
+        d = self.d
+        return {
+            "placeholder": True,
+            "species": "Rabbit",
+            "reference": {
+                "coat": list(d.REF_COAT),
+                "markings": list(d.REF_MARK),
+                "eyes": list(d.REF_IRIS),
+                "accent": list(d.REF_ACCENT),
+            },
+            "runtimeScale": {"young": d.RUNTIME_SCALE["Young"], "grown": d.RUNTIME_SCALE["Grown"]},
+            # the pen round the rabbit (hutch.py), at the baby's pose-pixel scale; `haze` is the scattered hay of a
+            # missed litter tidy, which the room fades in with the mess
+            "habitat": {"back": "Habitat/Back", "front": "Habitat/Front", "width": hutch.W, "height": hutch.H,
+                        "floor": hutch.FLOOR, "haze": "Habitat/Hay"},
+            # breeds drawn on their own base poses ("FlemishGiant" + pose): the Flemish giant drawn larger
+            "breedBases": [d.VARIANT],
+        }
+
+    @staticmethod
+    def extras(out_dir):
+        import hutch
+        write_png(out_dir / "Habitat" / "Back.bytes", hutch.back().image()[0])
+        write_png(out_dir / "Habitat" / "Front.bytes", hutch.front().image()[0])
+        write_png(out_dir / "Habitat" / "Hay.bytes", hutch.hay().image()[0])
+
+    @staticmethod
+    def palette():
+        return {"coats": rabbit_entries(), "eyes": rabbit_eye_entries(), "collarAccents": collar_entries()}
+
+
 def spec_for(name):
     return (CatSpec() if name == "Cat" else HamsterSpec() if name == "Hamster" else DogSpec() if name == "Dog"
-            else FishSpec())
+            else FishSpec() if name == "Fish" else RabbitSpec())
 
 
 def render_job(job):
@@ -339,6 +388,8 @@ def render_job(job):
         from hamster import render
     elif species == "Dog":
         from dog import render
+    elif species == "Rabbit":
+        from rabbit import render
     else:
         from fish import render
     if kind == "base":

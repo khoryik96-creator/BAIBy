@@ -1,0 +1,1241 @@
+{
+ "placeholder": true,
+ "species": "Rabbit",
+ "reference": {
+  "coat": [
+   206,
+   166,
+   128
+  ],
+  "markings": [
+   250,
+   240,
+   226
+  ],
+  "eyes": [
+   112,
+   78,
+   66
+  ],
+  "accent": [
+   178,
+   170,
+   122
+  ]
+ },
+ "runtimeScale": {
+  "young": 0.5,
+  "grown": 0.6
+ },
+ "habitat": {
+  "back": "Habitat/Back",
+  "front": "Habitat/Front",
+  "width": 860,
+  "height": 540,
+  "floor": 66,
+  "haze": "Habitat/Hay"
+ },
+ "breedBases": [
+  "FlemishGiant"
+ ],
+ "poses": [
+  {
+   "name": "YoungAwake",
+   "width": 417,
+   "height": 665
+  },
+  {
+   "name": "YoungRest",
+   "width": 610,
+   "height": 396
+  },
+  {
+   "name": "GrownAwake",
+   "width": 413,
+   "height": 723
+  },
+  {
+   "name": "GrownRest",
+   "width": 641,
+   "height": 389
+  },
+  {
+   "name": "FlemishGiantYoungAwake",
+   "width": 461,
+   "height": 764
+  },
+  {
+   "name": "FlemishGiantYoungRest",
+   "width": 693,
+   "height": 419
+  },
+  {
+   "name": "FlemishGiantGrownAwake",
+   "width": 508,
+   "height": 839
+  },
+  {
+   "name": "FlemishGiantGrownRest",
+   "width": 735,
+   "height": 412
+  }
+ ],
+ "overlays": [
+  {
+   "path": "Markings/Dutch/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 58,
+   "y": 30,
+   "width": 299,
+   "height": 611,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NetherlandDwarf/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 109,
+   "y": 98,
+   "width": 199,
+   "height": 106,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/HollandLop/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 13,
+   "y": 174,
+   "width": 390,
+   "height": 247,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Lionhead/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 7,
+   "y": 98,
+   "width": 403,
+   "height": 399,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angora/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 4,
+   "y": 4,
+   "width": 409,
+   "height": 661,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Rex/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 102,
+   "y": 30,
+   "width": 212,
+   "height": 172,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 102,
+   "y": 30,
+   "width": 212,
+   "height": 172,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 40,
+   "y": 190,
+   "width": 273,
+   "height": 425,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 91,
+   "y": 418,
+   "width": 233,
+   "height": 74,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 95,
+   "y": 421,
+   "width": 225,
+   "height": 103,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 96,
+   "y": 421,
+   "width": 223,
+   "height": 101,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dutch/YoungRest",
+   "pose": "YoungRest",
+   "x": 102,
+   "y": 28,
+   "width": 297,
+   "height": 334,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NetherlandDwarf/YoungRest",
+   "pose": "YoungRest",
+   "x": 187,
+   "y": 60,
+   "width": 159,
+   "height": 80,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/HollandLop/YoungRest",
+   "pose": "YoungRest",
+   "x": 10,
+   "y": 94,
+   "width": 359,
+   "height": 240,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Lionhead/YoungRest",
+   "pose": "YoungRest",
+   "x": 4,
+   "y": 60,
+   "width": 370,
+   "height": 336,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angora/YoungRest",
+   "pose": "YoungRest",
+   "x": 5,
+   "y": 4,
+   "width": 591,
+   "height": 392,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Rex/YoungRest",
+   "pose": "YoungRest",
+   "x": 192,
+   "y": 28,
+   "width": 207,
+   "height": 108,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/YoungRest",
+   "pose": "YoungRest",
+   "x": 192,
+   "y": 28,
+   "width": 207,
+   "height": 108,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 48,
+   "y": 113,
+   "width": 491,
+   "height": 251,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/YoungRest",
+   "pose": "YoungRest",
+   "x": 254,
+   "y": 167,
+   "width": 108,
+   "height": 186,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/YoungRest",
+   "pose": "YoungRest",
+   "x": 258,
+   "y": 172,
+   "width": 130,
+   "height": 177,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/YoungRest",
+   "pose": "YoungRest",
+   "x": 259,
+   "y": 172,
+   "width": 128,
+   "height": 176,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dutch/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 32,
+   "y": 33,
+   "width": 336,
+   "height": 669,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NetherlandDwarf/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 107,
+   "y": 109,
+   "width": 187,
+   "height": 119,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/HollandLop/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 23,
+   "y": 202,
+   "width": 355,
+   "height": 224,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Lionhead/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 17,
+   "y": 109,
+   "width": 367,
+   "height": 386,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angora/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 6,
+   "y": 4,
+   "width": 389,
+   "height": 715,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Rex/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 99,
+   "y": 33,
+   "width": 203,
+   "height": 193,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 99,
+   "y": 33,
+   "width": 203,
+   "height": 193,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 14,
+   "y": 215,
+   "width": 300,
+   "height": 456,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 80,
+   "y": 422,
+   "width": 240,
+   "height": 73,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 84,
+   "y": 426,
+   "width": 232,
+   "height": 102,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 84,
+   "y": 426,
+   "width": 232,
+   "height": 100,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Dutch/GrownRest",
+   "pose": "GrownRest",
+   "x": 90,
+   "y": 31,
+   "width": 306,
+   "height": 325,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NetherlandDwarf/GrownRest",
+   "pose": "GrownRest",
+   "x": 172,
+   "y": 68,
+   "width": 164,
+   "height": 82,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/HollandLop/GrownRest",
+   "pose": "GrownRest",
+   "x": 11,
+   "y": 109,
+   "width": 328,
+   "height": 219,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Lionhead/GrownRest",
+   "pose": "GrownRest",
+   "x": 4,
+   "y": 68,
+   "width": 341,
+   "height": 320,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angora/GrownRest",
+   "pose": "GrownRest",
+   "x": 8,
+   "y": 4,
+   "width": 622,
+   "height": 385,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Rex/GrownRest",
+   "pose": "GrownRest",
+   "x": 176,
+   "y": 31,
+   "width": 220,
+   "height": 115,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/GrownRest",
+   "pose": "GrownRest",
+   "x": 176,
+   "y": 31,
+   "width": 220,
+   "height": 115,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Harlequin/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 44,
+   "y": 99,
+   "width": 522,
+   "height": 260,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Accessories/Collar/GrownRest",
+   "pose": "GrownRest",
+   "x": 236,
+   "y": 176,
+   "width": 96,
+   "height": 169,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/GrownRest",
+   "pose": "GrownRest",
+   "x": 239,
+   "y": 180,
+   "width": 122,
+   "height": 161,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/GrownRest",
+   "pose": "GrownRest",
+   "x": 240,
+   "y": 181,
+   "width": 120,
+   "height": 159,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/FlemishGiant/YoungAwake",
+   "pose": "FlemishGiantYoungAwake",
+   "x": 106,
+   "y": 4,
+   "width": 241,
+   "height": 231,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/FlemishGiantYoungAwake",
+   "pose": "FlemishGiantYoungAwake",
+   "x": 85,
+   "y": 470,
+   "width": 282,
+   "height": 77,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/FlemishGiantYoungAwake",
+   "pose": "FlemishGiantYoungAwake",
+   "x": 90,
+   "y": 475,
+   "width": 272,
+   "height": 105,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/FlemishGiantYoungAwake",
+   "pose": "FlemishGiantYoungAwake",
+   "x": 91,
+   "y": 476,
+   "width": 270,
+   "height": 102,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/FlemishGiant/YoungRest",
+   "pose": "FlemishGiantYoungRest",
+   "x": 177,
+   "y": 4,
+   "width": 258,
+   "height": 139,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/FlemishGiantYoungRest",
+   "pose": "FlemishGiantYoungRest",
+   "x": 247,
+   "y": 181,
+   "width": 115,
+   "height": 201,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/FlemishGiantYoungRest",
+   "pose": "FlemishGiantYoungRest",
+   "x": 251,
+   "y": 185,
+   "width": 137,
+   "height": 193,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/FlemishGiantYoungRest",
+   "pose": "FlemishGiantYoungRest",
+   "x": 252,
+   "y": 186,
+   "width": 135,
+   "height": 191,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/FlemishGiant/GrownAwake",
+   "pose": "FlemishGiantGrownAwake",
+   "x": 129,
+   "y": 4,
+   "width": 234,
+   "height": 260,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/FlemishGiantGrownAwake",
+   "pose": "FlemishGiantGrownAwake",
+   "x": 101,
+   "y": 480,
+   "width": 290,
+   "height": 73,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/FlemishGiantGrownAwake",
+   "pose": "FlemishGiantGrownAwake",
+   "x": 104,
+   "y": 484,
+   "width": 284,
+   "height": 102,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/FlemishGiantGrownAwake",
+   "pose": "FlemishGiantGrownAwake",
+   "x": 105,
+   "y": 485,
+   "width": 282,
+   "height": 99,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/FlemishGiant/GrownRest",
+   "pose": "FlemishGiantGrownRest",
+   "x": 162,
+   "y": 4,
+   "width": 276,
+   "height": 151,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Collar/FlemishGiantGrownRest",
+   "pose": "FlemishGiantGrownRest",
+   "x": 228,
+   "y": 191,
+   "width": 103,
+   "height": 182,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bandana/FlemishGiantGrownRest",
+   "pose": "FlemishGiantGrownRest",
+   "x": 232,
+   "y": 195,
+   "width": 128,
+   "height": 175,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Accessories/Bow/FlemishGiantGrownRest",
+   "pose": "FlemishGiantGrownRest",
+   "x": 232,
+   "y": 196,
+   "width": 127,
+   "height": 173,
+   "gTarget": "secondary"
+  }
+ ],
+ "palette": {
+  "coats": [
+   {
+    "breed": "Dutch",
+    "coat": "Black",
+    "main": [
+     78,
+     72,
+     82
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Dutch",
+    "coat": "Brown",
+    "main": [
+     156,
+     110,
+     78
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Dutch",
+    "coat": "Gray",
+    "main": [
+     156,
+     158,
+     172
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Dutch",
+    "coat": "Chocolate",
+    "main": [
+     122,
+     84,
+     66
+    ],
+    "secondary": [
+     252,
+     250,
+     246
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "NetherlandDwarf",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     255,
+     253,
+     250
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "NetherlandDwarf",
+    "coat": "Black",
+    "main": [
+     80,
+     74,
+     84
+    ],
+    "secondary": [
+     128,
+     120,
+     128
+    ],
+    "dark": [
+     128,
+     120,
+     128
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "NetherlandDwarf",
+    "coat": "Fawn",
+    "main": [
+     236,
+     196,
+     140
+    ],
+    "secondary": [
+     250,
+     234,
+     206
+    ],
+    "dark": [
+     250,
+     234,
+     206
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "HollandLop",
+    "coat": "Fawn",
+    "main": [
+     230,
+     186,
+     130
+    ],
+    "secondary": [
+     250,
+     234,
+     208
+    ],
+    "dark": [
+     250,
+     234,
+     208
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "HollandLop",
+    "coat": "Brown",
+    "main": [
+     166,
+     118,
+     84
+    ],
+    "secondary": [
+     238,
+     216,
+     192
+    ],
+    "dark": [
+     238,
+     216,
+     192
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "HollandLop",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     255,
+     253,
+     250
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Lionhead",
+    "coat": "Cream",
+    "main": [
+     246,
+     228,
+     198
+    ],
+    "secondary": [
+     253,
+     246,
+     234
+    ],
+    "dark": [
+     253,
+     246,
+     234
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Lionhead",
+    "coat": "Gray",
+    "main": [
+     168,
+     168,
+     180
+    ],
+    "secondary": [
+     236,
+     236,
+     242
+    ],
+    "dark": [
+     236,
+     236,
+     242
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Lionhead",
+    "coat": "Brown",
+    "main": [
+     172,
+     124,
+     88
+    ],
+    "secondary": [
+     240,
+     220,
+     196
+    ],
+    "dark": [
+     240,
+     220,
+     196
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Angora",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     255,
+     253,
+     250
+    ],
+    "dark": [
+     255,
+     253,
+     250
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Angora",
+    "coat": "Cream",
+    "main": [
+     248,
+     232,
+     206
+    ],
+    "secondary": [
+     254,
+     248,
+     238
+    ],
+    "dark": [
+     254,
+     248,
+     238
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Angora",
+    "coat": "Gray",
+    "main": [
+     184,
+     184,
+     194
+    ],
+    "secondary": [
+     240,
+     240,
+     244
+    ],
+    "dark": [
+     240,
+     240,
+     244
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Blue"
+    ]
+   },
+   {
+    "breed": "Rex",
+    "coat": "Chocolate",
+    "main": [
+     132,
+     90,
+     70
+    ],
+    "secondary": [
+     182,
+     142,
+     116
+    ],
+    "dark": [
+     182,
+     142,
+     116
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Rex",
+    "coat": "Black",
+    "main": [
+     76,
+     70,
+     78
+    ],
+    "secondary": [
+     122,
+     116,
+     122
+    ],
+    "dark": [
+     122,
+     116,
+     122
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Rex",
+    "coat": "Lilac",
+    "main": [
+     196,
+     178,
+     192
+    ],
+    "secondary": [
+     234,
+     222,
+     230
+    ],
+    "dark": [
+     234,
+     222,
+     230
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "FlemishGiant",
+    "coat": "Gray",
+    "main": [
+     156,
+     156,
+     168
+    ],
+    "secondary": [
+     228,
+     228,
+     234
+    ],
+    "dark": [
+     228,
+     228,
+     234
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "FlemishGiant",
+    "coat": "Fawn",
+    "main": [
+     222,
+     180,
+     124
+    ],
+    "secondary": [
+     248,
+     230,
+     200
+    ],
+    "dark": [
+     248,
+     230,
+     200
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "FlemishGiant",
+    "coat": "Black",
+    "main": [
+     76,
+     72,
+     80
+    ],
+    "secondary": [
+     124,
+     118,
+     124
+    ],
+    "dark": [
+     124,
+     118,
+     124
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Harlequin",
+    "coat": "Tricolor",
+    "main": [
+     236,
+     164,
+     92
+    ],
+    "secondary": [
+     252,
+     238,
+     214
+    ],
+    "dark": [
+     74,
+     68,
+     78
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   },
+   {
+    "breed": "Harlequin",
+    "coat": "Fawn",
+    "main": [
+     232,
+     198,
+     150
+    ],
+    "secondary": [
+     252,
+     242,
+     224
+    ],
+    "dark": [
+     154,
+     148,
+     168
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Brown"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "name": "Dark",
+    "color": [
+     90,
+     64,
+     62
+    ]
+   },
+   {
+    "name": "Brown",
+    "color": [
+     140,
+     96,
+     66
+    ]
+   },
+   {
+    "name": "Blue",
+    "color": [
+     112,
+     156,
+     210
+    ]
+   }
+  ],
+  "collarAccents": [
+   {
+    "name": "Midnight",
+    "color": [
+     70,
+     86,
+     140
+    ]
+   }
+  ]
+ }
+}

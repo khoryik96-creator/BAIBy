@@ -1,4 +1,4 @@
-# Pet art pipeline (PLACEHOLDER cat, hamster, dog and fish)
+# Pet art pipeline (PLACEHOLDER cat, hamster, dog, fish and rabbit)
 
 > **Everything this tool produces is PLACEHOLDER art.** It exists so pet mode
 > (P1 Cat, `docs/pet-mode.md`) is playable before the commissioned cat
@@ -106,6 +106,37 @@ body is the base's (a real angelfish is taller and flatter); the Koi's barbels a
 fixed fish rather than separately animated ones; the scales are a few soft arcs; the tank does not follow the room
 theme and the bubbles are painted, not animated.
 
+## Rabbit (P5)
+
+`rabbit.py` draws the rabbit with the cat's helpers (`cat.py`), in the same chibi style: a big round head with puffy
+light whisker pads round a little pink nose, a Y mouth with two front teeth, the baby's blush and big glossy eyes, and
+whiskers, sitting up on a soft pear-shaped body with rounded haunches, two big hind feet flat on the floor (light soles),
+two small front paws and a cotton tail; at rest it lies in a loaf with its eyes closed, its front paws tucked under the
+chin and its ears laid back along its back. `hutch.py` draws its pen. Outputs go to
+`unity/Assets/Resources/BAIby/Pets/Rabbit/` with the same contract and a `layout.json` saying `"placeholder": true`.
+`runtimeScale` is `young` 0.5 and `grown` 0.6.
+
+| Path | What |
+| --- | --- |
+| `Base/{Pose}` (+`Regions`) | the rabbit **without ears**: the whisker pads, chin, belly, soles and cotton tail are region G (the palette's `secondary`) |
+| `Base/FlemishGiant{Pose}` (+`Regions`) | the Flemish giant's own base: the same rabbit drawn larger (the body 1.24x, the head 1.1x, on a bigger canvas). `layout.json` `breedBases: ["FlemishGiant"]` |
+| `Markings/{Breed}/{Pose}` | every breed's **feature overlay**: its ears in the main coat (R), which reach past the base silhouette: upright (Dutch, Rex, Harlequin, a little longer for the Flemish giant), short (Netherland dwarf, Lionhead), tufted at the tips (Angora) or lops hanging beside the cheeks (Holland lop, drawn in front of the head). At rest upright ears lie back along the body. Extras: the Dutch's white blaze, front and paws (G), the Lionhead's mane round the face and crown tuft (R), the Angora's fluffy cheeks, crown and sides (R) |
+| `Markings/Harlequin/{Pose}Dark` | the Harlequin's half face and bands across the body (gTarget `dark`) |
+| `Accessories/{Collar,Bandana,Bow}/{Pose}` | neck wear (A) just under the chin, for the Flemish giant's poses too; free for the rabbit |
+| `Habitat/Back`, `Habitat/Front`, `Habitat/Hay` | the pen at the baby's pose-pixel scale (860 x 540, fixed colours, no region map): behind the rabbit a picket pen, a sage mat, a wooden hutch with a peaked pink roof and an arched doorway, a hay rack full of hay and a litter tray with a little hay in it; in front the mat's edge, two short posts and the greens bowl. `Hay` is the scattered hay of a missed litter tidy (loose strands and a few clumps over the floor), in the habitat's `haze` slot: the room fades it in with the mess |
+
+The palette (`palette.py` `RABBIT_COATS`) has every catalog coat of the eight breeds, `Dark` eyes by default (`Blue`
+allowed for the Dutch, the Angora and the Netherland dwarf, `Brown` for the others). `check.py` checks the rabbit's eight
+poses (up to 880 px: the ears make the sitting poses tall), the Flemish giant's base, that every breed's overlay has its
+ears, that the Harlequin's dark overlay and the wear stay inside the silhouette, the pen's three layers, and a 3.6 MB
+budget (about 2.6 MB). `preview.py` writes `rabbit-breeds.png`, `rabbit-coats.png`, `rabbit-rest.png`, `rabbit-wear.png`,
+`rabbit-pen.png` (with scattered hay), `rabbit-nursery.png` and `rabbit-detail.png`.
+
+Known limitations: the Lionhead's mane and the Angora's tufts are procedural and read a little spiky at small sizes;
+the Dutch's markings overlay misses the outline's anti-aliased rim over the white front (`build.py` prints the worst
+case); the far ear at rest is mostly hidden by the head; the flop of trust has no pose of its own; the pen does not
+follow the room theme.
+
 ## Requirements
 
 * Python 3.10+
@@ -120,7 +151,7 @@ pip install -r tools/pets/requirements.txt
 ## Usage
 
 ```
-python3 tools/pets/build.py     # regenerate every species (cat, hamster, dog, fish) + layout.json + .meta files (about 15 min, 4 processes)
+python3 tools/pets/build.py     # regenerate every species (cat, hamster, dog, fish, rabbit) + layout.json + .meta files (about 20 min, 4 processes)
 python3 tools/pets/build.py --species Dog       # one species (about 5 minutes for the dog, 4 for the fish)
 python3 tools/pets/check.py     # self-check of the shipped files (exit code 1 on failure)
 python3 tools/pets/preview.py   # contact sheets (default: the session scratchpad; --out DIR)
@@ -137,6 +168,10 @@ produces no diff.
 | `raster.py` | layered rasteriser: cairo coverage masks composited in numpy, with per-paint region weights and tagged overlay capture |
 | `cat.py` | style constants, reference colours, the head (ears, eyes, nose, mouth, whiskers, breed head marks), shared part/tail/collar helpers |
 | `poses.py` | the four poses: sitting (awake) and curled loaf (rest), Young and Grown |
+| `hamster.py`, `habitat.py` | the hamster and its cage (P2) |
+| `dog.py` | the dog (P3) |
+| `fish.py`, `tank.py` | the fish and its tank (P4) |
+| `rabbit.py`, `hutch.py` | the rabbit and its pen (P5) |
 | `palette.py` | suggested coat/eye colours per breed and coat (written into `layout.json`) |
 | `build.py` | renders base, marking and collar layers, crops, writes assets, `layout.json` and Unity metas |
 | `check.py` | verifies the shipped files |
