@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-check of the PLACEHOLDER pet assets: the cat (P1) and the hamster (P2).
+"""Self-check of the PLACEHOLDER pet assets: the cat (P1), the hamster (P2), the dog (P3) and the fish (P4).
 
     python3 tools/pets/check.py
 
@@ -25,6 +25,14 @@ Beagle's saddle and the Dalmatian's spots are dark overlays; the Corgi stands on
 its own short-legged base poses (``breedBases``: ``Base/Corgi{Pose}``), with its
 neck wear; the Dachshund has no art (arriving soon).  Its budget is 3 MB: eight
 base poses and eleven breeds' ears.
+
+The fish (P4): every breed's overlay carries its fins (a feature overlay in G that
+may reach past the silhouette; the Discus's tall disc adds R); the Angelfish's
+bars, the Koi's patches, the Clownfish's bands and the Neon tetras' red rear are
+dark overlays that stay inside the silhouette; the Neon tetra school stands on its
+own base poses (``Base/NeonTetraSchool{Pose}``); there is no neck wear.  Its
+habitat is the tank, with ``haze`` (the cloudy water) and ``castle`` (the tank
+castle) layers beside the back and front, and a ``swim`` height above the floor.
 """
 
 from __future__ import annotations
@@ -139,6 +147,49 @@ class DogRules:
         parts = path.split("/")
         if parts[0] == "Markings" and parts[1] in cls.variants:
             return parts[1] + parts[2]
+        return None
+
+
+class FishRules:
+    name = "Fish"
+    breeds = ["Goldfish", "Guppy", "Betta", "NeonTetraSchool", "Angelfish", "Koi", "Clownfish", "Discus"]
+    wear = []
+    size_range = (300, 700)      # a fish is drawn smaller than the baby
+    min_side = 220
+    base_allowed = (0, 1, 2)     # every fish has a light belly and a little side fin (G)
+    dark = ["NeonTetraSchool", "Angelfish", "Koi", "Clownfish"]
+    variants = ["NeonTetraSchool"]
+    budget = 2_500_000           # about 2.4 MB: eight bases, eight breeds' fins and the tank
+
+    @classmethod
+    def poses(cls):
+        return POSES + [v + p for v in cls.variants for p in POSES]
+
+    @classmethod
+    def want_overlays(cls):
+        return ({f"Markings/{b}/{p}" for b in cls.breeds for p in POSES}
+                | {f"Markings/{b}/{p}Dark" for b in cls.dark for p in POSES})
+
+    @staticmethod
+    def allowed(path):
+        return (1,) if path.endswith("Dark") else (0, 1)
+
+    @staticmethod
+    def required(path):
+        # every breed's fins are in the secondary colour (G); the Discus's disc adds the main colour
+        return (1,)
+
+    @staticmethod
+    def may_leave_silhouette(path):
+        return path.startswith("Markings/") and not path.endswith("Dark")
+
+    @classmethod
+    def pose_of(cls, path):
+        """The base pose an overlay composites over: the Neon tetras' markings sit on their own base."""
+        parts = path.split("/")
+        if parts[0] == "Markings" and parts[1] in cls.variants:
+            pose = parts[2][:-len("Dark")] if parts[2].endswith("Dark") else parts[2]
+            return parts[1] + pose
         return None
 
 
@@ -295,15 +346,22 @@ def check_species(rules, guids):
         check_meta(rp, False, guids)
         print(f"ok {rules.name} {path} at {o['x']},{o['y']} {w}x{h}")
 
-    # the hamster's habitat: a back and a front layer of the declared size, opaque somewhere, floor inside
+    # the hamster's and the fish's habitat: a back and a front layer of the declared size, opaque somewhere, floor
+    # inside; the fish's tank adds its haze and castle layers and the height it swims at
     habitat = layout.get("habitat")
-    if rules.name == "Hamster" and not habitat:
-        fail("the hamster layout needs its habitat")
+    if rules.name in ("Hamster", "Fish") and not habitat:
+        fail(f"the {rules.name.lower()} layout needs its habitat")
     if habitat:
         hw, hh, hf = habitat.get("width"), habitat.get("height"), habitat.get("floor")
         if not all(isinstance(v, int) for v in (hw, hh, hf)) or not 0 < hf < hh:
             fail(f"{rules.name} habitat needs int width, height and a floor inside it")
-        for key in ("back", "front"):
+        layers = ["back", "front"]
+        if rules.name == "Fish":
+            swim = habitat.get("swim")
+            if not isinstance(swim, int) or not 0 < swim < hh - hf:
+                fail(f"the tank needs an int swim height inside it, got {swim!r}")
+            layers += ["haze", "castle"]
+        for key in layers:
             hp = CAT / f"{habitat.get(key)}.bytes"
             if not hp.exists():
                 fail(f"missing habitat {key} {hp.relative_to(ROOT)}")
@@ -311,7 +369,8 @@ def check_species(rules, guids):
             img = load(hp)
             if img.shape[1] != hw or img.shape[0] != hh:
                 fail(f"habitat {key} is {img.shape[1]}x{img.shape[0]}, layout says {hw}x{hh}")
-            if not (img[..., 3] == 255).any():
+            # the haze is translucent by design; the other layers are opaque somewhere
+            if not ((img[..., 3] > 0).any() if key == "haze" else (img[..., 3] == 255).any()):
                 fail(f"habitat {key} is empty")
             check_meta(hp, False, guids)
             print(f"ok {rules.name} habitat {key} {img.shape[1]}x{img.shape[0]}")
@@ -319,8 +378,8 @@ def check_species(rules, guids):
             check_meta(CAT / "Habitat", True, guids)
 
     check_meta(lp, False, guids)
-    for folder in [CAT, CAT / "Base", CAT / "Markings", CAT / "Accessories"] + [CAT / "Accessories" / w for w in rules.wear] + \
-            [CAT / "Markings" / b for b in rules.breeds]:  # noqa: E127
+    folders = [CAT, CAT / "Base", CAT / "Markings"] + ([CAT / "Accessories"] if rules.wear else [])
+    for folder in folders + [CAT / "Accessories" / w for w in rules.wear] + [CAT / "Markings" / b for b in rules.breeds]:
         if not folder.is_dir():
             fail(f"missing folder {folder.relative_to(ROOT)}")
         else:
@@ -330,7 +389,7 @@ def check_species(rules, guids):
 def main():
     guids = []
     check_meta(PETS, True, guids)
-    for rules in (CatRules, HamsterRules, DogRules):
+    for rules in (CatRules, HamsterRules, DogRules, FishRules):
         check_species(rules, guids)
     if (PETS / "Dog" / "Markings" / "Dachshund").exists():
         fail("the Dachshund has no art yet: it is listed as arriving soon")
@@ -342,7 +401,9 @@ def main():
         elif not p.with_name(p.name + ".meta").exists():
             fail(f"missing meta for {p.relative_to(ROOT)}")
     # each species' shipped art stays within the Web download budget (about 2 MB)
-    for rules in (CatRules, HamsterRules, DogRules):
+    if (PETS / "Fish" / "Accessories").exists():
+        fail("the fish wears nothing: its tank castle is a habitat layer")
+    for rules in (CatRules, HamsterRules, DogRules, FishRules):
         size = sum(f.stat().st_size for f in (PETS / rules.name).rglob("*") if f.is_file() and f.suffix != ".meta")
         budget = getattr(rules, "budget", 2_000_000)
         if size > budget:

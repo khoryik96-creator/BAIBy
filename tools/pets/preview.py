@@ -18,6 +18,9 @@ Sheets:
   nursery.png  each pose on the nursery backdrop beside the Sitter baby, cat at layout runtimeScale
   detail.png   three cats at 1:1 for close inspection
 
+Fish sheets (fish-*.png): breeds x poses, every coat, the fish in its tank (with the castle, at rest and with cloudy
+water), and a 1:1 detail sheet.
+
 Hamster sheets (hamster-*.png): breeds x poses, every coat, the rest poses, the
 tiny bow, the young and grown hamster beside the Sitter baby and a kitten at their
 runtime scales, and a 1:1 detail sheet.
@@ -39,13 +42,14 @@ sys.path.insert(0, str(ROOT / "tools" / "appearance"))
 sys.path.insert(0, str(HERE))
 
 import recolor as baby  # noqa: E402  (tools/appearance/recolor.py)
-from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, DOG_COATS, DOG_EYES, EYES, HAMSTER_COATS,  # noqa: E402
-                     HAMSTER_EYES, allowed_eyes, coat_colors, dog_allowed_eyes, dog_coat_colors, hamster_allowed_eyes,
-                     hamster_coat_colors)
+from palette import (COATS, COLLAR_ACCENTS, DEFAULT_EYES, DOG_COATS, DOG_EYES, EYES, FISH_COATS, FISH_EYES,  # noqa: E402
+                     HAMSTER_COATS, HAMSTER_EYES, allowed_eyes, coat_colors, dog_allowed_eyes, dog_coat_colors,
+                     fish_allowed_eyes, fish_coat_colors, hamster_allowed_eyes, hamster_coat_colors)
 
 CAT = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets" / "Cat"
 HAMSTER = CAT.parent / "Hamster"
 DOG = CAT.parent / "Dog"
+FISH = CAT.parent / "Fish"
 RES = ROOT / "unity" / "Assets" / "Resources" / "BAIby"
 DEFAULT_OUT = Path("/tmp/claude-0/-home-user-BAIBy/729cdbf9-e760-56a7-bde4-d84d73210b9a/scratchpad/cat-preview")
 POSES = ["YoungAwake", "YoungRest", "GrownAwake", "GrownRest"]
@@ -151,6 +155,74 @@ class Dog(Cat):
         img, reg = self.layers(pose, breed, collar=collar is not None, dark_targets=[main, dark, eye, accent], wear=wear)
         out = baby.recolor(img, reg, [main, sec, eye, accent], self.refs)
         return Image.fromarray(out, "RGBA")
+
+
+class Fish(Dog):
+    """The fish: the Neon tetra school stands on its own base ("NeonTetraSchool" + pose); no neck wear."""
+
+    def __init__(self):
+        Cat.__init__(self, FISH)
+        self.variants = set(self.layout.get("breedBases", []))
+
+    def draw(self, pose, breed="Goldfish", coat=None, eyes=None, collar=None, wear="Collar"):
+        coat = coat or next(iter(FISH_COATS[breed]))
+        main, sec, dark = fish_coat_colors(breed, coat)
+        eye = FISH_EYES[eyes or "Dark"]
+        img, reg = self.layers(pose, breed, dark_targets=[main, dark, eye, self.refs[3]])
+        out = baby.recolor(img, reg, [main, sec, eye, self.refs[3]], self.refs)
+        return Image.fromarray(out, "RGBA")
+
+    def tank(self, layer):
+        return Image.open(self.folder / f"Habitat/{layer}.bytes").convert("RGBA")
+
+    def in_tank(self, pose, breed, coat=None, castle=False, haze=0.0):
+        """The fish in its tank at its runtime scale, as the room draws it: back, castle, fish, haze, front."""
+        hab = self.layout["habitat"]
+        k = self.layout["runtimeScale"]["grown" if pose.startswith("Grown") else "young"]
+        fish = self.draw(pose, breed, coat)
+        fish = fish.resize((round(fish.width * k), round(fish.height * k)), Image.LANCZOS)
+        sheet = self.tank("Back").copy()
+        if castle:
+            sheet.alpha_composite(self.tank("Castle"))
+        lift = hab["swim"] if pose.endswith("Awake") else hab["swim"] // 3
+        y = hab["height"] - hab["floor"] - lift - fish.height
+        sheet.alpha_composite(fish, ((hab["width"] - fish.width) // 2, y))
+        if haze > 0:
+            h = np.asarray(self.tank("Haze")).copy()
+            h[..., 3] = (h[..., 3] * haze).astype(np.uint8)
+            sheet.alpha_composite(Image.fromarray(h, "RGBA"))
+        sheet.alpha_composite(self.tank("Front"))
+        return sheet
+
+
+def fish_sheets(out):
+    fish = Fish()
+    breeds = list(FISH_COATS)
+    cells = []
+    for b in breeds:
+        for p in POSES:
+            cells.append((fish.draw(p, b), f"{b} / {p}"))
+    grid(cells, 4, 340, 300, 0.5, "Placeholder fish: breed x pose (default coat)").save(out / "fish-breeds.png")
+
+    cells = []
+    for b in breeds:
+        eyes = fish_allowed_eyes(b)
+        for k, coat in enumerate(FISH_COATS[b]):
+            e = eyes[k % len(eyes)]
+            cells.append((fish.draw("YoungAwake" if k % 2 == 0 else "GrownAwake", b, coat, e), f"{b} {coat} / {e}"))
+    grid(cells, 6, 260, 220, 0.4, "Fish coats per breed (recoloured with the baby formula)").save(out / "fish-coats.png")
+
+    cells = [(fish.in_tank("YoungAwake", "Goldfish"), "Goldfish, young, swimming"),
+             (fish.in_tank("GrownAwake", "Betta", castle=True), "Betta, grown, with the tank castle"),
+             (fish.in_tank("GrownRest", "Koi"), "Koi, lights off"),
+             (fish.in_tank("YoungAwake", "NeonTetraSchool"), "Neon tetra school"),
+             (fish.in_tank("GrownAwake", "Clownfish", haze=0.5), "Clownfish, cloudy water (half)"),
+             (fish.in_tank("GrownAwake", "Discus", haze=1.0), "Discus, cloudy water (full)")]
+    grid(cells, 3, 430, 340, 0.5, "The tank (habitat), the castle and the cloudy water").save(out / "fish-tank.png")
+
+    cells = [(fish.draw("GrownAwake", "Goldfish"), "Goldfish Orange"), (fish.draw("GrownAwake", "Angelfish"), "Angelfish Silver"),
+             (fish.draw("YoungAwake", "NeonTetraSchool"), "Neon tetra school"), (fish.draw("GrownRest", "Guppy"), "Guppy asleep")]
+    grid(cells, 2, 640, 520, 1.0, "Fish 1:1 detail").save(out / "fish-detail.png")
 
 
 def dog_sheets(out):
@@ -325,7 +397,7 @@ def grid(cells, cols, cell_w, cell_h, scale, title=None, pad=12):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    ap.add_argument("--species", default="Cat,Hamster,Dog")
+    ap.add_argument("--species", default="Cat,Hamster,Dog,Fish")
     args = ap.parse_args()
     out = args.out
     out.mkdir(parents=True, exist_ok=True)
@@ -334,6 +406,8 @@ def main():
         hamster_sheets(out)
     if "Dog" in species:
         dog_sheets(out)
+    if "Fish" in species:
+        fish_sheets(out)
     if "Cat" not in species:
         print("wrote", out)
         return
