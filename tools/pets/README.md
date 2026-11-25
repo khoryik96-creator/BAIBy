@@ -120,7 +120,7 @@ pip install -r tools/pets/requirements.txt
 ## Usage
 
 ```
-python3 tools/pets/build.py     # regenerate every cat and hamster asset + layout.json + .meta files (~4 min, 4 processes)
+python3 tools/pets/build.py     # regenerate every species (cat, hamster, dog, fish) + layout.json + .meta files (about 15 min, 4 processes)
 python3 tools/pets/build.py --species Dog       # one species (about 5 minutes for the dog, 4 for the fish)
 python3 tools/pets/check.py     # self-check of the shipped files (exit code 1 on failure)
 python3 tools/pets/preview.py   # contact sheets (default: the session scratchpad; --out DIR)
