@@ -66,6 +66,56 @@ namespace BAIby.Simulation.Pets
 
         public static string GlassLine(string name) => $"{name} swims straight to the glass to say hello!";
 
+        // A rabbit's signature moment (P5, docs/pet-mode.md: "Binkies"): floor time with a happy, well-cared rabbit (content,
+        // well, every need at WellCaredNeed or more) ends in binkies, joyful jump-twists in the air: one, two at Trusting,
+        // three as best friends. They start once it has done its first binky (the milestone), and a rabbit that has done its
+        // hop circuit races a lap of the room first. Display only, like the dog's welcome: no Bond, nothing saved, and a
+        // rabbit that is not quite happy just enjoys the company.
+        public const double WellCaredNeed = 50;
+
+        public static int Binkies(PetState state, PetCatalog catalog)
+        {
+            if (state?.Care == null || catalog == null || !HasMoment(state, catalog, PetMoment.Binky))
+                return 0;
+            if (!state.Shows(MotorSkill.FirstBinky) || state.Care.Mood != CareMood.Content ||
+                state.Care.Condition != CareCondition.Well || CareRules.IsNapping(state.Care))
+                return 0;
+
+            var profile = PetCareProfile.For(state.Species);
+            foreach (var role in new[] { PetMeter.Fullness, PetMeter.Comfort, PetMeter.Energy, PetMeter.Cleanliness })
+            {
+                if (state.Meter(profile.MeterFor(role)) < WellCaredNeed)
+                    return 0;
+            }
+
+            return 1 + (state.BondTier >= BondTier.Trusting ? 1 : 0) + (state.BondTier == BondTier.BestFriends ? 1 : 0);
+        }
+
+        // Whether the binkies start with a hop circuit: a happy lap of the room, once the rabbit has learned it.
+        public static bool HopCircuit(PetState state, PetCatalog catalog) =>
+            Binkies(state, catalog) > 0 && state.Shows(MotorSkill.HopCircuit);
+
+        public static string BinkyLine(string name, int binkies, bool circuit)
+        {
+            if (binkies <= 0)
+                return null;
+            var jumps = binkies == 1 ? "a binky" : binkies == 2 ? "two binkies" : "three binkies in a row";
+            return circuit
+                ? $"{name} races a happy lap round the room, then does {jumps}!"
+                : $"Binky! {name} leaps and twists in the air: {jumps} of pure joy.";
+        }
+
+        private static bool HasMoment(PetState state, PetCatalog catalog, PetMoment wanted)
+        {
+            foreach (var moment in catalog.Get(state.Species).Moments)
+            {
+                if (moment == wanted)
+                    return true;
+            }
+
+            return false;
+        }
+
         // The welcome line: warm, and never about how long anyone was gone.
         public static string Line(ReunionScale scale, string name)
         {

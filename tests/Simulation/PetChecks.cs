@@ -213,10 +213,12 @@ static class PetChecks
                 Equal(expected.ProductId, breed.ProductId, $"{name} product ID");
                 Equal(expected.Art, breed.Art, $"{name} art tier");
                 // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2), every dog
-                // but the Dachshund, whose overlays (the Corgi's scaled legs and ears too) ship with the dog (P3), and every
-                // fish, drawn procedurally with the fish (P4), the Neon tetra school on its own base.
+                // but the Dachshund, whose overlays (the Corgi's scaled legs and ears too) ship with the dog (P3), every
+                // fish, drawn procedurally with the fish (P4), the Neon tetra school on its own base, and every rabbit (P5),
+                // the Lionhead's mane and Angora's fluff as overlays and the Flemish giant on a larger base.
                 var shipsWithSpecies = breed.Breed == PetBreed.TeddyBear ||
-                    breed.Species == Species.Dog && breed.Breed != PetBreed.Dachshund || breed.Species == Species.Fish;
+                    breed.Species == Species.Dog && breed.Breed != PetBreed.Dachshund || breed.Species == Species.Fish ||
+                    breed.Species == Species.Rabbit;
                 Equal(expected.Art == BreedArtTier.Recolor || shipsWithSpecies, breed.AvailableNow,
                     $"{name} availability follows its art tier");
                 Equal<EarnedGoal?>(null, breed.Goal, $"{name} needs no goal");
@@ -629,10 +631,12 @@ static class PetChecks
         Equal(3.0, held.Bond, "a gentle hold builds trust");
         Equal(hamster.Meter(PetMeter.Fullness), held.Meter(PetMeter.Fullness), "holding changes no need");
 
+        // P5: the rabbit has its own care profile (RabbitCareChecks).
         var rabbit = sim.Adopt("Clover", PetAppearance.Default(Catalog, PetBreed.Dutch), Start);
         Equal(true, sim.ApplyCare(rabbit, PetVerb.FloorTime).State.Bond > sim.ApplyCare(rabbit, PetVerb.Groom).State.Bond,
             "floor time builds Bond fastest");
-        Equal(100.0, sim.ApplyCare(rabbit, PetVerb.Litter).State.Meter(PetMeter.Litter), "litter change is complete");
+        Equal(100.0, sim.ApplyCare(rabbit, PetVerb.Litter).State.Meter(PetMeter.Litter), "a litter tidy freshens the tray");
+        Equal(100.0, sim.ApplyCare(rabbit, PetVerb.Hay).State.Meter(PetMeter.Hay), "the hay rack is filled");
 
         // P4: the fish has its own care profile (FishCareChecks).
         var fish = sim.Adopt("Bubbles", PetAppearance.Default(Catalog, PetBreed.Goldfish), Start);
@@ -643,10 +647,11 @@ static class PetChecks
         Equal(100.0, sim.ApplyCare(murky, PetVerb.WaterChange).State.Meter(PetMeter.Water), "water change freshens the tank");
         Equal(murky.Meter(PetMeter.Water) + 3, sim.ApplyCare(murky, PetVerb.WipeGlass).State.Meter(PetMeter.Water), "wiping helps a little");
 
-        // The simple rules have no daily cap (a hamster now follows its care profile, with the baby's caps).
-        var friend = rabbit;
-        for (var index = 0; index < 40; index++)
-            friend = sim.ApplyCare(friend, PetVerb.FloorTime).State;
+        // Bond stops at 100. Every species now follows its care profile, with the baby's daily caps (RabbitCareChecks), so
+        // a rabbit that is nearly best friends shows it.
+        var friend = PetState.Restore(Catalog, "Clover", rabbit.Appearance, Start, TimeSpan.Zero, Meters(Species.Rabbit, 80, 100),
+            98, 98, 0, 0, false);
+        friend = sim.ApplyCare(friend, PetVerb.FloorTime).State;
         Equal(100.0, friend.Bond, "Bond is capped at 100");
         Equal(100.0, friend.HighestBond, "Bond high-water mark follows");
         Equal(BondTier.BestFriends, friend.BondTier, "best friends");

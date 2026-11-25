@@ -42,10 +42,10 @@ static class CatCareChecks
     {
         var cat = PetCareProfile.Cat;
         Equal(cat, PetCareProfile.For(Species.Cat), "the cat has a care profile");
-        // The hamster has its own profile from P2 (HamsterCareChecks), the dog from P3 (DogCareChecks) and the fish from
-        // P4 (FishCareChecks).
-        foreach (var species in new[] { Species.Rabbit })
-            Equal<PetCareProfile>(null, PetCareProfile.For(species), $"{species} keeps the simple rules for now");
+        // The hamster has its own profile from P2 (HamsterCareChecks), the dog from P3 (DogCareChecks), the fish from P4
+        // (FishCareChecks) and the rabbit from P5 (RabbitCareChecks): every species has one now.
+        foreach (Species species in Enum.GetValues(typeof(Species)))
+            Equal(true, PetCareProfile.For(species) != null, $"{species} has a care profile");
         Equal(CareTags.Meal, cat.TagsFor(PetVerb.Feed), "feeding is the meal");
         Equal(CareTags.Together | CareTags.Comfort, cat.TagsFor(PetVerb.Pet), "petting is together time that comforts");
         Equal(CareTags.Together | CareTags.Play, cat.TagsFor(PetVerb.Wand), "wand play answers the play window");
@@ -476,14 +476,12 @@ static class CatCareChecks
         ExpectInvalid(GoldenV2.Substring(0, GoldenV2.IndexOf("<care ", StringComparison.Ordinal)) + "</pet>", "a v2 cat keeps its ledger");
         Expect<NotSupportedException>(() => PetSaveCodec.Decode(GoldenV2.Replace("<care v=\"3\"", "<care v=\"9\"")),
             "a newer care element is unsupported, not corrupt");
-        // The dog has its own care records from P3 (DogCareChecks); a rabbit keeps the simple rules.
+        // The dog has its own care records from P3 (DogCareChecks) and the rabbit from P5 (RabbitCareChecks): a rabbit's
+        // record holds its own five-moment ledger, never a cat's.
         var rabbit = sim.Adopt("Clover", PetAppearance.Default(Catalog, PetBreed.Dutch), At(3, 8, 0));
         var rabbitSave = PetSaveCodec.Encode(rabbit);
-        Equal(false, rabbitSave.Contains("<care "), "a rabbit saves no care records yet");
-        ExpectInvalid(rabbitSave.Replace("<unlocks grown=\"false\" />",
-            "<unlocks grown=\"false\" />" + GoldenV2.Substring(GoldenV2.IndexOf("<care ", StringComparison.Ordinal),
-                GoldenV2.IndexOf("<development", StringComparison.Ordinal) - GoldenV2.IndexOf("<care ", StringComparison.Ordinal))),
-            "a rabbit cannot hold care records");
+        Equal(true, rabbitSave.Contains("<care "), "a rabbit saves its care records");
+        Equal(CareRoutine.Rabbit, PetSaveCodec.Decode(rabbitSave).Care.Routine, "with the rabbit's routine");
     }
 
     private static void HouseholdCat()

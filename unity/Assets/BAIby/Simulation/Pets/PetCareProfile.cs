@@ -6,8 +6,7 @@ namespace BAIby.Simulation.Pets
     // What a species brings to the shared care systems (docs/care-and-growth.md, Core model and Pets and household): its
     // care verbs and the care tags they carry, its routine, its three milestones at their nominal ages, its night
     // rates, and which of its meters plays each of the four need roles the shared rules know (Fullness, Comfort, Energy
-    // and Cleanliness). The cat, the hamster, the dog and the fish have one; the rabbit keeps PetSimulation's simple
-    // rules until its slice.
+    // and Cleanliness). Every species has one: the cat, the hamster (P2), the dog (P3), the fish (P4) and the rabbit (P5).
     //
     // The cat: meals Morning and Evening, a play window in the afternoon and the evening nap (RoutineCalendar), a daily
     // brush in the wash window, and a scratched rug for mess. Milestones Pounce (day 2), Climb (day 3.5) and High jump
@@ -40,6 +39,17 @@ namespace BAIby.Simulation.Pets
     // flakes, which cloud the water slightly. A missed wipe leaves the water a little cloudy (the mess). Milestones Darts
     // to glass (day 1.5), Follows finger (day 3) and Hoop swim (day 4.5) follow Milestone timing; the fish grows up on
     // day 5, so care slow enough to pass the nominal pace makes the hoop a grown-up's (guaranteed by day 6.3).
+    //
+    // The rabbit (P5): crepuscular, so its day has two lively ends and a quiet middle. Greens at breakfast and dinner (its
+    // two meals, Fullness), floor time after school (the together verb: sitting on the floor with it builds Bond faster
+    // than any other care, and it is play that comforts), a dawn floor time before school that closes with grace, a
+    // midday doze through school hours that it keeps by itself (a nap block, like the hamster's), a daily litter tidy as
+    // the wash, and grooming as together time that comforts. Hay plays the Energy role: what keeps a rabbit going is hay
+    // to graze, so the rack empties through its waking hours (the evening and the night too), holds while it dozes (no
+    // night rate) and only a hands-on refill tops it up (Hay: no routine tag, no overfeeding). Litter plays the
+    // Cleanliness role and a missed tidy leaves scattered hay (the mess). A poorly rabbit will not come out for floor time
+    // or be groomed, but always takes hay, greens and a fresh tray. Milestones First binky (day 2), Hop circuit (day 3.5)
+    // and Flop of trust (day 5) follow Milestone timing like the cat's; the rabbit grows up on day 7.
     public sealed class PetCareProfile
     {
         public static readonly PetCareProfile Cat = new PetCareProfile(Species.Cat, CareRoutine.Cat,
@@ -133,7 +143,32 @@ namespace BAIby.Simulation.Pets
             nightFullness: 1.4, nightComfort: 0.3, nightEnergy: 9, nightCleanliness: 0.25,
             comfort: PetMeter.Calm, cleanliness: PetMeter.Water, ignoresExtraFood: true);
 
+        public static readonly PetCareProfile Rabbit = new PetCareProfile(Species.Rabbit, CareRoutine.Rabbit,
+            new CareProfile("rabbit", new Dictionary<string, CareTags>
+            {
+                ["hay"] = CareTags.None,
+                ["greens"] = CareTags.Meal,
+                ["groom"] = CareTags.Together | CareTags.Comfort,
+                ["floor-time"] = CareTags.Together | CareTags.Play | CareTags.Comfort,
+                ["litter"] = CareTags.Hygiene,
+                ["medicine"] = CareTags.Medicine,
+            }),
+            new Dictionary<PetVerb, string>
+            {
+                [PetVerb.Hay] = "hay",
+                [PetVerb.Greens] = "greens",
+                [PetVerb.Groom] = "groom",
+                [PetVerb.FloorTime] = "floor-time",
+                [PetVerb.Litter] = "litter",
+            },
+            new[] { MotorSkill.FirstBinky, MotorSkill.HopCircuit, MotorSkill.FlopOfTrust },
+            new[] { TimeSpan.FromDays(2), TimeSpan.FromDays(3.5), TimeSpan.FromDays(5) },
+            nightFullness: 1.5, nightComfort: 0.5, nightEnergy: 0, nightCleanliness: 0.5,
+            energy: PetMeter.Hay, cleanliness: PetMeter.Litter, restsAlone: true,
+            poorlyRefuses: new[] { PetVerb.FloorTime, PetVerb.Groom });
+
         private readonly Dictionary<PetVerb, string> verbs;
+        private readonly PetVerb[] poorlyRefuses;
         private readonly MotorSkill[] skills;
         private readonly TimeSpan[] skillAges;
 
@@ -149,12 +184,15 @@ namespace BAIby.Simulation.Pets
         public double NightComfort { get; }
         public double NightEnergy { get; }
         public double NightCleanliness { get; }
-        // The meters in the shared need roles: Fullness, Comfort (a hamster's Exercise), Energy and Cleanliness (a
-        // hamster's Bedding).
+        // The meters in the shared need roles: Fullness, Comfort (a hamster's Exercise), Energy (a rabbit's Hay) and
+        // Cleanliness (a hamster's Bedding).
         public PetMeter FullnessMeter => PetMeter.Fullness;
         public PetMeter ComfortMeter { get; }
-        public PetMeter EnergyMeter => PetMeter.Energy;
+        public PetMeter EnergyMeter { get; }
         public PetMeter CleanlinessMeter { get; }
+        // Whether the Energy role is rest (a sleepy pet's Energy cannot rise past the unwell cap). A rabbit's Hay plays the
+        // role but is the hay in its rack, which can always be filled.
+        public bool RestMeter => EnergyMeter == PetMeter.Energy;
         // The species rests on its own (a day nap): quiet hours always restore Energy, with no bedtime asked.
         public bool RestsAlone { get; }
         // What play counts as for engagement (a cat's wand and a hamster's wheel are PlayWand, a dog's fetch is Fetch).
@@ -174,8 +212,10 @@ namespace BAIby.Simulation.Pets
             MotorSkill[] skills, TimeSpan[] skillAges, double nightFullness, double nightComfort, double nightEnergy,
             double nightCleanliness, PetMeter comfort = PetMeter.Comfort, PetMeter cleanliness = PetMeter.Cleanliness,
             bool restsAlone = false, EngagementKind playKind = EngagementKind.PlayWand, PetVerb? trickVerb = null,
-            bool ignoresExtraFood = false)
+            bool ignoresExtraFood = false, PetMeter energy = PetMeter.Energy, PetVerb[] poorlyRefuses = null)
         {
+            EnergyMeter = energy;
+            this.poorlyRefuses = poorlyRefuses;
             IgnoresExtraFood = ignoresExtraFood;
             PlayKind = playKind;
             TrickVerb = trickVerb;
@@ -197,7 +237,7 @@ namespace BAIby.Simulation.Pets
         // The species' care profile, or null when the species keeps PetSimulation's simple rules.
         public static PetCareProfile For(Species species) =>
             species == Species.Cat ? Cat : species == Species.Hamster ? Hamster : species == Species.Dog ? Dog
-                : species == Species.Fish ? Fish : null;
+                : species == Species.Fish ? Fish : species == Species.Rabbit ? Rabbit : null;
 
         // The need role a meter plays, as the shared rules name it, or null when the meter has none.
         public PetMeter? RoleOf(PetMeter meter)
@@ -235,6 +275,13 @@ namespace BAIby.Simulation.Pets
                 : throw new ArgumentOutOfRangeException(nameof(verb), $"A {Species} has no {verb} care.");
 
         public CareTags TagsFor(PetVerb verb) => Profile.TagsFor(VerbId(verb));
+
+        // Whether a sick pet gently refuses the verb: play and the daily wash, as for the baby, or the species' own list (a
+        // rabbit will not come out for floor time or be groomed, but its tray can always be freshened).
+        public bool RefusedWhenPoorly(PetVerb verb) =>
+            poorlyRefuses != null
+                ? Array.IndexOf(poorlyRefuses, verb) >= 0
+                : (TagsFor(verb) & (CareTags.Play | CareTags.Hygiene)) != 0;
 
         // What the verb counts as for engagement (docs/care-and-growth.md, slice 4: play feeds Motor, petting is
         // soothing for Social, brushing is grooming; an on-time meal counts as a meal). A dog's walk is play (Motor) and

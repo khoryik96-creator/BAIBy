@@ -5,19 +5,21 @@ namespace BAIby.Simulation
 {
     // Saved values are stable IDs. Append new options; never renumber.
     public enum RoutinePreset { SchoolDay = 0, Home = 1 }
-    // Dawn (P3) is the fifth moment of a routine that has one: a dog's morning walk. Other routines keep four moments,
-    // so their ledgers, saves and window keys never change.
+    // Dawn (P3) is the fifth moment of a routine that has one: a dog's morning walk, or a rabbit's dawn floor time (P5).
+    // Other routines keep four moments, so their ledgers, saves and window keys never change.
     public enum CareMoment { Morning = 0, Afternoon = 1, Evening = 2, Bedtime = 3, Dawn = 4 }
     // Whose routine a ledger keeps: a species' windows (docs/care-and-growth.md, Pets and household). Not saved: a
     // baby's ledger is always Baby, and a pet's codec names the routine from its species.
-    public enum CareRoutine { Baby, Cat, Hamster, Dog, Fish }
+    public enum CareRoutine { Baby, Cat, Hamster, Dog, Fish, Rabbit }
 
     // One moment of the routine as local times of day. On time is [Open, Due), late is [Due, LateUntil).
     //
-    // A nap block (a hamster's day nap) is a Bedtime moment the companion keeps by itself: nothing is asked of the
-    // player, so it never counts, is never missed and is never owed. It closes Excused, and care during it is gentle.
+    // A nap block (a hamster's day nap, or a rabbit's midday doze, P5) is a Bedtime moment the companion keeps by itself:
+    // nothing is asked of the player, so it never counts, is never missed and is never owed. It closes Excused, and care
+    // during it is gentle.
     //
-    // A grace window (a dog's morning walk, P3, or a fish's morning hello at the glass, P4) can be done on time or late
+    // A grace window (a dog's morning walk, P3, a fish's morning hello at the glass, P4, or a rabbit's dawn floor time, P5)
+    // can be done on time or late
     // like any window, but when it closes undone it closes Excused, never missed, owed or counted, and it never excuses
     // the day: school mornings are busy, and the evening keeps the day.
     public sealed class CareWindow
@@ -178,6 +180,31 @@ namespace BAIby.Simulation
             Window(CareMoment.Bedtime, CareTags.Bedtime, 19, 0, 20, 30, 21, 30),
         };
 
+        // A rabbit (P5, docs/care-and-growth.md, Pets and household) is crepuscular: liveliest at dawn and dusk, dozing
+        // through the middle of the day. Its greens come twice, at breakfast (Morning) and at dinner (Evening), like a cat's
+        // meals; floor time after school is its play window (the Afternoon slot, keeping the together ring); and a dawn floor
+        // time before school is a grace window (Dawn, the dog's fifth moment: if school gets in the way it closes excused).
+        // Its rest is a midday doze through school hours, a nap block in the Bedtime moment that asks nothing (its quiet
+        // hours run from the doze's opening to its due time), so the evening and the night are awake, grazing hours. The
+        // daily litter tidy is the wash. The wake time moves breakfast and the dawn floor time; the doze is its own.
+        private static readonly CareWindow[] RabbitSchoolDay =
+        {
+            Window(CareMoment.Morning, CareTags.Meal, 7, 0, 10, 0, 12, 0),
+            Window(CareMoment.Afternoon, CareTags.Play, 15, 0, 19, 0, 20, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 17, 30, 20, 30, 21, 30),
+            NapBlock(CareMoment.Bedtime, 10, 0, 15, 0, 15, 30),
+            GracePlay(CareMoment.Dawn, 7, 0, 9, 0, 10, 0),
+        };
+
+        private static readonly CareWindow[] RabbitHome =
+        {
+            Window(CareMoment.Morning, CareTags.Meal, 7, 0, 9, 30, 11, 0),
+            Window(CareMoment.Afternoon, CareTags.Play, 14, 30, 18, 0, 19, 0),
+            Window(CareMoment.Evening, CareTags.Meal, 17, 0, 19, 30, 20, 30),
+            NapBlock(CareMoment.Bedtime, 11, 0, 14, 30, 15, 0),
+            GracePlay(CareMoment.Dawn, 7, 0, 9, 30, 10, 30),
+        };
+
         // The wake time moves only the morning window (and a dog's morning walk); the rest of the day stays
         // school-friendly.
         public static IReadOnlyList<CareWindow> Windows(RoutinePreset preset, TimeSpan wakeTime) =>
@@ -208,11 +235,13 @@ namespace BAIby.Simulation
                 case CareRoutine.Hamster: return home ? HamsterHome : HamsterSchoolDay;
                 case CareRoutine.Dog: return home ? DogHome : DogSchoolDay;
                 case CareRoutine.Fish: return home ? FishHome : FishSchoolDay;
+                case CareRoutine.Rabbit: return home ? RabbitHome : RabbitSchoolDay;
                 default: return home ? Home : SchoolDay;
             }
         }
 
-        // How many moments a care day of the routine has: four, or five with a dog's Dawn walk.
+        // How many moments a care day of the routine has: four, or five with a Dawn moment (a dog's walk, a rabbit's floor
+        // time).
         public static int MomentsOf(CareRoutine routine)
         {
             if (!Enum.IsDefined(typeof(CareRoutine), routine))
@@ -236,7 +265,7 @@ namespace BAIby.Simulation
 
         // Quiet hours run from the bedtime window's due time until the wake time. A routine with a day nap rests by day
         // instead: its quiet hours run from the morning nap's opening until the afternoon nap's due time (Start before End,
-        // within one day).
+        // within one day). A rabbit's midday doze (P5) is its only nap block, so its quiet hours are the doze itself.
         public static (TimeSpan Start, TimeSpan End) Night(RoutinePreset preset, TimeSpan wakeTime) =>
             Night(CareRoutine.Baby, preset, wakeTime);
 
@@ -244,12 +273,23 @@ namespace BAIby.Simulation
         {
             var windows = Windows(routine, preset, wakeTime);
             var bedtime = windows[(int)CareMoment.Bedtime];
-            return bedtime.Nap ? (windows[(int)CareMoment.Morning].Open, bedtime.Due) : (bedtime.Due, wakeTime);
+            if (!bedtime.Nap)
+                return (bedtime.Due, wakeTime);
+            var morning = windows[(int)CareMoment.Morning];
+            return (morning.Nap ? morning.Open : bedtime.Open, bedtime.Due);
         }
 
-        // Whether the routine's rest is a day nap the companion keeps by itself (a hamster's).
+        // Whether the routine's rest is a day nap the companion keeps by itself (a hamster's, or a rabbit's doze).
         public static bool NapsByDay(CareRoutine routine) =>
             Windows(routine, RoutinePreset.SchoolDay, DefaultWakeTime)[(int)CareMoment.Bedtime].Nap;
+
+        // Whether the routine's day nap is a midday doze between awake mornings and evenings (a rabbit's, P5), rather than a
+        // nap from the morning on (a hamster's).
+        public static bool DozesMidday(CareRoutine routine)
+        {
+            var windows = Windows(routine, RoutinePreset.SchoolDay, DefaultWakeTime);
+            return windows[(int)CareMoment.Bedtime].Nap && !windows[(int)CareMoment.Morning].Nap;
+        }
 
         // Whether a local time of day falls in the routine's day nap (its quiet hours).
         public static bool IsNapTime(CareRoutine routine, RoutinePreset preset, TimeSpan wakeTime, TimeSpan timeOfDay)
@@ -260,8 +300,8 @@ namespace BAIby.Simulation
             return timeOfDay >= night.Start && timeOfDay < night.End;
         }
 
-        // How many meal windows a care day of the routine has (three for a baby, two for a cat, one for a hamster or a
-        // fish).
+        // How many meal windows a care day of the routine has (three for a baby, two for a cat or a rabbit, one for a
+        // hamster or a fish).
         public static int MealWindows(CareRoutine routine)
         {
             var meals = 0;
@@ -274,11 +314,11 @@ namespace BAIby.Simulation
             return meals;
         }
 
-        // Whether the routine has a timed play window (or a dog's walk windows, or a fish's glass time). Its together ring
-        // then follows those windows, not the whole day.
+        // Whether the routine has a timed play window (or a dog's walk windows, a fish's glass time or a rabbit's floor
+        // time). Its together ring then follows those windows, not the whole day.
         public static bool HasPlayWindow(CareRoutine routine) =>
             routine == CareRoutine.Cat || routine == CareRoutine.Hamster || routine == CareRoutine.Dog ||
-            routine == CareRoutine.Fish;
+            routine == CareRoutine.Fish || routine == CareRoutine.Rabbit;
 
         // Whether the routine's Morning moment is a morning hello: a grace play window before school (a fish's).
         public static bool HasMorningHello(CareRoutine routine)

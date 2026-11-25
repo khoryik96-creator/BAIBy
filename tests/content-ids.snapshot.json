@@ -152,7 +152,10 @@
     "Agility": 13,
     "DartsToGlass": 14,
     "FollowsFinger": 15,
-    "HoopSwim": 16
+    "HoopSwim": 16,
+    "FirstBinky": 17,
+    "HopCircuit": 18,
+    "FlopOfTrust": 19
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -268,7 +271,10 @@
     "Agility": 12,
     "DartsToGlass": 13,
     "FollowsFinger": 14,
-    "HoopSwim": 15
+    "HoopSwim": 15,
+    "FirstBinky": 16,
+    "HopCircuit": 17,
+    "FlopOfTrust": 18
   },
   "NurseryTheme": {
     "Sage": 0,

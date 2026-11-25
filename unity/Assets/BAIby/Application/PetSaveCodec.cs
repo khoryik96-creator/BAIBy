@@ -17,7 +17,8 @@ namespace BAIby.Application
     // on first use, the ledger excusing the whole gap on its first advance (as the baby's v1 migration did). A dog
     // (P3) adds its familiarity with fetch as a tricks attribute of <unlocks> once it has played. A fish saved before P4
     // (with the simple rules, so no care records and no Energy meter) migrates like a v1 pet, its Energy starting at the
-    // species' initial value.
+    // species' initial value. A rabbit saved before P5 (the simple rules: its four meters, no care records) migrates like
+    // a v1 pet too; its meters are the same four.
     internal static class PetSaveCodec
     {
         public const int Version = 2;
@@ -136,9 +137,9 @@ namespace BAIby.Application
                 var age = TimeSpan.FromTicks((long)Field(root, "age"));
                 var profile = PetCareProfile.For(species);
                 // A v1 pet, or a species without care records yet: the simple record. A v2 record of a species that gained
-                // its care profile later (a dog saved before P3, a fish before P4) has neither, and migrates as a v1 pet
-                // does.
-                var simple = (species == Species.Dog || species == Species.Fish) &&
+                // its care profile later (a dog saved before P3, a fish before P4, a rabbit before P5) has neither, and
+                // migrates as a v1 pet does.
+                var simple = (species == Species.Dog || species == Species.Fish || species == Species.Rabbit) &&
                     root.Element(CareRecordCodec.ElementName) == null && unlocks.Attribute("milestones") == null;
                 if (version == VersionBeforeCare || profile == null || simple)
                 {

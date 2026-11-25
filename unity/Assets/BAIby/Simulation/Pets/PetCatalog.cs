@@ -473,20 +473,26 @@ namespace BAIby.Simulation.Pets
                         Verb(PetVerb.Rest, 0, -1, 0, Effect(PetMeter.Energy, 35), Effect(PetMeter.Calm, 8)),
                     },
                     new[] { PetMoment.SwimsToGlass }, new[] { PetAccessory.None, PetAccessory.TankCastle }),
+                // P5 tuned the rabbit for two greens a day and a hay rack (docs/care-and-growth.md, Pets and household): its
+                // midday doze is its quiet hours (PetCareProfile.Rabbit's night rates), so the evening and the night are
+                // awake, grazing hours. Greens (+35) twice against about 64.5 Fullness a day; the hay rack (+50, the Energy
+                // role) empties 4 an hour awake and holds through the doze; floor time (+15), a groom (+12) and the dawn
+                // floor time against about 31 Comfort a day; the daily litter tidy (+40) against about 31 Litter a day.
                 new SpeciesDefinition(Species.Rabbit, TimeSpan.FromDays(7),
                     new[]
                     {
-                        Meter(PetMeter.Hay, 6, 70), Meter(PetMeter.Fullness, 5, 70),
-                        Meter(PetMeter.Litter, 6, 90), Meter(PetMeter.Comfort, 4, 70),
+                        Meter(PetMeter.Hay, 4, 90), Meter(PetMeter.Fullness, 3, 70),
+                        Meter(PetMeter.Litter, 1.5, 90), Meter(PetMeter.Comfort, 1.5, 70),
                     },
                     new[]
                     {
-                        Verb(PetVerb.Hay, 0, 0, 0, Effect(PetMeter.Hay, 40)),
-                        Verb(PetVerb.Greens, 1, 0, 0, Effect(PetMeter.Fullness, 25)),
-                        Verb(PetVerb.Groom, 2, -1, 0, Effect(PetMeter.Comfort, 20)),
-                        // Sitting on the floor builds Bond faster.
-                        Verb(PetVerb.FloorTime, 4, 1, 2, Effect(PetMeter.Comfort, 10)),
-                        Verb(PetVerb.Litter, 0, 0, 0, Effect(PetMeter.Litter, 100)),
+                        // Filling the hay rack: the staple a rabbit grazes all day (and night).
+                        Verb(PetVerb.Hay, 0, 0, 0, Effect(PetMeter.Hay, 50)),
+                        Verb(PetVerb.Greens, 1, 0, 0, Effect(PetMeter.Fullness, 35)),
+                        Verb(PetVerb.Groom, 2, -1, 0, Effect(PetMeter.Comfort, 12)),
+                        // Sitting on the floor builds Bond faster than any other care.
+                        Verb(PetVerb.FloorTime, 4, 1, 2, Effect(PetMeter.Comfort, 15)),
+                        Verb(PetVerb.Litter, 0, 0, 0, Effect(PetMeter.Litter, 40)),
                     },
                     new[] { PetMoment.Binky }, collarSet),
                 // P2 tuned the hamster for one meal a day (docs/care-and-growth.md, slice 7): its day nap is its quiet
@@ -589,22 +595,28 @@ namespace BAIby.Simulation.Pets
                 Premium(PetBreed.Discus, "discus", overlay, Coats(PetCoat.Blue, PetCoat.Red, PetCoat.Brown),
                     Trade(PetMeter.Water, 20, PetMeter.Calm, 10), -10, 0, availableNow: true),
 
+                // Rates: Hay 4, Fullness 3, Litter 1.5, Comfort 1.5 per hour, so 15% of 4 = 20% of 3, 12% of 4 = 16% of 3,
+                // 10% of 3 = 20% of 1.5, and Litter and Comfort trade evenly. Every rabbit breed ships with the species
+                // (P5): the Holland lop's lop ears, the Lionhead's mane and the Angora's fluff are feature overlays drawn
+                // procedurally, the Flemish giant is the base drawn larger (a breed base, like the Corgi's), and the Dutch,
+                // Rex and Harlequin are recolours and markings. The Lionhead and the Flemish giant keep their art tier for
+                // the commissioned versions.
                 Free(PetBreed.Dutch, recolor, Coats(PetCoat.Black, PetCoat.Brown, PetCoat.Gray, PetCoat.Chocolate),
-                    Trade(PetMeter.Hay, 15, PetMeter.Litter, 15), 5, 5),
+                    Trade(PetMeter.Hay, 15, PetMeter.Fullness, 20), 5, 5),
                 Earned(PetBreed.NetherlandDwarf, EarnedGoal.FirstFullCareDay, recolor, Coats(PetCoat.White, PetCoat.Black, PetCoat.Fawn),
-                    Trade(PetMeter.Comfort, 15, PetMeter.Fullness, 12), 10, -5),
+                    Trade(PetMeter.Fullness, 10, PetMeter.Comfort, 20), 10, -5),
                 Earned(PetBreed.HollandLop, EarnedGoal.Bond40, overlay, Coats(PetCoat.Fawn, PetCoat.Brown, PetCoat.White),
-                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 10), -5, 10),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 15), -5, 10),
                 Premium(PetBreed.Lionhead, "lionhead", silhouette, Coats(PetCoat.Cream, PetCoat.Gray, PetCoat.Brown),
-                    Trade(PetMeter.Hay, 10, PetMeter.Comfort, 15), 5, 5),
+                    Trade(PetMeter.Comfort, 12, PetMeter.Litter, 12), 5, 5, availableNow: true),
                 Premium(PetBreed.Angora, "angora", overlay, Coats(PetCoat.White, PetCoat.Cream, PetCoat.Gray),
-                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 10), -10, 0),
+                    Trade(PetMeter.Comfort, 15, PetMeter.Litter, 15), -10, 0, availableNow: true),
                 Premium(PetBreed.Rex, "rex", recolor, Coats(PetCoat.Chocolate, PetCoat.Black, PetCoat.Lilac),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Hay, 10), 0, 10),
+                    Trade(PetMeter.Litter, 20, PetMeter.Fullness, 10), 0, 10),
                 Premium(PetBreed.FlemishGiant, "flemish_giant", silhouette, Coats(PetCoat.Gray, PetCoat.Fawn, PetCoat.Black),
-                    Trade(PetMeter.Fullness, 12, PetMeter.Comfort, 15), -15, 10),
+                    Trade(PetMeter.Fullness, 16, PetMeter.Hay, 12), -15, 10, availableNow: true),
                 Premium(PetBreed.Harlequin, "harlequin", recolor, Coats(PetCoat.Tricolor, PetCoat.Fawn),
-                    Trade(PetMeter.Hay, 10, PetMeter.Litter, 10), 10, 5),
+                    Trade(PetMeter.Hay, 12, PetMeter.Fullness, 16), 10, 5),
 
                 // Rates: Fullness 2.4, Energy 3, Bedding 2, Exercise 2.4 per hour, so 15% of 2.4 = 18% of 2 = 12% of 3.
                 Free(PetBreed.SyrianGolden, recolor, Coats(PetCoat.Golden, PetCoat.Cream, PetCoat.Brown),

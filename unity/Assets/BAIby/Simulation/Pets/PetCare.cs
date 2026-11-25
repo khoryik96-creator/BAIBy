@@ -249,8 +249,8 @@ namespace BAIby.Simulation.Pets
             var rules = care.RulesFor(state.Care.Style);
             // A scratched rug cuts every comfort gain a little.
             var comfortGain = 1 - rules.MessComfortCut * state.Care.Mess;
-            // Under the weather or sick, Energy cannot rise past the unwell cap.
-            var ceiling = state.Care.IsUnwell ? care.UnwellEnergyCap : 100;
+            // Under the weather or sick, Energy cannot rise past the unwell cap (a rabbit's hay rack can always be filled).
+            var ceiling = state.Care.IsUnwell && profile.RestMeter ? care.UnwellEnergyCap : 100;
             var medicine = CareConsequences.Medicine(state.Care);
             var liveliness = state.Liveliness;
             var boldness = state.Boldness;
@@ -263,9 +263,9 @@ namespace BAIby.Simulation.Pets
                 refused = medicine != MedicineState.Ready;
                 cue = refused ? PetCue.MedicineNotNow : PetCue.MedicineTaken;
             }
-            else if (CareConsequences.FeelsTooPoorly(state.Care) && (tags & (CareTags.Play | CareTags.Hygiene)) != 0)
+            else if (CareConsequences.FeelsTooPoorly(state.Care) && profile.RefusedWhenPoorly(verb.Value))
             {
-                // A sick pet stays curled up: only food, petting, naps and the vet.
+                // A sick pet stays curled up: only food, petting, naps and the vet (a rabbit: hay, greens and a fresh tray).
                 refused = true;
                 cue = PetCue.TooPoorly;
             }

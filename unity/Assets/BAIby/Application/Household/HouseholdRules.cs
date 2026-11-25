@@ -12,6 +12,7 @@ namespace BAIby.Application
     {
         Sitting = 0, Crawling = 1, Walking = 2, Grown = 3, Pounce = 4, Climb = 5, HighJump = 6, FirstWords = 7, Wheel = 8, Tunnel = 9,
         HandTame = 10, Fetch = 11, LeashWalk = 12, Agility = 13, DartsToGlass = 14, FollowsFinger = 15, HoopSwim = 16,
+        FirstBinky = 17, HopCircuit = 18, FlopOfTrust = 19,
     }
 
     public static class HouseholdRules

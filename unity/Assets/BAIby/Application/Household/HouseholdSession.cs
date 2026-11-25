@@ -477,6 +477,9 @@ namespace BAIby.Application
                     case MotorSkill.DartsToGlass: added |= AddCelebration(slot, CompanionMilestone.DartsToGlass); break;
                     case MotorSkill.FollowsFinger: added |= AddCelebration(slot, CompanionMilestone.FollowsFinger); break;
                     case MotorSkill.HoopSwim: added |= AddCelebration(slot, CompanionMilestone.HoopSwim); break;
+                    case MotorSkill.FirstBinky: added |= AddCelebration(slot, CompanionMilestone.FirstBinky); break;
+                    case MotorSkill.HopCircuit: added |= AddCelebration(slot, CompanionMilestone.HopCircuit); break;
+                    case MotorSkill.FlopOfTrust: added |= AddCelebration(slot, CompanionMilestone.FlopOfTrust); break;
                 }
             }
 
