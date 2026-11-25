@@ -26,6 +26,9 @@ namespace BAIby.Presentation
                 case MotorSkill.DartsToGlass: return "darting to the glass";
                 case MotorSkill.FollowsFinger: return "following your finger";
                 case MotorSkill.HoopSwim: return "swimming through the hoop";
+                case MotorSkill.FirstBinky: return "binkies";
+                case MotorSkill.HopCircuit: return "hop circuits";
+                case MotorSkill.FlopOfTrust: return "flopping beside you";
                 default: return "walking";
             }
         }
@@ -48,6 +51,9 @@ namespace BAIby.Presentation
                 case MotorSkill.DartsToGlass: return "dart to the glass to say hello";
                 case MotorSkill.FollowsFinger: return "follow your finger along the glass";
                 case MotorSkill.HoopSwim: return "swim through the little hoop";
+                case MotorSkill.FirstBinky: return "do a first binky";
+                case MotorSkill.HopCircuit: return "hop a happy circuit of the pen";
+                case MotorSkill.FlopOfTrust: return "flop over beside you";
                 default: return "take first steps";
             }
         }
@@ -66,6 +72,7 @@ namespace BAIby.Presentation
                     : HamsterShown ? "Wheel, tunnel and hand-tame reached"
                     : DogShown ? "Fetch, lead walking and agility reached"
                     : FishShown ? "Darting to the glass, following a finger and the hoop reached"
+                    : RabbitShown ? "Binkies, hop circuits and the flop of trust reached"
                     : "Pouncing, climbing and high jumps reached";
             if (growth.Paused)
                 return "Growing waits while " + name + " is poorly";
@@ -89,7 +96,8 @@ namespace BAIby.Presentation
         {
             if (growth == null)
                 return string.Empty;
-            var cuddles = !pet ? "cuddles" : HamsterShown ? "holds" : DogShown ? "walks" : FishShown ? "calm moments" : "pets";
+            var cuddles = !pet ? "cuddles" : HamsterShown ? "holds" : DogShown ? "walks" : FishShown ? "calm moments"
+                : RabbitShown ? "grooms or floor time" : "pets";
             if (growth.Shy != MotorSkill.None)
                 return $"A bit shy about {SkillGerund(growth.Shy)}. A good day helps: meals on time " +
                     $"{Math.Min(meals, growth.RecoveryMeals)} of {meals}, {cuddles} {Math.Min(2, growth.RecoverySoothes)} of 2.";
@@ -103,6 +111,7 @@ namespace BAIby.Presentation
                     : HamsterShown ? "Wheel time, gentle holds and fresh bedding keep every track growing."
                     : DogShown ? "Walks, games of fetch and brushing keep every track growing."
                     : FishShown ? "Glass time, a clean glass and fresh water keep every track growing."
+                    : RabbitShown ? "Floor time, grooming and a full hay rack keep every track growing."
                     : "Wand play, petting and brushing keep every track growing.";
 
             switch (growth.Pace)
@@ -134,6 +143,9 @@ namespace BAIby.Presentation
                 case MotorSkill.DartsToGlass: return "Saying hello at the glass helps.";
                 case MotorSkill.FollowsFinger: return "Glass time after school helps.";
                 case MotorSkill.HoopSwim: return "Glass time and food on time help.";
+                case MotorSkill.FirstBinky: return "Floor time with a happy, well-fed bunny helps.";
+                case MotorSkill.HopCircuit: return "Floor time at dawn and after school helps.";
+                case MotorSkill.FlopOfTrust: return "Sitting on the floor together and greens on time help.";
                 default: return "Play and regular meals help.";
             }
         }

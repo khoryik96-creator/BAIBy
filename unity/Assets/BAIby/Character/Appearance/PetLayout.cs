@@ -15,8 +15,8 @@ namespace BAIby.Character
         public AppearancePoseData[] poses;
         public PetOverlayData[] overlays;
         public PetPaletteData palette;
-        // The hamster's cage (P2) or the fish's tank (P4), drawn round the pet in the shared room; absent for the cat and
-        // the dog.
+        // The hamster's cage (P2), the fish's tank (P4) or the rabbit's pen (P5), drawn round the pet in the shared room;
+        // absent for the cat and the dog.
         public PetHabitatData habitat;
         // Breeds drawn on their own base poses, named breed + pose (the dog's short-legged Corgi, P3); absent elsewhere.
         public string[] breedBases;
@@ -34,7 +34,8 @@ namespace BAIby.Character
         public int floor;
         // A fish's tank (P4): how far above the floor line the pet swims (0: it stands on the floor), the cloudy water
         // drawn over the pet at an alpha that follows the water, and the tank castle drawn behind the pet when it is the
-        // pet's accessory. Absent for the hamster's cage.
+        // pet's accessory. Absent for the hamster's cage. The rabbit's pen (P5) uses the haze slot for the scattered hay
+        // of a missed litter tidy, shown at an alpha that follows the mess.
         public int swim;
         public string haze;
         public string castle;
@@ -42,8 +43,8 @@ namespace BAIby.Character
 
     // A species' habitat: two fixed-colour layers the size of Width x Height pose pixels, the pet standing on the line
     // Floor pixels above their bottom edge, between them. A tank (the fish's) lets the pet swim Swim pixels above the
-    // floor line and has two optional layers of the same size: Haze, the cloudy water over the pet, and Castle, the tank
-    // castle behind it.
+    // floor line and has two optional layers of the same size: Haze, the cloudy water over the pet (in a rabbit's pen, the
+    // scattered hay), and Castle, the tank castle behind it.
     public sealed class PetHabitat
     {
         public PetHabitat(string back, string front, int width, int height, int floor)

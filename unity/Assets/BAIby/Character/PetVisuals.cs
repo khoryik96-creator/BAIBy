@@ -28,6 +28,11 @@ namespace BAIby.Character
     // after a while it swims to the glass to say hello (its signature moment). The tank's haze layer, over the fish,
     // shows cloudy water at the strength the room sets (SetWater), and its castle layer stands behind the fish when the
     // fish has the tank castle.
+    //
+    // A rabbit (P5) sits in its pen (a habitat that stands on the floor). Floor time is a happy hop about, grooming a
+    // gentle sway, greens and hay a little nibble. Its signature moment is binkies (PlayBinkies): joyful jumps with a
+    // twist in the air, after a hop circuit round the pen once it has learned one. The pen's haze slot is the scattered
+    // hay of a missed litter tidy, shown at the strength the room sets (SetMess).
     public sealed class PetVisuals : MonoBehaviour
     {
         private const string Art = "BAIby/Pets/";
@@ -87,6 +92,12 @@ namespace BAIby.Character
         private float hazeTarget;
         private float hazeShown;
         private float helloStarted = -100;
+        // A rabbit's binkies: when they started, how many jumps and whether a hop circuit comes first.
+        private float binkyStarted = -100;
+        private int binkies;
+        private bool binkyCircuit;
+        private const float CircuitTime = 1.5f;
+        private const float BinkyTime = .55f;
 
         // The pet stands in the nursery's room: on its floor line, drawn at the layout's runtime scale
         // relative to the baby's pose pixels, following the room as the screen changes shape.
@@ -157,7 +168,19 @@ namespace BAIby.Character
         public void PlayArrival() => arrived = Time.unscaledTime;
 
         // How cloudy a fish's water looks, 0 (clear) to 1 (the haze layer at full strength). It eases in and out.
-        public void SetWater(float cloudiness) => hazeTarget = Mathf.Clamp01(cloudiness);
+        public void SetWater(float cloudiness) => SetMess(cloudiness);
+
+        // How strongly the habitat's haze layer shows, 0 to 1: a fish's cloudy water or a rabbit's scattered hay. It eases
+        // in and out.
+        public void SetMess(float strength) => hazeTarget = Mathf.Clamp01(strength);
+
+        // A rabbit's binkies (P5): `count` joyful jump-twists, after a happy lap of the pen when `circuit` is set.
+        public void PlayBinkies(int count, bool circuit)
+        {
+            binkies = Mathf.Max(0, count);
+            binkyCircuit = circuit && binkies > 0;
+            binkyStarted = Time.unscaledTime;
+        }
 
         // A fish's hello: it swims up to the glass and back (its signature moment).
         public void PlaySwimToGlass() => helloStarted = Time.unscaledTime;
@@ -553,7 +576,7 @@ namespace BAIby.Character
             var sinceCue = now - cueStarted;
             // A shy pet answers play (the wand, the wheel, a walk, fetch or following a finger) with a quiet rest instead.
             bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel || cue == PetVerb.Walk || cue == PetVerb.Fetch ||
-                cue == PetVerb.FollowFinger;
+                cue == PetVerb.FollowFinger || cue == PetVerb.FloorTime;
             bool swims = swimHeight > 0;
             bool napping = (cue == PetVerb.Nap || cue == PetVerb.Rest || (shy && play)) && sinceCue < NapDuration;
             float targetRest = wantsRest || napping ? 1 : 0;
@@ -572,8 +595,9 @@ namespace BAIby.Character
             SetAlpha(rest, resting);
 
             float active = sinceCue < CueDuration ? Mathf.Sin(Mathf.Clamp01(sinceCue / CueDuration) * Mathf.PI) : 0;
-            // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce; a dog's walk is a brisk little trot.
-            bool trot = cue == PetVerb.Wheel || cue == PetVerb.Walk;
+            // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce; a dog's walk is a brisk little trot, and
+            // so is a rabbit's hop about on the floor.
+            bool trot = cue == PetVerb.Wheel || cue == PetVerb.Walk || cue == PetVerb.FloorTime;
             float hop = play && !shy && !swims
                 ? Mathf.Abs(Mathf.Sin(sinceCue * (trot ? 13f : 7.5f))) * active * (trot ? .45f : 1f)
                 : 0;
@@ -588,8 +612,11 @@ namespace BAIby.Character
                 hop = Mathf.Max(hop, height * PoseHeight() * pixelScale * (float)RuntimeScale() / .32f);
             }
             float purr = cue == PetVerb.Pet || cue == PetVerb.GentleHold ? Mathf.Sin(now * 30f) * active : 0;
-            float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl || cue == PetVerb.SprinkleFood ? active : 0;
-            float groom = cue == PetVerb.Brush || cue == PetVerb.FluffBedding ? Mathf.Sin(sinceCue * 5f) * active : 0;
+            float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl || cue == PetVerb.SprinkleFood || cue == PetVerb.Greens ||
+                cue == PetVerb.Hay ? active : 0;
+            float groom = cue == PetVerb.Brush || cue == PetVerb.FluffBedding || cue == PetVerb.Groom || cue == PetVerb.Litter
+                ? Mathf.Sin(sinceCue * 5f) * active
+                : 0;
             float pop = Mathf.Clamp01(1 - (now - arrived) / .45f);
             float breath = Mathf.Sin(now * 2.1f) * Mathf.Lerp(.010f, .005f, resting);
 
@@ -599,6 +626,28 @@ namespace BAIby.Character
             float lift = 0;
             float wiggle = 0;
             float closer = 0;
+            // A rabbit's binkies: a happy lap of the pen (little hops out to one side and back), then jumps with a twist.
+            float sinceBinky = now - binkyStarted;
+            float circuit = binkyCircuit ? CircuitTime : 0;
+            if (binkies > 0 && sinceBinky < circuit + binkies * BinkyTime)
+            {
+                float poseLift = PoseHeight() * pixelScale * (float)RuntimeScale() / .32f;
+                if (sinceBinky < circuit)
+                {
+                    float lap = sinceBinky / circuit;
+                    x += Mathf.Sin(lap * Mathf.PI * 2) * visibleWidth * .14f;
+                    hop = Mathf.Max(hop, Mathf.Abs(Mathf.Sin(sinceBinky * 12f)) * .05f * poseLift);
+                }
+                else
+                {
+                    float t = sinceBinky - circuit;
+                    int index = Mathf.FloorToInt(t / BinkyTime);
+                    float phase = (t - index * BinkyTime) / BinkyTime;
+                    hop = Mathf.Max(hop, .2f * (1 - .1f * index) * Mathf.Sin(phase * Mathf.PI) * poseLift);
+                    // the twist: a quick turn of the body mid-air, alternating sides
+                    wiggle += (index % 2 == 0 ? 1 : -1) * 22f * Mathf.Sin(phase * Mathf.PI * 2);
+                }
+            }
             if (swims)
             {
                 // A fish floats above the pebbles with a gentle bob and a slow drift, and sinks to rest among the plants.
@@ -617,8 +666,10 @@ namespace BAIby.Character
                 // A wipe or a water change: a happy little twirl in the fresh, clear water.
                 bool fresh = cue == PetVerb.WipeGlass || cue == PetVerb.WaterChange;
                 wiggle += fresh ? Mathf.Sin(sinceCue * 5f) * active * 6f : 0;
-                hazeShown = Mathf.MoveTowards(hazeShown, hazeTarget, Time.unscaledDeltaTime * .5f);
             }
+
+            // The habitat's haze layer (a fish's cloudy water, a rabbit's scattered hay) eases towards its strength.
+            hazeShown = Mathf.MoveTowards(hazeShown, hazeTarget, Time.unscaledDeltaTime * .5f);
 
             rig.localPosition = new Vector3(x, floorY + lift + .32f * hop - .02f * eat, 0);
             rig.localRotation = Quaternion.Euler(0, 0, 3.5f * groom + .6f * purr + wiggle);

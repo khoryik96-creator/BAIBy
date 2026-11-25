@@ -9,8 +9,8 @@ using BAIby.Simulation.Pets;
 
 namespace BAIby.Tests.Appearance
 {
-    // The cat, hamster, dog and fish layouts, palettes and compositing (tools/pets/README.md), checked against the shipped
-    // art.
+    // The cat, hamster, dog, fish and rabbit layouts, palettes and compositing (tools/pets/README.md), checked against the
+    // shipped art.
     internal static class PetArtChecks
     {
         private static readonly string CatFolder = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..",
@@ -18,6 +18,7 @@ namespace BAIby.Tests.Appearance
         private static readonly string HamsterFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Hamster"));
         private static readonly string DogFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Dog"));
         private static readonly string FishFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Fish"));
+        private static readonly string RabbitFolder = Path.GetFullPath(Path.Combine(CatFolder, "..", "Rabbit"));
 
         public static void Run(Action<bool, string> check)
         {
@@ -30,6 +31,94 @@ namespace BAIby.Tests.Appearance
             Hamster(LoadLayout(HamsterFolder), check);
             Dog(LoadLayout(DogFolder), check);
             Fish(LoadLayout(FishFolder), check);
+            Rabbit(LoadLayout(RabbitFolder), check);
+        }
+
+        // P5: every rabbit breed ships; each composes from the shipped art in every pose with its ears (its markings
+        // overlay) and a collar, the Flemish giant on its own larger base, and the Harlequin's half face and bands keep
+        // their own dark color. The pen is a habitat the rabbit stands in, its haze slot the scattered hay.
+        private static void Rabbit(PetLayout layout, Action<bool, string> check)
+        {
+            check(layout.YoungScale > 0 && layout.YoungScale < layout.GrownScale, "a young rabbit is drawn smaller than a grown one");
+            var pen = layout.Habitat;
+            check(pen != null && pen.Swim == 0, "the rabbit stands in its pen");
+            check(pen?.Haze != null && pen.Castle == null, "the pen has its scattered hay and no castle");
+            if (pen != null)
+            {
+                foreach (var path in new[] { pen.Back, pen.Front, pen.Haze })
+                    check(Png.Read(Path.Combine(RabbitFolder, path + ".bytes"), pen.Width, pen.Height).Length > 0,
+                        "the pen layer " + path + " is the declared size");
+            }
+
+            check(layout.HasOwnBase(PetBreed.FlemishGiant), "the Flemish giant has its own base");
+            check(!layout.HasOwnBase(PetBreed.Dutch), "other rabbits share the base");
+            layout.TryGetPoseSize("GrownAwake", out var plainWidth, out var plainHeight);
+            layout.TryGetPoseSize("FlemishGiantGrownAwake", out var giantWidth, out var giantHeight);
+            check(giantWidth > plainWidth && giantHeight > plainHeight, "the Flemish giant is drawn larger");
+            var composer = new PetComposer(layout);
+            var loads = new List<string>();
+            PetArtSource source = (path, width, height) =>
+            {
+                loads.Add(path);
+                return Png.Read(Path.Combine(RabbitFolder, path + ".bytes"), width, height);
+            };
+            foreach (var breed in PetCatalog.Default.BreedsOf(Species.Rabbit))
+            {
+                check(breed.AvailableNow, breed.Breed + " ships with the rabbit");
+                foreach (var coat in breed.Coats)
+                    check(layout.TryGetCoat(breed.Breed, coat, out _), "the rabbit palette lists " + breed.Breed + " " + coat);
+                foreach (PetStage stage in Enum.GetValues(typeof(PetStage)))
+                {
+                    foreach (var resting in new[] { false, true })
+                    {
+                        var pose = PetLayout.PoseName(stage, resting);
+                        var shown = layout.ShownPose(breed.Breed, pose);
+                        check(layout.TryGetOverlay(PetLayout.MarkingsPath(breed.Breed, pose), out var ears) && ears.Pose == shown,
+                            breed.Breed + " " + pose + " has its ears over its own base");
+                        loads.Clear();
+                        var pixels = composer.Compose(breed.Breed, breed.DefaultCoat, PetAccessory.Collar, Outfit.Sky, pose, source,
+                            PixelRowOrder.TopDown, out var width, out var height);
+                        var visible = 0;
+                        for (var i = 3; i < width * height * 4; i += 4)
+                            if (pixels[i] > 0)
+                                visible++;
+                        check(visible > width * height / 5, breed.Breed + " " + pose + " composes a visible rabbit");
+                        var marked = breed.Breed == PetBreed.Harlequin ? 4 : 2;
+                        check(loads.Count == 4 + marked, breed.Breed + " " + pose + " loads base, ears, markings and collar (" +
+                            string.Join(", ", loads) + ")");
+                        check(loads[0] == PetLayout.BasePath(shown), breed.Breed + " " + pose + " sits on " + shown);
+                        check(loads.Contains(PetLayout.AccessoryPath(PetAccessory.Collar, shown)), breed.Breed + " " + pose + " wears its collar");
+                    }
+                }
+            }
+
+            var harlequin = (byte[])composer.Compose(PetBreed.Harlequin, PetCoat.Tricolor, PetAccessory.None, Outfit.Sage, "YoungAwake",
+                source, PixelRowOrder.TopDown, out var w, out _).Clone();
+            layout.TryGetOverlay(PetLayout.DarkMarkingsPath(PetBreed.Harlequin, "YoungAwake"), out var bands);
+            var bandPixels = Png.Read(Path.Combine(RabbitFolder, bands.Path + ".bytes"), bands.Width, bands.Height);
+            var bandRegions = Png.Read(Path.Combine(RabbitFolder, bands.Path + "Regions.bytes"), bands.Width, bands.Height);
+            AppearanceRecolor.Recolor(bandPixels, bandRegions, bands.Width * bands.Height, layout.Reference,
+                PetPalette.DarkTargets(layout, PetBreed.Harlequin, PetCoat.Tricolor, Outfit.Sage));
+            var matched = 0;
+            var opaque = 0;
+            for (var y = 0; y < bands.Height; y++)
+            {
+                for (var x = 0; x < bands.Width; x++)
+                {
+                    var at = (y * bands.Width + x) * 4;
+                    if (bandPixels[at + 3] != 255)
+                        continue;
+                    opaque++;
+                    var target = ((bands.YFromTop + y) * w + bands.X + x) * 4;
+                    if (harlequin[target] == bandPixels[at] && harlequin[target + 1] == bandPixels[at + 1] &&
+                        harlequin[target + 2] == bandPixels[at + 2])
+                        matched++;
+                }
+            }
+
+            check(opaque > 0 && matched > opaque * 9 / 10, "the Harlequin's bands keep their own recolor (" + matched + "/" + opaque + ")");
+            var black = PetPalette.Targets(layout, PetBreed.Dutch, PetCoat.Black, Outfit.Sage);
+            check(black.Region(1).R > 240, "a Dutch rabbit's markings are white");
         }
 
         // P4: every fish breed ships, each composes from the shipped art in every pose with its fins (its markings

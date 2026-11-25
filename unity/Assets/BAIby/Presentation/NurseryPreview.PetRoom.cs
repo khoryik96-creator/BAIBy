@@ -232,6 +232,18 @@ namespace BAIby.Presentation
                 return;
 
             var text = CueText(state, verb, outcome.Cue);
+            // A rabbit's signature moment: floor time with a happy, well-cared rabbit ends in binkies (display only).
+            if (verb == PetVerb.FloorTime && outcome.Cue == PetCue.Content)
+            {
+                var binkies = PetReunion.Binkies(state, household.PetCatalog);
+                if (binkies > 0)
+                {
+                    var circuit = PetReunion.HopCircuit(state, household.PetCatalog);
+                    petStage.PlayBinkies(binkies, circuit);
+                    text = PetReunion.BinkyLine(state.Name, binkies, circuit) + " " + text;
+                }
+            }
+
             if (outcome.CompletedCareDay)
                 text += $" That's a full day of care for {state.Name}.";
             foreach (var breed in AnnouncedBreeds(outcome))
@@ -345,7 +357,7 @@ namespace BAIby.Presentation
 
             petStage.Show(decorPreview && petWearDraft != null ? petWearDraft : ShownPet(state.Appearance), household.PetCatalog,
                 state.Stage, IsSleepy(state) || IsPoorly(state));
-            petStage.SetWater(Cloudiness(state));
+            petStage.SetMess(state.Species == Species.Rabbit ? ScatteredHay(state) : Cloudiness(state));
             // What the helpers did comes first; with nothing else to say, the return summary ends with the attention line.
             var helperLine = TakeHelperLine(petSlot, state.Name, true);
             if (helperLine != null)
@@ -435,7 +447,6 @@ namespace BAIby.Presentation
             switch (meter)
             {
                 case PetMeter.Fullness:
-                case PetMeter.Hay:
                     return FullnessRing;
                 case PetMeter.Comfort:
                 case PetMeter.Calm:
@@ -443,6 +454,8 @@ namespace BAIby.Presentation
                     return ComfortRing;
                 case PetMeter.Energy:
                 case PetMeter.Exercise:
+                // A rabbit's hay rack plays the Energy role.
+                case PetMeter.Hay:
                     return EnergyRing;
                 case PetMeter.Cleanliness:
                 case PetMeter.Water:
@@ -463,6 +476,9 @@ namespace BAIby.Presentation
             var messy = (state.Care?.Mess ?? 0) * .12f;
             return Mathf.Clamp01(Mathf.Min(.8f, low + messy));
         }
+
+        // How much scattered hay shows in a rabbit's pen (0 to 1): a third more for each missed litter tidy.
+        private static float ScatteredHay(PetState state) => Mathf.Clamp01((state?.Care?.Mess ?? 0) / 3f);
 
         // Low on Energy, or a hamster in its day nap (a cosy, normal sleep): the rest pose shows.
         private static bool IsSleepy(PetState state) =>
@@ -509,6 +525,8 @@ namespace BAIby.Presentation
                 return stage == PetStage.Grown ? "Grown dog" : "Puppy";
             if (species == Species.Fish)
                 return stage == PetStage.Grown ? "Grown fish" : "Little fish";
+            if (species == Species.Rabbit)
+                return stage == PetStage.Grown ? "Grown rabbit" : "Bunny";
 
             var name = SpeciesName(species).ToLowerInvariant();
             return stage == PetStage.Grown ? "Grown " + name : "Young " + name;
@@ -556,6 +574,8 @@ namespace BAIby.Presentation
                     return $"Squeak, squeak! The glass is clean and {name} peeks out at you.";
                 case PetVerb.WaterChange:
                     return $"Fresh, clear water! {name} swims a happy loop through it.";
+                case PetVerb.Greens:
+                    return $"{name} munches the greens, nose wiggling.";
                 case PetVerb.Rest when state.Species == Species.Dog:
                     return state.Care != null && state.Care.LastReason == CareReason.BedtimeOnTime
                         ? $"{name} circles three times and settles in the basket for the night, right on time."
@@ -623,6 +643,20 @@ namespace BAIby.Presentation
                     return $"{name} is swimming in quick little circles. Glass time will help.";
                 return state.IsGrown ? $"{name} is gliding slowly past the castle." : $"{name} is exploring the plants, fins fluttering.";
             }
+            if (state.Species == Species.Rabbit)
+            {
+                if (PetSimulation.IsNapping(state))
+                    return $"{name} is dozing in the hutch, as rabbits do through the middle of the day. Floor time is after school.";
+                if (state.Meter(PetMeter.Hay) < low)
+                    return $"{name} is nosing at the hay rack. It's nearly empty.";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return $"{name} is sniffing around for greens.";
+                if (state.Meter(PetMeter.Comfort) < low)
+                    return $"{name} is watching you from the hutch. Floor time together will help.";
+                if (state.Meter(PetMeter.Litter) < low)
+                    return $"{name}'s litter tray could use a tidy.";
+                return state.IsGrown ? $"{name} is stretched out by the hay rack, nibbling." : $"{name} is hopping about, nose twitching.";
+            }
             if (state.Species == Species.Dog)
             {
                 if (IsSleepy(state))
@@ -689,6 +723,24 @@ namespace BAIby.Presentation
                     return "Would love glass time";
                 needsCare = false;
                 return state.IsGrown ? "Gliding round the tank" : "Bubbly and curious";
+            }
+
+            if (state.Species == Species.Rabbit)
+            {
+                needsCare = false;
+                if (PetSimulation.IsNapping(state))
+                    return "Dozing in the hutch";
+                needsCare = true;
+                if (state.Meter(PetMeter.Hay) < low)
+                    return "Hay rack nearly empty";
+                if (state.Meter(PetMeter.Fullness) < low)
+                    return "Hoping for greens";
+                if (state.Meter(PetMeter.Comfort) < low)
+                    return "Would love floor time";
+                if (state.Meter(PetMeter.Litter) < low)
+                    return "Tray could use a tidy";
+                needsCare = false;
+                return state.IsGrown ? "Nibbling hay" : "Hoppy and curious";
             }
 
             if (state.Species == Species.Dog)
