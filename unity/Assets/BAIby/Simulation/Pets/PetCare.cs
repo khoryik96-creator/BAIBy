@@ -89,7 +89,7 @@ namespace BAIby.Simulation.Pets
         public PetStep Advance(PetState state, DateTimeOffset now) => Advance(state, now, null, null);
 
         // With the household's helpers (an auto-feeder, a ball launcher and a self-cleaning litter box, or a fish's
-        // auto feeder, bubbler and filter), as for the baby.
+        // auto feeder, bubbler and filter, or a rabbit's pellet feeder, willow tunnel and tray liner), as for the baby.
         public PetStep Advance(PetState state, DateTimeOffset now, HelperSettings settings, ICollection<HelperEvent> events)
         {
             var species = catalog.Get(state.Species);
