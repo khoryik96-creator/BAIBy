@@ -7,16 +7,18 @@ namespace BAIby.Simulation.Pets
     // matches BabySimulation: negative elapsed time is ignored, need decay is capped, age is not,
     // and the Young to Grown unlock fires once. Nothing dies, leaves or is deleted.
     //
-    // A species with a care profile (PetCareProfile; the cat) runs on the baby's care systems through PetCare: routine
-    // windows, the needs and health axes of the consequence ladder (the vet for the doctor), Away mode, development
-    // with readiness-timed milestones and the setback, Bond, Trust and the care rhythm, and the journal. Other species
-    // keep the simple rules below until their own slice.
+    // A species with a care profile (PetCareProfile: the cat, the hamster, the dog and the fish) runs on the baby's care
+    // systems through PetCare: routine windows, the needs and health axes of the consequence ladder (the vet for the
+    // doctor), Away mode, development with readiness-timed milestones and the setback, Bond, Trust and the care rhythm,
+    // and the journal. The rabbit keeps the simple rules below until its own slice.
     public sealed class PetSimulation
     {
         // care-and-growth decision 11: the offline decay cap is 8 hours.
         public static readonly TimeSpan DefaultMaxNeedDecay = TimeSpan.FromHours(8);
 
-        // Fish rule: flakes sprinkled at this Fullness or above are ignored and cloud the water.
+        // Fish rule: flakes sprinkled at this Fullness or above are ignored and cloud the water slightly. Since P4 the fish
+        // runs on its care profile, which uses the care style's full-meal threshold and this much clouding (never more
+        // than the style's overfeeding).
         public const double OverfedFullness = 90;
         public const double CloudedWater = 8;
 
@@ -243,12 +245,6 @@ namespace BAIby.Simulation.Pets
             foreach (var pair in state.Meters)
                 meters[pair.Key] = pair.Value;
 
-            if (IgnoresFlakes(state, verb))
-            {
-                meters[PetMeter.Water] = Math.Max(0, meters[PetMeter.Water] - CloudedWater);
-                return (Copy(state, meters, state.Bond, state.Liveliness, state.Boldness), PetCue.IgnoredFlakes);
-            }
-
             foreach (var effect in definition.Effects)
                 meters[effect.Meter] = Clamp(meters[effect.Meter] + effect.Delta, 0, 100);
 
@@ -257,11 +253,6 @@ namespace BAIby.Simulation.Pets
             var boldness = state.IsGrown ? state.Boldness : ClampPersonality(state.Boldness + definition.Bold);
             return (Copy(state, meters, Math.Min(100, state.Bond + definition.Bond), liveliness, boldness), PetCue.Content);
         }
-
-        // The one species-specific care rule from the species table: extra flakes for a full fish
-        // are ignored and cloud the water slightly. It is never harmful beyond that.
-        private static bool IgnoresFlakes(PetState state, PetVerb verb) =>
-            state.Species == Species.Fish && verb == PetVerb.SprinkleFood && state.Meter(PetMeter.Fullness) >= OverfedFullness;
 
         private (PetState State, bool BecameGrown) AdvanceElapsed(PetState state, DateTimeOffset now, TimeSpan elapsed)
         {

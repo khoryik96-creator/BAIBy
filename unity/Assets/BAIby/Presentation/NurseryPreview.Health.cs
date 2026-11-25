@@ -329,7 +329,7 @@ namespace BAIby.Presentation
                 if (offered)
                 {
                     Scene.text = care.Condition == CareCondition.Sick
-                        ? $"{name} is poorly and resting {(pet ? HamsterShown ? "curled up in the nest" : "curled up in a basket" : "in bed")}. " +
+                        ? $"{name} is poorly and resting {(pet ? HamsterShown ? "curled up in the nest" : FishShown ? "quietly by the plants" : "curled up in a basket" : "in bed")}. " +
                           $"{doctorName} can see {name} right now."
                         : $"{name} is a little under the weather. {doctorName} can see {name} right now.";
                     Feedback.text = "Visits are always free and only take a moment.";

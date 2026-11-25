@@ -1,0 +1,1174 @@
+{
+ "placeholder": true,
+ "species": "Fish",
+ "reference": {
+  "coat": [
+   244,
+   150,
+   72
+  ],
+  "markings": [
+   252,
+   214,
+   168
+  ],
+  "eyes": [
+   70,
+   74,
+   104
+  ],
+  "accent": [
+   178,
+   170,
+   122
+  ]
+ },
+ "runtimeScale": {
+  "young": 0.42,
+  "grown": 0.5
+ },
+ "habitat": {
+  "back": "Habitat/Back",
+  "front": "Habitat/Front",
+  "width": 820,
+  "height": 600,
+  "floor": 96,
+  "swim": 150,
+  "haze": "Habitat/Haze",
+  "castle": "Habitat/Castle"
+ },
+ "breedBases": [
+  "NeonTetraSchool"
+ ],
+ "poses": [
+  {
+   "name": "YoungAwake",
+   "width": 431,
+   "height": 423
+  },
+  {
+   "name": "YoungRest",
+   "width": 438,
+   "height": 409
+  },
+  {
+   "name": "GrownAwake",
+   "width": 555,
+   "height": 469
+  },
+  {
+   "name": "GrownRest",
+   "width": 560,
+   "height": 447
+  },
+  {
+   "name": "NeonTetraSchoolYoungAwake",
+   "width": 569,
+   "height": 335
+  },
+  {
+   "name": "NeonTetraSchoolYoungRest",
+   "width": 552,
+   "height": 293
+  },
+  {
+   "name": "NeonTetraSchoolGrownAwake",
+   "width": 595,
+   "height": 349
+  },
+  {
+   "name": "NeonTetraSchoolGrownRest",
+   "width": 578,
+   "height": 306
+  }
+ ],
+ "overlays": [
+  {
+   "path": "Markings/Goldfish/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 45,
+   "y": 25,
+   "width": 275,
+   "height": 300,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Guppy/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 12,
+   "y": 17,
+   "width": 256,
+   "height": 313,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Betta/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 4,
+   "y": 10,
+   "width": 314,
+   "height": 403,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 74,
+   "y": 4,
+   "width": 243,
+   "height": 415,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 175,
+   "y": 82,
+   "width": 141,
+   "height": 182,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Koi/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 67,
+   "y": 25,
+   "width": 337,
+   "height": 300,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Koi/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 139,
+   "y": 82,
+   "width": 245,
+   "height": 168,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Clownfish/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 68,
+   "y": 38,
+   "width": 250,
+   "height": 287,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Clownfish/YoungAwakeDark",
+   "pose": "YoungAwake",
+   "x": 153,
+   "y": 82,
+   "width": 175,
+   "height": 182,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Discus/YoungAwake",
+   "pose": "YoungAwake",
+   "x": 87,
+   "y": 17,
+   "width": 331,
+   "height": 373,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Goldfish/YoungRest",
+   "pose": "YoungRest",
+   "x": 46,
+   "y": 34,
+   "width": 295,
+   "height": 277,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Guppy/YoungRest",
+   "pose": "YoungRest",
+   "x": 17,
+   "y": 27,
+   "width": 275,
+   "height": 288,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Betta/YoungRest",
+   "pose": "YoungRest",
+   "x": 4,
+   "y": 15,
+   "width": 307,
+   "height": 390,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/YoungRest",
+   "pose": "YoungRest",
+   "x": 76,
+   "y": 4,
+   "width": 228,
+   "height": 399,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 180,
+   "y": 78,
+   "width": 157,
+   "height": 165,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Koi/YoungRest",
+   "pose": "YoungRest",
+   "x": 69,
+   "y": 34,
+   "width": 337,
+   "height": 277,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Koi/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 145,
+   "y": 78,
+   "width": 255,
+   "height": 150,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Clownfish/YoungRest",
+   "pose": "YoungRest",
+   "x": 70,
+   "y": 43,
+   "width": 269,
+   "height": 268,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Clownfish/YoungRestDark",
+   "pose": "YoungRest",
+   "x": 158,
+   "y": 78,
+   "width": 190,
+   "height": 165,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Discus/YoungRest",
+   "pose": "YoungRest",
+   "x": 90,
+   "y": 14,
+   "width": 335,
+   "height": 361,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Goldfish/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 64,
+   "y": 35,
+   "width": 358,
+   "height": 333,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Guppy/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 16,
+   "y": 24,
+   "width": 340,
+   "height": 339,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Betta/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 4,
+   "y": 16,
+   "width": 413,
+   "height": 435,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 106,
+   "y": 4,
+   "width": 305,
+   "height": 461,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 245,
+   "y": 100,
+   "width": 169,
+   "height": 194,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Koi/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 96,
+   "y": 35,
+   "width": 426,
+   "height": 324,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Koi/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 199,
+   "y": 100,
+   "width": 287,
+   "height": 177,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Clownfish/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 96,
+   "y": 50,
+   "width": 324,
+   "height": 309,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Clownfish/GrownAwakeDark",
+   "pose": "GrownAwake",
+   "x": 216,
+   "y": 100,
+   "width": 209,
+   "height": 194,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Discus/GrownAwake",
+   "pose": "GrownAwake",
+   "x": 125,
+   "y": 35,
+   "width": 415,
+   "height": 389,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Goldfish/GrownRest",
+   "pose": "GrownRest",
+   "x": 62,
+   "y": 48,
+   "width": 380,
+   "height": 294,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Guppy/GrownRest",
+   "pose": "GrownRest",
+   "x": 21,
+   "y": 38,
+   "width": 358,
+   "height": 300,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Betta/GrownRest",
+   "pose": "GrownRest",
+   "x": 4,
+   "y": 23,
+   "width": 399,
+   "height": 420,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/GrownRest",
+   "pose": "GrownRest",
+   "x": 107,
+   "y": 4,
+   "width": 288,
+   "height": 439,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Angelfish/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 249,
+   "y": 97,
+   "width": 184,
+   "height": 173,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Koi/GrownRest",
+   "pose": "GrownRest",
+   "x": 95,
+   "y": 48,
+   "width": 427,
+   "height": 294,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Koi/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 202,
+   "y": 98,
+   "width": 298,
+   "height": 154,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Clownfish/GrownRest",
+   "pose": "GrownRest",
+   "x": 96,
+   "y": 58,
+   "width": 343,
+   "height": 284,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/Clownfish/GrownRestDark",
+   "pose": "GrownRest",
+   "x": 219,
+   "y": 97,
+   "width": 225,
+   "height": 172,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/Discus/GrownRest",
+   "pose": "GrownRest",
+   "x": 126,
+   "y": 32,
+   "width": 419,
+   "height": 376,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/YoungAwake",
+   "pose": "NeonTetraSchoolYoungAwake",
+   "x": 4,
+   "y": 4,
+   "width": 463,
+   "height": 311,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/YoungAwakeDark",
+   "pose": "NeonTetraSchoolYoungAwake",
+   "x": 47,
+   "y": 78,
+   "width": 417,
+   "height": 233,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/YoungRest",
+   "pose": "NeonTetraSchoolYoungRest",
+   "x": 4,
+   "y": 4,
+   "width": 479,
+   "height": 251,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/YoungRestDark",
+   "pose": "NeonTetraSchoolYoungRest",
+   "x": 50,
+   "y": 70,
+   "width": 390,
+   "height": 197,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/GrownAwake",
+   "pose": "NeonTetraSchoolGrownAwake",
+   "x": 4,
+   "y": 4,
+   "width": 481,
+   "height": 323,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/GrownAwakeDark",
+   "pose": "NeonTetraSchoolGrownAwake",
+   "x": 48,
+   "y": 86,
+   "width": 433,
+   "height": 243,
+   "gTarget": "dark"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/GrownRest",
+   "pose": "NeonTetraSchoolGrownRest",
+   "x": 4,
+   "y": 4,
+   "width": 500,
+   "height": 260,
+   "gTarget": "secondary"
+  },
+  {
+   "path": "Markings/NeonTetraSchool/GrownRestDark",
+   "pose": "NeonTetraSchoolGrownRest",
+   "x": 51,
+   "y": 75,
+   "width": 405,
+   "height": 209,
+   "gTarget": "dark"
+  }
+ ],
+ "palette": {
+  "coats": [
+   {
+    "breed": "Goldfish",
+    "coat": "Orange",
+    "main": [
+     246,
+     150,
+     70
+    ],
+    "secondary": [
+     254,
+     214,
+     160
+    ],
+    "dark": [
+     254,
+     214,
+     160
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Goldfish",
+    "coat": "Red",
+    "main": [
+     232,
+     98,
+     76
+    ],
+    "secondary": [
+     252,
+     190,
+     160
+    ],
+    "dark": [
+     252,
+     190,
+     160
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Goldfish",
+    "coat": "White",
+    "main": [
+     250,
+     246,
+     240
+    ],
+    "secondary": [
+     252,
+     226,
+     200
+    ],
+    "dark": [
+     252,
+     226,
+     200
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Goldfish",
+    "coat": "Yellow",
+    "main": [
+     250,
+     204,
+     92
+    ],
+    "secondary": [
+     254,
+     236,
+     178
+    ],
+    "dark": [
+     254,
+     236,
+     178
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Guppy",
+    "coat": "Blue",
+    "main": [
+     206,
+     220,
+     232
+    ],
+    "secondary": [
+     96,
+     152,
+     226
+    ],
+    "dark": [
+     96,
+     152,
+     226
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Guppy",
+    "coat": "Orange",
+    "main": [
+     236,
+     226,
+     214
+    ],
+    "secondary": [
+     246,
+     146,
+     74
+    ],
+    "dark": [
+     246,
+     146,
+     74
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Guppy",
+    "coat": "Yellow",
+    "main": [
+     236,
+     232,
+     214
+    ],
+    "secondary": [
+     246,
+     208,
+     84
+    ],
+    "dark": [
+     246,
+     208,
+     84
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Guppy",
+    "coat": "Purple",
+    "main": [
+     226,
+     220,
+     236
+    ],
+    "secondary": [
+     170,
+     124,
+     214
+    ],
+    "dark": [
+     170,
+     124,
+     214
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Betta",
+    "coat": "Red",
+    "main": [
+     214,
+     72,
+     84
+    ],
+    "secondary": [
+     240,
+     112,
+     116
+    ],
+    "dark": [
+     240,
+     112,
+     116
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Betta",
+    "coat": "Blue",
+    "main": [
+     72,
+     112,
+     204
+    ],
+    "secondary": [
+     110,
+     156,
+     232
+    ],
+    "dark": [
+     110,
+     156,
+     232
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Betta",
+    "coat": "Purple",
+    "main": [
+     136,
+     92,
+     186
+    ],
+    "secondary": [
+     180,
+     138,
+     222
+    ],
+    "dark": [
+     180,
+     138,
+     222
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Betta",
+    "coat": "White",
+    "main": [
+     248,
+     246,
+     244
+    ],
+    "secondary": [
+     255,
+     250,
+     248
+    ],
+    "dark": [
+     255,
+     250,
+     248
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "NeonTetraSchool",
+    "coat": "Blue",
+    "main": [
+     226,
+     232,
+     238
+    ],
+    "secondary": [
+     64,
+     176,
+     236
+    ],
+    "dark": [
+     232,
+     82,
+     86
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "NeonTetraSchool",
+    "coat": "Red",
+    "main": [
+     232,
+     230,
+     236
+    ],
+    "secondary": [
+     80,
+     150,
+     232
+    ],
+    "dark": [
+     222,
+     70,
+     84
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Ruby"
+    ]
+   },
+   {
+    "breed": "Angelfish",
+    "coat": "Silver",
+    "main": [
+     232,
+     234,
+     238
+    ],
+    "secondary": [
+     244,
+     244,
+     246
+    ],
+    "dark": [
+     70,
+     70,
+     82
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Angelfish",
+    "coat": "Black",
+    "main": [
+     82,
+     80,
+     92
+    ],
+    "secondary": [
+     118,
+     116,
+     130
+    ],
+    "dark": [
+     48,
+     46,
+     56
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Angelfish",
+    "coat": "Golden",
+    "main": [
+     246,
+     210,
+     120
+    ],
+    "secondary": [
+     252,
+     232,
+     180
+    ],
+    "dark": [
+     206,
+     150,
+     72
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Koi",
+    "coat": "White",
+    "main": [
+     250,
+     248,
+     244
+    ],
+    "secondary": [
+     252,
+     244,
+     236
+    ],
+    "dark": [
+     232,
+     84,
+     64
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Koi",
+    "coat": "Orange",
+    "main": [
+     246,
+     156,
+     72
+    ],
+    "secondary": [
+     252,
+     220,
+     176
+    ],
+    "dark": [
+     252,
+     248,
+     242
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Koi",
+    "coat": "Red",
+    "main": [
+     226,
+     84,
+     70
+    ],
+    "secondary": [
+     248,
+     196,
+     176
+    ],
+    "dark": [
+     64,
+     60,
+     70
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Koi",
+    "coat": "Black",
+    "main": [
+     74,
+     72,
+     84
+    ],
+    "secondary": [
+     150,
+     146,
+     160
+    ],
+    "dark": [
+     246,
+     156,
+     72
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Clownfish",
+    "coat": "Orange",
+    "main": [
+     246,
+     132,
+     52
+    ],
+    "secondary": [
+     250,
+     170,
+     96
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Clownfish",
+    "coat": "Black",
+    "main": [
+     70,
+     66,
+     76
+    ],
+    "secondary": [
+     110,
+     104,
+     116
+    ],
+    "dark": [
+     252,
+     250,
+     246
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Discus",
+    "coat": "Blue",
+    "main": [
+     96,
+     168,
+     214
+    ],
+    "secondary": [
+     54,
+     116,
+     186
+    ],
+    "dark": [
+     54,
+     116,
+     186
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Discus",
+    "coat": "Red",
+    "main": [
+     222,
+     96,
+     84
+    ],
+    "secondary": [
+     246,
+     170,
+     108
+    ],
+    "dark": [
+     246,
+     170,
+     108
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   },
+   {
+    "breed": "Discus",
+    "coat": "Brown",
+    "main": [
+     180,
+     124,
+     82
+    ],
+    "secondary": [
+     232,
+     176,
+     110
+    ],
+    "dark": [
+     232,
+     176,
+     110
+    ],
+    "eyes": "Dark",
+    "allowedEyes": [
+     "Dark",
+     "Amber"
+    ]
+   }
+  ],
+  "eyes": [
+   {
+    "name": "Dark",
+    "color": [
+     70,
+     74,
+     104
+    ]
+   },
+   {
+    "name": "Amber",
+    "color": [
+     196,
+     142,
+     64
+    ]
+   },
+   {
+    "name": "Ruby",
+    "color": [
+     192,
+     70,
+     82
+    ]
+   }
+  ],
+  "collarAccents": []
+ }
+}

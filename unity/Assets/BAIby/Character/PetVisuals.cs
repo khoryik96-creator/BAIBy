@@ -21,6 +21,13 @@ namespace BAIby.Character
     //
     // A species whose layout has a habitat (the hamster's cage, P2) stands in it: one layer behind the pet and one in
     // front, drawn at the baby's pose-pixel scale on the room's floor line. Its textures follow the shown species.
+    //
+    // A fish (P4) swims in its tank: its habitat has a swim height, so the fish floats above the pebbles with a gentle
+    // bob and a slow drift, and sinks down to rest among the plants when the lights are off. Following a finger it swims
+    // up to the glass (a little bigger, with a happy wiggle), at a sprinkle of food it rises to nibble, and coming back
+    // after a while it swims to the glass to say hello (its signature moment). The tank's haze layer, over the fish,
+    // shows cloudy water at the strength the room sets (SetWater), and its castle layer stands behind the fish when the
+    // fish has the tank castle.
     public sealed class PetVisuals : MonoBehaviour
     {
         private const string Art = "BAIby/Pets/";
@@ -71,7 +78,15 @@ namespace BAIby.Character
         private readonly List<Object> habitatAssets = new List<Object>();
         private SpriteRenderer habitatBack;
         private SpriteRenderer habitatFront;
+        private SpriteRenderer habitatHaze;
+        private SpriteRenderer habitatCastle;
         private Species? habitatFor;
+        // A fish's tank: the swim height in pose pixels (0 for a pet that stands on the floor), the cloudy water's target
+        // strength and shown strength, and when it last swam to the glass to say hello.
+        private int swimHeight;
+        private float hazeTarget;
+        private float hazeShown;
+        private float helloStarted = -100;
 
         // The pet stands in the nursery's room: on its floor line, drawn at the layout's runtime scale
         // relative to the baby's pose pixels, following the room as the screen changes shape.
@@ -102,6 +117,9 @@ namespace BAIby.Character
             var next = Look.Of(appearance, catalog, stage);
             if (habitatFor != next.Species)
                 ShowHabitat(next.Species);
+            // The tank castle is a layer of the tank, behind the fish, shown while the fish has it.
+            if (habitatCastle != null)
+                habitatCastle.enabled = habitatCastle.sprite != null && next.Accessory == PetAccessory.TankCastle;
             if (look == null || !look.Equals(next))
             {
                 var grewUp = look != null && look.SameLook(next) && look.Stage != next.Stage;
@@ -137,6 +155,12 @@ namespace BAIby.Character
 
         // A little "new arrival" pop, for adoption and the breed picker.
         public void PlayArrival() => arrived = Time.unscaledTime;
+
+        // How cloudy a fish's water looks, 0 (clear) to 1 (the haze layer at full strength). It eases in and out.
+        public void SetWater(float cloudiness) => hazeTarget = Mathf.Clamp01(cloudiness);
+
+        // A fish's hello: it swims up to the glass and back (its signature moment).
+        public void PlaySwimToGlass() => helloStarted = Time.unscaledTime;
 
         // A dog's welcome home: `bounces` happy hops `height` pose-heights high (more and higher the longer the time away).
         public void PlayReunion(int bounces, float height)
@@ -202,8 +226,10 @@ namespace BAIby.Character
             rest = AddLayer(rig, "Pet rest artwork", null, Color.white, 2);
             placeholder = SoftShape(false);
             habitatBack = AddLayer(transform, "Pet habitat back", null, Color.white, -6);
-            habitatFront = AddLayer(transform, "Pet habitat front", null, Color.white, 3);
-            habitatBack.enabled = habitatFront.enabled = false;
+            habitatCastle = AddLayer(transform, "Pet habitat castle", null, Color.white, -5);
+            habitatHaze = AddLayer(transform, "Pet habitat haze", null, new Color(1, 1, 1, 0), 3);
+            habitatFront = AddLayer(transform, "Pet habitat front", null, Color.white, 4);
+            habitatBack.enabled = habitatFront.enabled = habitatHaze.enabled = habitatCastle.enabled = false;
             BuildBadge();
         }
 
@@ -221,6 +247,10 @@ namespace BAIby.Character
                 habitatBack.sprite = HabitatSprite(species, habitat.Back, habitat);
                 habitatFront.sprite = HabitatSprite(species, habitat.Front, habitat);
                 habitatBack.enabled = habitatFront.enabled = true;
+                // A tank's optional layers: a missing one only leaves the water clear or the castle off.
+                habitatHaze.sprite = habitat.Haze == null ? null : HabitatSprite(species, habitat.Haze, habitat);
+                habitatCastle.sprite = habitat.Castle == null ? null : HabitatSprite(species, habitat.Castle, habitat);
+                swimHeight = habitat.Swim;
             }
             catch (System.Exception exception)
             {
@@ -275,6 +305,16 @@ namespace BAIby.Character
                 habitatFront.enabled = false;
             }
 
+            foreach (var layer in new[] { habitatHaze, habitatCastle })
+            {
+                if (layer == null)
+                    continue;
+                layer.sprite = null;
+                layer.enabled = false;
+            }
+
+            swimHeight = 0;
+            hazeShown = 0;
             foreach (var asset in habitatAssets)
                 Destroy(asset);
             habitatAssets.Clear();
@@ -511,8 +551,10 @@ namespace BAIby.Character
 
             var now = Time.unscaledTime;
             var sinceCue = now - cueStarted;
-            // A shy pet answers play (the wand, the wheel, a walk or fetch) with a quiet rest instead.
-            bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel || cue == PetVerb.Walk || cue == PetVerb.Fetch;
+            // A shy pet answers play (the wand, the wheel, a walk, fetch or following a finger) with a quiet rest instead.
+            bool play = cue == PetVerb.Wand || cue == PetVerb.Wheel || cue == PetVerb.Walk || cue == PetVerb.Fetch ||
+                cue == PetVerb.FollowFinger;
+            bool swims = swimHeight > 0;
             bool napping = (cue == PetVerb.Nap || cue == PetVerb.Rest || (shy && play)) && sinceCue < NapDuration;
             float targetRest = wantsRest || napping ? 1 : 0;
             restBlend = Mathf.MoveTowards(restBlend, targetRest, Time.unscaledDeltaTime * 1.6f);
@@ -532,7 +574,7 @@ namespace BAIby.Character
             float active = sinceCue < CueDuration ? Mathf.Sin(Mathf.Clamp01(sinceCue / CueDuration) * Mathf.PI) : 0;
             // A hamster's wheel run is a quicker, smaller bounce than a cat's pounce; a dog's walk is a brisk little trot.
             bool trot = cue == PetVerb.Wheel || cue == PetVerb.Walk;
-            float hop = play && !shy
+            float hop = play && !shy && !swims
                 ? Mathf.Abs(Mathf.Sin(sinceCue * (trot ? 13f : 7.5f))) * active * (trot ? .45f : 1f)
                 : 0;
             // The reunion welcome: a run of happy bounces, each a little lower than the last.
@@ -546,16 +588,41 @@ namespace BAIby.Character
                 hop = Mathf.Max(hop, height * PoseHeight() * pixelScale * (float)RuntimeScale() / .32f);
             }
             float purr = cue == PetVerb.Pet || cue == PetVerb.GentleHold ? Mathf.Sin(now * 30f) * active : 0;
-            float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl ? active : 0;
+            float eat = cue == PetVerb.Feed || cue == PetVerb.Bowl || cue == PetVerb.SprinkleFood ? active : 0;
             float groom = cue == PetVerb.Brush || cue == PetVerb.FluffBedding ? Mathf.Sin(sinceCue * 5f) * active : 0;
             float pop = Mathf.Clamp01(1 - (now - arrived) / .45f);
             float breath = Mathf.Sin(now * 2.1f) * Mathf.Lerp(.010f, .005f, resting);
 
             float scale = pixelScale * (float)RuntimeScale();
             float squash = 1 - .05f * eat + .03f * Mathf.Sin(pop * Mathf.PI);
-            rig.localPosition = new Vector3(visibleWidth * -.02f, floorY + .32f * hop - .02f * eat, 0);
-            rig.localRotation = Quaternion.Euler(0, 0, 3.5f * groom + .6f * purr);
-            rig.localScale = new Vector3(scale * (1 + breath * .5f + .02f * eat), scale * (squash + breath), 1);
+            float x = visibleWidth * -.02f;
+            float lift = 0;
+            float wiggle = 0;
+            float closer = 0;
+            if (swims)
+            {
+                // A fish floats above the pebbles with a gentle bob and a slow drift, and sinks to rest among the plants.
+                float unit = pixelScale / PixelsPerUnit;
+                lift = swimHeight * unit * Mathf.Lerp(1f, .3f, resting) + Mathf.Sin(now * 1.6f) * .05f * (1 - resting * .7f);
+                x += Mathf.Sin(now * .35f) * visibleWidth * .035f * (1 - resting);
+                // Following a finger: up to the glass, a little bigger, with a happy wiggle. A shy fish only watches.
+                float follow = cue == PetVerb.FollowFinger && !shy ? active : 0;
+                // The hello: back after a while, it swims to the glass and back.
+                float sinceHello = now - helloStarted;
+                float hello = sinceHello < 1.6f ? Mathf.Sin(Mathf.Clamp01(sinceHello / 1.6f) * Mathf.PI) : 0;
+                closer = Mathf.Max(follow, hello) * .12f;
+                wiggle = Mathf.Sin(now * 14f) * Mathf.Max(follow, hello) * 4f;
+                // A sprinkle of food: it rises towards the surface to nibble.
+                lift += eat * 40 * unit;
+                // A wipe or a water change: a happy little twirl in the fresh, clear water.
+                bool fresh = cue == PetVerb.WipeGlass || cue == PetVerb.WaterChange;
+                wiggle += fresh ? Mathf.Sin(sinceCue * 5f) * active * 6f : 0;
+                hazeShown = Mathf.MoveTowards(hazeShown, hazeTarget, Time.unscaledDeltaTime * .5f);
+            }
+
+            rig.localPosition = new Vector3(x, floorY + lift + .32f * hop - .02f * eat, 0);
+            rig.localRotation = Quaternion.Euler(0, 0, 3.5f * groom + .6f * purr + wiggle);
+            rig.localScale = new Vector3(scale * (1 + closer + breath * .5f + .02f * eat), scale * (1 + closer) * (squash + breath), 1);
 
             if (habitatBack.enabled)
             {
@@ -565,8 +632,18 @@ namespace BAIby.Character
                 habitatBack.transform.localScale = size;
                 habitatFront.transform.localPosition = place;
                 habitatFront.transform.localScale = size;
+                foreach (var layer in new[] { habitatHaze, habitatCastle })
+                {
+                    layer.transform.localPosition = place;
+                    layer.transform.localScale = size;
+                }
+
+                habitatHaze.enabled = habitatHaze.sprite != null && hazeShown > .01f;
+                habitatHaze.color = new Color(1, 1, 1, hazeShown);
             }
 
+            // A swimming pet has no contact shade on the floor.
+            shade.enabled = !swims;
             float shadeWidth = PoseWidth() * scale * Mathf.Lerp(.78f, .62f, hop);
             shade.transform.localPosition = new Vector3(visibleWidth * -.02f, floorY - .03f, 0);
             shade.transform.localScale = new Vector3(Mathf.Max(.4f, shadeWidth), .34f, 1);
@@ -577,7 +654,7 @@ namespace BAIby.Character
                 var height = PoseHeight() * scale * Mathf.Lerp(1f, .78f, resting);
                 var width = PoseWidth() * scale;
                 badge.localPosition = new Vector3(visibleWidth * -.02f + width * .32f,
-                    floorY + height + .18f + Mathf.Sin(now * 1.8f) * .03f, 0);
+                    floorY + lift + height + .18f + Mathf.Sin(now * 1.8f) * .03f, 0);
             }
         }
 

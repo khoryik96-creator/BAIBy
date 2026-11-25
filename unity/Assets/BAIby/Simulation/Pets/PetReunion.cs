@@ -51,6 +51,21 @@ namespace BAIby.Simulation.Pets
             : scale == ReunionScale.Zoomies ? 0.12
             : scale == ReunionScale.TailWag ? 0.06 : 0;
 
+        // A fish's signature moment (P4, docs/pet-mode.md: "Swims to the glass"): back after a while (the dog's first step,
+        // two hours since the last hands-on care), the fish swims straight to the glass to say hello. Display only, like
+        // the dog's welcome, and never about how long anyone was gone. The room lets a sleepy or poorly fish rest instead.
+        public static bool SwimsToGlass(PetState state, PetCatalog catalog)
+        {
+            if (state == null || catalog == null)
+                return false;
+            var swims = false;
+            foreach (var moment in catalog.Get(state.Species).Moments)
+                swims |= moment == PetMoment.SwimsToGlass;
+            return swims && TimeAway(state) >= TailWagAfter;
+        }
+
+        public static string GlassLine(string name) => $"{name} swims straight to the glass to say hello!";
+
         // The welcome line: warm, and never about how long anyone was gone.
         public static string Line(ReunionScale scale, string name)
         {

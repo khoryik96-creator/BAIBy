@@ -268,3 +268,83 @@ def dog_entries():
 
 def dog_eye_entries():
     return [{"name": k, "color": list(v)} for k, v in DOG_EYES.items()]
+
+
+# ---------------------------------------------------------------- fish (P4)
+# Placeholder fish colours per breed coat: ``main`` (region R: the body), ``secondary`` (region G: the fins and the light
+# belly, the Neon tetra's neon stripe, the Discus's wavy lines) and ``dark`` (the Angelfish's bars, the Koi's patches,
+# the Clownfish's bands and the Neon tetra's red rear, recoloured on their own: see fish.py).  Coats follow the fish
+# entries in PetCatalog.CreateDefault; the first coat per breed is its default.
+FISH_COATS = {
+    "Goldfish": {
+        "Orange": ((246, 150, 70), (254, 214, 160)),
+        "Red": ((232, 98, 76), (252, 190, 160)),
+        "White": ((250, 246, 240), (252, 226, 200)),
+        "Yellow": ((250, 204, 92), (254, 236, 178)),
+    },
+    "Guppy": {
+        "Blue": ((206, 220, 232), (96, 152, 226)),
+        "Orange": ((236, 226, 214), (246, 146, 74)),
+        "Yellow": ((236, 232, 214), (246, 208, 84)),
+        "Purple": ((226, 220, 236), (170, 124, 214)),
+    },
+    "Betta": {
+        "Red": ((214, 72, 84), (240, 112, 116)),
+        "Blue": ((72, 112, 204), (110, 156, 232)),
+        "Purple": ((136, 92, 186), (180, 138, 222)),
+        "White": ((248, 246, 244), (255, 250, 248)),
+    },
+    "NeonTetraSchool": {
+        "Blue": ((226, 232, 238), (64, 176, 236), (232, 82, 86)),
+        "Red": ((232, 230, 236), (80, 150, 232), (222, 70, 84)),
+    },
+    "Angelfish": {
+        "Silver": ((232, 234, 238), (244, 244, 246), (70, 70, 82)),
+        "Black": ((82, 80, 92), (118, 116, 130), (48, 46, 56)),
+        "Golden": ((246, 210, 120), (252, 232, 180), (206, 150, 72)),
+    },
+    "Koi": {
+        "White": ((250, 248, 244), (252, 244, 236), (232, 84, 64)),
+        "Orange": ((246, 156, 72), (252, 220, 176), (252, 248, 242)),
+        "Red": ((226, 84, 70), (248, 196, 176), (64, 60, 70)),
+        "Black": ((74, 72, 84), (150, 146, 160), (246, 156, 72)),
+    },
+    "Clownfish": {
+        "Orange": ((246, 132, 52), (250, 170, 96), (252, 250, 246)),
+        "Black": ((70, 66, 76), (110, 104, 116), (252, 250, 246)),
+    },
+    "Discus": {
+        "Blue": ((96, 168, 214), (54, 116, 186)),
+        "Red": ((222, 96, 84), (246, 170, 108)),
+        "Brown": ((180, 124, 82), (232, 176, 110)),
+    },
+}
+
+FISH_EYES = {
+    "Dark": (70, 74, 104),
+    "Amber": (196, 142, 64),
+    "Ruby": (192, 70, 82),
+}
+
+
+def fish_allowed_eyes(breed):
+    return ["Dark", "Ruby"] if breed in ("NeonTetraSchool", "Betta") else ["Dark", "Amber"]
+
+
+def fish_coat_colors(breed, coat):
+    cols = FISH_COATS[breed][coat]
+    return cols[0], cols[1], (cols[2] if len(cols) > 2 else cols[1])
+
+
+def fish_entries():
+    out = []
+    for breed, coats in FISH_COATS.items():
+        for coat in coats:
+            main, sec, dark = fish_coat_colors(breed, coat)
+            out.append({"breed": breed, "coat": coat, "main": list(main), "secondary": list(sec), "dark": list(dark),
+                        "eyes": "Dark", "allowedEyes": fish_allowed_eyes(breed)})
+    return out
+
+
+def fish_eye_entries():
+    return [{"name": k, "color": list(v)} for k, v in FISH_EYES.items()]

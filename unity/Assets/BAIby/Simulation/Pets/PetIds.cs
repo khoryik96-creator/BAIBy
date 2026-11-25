@@ -70,7 +70,8 @@ namespace BAIby.Simulation.Pets
         Exercise = 5, Bedding = 6, Water = 7, Calm = 8, Hay = 9, Litter = 10,
     }
 
-    // Care verbs. A verb shared by several species keeps one ID; its effect is per species.
+    // Care verbs. A verb shared by several species keeps one ID; its effect is per species. FollowFinger (P4) is the
+    // fish's together time: a finger traced along the glass, which the fish follows.
     public enum PetVerb
     {
         Feed = 0, Pet = 1, Wand = 2, Brush = 3, Nap = 4,
@@ -78,6 +79,7 @@ namespace BAIby.Simulation.Pets
         Bowl = 8, Wheel = 9, FluffBedding = 10, GentleHold = 11,
         SprinkleFood = 12, WipeGlass = 13, WaterChange = 14,
         Hay = 15, Greens = 16, Groom = 17, FloorTime = 18, Litter = 19,
+        FollowFinger = 20,
     }
 
     public enum PetMoment
@@ -109,7 +111,8 @@ namespace BAIby.Simulation.Pets
     // How a pet answered care. A species with a care profile uses the ladder's answers too: too full, swatting the
     // toy away when grumpy, too poorly to play, bored of the same game, medicine and the vet, and a shy skill back.
     // Napping: a hamster in its day nap sleeps on and the wheel waits for the evening (never a failure). NewTrick: a
-    // dog's game of fetch taught it a trick (P3, DogTricks).
+    // dog's game of fetch taught it a trick (P3, DogTricks). IgnoredFlakes: a full fish leaves the extra flakes, which
+    // cloud the water slightly (its overfeeding, P4).
     public enum PetCue
     {
         Content = 0, IgnoredFlakes = 1, TooFull = 2, PushesToyAway = 3, TooPoorly = 4, Bored = 5, MedicineTaken = 6,
