@@ -248,8 +248,8 @@ namespace BAIby.Presentation
                 ? $"{state.Name} is settled. A day nap through school hours, then dinner, wheel time and fresh bedding " +
                   "in the evening keep the routine."
                 : state.Species == Species.Dog
-                    ? $"{state.Name} is settled. Breakfast, a walk after school, dinner, a brush and an evening rest keep the " +
-                      "routine. A walk before school is a bonus: if school gets in the way, the evening walk keeps the day."
+                    ? $"{state.Name} is settled. Two meals, an evening walk, a brush and bed keep the routine. A morning walk " +
+                      "is a bonus."
                     : $"{state.Name} is settled. Two meals, playtime, a brush and the evening nap keep the routine."));
             if (session.HasHelpers)
                 UpdateRoutineHelpers(state.Name, true, session.FeederStock, session.FeederCapacity);
