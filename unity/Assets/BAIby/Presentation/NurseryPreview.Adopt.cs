@@ -16,9 +16,9 @@ namespace BAIby.Presentation
     public sealed partial class NurseryPreview
     {
         // Species in the order they arrive (docs/pet-mode.md decision 5). Only shipped species can be chosen: the cat (P1) and
-        // the hamster (P2).
+        // the hamster (P2) and the dog (P3).
         private static readonly Species[] SpeciesOrder = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish, Species.Rabbit };
-        private static readonly Species[] ShippedSpecies = { Species.Cat, Species.Hamster };
+        private static readonly Species[] ShippedSpecies = { Species.Cat, Species.Hamster, Species.Dog };
 
         private PetVisuals petStage;
         private ChoicePanel choice;
@@ -139,10 +139,11 @@ namespace BAIby.Presentation
                 return;
 
             var catalog = household.PetCatalog;
+            // A dog breed whose art is not ready (the Dachshund) is listed as arriving soon; other species list what ships.
             var breeds = new List<BreedDefinition>();
             foreach (var breed in catalog.BreedsOf(draftSpecies))
             {
-                if (breed.AvailableNow)
+                if (breed.AvailableNow || draftSpecies == Species.Dog)
                     breeds.Add(breed);
             }
 
@@ -172,7 +173,11 @@ namespace BAIby.Presentation
                 petAdoption.Feedback.text = CosmeticCatalog.LockedLine(locked);
             else if (petAdoption.Feedback.text.StartsWith("Part of the", StringComparison.Ordinal))
                 petAdoption.Feedback.text = string.Empty;
-            petStage.Show(DraftLook(), catalog, PetStage.Young, false);
+            var shown = DraftLook();
+            // A breed still arriving has no art: the preview keeps the species' free breed in its colours.
+            if (!catalog.Get(draftBreed).AvailableNow)
+                shown = PetAppearance.Default(catalog, FirstBreed(draftSpecies));
+            petStage.Show(shown, catalog, PetStage.Young, false);
         }
 
         private PetAppearance DraftLook()
@@ -291,6 +296,8 @@ namespace BAIby.Presentation
 
         private string BreedStatus(BreedDefinition breed, bool unlocked)
         {
+            if (!breed.AvailableNow)
+                return "Soon";
             switch (breed.Unlock)
             {
                 case BreedUnlock.Free: return "Free";
@@ -302,6 +309,8 @@ namespace BAIby.Presentation
         private string DescribeBreed(BreedDefinition breed, bool adoptable)
         {
             var name = BreedName(breed.Breed);
+            if (!breed.AvailableNow)
+                return $"{name} · Arriving soon. Its long, low body needs new art, so it's still on its way.";
             switch (breed.Unlock)
             {
                 case BreedUnlock.Free:
@@ -326,7 +335,9 @@ namespace BAIby.Presentation
                 case EarnedGoal.FirstFullCareDay:
                     return breed.Species == Species.Hamster
                         ? $"Earn it with a full care day for a {kind}: dinner, and wheel time or a gentle hold."
-                        : $"Earn it with a full care day for a {kind}: 2 meals, petting or play, and a nap.";
+                        : breed.Species == Species.Dog
+                            ? $"Earn it with a full care day for a {kind}: 2 meals, a walk or fetch, and an evening rest."
+                            : $"Earn it with a full care day for a {kind}: 2 meals, petting or play, and a nap.";
                 case EarnedGoal.Bond40:
                     return $"Earn it by reaching Bond {PetUnlocks.BondGoal:0} with any {kind} (best so far {progress.HighestBond:0}).";
                 case EarnedGoal.RaisedToGrown:
@@ -412,7 +423,7 @@ namespace BAIby.Presentation
                 portrait.sprite = Resources.Load<Sprite>("BAIby/Baby/Newborn");
                 portrait.preserveAspect = true;
                 portrait.enabled = portrait.sprite != null;
-                Pet = Card("Adopt a pet", "A pet", "A kitten or a hamster", content, 0.5f, 1, pet, Peach,
+                Pet = Card("Adopt a pet", "A pet", "A kitten, a hamster or a puppy", content, 0.5f, 1, pet, Peach,
                     out petDetail, out var petIcon);
                 var paw = Box("Adopt a pet paw area", petIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(-30, -30), new Vector2(30, 30));
@@ -431,7 +442,7 @@ namespace BAIby.Presentation
                 Baby.interactable = canAdoptBaby;
                 Pet.interactable = canAdoptPet;
                 babyDetail.text = canAdoptBaby ? "Raise a little one" : "No free nursery";
-                petDetail.text = canAdoptPet ? "A kitten or a hamster" : "No free pet room";
+                petDetail.text = canAdoptPet ? "A kitten, a hamster or a puppy" : "No free pet room";
             }
 
             private static Button Card(string name, string title, string detail, RectTransform content, float left, float right,
@@ -483,6 +494,11 @@ namespace BAIby.Presentation
             private readonly List<PickerTile> coatTiles = new List<PickerTile>();
             private Species? builtSpecies;
             private PetBreed? builtCoatsFor;
+            // The sheet's height before a third breed row adds to it, and the row height that addition uses.
+            private readonly RectTransform sheetRoot;
+            private readonly float baseSheetTop;
+            private const float BreedRow = 64;
+            private float breedExtra;
 
             public GameObject Root { get; }
             public InputField NameField { get; }
@@ -495,6 +511,8 @@ namespace BAIby.Presentation
                 this.chooseBreed = chooseBreed;
                 this.chooseCoat = chooseCoat;
                 Root = content.parent.gameObject;
+                sheetRoot = (RectTransform)content.parent;
+                baseSheetTop = sheetRoot.offsetMax.y;
                 heading = Label("Pet Adoption Heading", content, "", 38, Ink, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero, FontStyle.Bold);
                 FitText(heading, 26, 38);
@@ -503,7 +521,8 @@ namespace BAIby.Presentation
                 this.back.GetComponentInChildren<Text>().text = "Back";
                 PlaceFromTop((RectTransform)this.back.transform, 0.74f, 1, 0, 62, 3, 3);
 
-                // Rounded species tiles: the cat and the hamster are here (peach), the others are dimmed with "Arriving soon".
+                // Rounded species tiles: the cat, the hamster and the dog are here (peach), the others are dimmed with
+                // "Arriving soon".
                 speciesGroup = Group("Pet species page", content);
                 for (var i = 0; i < SpeciesOrder.Length; i++)
                 {
@@ -542,23 +561,21 @@ namespace BAIby.Presentation
                 }
 
                 var speciesNote = Label("Pet species detail", speciesGroup,
-                    "Cats and hamsters are here now. Hamsters nap all day and wake up in the evening. More friends are on their way.", 22,
+                    "Cats, hamsters and dogs are here now. Hamsters nap all day; dogs love a walk after school. " +
+                    "More friends are on their way.", 22,
                     Secondary, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
                 FitText(speciesNote, 15, 22);
                 PlaceFromTop(speciesNote.rectTransform, 0, 1, 262, 304);
 
                 breedGroup = Group("Pet breed page", content);
                 breedGrid = Box("Pet breed grid", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(breedGrid, 0, 1, 66, 194);
                 coatRow = Box("Pet coat row", breedGroup, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-                PlaceFromTop(coatRow, 0, 1, 198, 252);
                 breedDetail = Label("Pet breed detail", breedGroup, "", 21, Muted, TextAnchor.MiddleLeft,
                     Vector2.zero, Vector2.one, Vector2.zero);
                 FitText(breedDetail, 14, 21);
-                PlaceFromTop(breedDetail.rectTransform, 0, 1, 256, 306);
                 this.next = ActionButton("Breed next", breedGroup, 0.5f, 1, 0, 0, next, Fern, Color.white);
                 this.next.GetComponentInChildren<Text>().text = "Choose a name";
-                PlaceFromTop((RectTransform)this.next.transform, 0.5f, 1, 312, 378, 3, 0);
+                PlaceBreedPage(2);
 
                 nameGroup = Group("Pet name page", content);
                 nameHeading = Label("Pet name prompt", nameGroup, "", 24, Muted, TextAnchor.MiddleLeft,
@@ -604,7 +621,7 @@ namespace BAIby.Presentation
                 nameGroup.gameObject.SetActive(Page == 2);
                 heading.text = Page == 0 ? "Which pet?" : Page == 1 ? "Choose a breed" : "Welcome home";
                 // On the breed page the feedback shares the bottom row with the Next button.
-                PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 288 : 314, 378);
+                FitSheet();
             }
 
             public void FocusPage()
@@ -629,6 +646,28 @@ namespace BAIby.Presentation
                     pair.Value.image.color = pair.Key == species ? Peach : Mist;
             }
 
+            // Two breed rows fit the standard sheet; each further row (the dog's twelve breeds need three) makes the
+            // grid one row taller and the sheet grows with it, so every tile keeps room for its name and status.
+            private void PlaceBreedPage(int rows)
+            {
+                var extra = Mathf.Max(0, rows - 2) * BreedRow;
+                PlaceFromTop(breedGrid, 0, 1, 66, 194 + extra);
+                PlaceFromTop(coatRow, 0, 1, 198 + extra, 252 + extra);
+                PlaceFromTop(breedDetail.rectTransform, 0, 1, 256 + extra, 306 + extra);
+                PlaceFromTop((RectTransform)next.transform, 0.5f, 1, 312 + extra, 378 + extra, 3, 0);
+                breedExtra = extra;
+                FitSheet();
+            }
+
+            // Only the breed page is taller; the species and name pages keep the standard sheet.
+            private void FitSheet()
+            {
+                var extra = Page == 1 ? breedExtra : 0;
+                sheetRoot.offsetMax = new Vector2(sheetRoot.offsetMax.x, baseSheetTop + extra);
+                if (Feedback != null)
+                    PlaceFromTop(Feedback.rectTransform, 0, Page == 1 ? 0.49f : 1, Page == 2 ? 288 : 314 + extra, 378 + extra);
+            }
+
             public void ShowBreeds(Species species, IReadOnlyList<BreedDefinition> breeds, IReadOnlyList<string> statuses,
                 IReadOnlyList<bool> unlocked, PetBreed selected)
             {
@@ -637,6 +676,7 @@ namespace BAIby.Presentation
                     Clear(breedGrid, breedTiles);
                     builtCoatsFor = null;
                     var rows = Mathf.Max(1, (breeds.Count + BreedColumns - 1) / BreedColumns);
+                    PlaceBreedPage(rows);
                     for (var i = 0; i < breeds.Count; i++)
                     {
                         var breed = breeds[i].Breed;

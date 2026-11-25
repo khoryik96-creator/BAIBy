@@ -40,6 +40,8 @@ namespace BAIby.Simulation.Pets
         public JournalRecord Journal { get; }
         // How many of the species' milestones (PetCareProfile.Skills) the pet has reached, 0 to 3.
         public int Milestones { get; }
+        // A dog's familiarity with fetch, which teaches its tricks (DogTricks); 0 for every other species.
+        public int Tricks { get; }
 
         public Species Species => Appearance.Species;
         // The milestone that went shy in a setback, if any.
@@ -104,11 +106,15 @@ namespace BAIby.Simulation.Pets
         public static PetState Restore(PetCatalog catalog, string name, PetAppearance appearance, DateTimeOffset timeCheckpoint,
             TimeSpan age, IReadOnlyDictionary<PetMeter, double> meters, double bond, double highestBond,
             double liveliness, double boldness, bool isGrown, CareRecord care, DevelopmentRecord development,
-            BondRecord bonding, JournalRecord journal, int milestones)
+            BondRecord bonding, JournalRecord journal, int milestones, int tricks = 0)
         {
             var restored = Restore(catalog, name, appearance, timeCheckpoint, age, meters, bond, highestBond, liveliness,
                 boldness, isGrown);
+            if (tricks < 0 || tricks > DogTricks.MaxFamiliarity)
+                throw new ArgumentOutOfRangeException(nameof(tricks));
             var profile = PetCareProfile.For(appearance.Species);
+            if (tricks != 0 && profile?.TrickVerb == null)
+                throw new ArgumentException($"A {appearance.Species} learns no tricks.", nameof(tricks));
             if (profile == null)
             {
                 if (care != null || development != null || bonding != null || journal != null || milestones != 0)
@@ -129,7 +135,7 @@ namespace BAIby.Simulation.Pets
                 throw new ArgumentException("Only a milestone the pet has reached can go shy.", nameof(development));
 
             return restored.With(care: care, development: development, bonding: bonding, journal: journal,
-                milestones: milestones);
+                milestones: milestones, tricks: tricks);
         }
 
         internal PetState(string name, PetAppearance appearance, DateTimeOffset timeCheckpoint, TimeSpan age,
@@ -141,8 +147,10 @@ namespace BAIby.Simulation.Pets
 
         internal PetState(string name, PetAppearance appearance, DateTimeOffset timeCheckpoint, TimeSpan age,
             Dictionary<PetMeter, double> meters, double bond, double highestBond, double liveliness, double boldness, bool isGrown,
-            CareRecord care, DevelopmentRecord development, BondRecord bonding, JournalRecord journal, int milestones)
+            CareRecord care, DevelopmentRecord development, BondRecord bonding, JournalRecord journal, int milestones,
+            int tricks = 0)
         {
+            Tricks = tricks;
             Name = name;
             Appearance = appearance ?? throw new ArgumentNullException(nameof(appearance));
             TimeCheckpoint = timeCheckpoint;
@@ -165,10 +173,11 @@ namespace BAIby.Simulation.Pets
             Dictionary<PetMeter, double> meters = null, double? bond = null, double? highestBond = null,
             double? liveliness = null, double? boldness = null, bool? isGrown = null, CareRecord care = null,
             DevelopmentRecord development = null, BondRecord bonding = null, JournalRecord journal = null,
-            int? milestones = null) =>
+            int? milestones = null, int? tricks = null) =>
             new PetState(Name, Appearance, timeCheckpoint ?? TimeCheckpoint, age ?? Age, meters ?? this.meters,
                 bond ?? Bond, highestBond ?? HighestBond, liveliness ?? Liveliness, boldness ?? Boldness, isGrown ?? IsGrown,
-                care ?? Care, development ?? Development, bonding ?? Bonding, journal ?? Journal, milestones ?? Milestones);
+                care ?? Care, development ?? Development, bonding ?? Bonding, journal ?? Journal, milestones ?? Milestones,
+                tricks ?? Tricks);
 
         // Whether the milestone has been reached (a shy one is still reached), and whether it shows.
         public bool HasReached(MotorSkill skill)
@@ -215,7 +224,7 @@ namespace BAIby.Simulation.Pets
                 return this;
 
             return new PetState(Name, appearance, TimeCheckpoint, Age, meters, Bond, HighestBond, Liveliness, Boldness, IsGrown,
-                Care, Development, Bonding, Journal, Milestones);
+                Care, Development, Bonding, Journal, Milestones, Tricks);
         }
 
         // True when every character can be written to an XML save and read back unchanged: no

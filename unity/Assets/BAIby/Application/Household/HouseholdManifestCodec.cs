@@ -23,7 +23,8 @@ namespace BAIby.Application
         // means off, the default). The pet rooms' theme, when it is not Sage, is a <rooms pet-theme="2"/> element. First words waiting as a celebration sit in their own <talk-celebrations> element,
         // which a build without Talk time ignores (and drops: only the announcement is lost, the journal keeps them). A
         // hamster's milestones (wheel, tunnel, hand-tame: P2) wait in their own <hamster-celebrations> element the same
-        // way, so a build from before the hamster ignores them.
+        // way, so a build from before the hamster ignores them, and a dog's (fetch, leash walk, agility: P3) in their own
+        // <dog-celebrations> element.
         private const int Version = 2;
         private const int VersionBeforePets = 1;
 
@@ -49,9 +50,11 @@ namespace BAIby.Application
             var petCelebrations = new XElement("pet-celebrations");
             var talkCelebrations = new XElement("talk-celebrations");
             var hamsterCelebrations = new XElement("hamster-celebrations");
+            var dogCelebrations = new XElement("dog-celebrations");
             foreach (var celebration in manifest.Celebrations)
                 (celebration.Milestone == CompanionMilestone.FirstWords ? talkCelebrations
                     : IsHamsterMilestone(celebration.Milestone) ? hamsterCelebrations
+                    : IsDogMilestone(celebration.Milestone) ? dogCelebrations
                     : celebration.Milestone >= CompanionMilestone.Pounce ? petCelebrations : celebrations).Add(new XElement("celebration",
                     new XAttribute("slot", celebration.Slot),
                     new XAttribute("milestone", (int)celebration.Milestone)));
@@ -77,6 +80,8 @@ namespace BAIby.Application
                 root.Add(petCelebrations);
             if (hamsterCelebrations.HasElements)
                 root.Add(hamsterCelebrations);
+            if (dogCelebrations.HasElements)
+                root.Add(dogCelebrations);
             if (talkCelebrations.HasElements)
                 root.Add(talkCelebrations);
 
@@ -127,6 +132,13 @@ namespace BAIby.Application
                     var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
                     if (!IsHamsterMilestone(milestone))
                         throw new InvalidDataException("Only a hamster's milestones wait in hamster-celebrations.");
+                    celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), milestone));
+                }
+                foreach (var element in root.Element("dog-celebrations")?.Elements("celebration") ?? new XElement[0])
+                {
+                    var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
+                    if (!IsDogMilestone(milestone))
+                        throw new InvalidDataException("Only a dog's milestones wait in dog-celebrations.");
                     celebrations.Add(new PendingCelebration((int)Attribute(element, "slot"), milestone));
                 }
                 foreach (var element in Field(root, "celebrations").Elements("celebration"))
@@ -298,6 +310,10 @@ namespace BAIby.Application
 
         private static DateTimeOffset Instant(XAttribute ticks) => new DateTimeOffset((long)ticks, TimeSpan.Zero);
 
+        private static bool IsDogMilestone(CompanionMilestone milestone) =>
+            milestone == CompanionMilestone.Fetch || milestone == CompanionMilestone.LeashWalk ||
+            milestone == CompanionMilestone.Agility;
+
         private static bool IsHamsterMilestone(CompanionMilestone milestone) =>
             milestone == CompanionMilestone.Wheel || milestone == CompanionMilestone.Tunnel ||
             milestone == CompanionMilestone.HandTame;
@@ -307,7 +323,7 @@ namespace BAIby.Application
         private static CompanionMilestone Milestone(XElement element)
         {
             var milestone = (CompanionMilestone)(int)Attribute(element, "milestone");
-            if (milestone == CompanionMilestone.FirstWords || IsHamsterMilestone(milestone))
+            if (milestone == CompanionMilestone.FirstWords || IsHamsterMilestone(milestone) || IsDogMilestone(milestone))
                 throw new InvalidDataException("First words wait in talk-celebrations.");
             return milestone;
         }

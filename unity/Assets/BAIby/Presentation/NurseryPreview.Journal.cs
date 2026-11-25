@@ -658,6 +658,9 @@ namespace BAIby.Presentation
                     case MotorSkill.Wheel: return "First spin on the wheel";
                     case MotorSkill.Tunnel: return "Through the tunnel";
                     case MotorSkill.HandTame: return "Hand-tame";
+                    case MotorSkill.Fetch: return "First fetch";
+                    case MotorSkill.LeashWalk: return "Walking nicely on the lead";
+                    case MotorSkill.Agility: return "Agility star";
                     default: return "First steps";
                 }
             }
@@ -674,6 +677,9 @@ namespace BAIby.Presentation
                     case MotorSkill.Wheel: return "round and round and round";
                     case MotorSkill.Tunnel: return "in one end and out the other";
                     case MotorSkill.HandTame: return "climbed right into your hand";
+                    case MotorSkill.Fetch: return "ran after the ball and brought it right back";
+                    case MotorSkill.LeashWalk: return "trotting beside you all the way round the block";
+                    case MotorSkill.Agility: return "over the little jump and through the tunnel";
                     default: return "toddling towards a toy";
                 }
             }
@@ -691,7 +697,7 @@ namespace BAIby.Presentation
                     if (entry.Plays > 0)
                         parts.Add((HamsterShown ? "spare wheel " : "ball launcher ") + Times(entry.Plays));
                     if (entry.Tidies > 0)
-                        parts.Add((HamsterShown ? "litter corner " : "litter box ") + Times(entry.Tidies));
+                        parts.Add((HamsterShown ? "litter corner " : DogShown ? "doggy door " : "litter box ") + Times(entry.Tidies));
                     return new JournalRow("Gear", Mist, $"{DayWord(entry.Day)} · The helpers kept things steady",
                         $"{Date(entry.At)} · {string.Join(" · ", parts)}");
                 }

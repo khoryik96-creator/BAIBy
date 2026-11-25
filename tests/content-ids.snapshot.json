@@ -54,7 +54,8 @@
     "Morning": 0,
     "Afternoon": 1,
     "Evening": 2,
-    "Bedtime": 3
+    "Bedtime": 3,
+    "Dawn": 4
   },
   "CareMood": {
     "Content": 0,
@@ -107,7 +108,11 @@
     "PlayLate": 33,
     "PlayExcused": 34,
     "PlayOutsideWindow": 35,
-    "MealHelped": 36
+    "MealHelped": 36,
+    "WalkOnTime": 37,
+    "WalkLate": 38,
+    "WalkExcused": 39,
+    "WalkOutsideWindow": 40
   },
   "CareStyle": {
     "Standard": 0,
@@ -123,7 +128,8 @@
     "Medicine": 16,
     "Tidy": 32,
     "Comfort": 64,
-    "Play": 256
+    "Play": 256,
+    "Walk": 512
   },
   "CompanionKind": {
     "Baby": 0,
@@ -140,7 +146,10 @@
     "FirstWords": 7,
     "Wheel": 8,
     "Tunnel": 9,
-    "HandTame": 10
+    "HandTame": 10,
+    "Fetch": 11,
+    "LeashWalk": 12,
+    "Agility": 13
   },
   "DevelopmentTrack": {
     "Motor": 0,
@@ -165,7 +174,8 @@
     "ComfortSound": 7,
     "ExploreSound": 8,
     "PlayWand": 9,
-    "Talk": 10
+    "Talk": 10,
+    "Fetch": 11
   },
   "EntitlementSource": {
     "Store": 0,
@@ -249,7 +259,10 @@
     "HighJump": 6,
     "Wheel": 7,
     "Tunnel": 8,
-    "HandTame": 9
+    "HandTame": 9,
+    "Fetch": 10,
+    "LeashWalk": 11,
+    "Agility": 12
   },
   "NurseryTheme": {
     "Sage": 0,
@@ -367,7 +380,8 @@
     "VetVisited": 9,
     "VetAllClear": 10,
     "SkillBack": 11,
-    "Napping": 12
+    "Napping": 12,
+    "NewTrick": 13
   },
   "PetMeter": {
     "Fullness": 0,

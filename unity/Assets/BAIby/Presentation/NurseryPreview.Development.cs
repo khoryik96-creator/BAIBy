@@ -106,13 +106,26 @@ namespace BAIby.Presentation
                 SetMode(true);
                 age.text = ageText;
                 projection.text = ProjectionLine(pet.Name, growth, true);
-                projectionHint.text = ProjectionHint(pet.Name, growth, true, meals);
+                projectionHint.text = ProjectionHint(pet.Name, growth, true, meals) + TricksLine(pet);
                 ShowPace(growth);
                 var days = bonding?.Rhythm ?? 0;
                 rhythm.text = days == 1 ? "1 day" : $"{days} days";
                 bond.text = $"{Mathf.RoundToInt((float)pet.Bond)} / 100";
                 blockTowers.text = TrustWord(trust, pet.Bond);
                 Feedback.text = feedback;
+            }
+
+            // A dog's tricks (familiarity with fetch): the ones learned, and the games to the next.
+            private static string TricksLine(PetState pet)
+            {
+                if (PetCareProfile.For(pet.Species)?.TrickVerb == null)
+                    return string.Empty;
+                var learned = DogTricks.Names(pet.Tricks);
+                var next = DogTricks.GamesToNext(pet.Tricks);
+                var games = next == 1 ? "1 more game of fetch" : $"{next} more games of fetch";
+                if (learned.Count == 0)
+                    return $" Tricks: {games} to learn Sit.";
+                return $" Tricks: {string.Join(", ", learned)}" + (next > 0 ? $" ({games} to the next)." : ".");
             }
 
             private static string TrustWord(SecurityPhase trust, double bond)

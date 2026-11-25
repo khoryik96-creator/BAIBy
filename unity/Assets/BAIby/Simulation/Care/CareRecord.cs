@@ -231,7 +231,7 @@ namespace BAIby.Simulation
 
         public MomentStatus StatusOf(CareMoment moment)
         {
-            if (!Enum.IsDefined(typeof(CareMoment), moment))
+            if (!Enum.IsDefined(typeof(CareMoment), moment) || (int)moment >= moments.Length)
                 throw new ArgumentOutOfRangeException(nameof(moment));
 
             return moments[(int)moment];
@@ -251,7 +251,8 @@ namespace BAIby.Simulation
 
         public static MomentStatus[] ParseMoments(string code)
         {
-            if (code == null || code.Length != RoutineCalendar.MomentCount)
+            // Four letters, or five for a routine with a Dawn moment (a dog's); the record checks the routine's count.
+            if (code == null || code.Length < RoutineCalendar.MomentCount || code.Length > RoutineCalendar.MaxMoments)
                 throw new FormatException("Care moments need one letter per moment.");
 
             var statuses = new MomentStatus[code.Length];
@@ -381,6 +382,8 @@ namespace BAIby.Simulation
             if (ReferenceEquals(this, other))
                 return true;
 
+            if (moments.Length != other.moments.Length)
+                return false;
             for (var i = 0; i < moments.Length; i++)
             {
                 if (moments[i] != other.moments[i])
@@ -423,6 +426,7 @@ namespace BAIby.Simulation
             public TimeSpan WakeTime { get; set; } = RoutineCalendar.DefaultWakeTime;
             public RoutinePreset NextPreset { get; set; } = RoutinePreset.SchoolDay;
             public TimeSpan NextWakeTime { get; set; } = RoutineCalendar.DefaultWakeTime;
+            // One status per moment of the routine (CareRules sets five for a dog's).
             public MomentStatus[] Moments { get; set; } = new MomentStatus[RoutineCalendar.MomentCount];
             public bool TogetherToday { get; set; }
             public bool DayExcused { get; set; }
@@ -470,7 +474,9 @@ namespace BAIby.Simulation
                 if (!AwaitingAnchor &&
                     Math.Abs(CareDay - RoutineCalendar.CareDayOf(Checkpoint.UtcTicks, Offset, TimeSpan.Zero)) > CareDayTolerance)
                     throw new ArgumentOutOfRangeException(nameof(CareDay), "The care day does not match the checkpoint.");
-                if (Moments == null || Moments.Length != RoutineCalendar.MomentCount)
+                if (!Enum.IsDefined(typeof(CareRoutine), Routine))
+                    throw new ArgumentOutOfRangeException(nameof(Routine));
+                if (Moments == null || Moments.Length != RoutineCalendar.MomentsOf(Routine))
                     throw new ArgumentException("Care moments need one status per moment.", nameof(Moments));
                 foreach (var status in Moments)
                 {

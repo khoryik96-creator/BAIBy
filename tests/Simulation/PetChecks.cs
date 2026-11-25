@@ -212,8 +212,11 @@ static class PetChecks
                 Equal(BreedUnlock.Premium, breed.Unlock, $"{name} is premium");
                 Equal(expected.ProductId, breed.ProductId, $"{name} product ID");
                 Equal(expected.Art, breed.Art, $"{name} art tier");
-                // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2).
-                Equal(expected.Art == BreedArtTier.Recolor || breed.Breed == PetBreed.TeddyBear, breed.AvailableNow,
+                // Overlay art follows later, except the Teddy bear's long coat, which ships with the hamster (P2), and
+                // every dog but the Dachshund, whose overlays (the Corgi's scaled legs and ears too) ship with the dog (P3).
+                var shipsWithSpecies = breed.Breed == PetBreed.TeddyBear ||
+                    breed.Species == Species.Dog && breed.Breed != PetBreed.Dachshund;
+                Equal(expected.Art == BreedArtTier.Recolor || shipsWithSpecies, breed.AvailableNow,
                     $"{name} availability follows its art tier");
                 Equal<EarnedGoal?>(null, breed.Goal, $"{name} needs no goal");
             }
@@ -612,9 +615,10 @@ static class PetChecks
         var dog = sim.Adopt("Rex", PetAppearance.Default(Catalog, PetBreed.MixedBreed), Start);
         var walked = sim.ApplyCare(dog, PetVerb.Walk).State;
         Equal(100.0, walked.Meter(PetMeter.Exercise), "walk exercises the dog");
-        Equal(70.0, walked.Meter(PetMeter.Energy), "walk tires the dog");
-        Equal(85.0, walked.Meter(PetMeter.Cleanliness), "walk gets the dog a little muddy");
-        Equal(true, sim.ApplyCare(dog, PetVerb.Fetch).State.Bond > walked.Bond, "fetch builds more Bond than a walk");
+        Equal(72.0, walked.Meter(PetMeter.Energy), "walk tires the dog");
+        Equal(87.0, walked.Meter(PetMeter.Cleanliness), "walk gets the dog a little muddy");
+        // P3: a walk is together time that comforts, so it builds more Bond than a game of fetch.
+        Equal(true, sim.ApplyCare(dog, PetVerb.Fetch).State.Bond < walked.Bond, "a walk builds more Bond than fetch");
 
         var hamster = sim.Adopt("Nib", PetAppearance.Default(Catalog, PetBreed.SyrianGolden), Start);
         var wheel = sim.ApplyCare(hamster, PetVerb.Wheel).State;

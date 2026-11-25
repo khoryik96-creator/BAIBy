@@ -34,7 +34,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from cat import BREEDS, POSES, REF_ACCENT, REF_COAT, REF_IRIS, REF_MARK, RUNTIME_SCALE, WEAR  # noqa: E402
-from palette import breed_entries, collar_entries, eye_entries, hamster_entries, hamster_eye_entries  # noqa: E402
+from palette import (breed_entries, collar_entries, dog_entries, dog_eye_entries, eye_entries, hamster_entries,  # noqa: E402
+                     hamster_eye_entries)
 
 sys.path.insert(0, str(HERE.parent / "appearance"))
 from recolor import composite  # noqa: E402  (the baby contract composite)
@@ -43,7 +44,7 @@ ROOT = HERE.parent.parent
 PETS_DIR = ROOT / "unity" / "Assets" / "Resources" / "BAIby" / "Pets"
 OUT_DIR = PETS_DIR / "Cat"
 MARGIN = 4
-SPECIES = ["Cat", "Hamster"]
+SPECIES = ["Cat", "Hamster", "Dog"]
 HAB_W, HAB_H, HAB_FLOOR = 760, 480, 64   # habitat.W, habitat.H, habitat.FLOOR
 
 FILE_META = """fileFormatVersion: 2
@@ -199,8 +200,64 @@ class HamsterSpec:
         return {"coats": hamster_entries(), "eyes": hamster_eye_entries(), "collarAccents": []}
 
 
+class DogSpec:
+    """The dog (P3): every shipped breed's ears (and markings) are a feature overlay, the Beagle's saddle and the
+    Dalmatian's spots are dark overlays, and the Corgi stands on its own short-legged base (``Base/Corgi{Pose}``),
+    with its ears and blaze and the neck wear drawn for those poses too."""
+    name = "Dog"
+
+    def __init__(self):
+        import dog
+        self.d = dog
+        self.poses = dog.ALL_POSES
+        self.features = ("Markings/",)
+
+    def _breeds(self, pose):
+        return [self.d.VARIANT] if pose.startswith(self.d.VARIANT) else [b for b in self.d.BREEDS if b != self.d.VARIANT]
+
+    def _plain(self, pose):
+        return pose[len(self.d.VARIANT):] if pose.startswith(self.d.VARIANT) else pose
+
+    def jobs(self, pose):
+        jobs = [(pose, "marking", b) for b in self._breeds(pose)]
+        jobs += [(pose, "darkpatch", b) for b in self._breeds(pose) if b in self.d.DARK]
+        jobs += [(pose, "wear", w) for w in self.d.WEAR]
+        return jobs
+
+    def overlays(self, pose):
+        plain = self._plain(pose)
+        out = [(f"Markings/{b}/{plain}", (pose, "marking", b), "secondary") for b in self._breeds(pose)]
+        out += [(f"Markings/{b}/{plain}Dark", (pose, "darkpatch", b), "dark") for b in self._breeds(pose)
+                if b in self.d.DARK]
+        out += [(f"Accessories/{w}/{pose}", (pose, "wear", w), "secondary") for w in self.d.WEAR]
+        return out
+
+    def kinds(self):
+        return [f"Markings/{b}" for b in self.d.BREEDS] + [f"Accessories/{w}" for w in self.d.WEAR]
+
+    def layout_head(self):
+        d = self.d
+        return {
+            "placeholder": True,
+            "species": "Dog",
+            "reference": {
+                "coat": list(d.REF_COAT),
+                "markings": list(d.REF_MARK),
+                "eyes": list(d.REF_IRIS),
+                "accent": list(d.REF_ACCENT),
+            },
+            "runtimeScale": {"young": d.RUNTIME_SCALE["Young"], "grown": d.RUNTIME_SCALE["Grown"]},
+            # breeds drawn on their own base poses ("Corgi" + pose): the Corgi's short legs
+            "breedBases": [d.VARIANT],
+        }
+
+    @staticmethod
+    def palette():
+        return {"coats": dog_entries(), "eyes": dog_eye_entries(), "collarAccents": collar_entries()}
+
+
 def spec_for(name):
-    return CatSpec() if name == "Cat" else HamsterSpec()
+    return CatSpec() if name == "Cat" else HamsterSpec() if name == "Hamster" else DogSpec()
 
 
 def render_job(job):
@@ -208,8 +265,10 @@ def render_job(job):
     species, pose, kind, name = job
     if species == "Cat":
         from poses import render
-    else:
+    elif species == "Hamster":
         from hamster import render
+    else:
+        from dog import render
     if kind == "base":
         cv = render(pose)
         return job, cv.image()

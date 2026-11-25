@@ -775,11 +775,12 @@ namespace BAIby.Tests
             var view = NurseryStartup.StartPreview(saveKey);
             yield return null;
 
-            // Who's joining your home? A pet: the cat and the hamster have arrived, the others are dimmed.
+            // Who's joining your home? A pet: the cat, the hamster and the dog have arrived, the others are dimmed.
             Tap(view.gameObject, "Adopt a pet");
             Assert.That(Child<RectTransform>(view.gameObject, "Pet Adoption Panel").gameObject.activeInHierarchy, Is.True);
-            Assert.That(Child<Button>(view.gameObject, "Species Dog").interactable, Is.False, "an unshipped species is dimmed");
-            Assert.That(Child<Text>(view.gameObject, "Species Dog Note").text, Is.EqualTo("Arriving soon"));
+            Assert.That(Child<Button>(view.gameObject, "Species Fish").interactable, Is.False, "an unshipped species is dimmed");
+            Assert.That(Child<Text>(view.gameObject, "Species Fish Note").text, Is.EqualTo("Arriving soon"));
+            Assert.That(Child<Text>(view.gameObject, "Species Dog Note").text, Is.EqualTo("Here now"));
             Tap(view.gameObject, "Species Cat");
 
             // Locked breeds can be previewed but not chosen; the free starter can.
@@ -1027,6 +1028,98 @@ namespace BAIby.Tests
             Assert.That(HasObject(view.gameObject, "Home card Nib Species"), Is.True);
             Assert.That(Child<Image>(view.gameObject, "Home card Nib Portrait").sprite, Is.Not.Null);
             Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet version=\"2\"><name>Nib</name><species>4</species>"));
+        }
+
+        // P3 on a fake clock: a dog adopted through the species row and the breed picker (an earned Golden, the premium
+        // Corgi, the Dachshund arriving soon, the free mixed breed adopted), its two-walk routine strip, the biggest welcome
+        // after a long weekend away, a morning walk and breakfast on time, the evening walk, a trick from games of fetch,
+        // its first fetch in the bubble and the journal, Growth's tricks line and its Home card.
+        [UnityTest]
+        public IEnumerator DogWalksTwiceLearnsATrickAndGreetsItsFamily()
+        {
+            previousScene = SceneManager.GetActiveScene();
+            const string scenePath = "Assets/Scenes/Nursery";
+            yield return SceneManager.LoadSceneAsync(scenePath, LoadSceneMode.Additive);
+            nurseryScene = SceneManager.GetSceneAt(SceneManager.sceneCount - 1);
+            Assert.That(SceneManager.SetActiveScene(nurseryScene), Is.True);
+
+            saveKey = "baiby.playmode." + Guid.NewGuid().ToString("N");
+            var clock = new DateTimeOffset(2026, 3, 2, 7, 30, 0, TimeSpan.Zero);
+            var view = NurseryStartup.StartPreview(saveKey, () => clock);
+            yield return null;
+            Tap(view.gameObject, "Adopt a pet");
+            Assert.That(Child<Button>(view.gameObject, "Species Dog").interactable, Is.True, "the dog has arrived");
+            Tap(view.gameObject, "Species Dog");
+            Tap(view.gameObject, "Breed Golden");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "an earned dog waits for its goal");
+            Assert.That(Child<Text>(view.gameObject, "Pet breed detail").text, Does.Contain("a walk or fetch"));
+            Tap(view.gameObject, "Breed Corgi");
+            Assert.That(Child<Text>(view.gameObject, "Breed Corgi Status").text, Is.EqualTo("Premium"), "the Corgi is premium");
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "a premium breed is not owned on the Web");
+            var corgi = Child<SpriteRenderer>(view.gameObject, "Pet awake artwork");
+            Assert.That(corgi.enabled && corgi.sprite != null, Is.True, "the Corgi can be previewed");
+            Tap(view.gameObject, "Breed Dachshund");
+            Assert.That(Child<Text>(view.gameObject, "Breed Dachshund Status").text, Is.EqualTo("Soon"));
+            Assert.That(Child<Text>(view.gameObject, "Pet breed detail").text, Does.Contain("Arriving soon"));
+            Assert.That(Child<Button>(view.gameObject, "Breed next").interactable, Is.False, "a breed still arriving can't be chosen");
+            Tap(view.gameObject, "Breed Mixed breed");
+            Tap(view.gameObject, "Breed next");
+            Child<InputField>(view.gameObject, "Pet Name").text = "Biscuit";
+            Tap(view.gameObject, "Adopt pet");
+
+            Assert.That(Child<Text>(view.gameObject, "Baby Name").text, Is.EqualTo("Biscuit"));
+            Assert.That(Child<Text>(view.gameObject, "Age").text, Does.Contain("Puppy"));
+            Assert.That(Child<RectTransform>(view.gameObject, "Pet need 3").Find("Label").GetComponent<Text>().text,
+                Is.EqualTo("Exercise"), "the room shows the dog's own meters");
+            Assert.That(HasObject(view.gameObject, "Routine Walk") && HasObject(view.gameObject, "Routine Breakfast") &&
+                HasObject(view.gameObject, "Routine Dinner") && HasObject(view.gameObject, "Routine Bed") &&
+                HasObject(view.gameObject, "Routine Brush"), Is.True, "the strip shows the dog's day with its walks");
+
+            // A long weekend later: the biggest welcome, then a morning walk and breakfast on time.
+            clock = new DateTimeOffset(2026, 3, 5, 7, 10, 0, TimeSpan.Zero);
+            Tap(view.gameObject, "Home");
+            Tap(view.gameObject, "Home card Biscuit");
+            var bubbles = new List<string> { Child<Text>(view.gameObject, "Pet Reaction").text };
+            Assert.That(bubbles[0], Does.Contain("biggest welcome"), "the welcome grows with the time away");
+            Tap(view.gameObject, "Pet care Walk");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Assert.That(bubbles[1], Does.Contain("morning walk"));
+            Tap(view.gameObject, "Pet care Feed");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("right on time"));
+
+            // After school: the evening walk, and games of fetch teach a trick.
+            clock = new DateTimeOffset(2026, 3, 5, 16, 0, 0, TimeSpan.Zero);
+            Tap(view.gameObject, "Pet care Walk");
+            Assert.That(Child<Text>(view.gameObject, "Pet Reaction").text, Does.Contain("Walkies"));
+            Tap(view.gameObject, "Pet care Fetch");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Tap(view.gameObject, "Pet care Fetch");
+            bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            Assert.That(bubbles.Last(), Does.Contain("new trick: Sit"), "two games of fetch teach Sit");
+
+            for (var day = 0; day < 5 && !bubbles.Any(text => text.Contains("Fetch!")); day++)
+            {
+                clock = clock.AddMinutes(1);
+                Tap(view.gameObject, "Pet preview next day");
+                bubbles.Add(Child<Text>(view.gameObject, "Pet Reaction").text);
+            }
+
+            Assert.That(bubbles.Any(text => text.Contains("Fetch!")), Is.True, "the first fetch is celebrated");
+            Tap(view.gameObject, "Pet growth");
+            Assert.That(view.GetComponentsInChildren<Text>(true).Any(text => text.text.Contains("Tricks: Sit")), Is.True,
+                "Growth lists the tricks");
+            Tap(view.gameObject, "Journal");
+            var titles = Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)).ToList();
+            if (Child<Button>(view.gameObject, "Older journal page").interactable)
+                Tap(view.gameObject, "Older journal page");
+            titles.AddRange(Enumerable.Range(1, 4).Select(row => JournalRow(view.gameObject, row)));
+            Assert.That(titles.Any(title => title.Contains("First fetch")), Is.True, "the first fetch is in the journal");
+            Tap(view.gameObject, "Close journal");
+            Tap(view.gameObject, "Done");
+
+            Tap(view.gameObject, "Home");
+            Assert.That(Child<Image>(view.gameObject, "Home card Biscuit Portrait").sprite, Is.Not.Null);
+            Assert.That(PlayerPrefs.GetString(saveKey + ".slot2"), Does.StartWith("<pet version=\"2\"><name>Biscuit</name><species>1</species>"));
         }
 
         // Helpers (monetization M4) on a fake clock: Grown-ups, behind the gate, adds the test helpers; the Routine sheet

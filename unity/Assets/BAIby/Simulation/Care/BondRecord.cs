@@ -14,8 +14,9 @@ namespace BAIby.Simulation
     {
         public const double AxisMin = -60;
         public const double AxisMax = 100;
-        // Play-like engagement kinds a day can count towards Curiosity (bits of EngagementKind).
-        public const int KindMask = (1 << 10) - 1;
+        // Play-like engagement kinds a day can count towards Curiosity (bits of EngagementKind): the first ten, and a
+        // dog's fetch (P3). Talk time is never a play kind.
+        public const int KindMask = (1 << 10) - 1 | 1 << (int)EngagementKind.Fetch;
         private static readonly long LastCareDay = DateTime.MaxValue.Ticks / TimeSpan.TicksPerDay;
 
         // The highest Bond ever reached. Bond never falls below a share of it, and gains below it count double.

@@ -9,7 +9,8 @@ namespace BAIby.Presentation
 {
     // Helpers (monetization M4): a safety net, not a carer. For a baby they are the Sitter, who pops in; for a cat they
     // are objects (an auto-feeder, a ball launcher, a self-cleaning litter box), and for a hamster a seed dispenser, a
-    // spare wheel and a self-cleaning litter corner. What shows:
+    // spare wheel and a self-cleaning litter corner, and for a dog an auto-feeder, a ball launcher and a doggy door with a
+    // paw mat. No helper ever walks a dog: the walk windows always ask for a walk. What shows:
     // - a small floor marker on each need ring an active helper holds;
     // - the return summary in the speech bubble, helper events first and the attention line last;
     // - muted journal days (NurseryPreview.Journal.cs);
@@ -188,8 +189,8 @@ namespace BAIby.Presentation
                 if (plays > 0)
                     parts.Add(plays == 1 ? "the ball launcher kept them busy" : $"the ball launcher kept them busy {plays} times");
                 if (tidies > 0)
-                    parts.Add("the litter box cleaned itself");
-                return "While you were busy, " + Join(parts) + ".";
+                    parts.Add(DogShown ? "the doggy door's paw mat kept them clean" : "the litter box cleaned itself");
+                return "While you were busy, " + Join(parts) + "." + (DogShown ? " Walks still need you." : "");
             }
 
             // The Sitter pops in: one subject, and the baby's name in the first thing they did.
@@ -206,6 +207,7 @@ namespace BAIby.Presentation
         private static string AttentionLine(string name, bool pet) =>
             !pet ? $"{name} missed you; a cuddle or story will help."
                 : HamsterShown ? $"{name} missed you; a gentle hold or wheel time will help."
+                : DogShown ? $"{name} missed you; a walk or a game of fetch will help."
                 : $"{name} missed you; some petting or wand play will help.";
 
         private static string Times(int count) => count == 1 ? "" : count == 2 ? " twice" : $" {count} times";
@@ -223,7 +225,7 @@ namespace BAIby.Presentation
             {
                 case HelperKind.Feeder: return pet ? HamsterShown ? "The seed dispenser" : "The auto-feeder" : "Feeding";
                 case HelperKind.Play: return pet ? HamsterShown ? "The spare wheel" : "The ball launcher" : "Play";
-                default: return pet ? HamsterShown ? "The litter corner" : "The litter box" : "Tidy";
+                default: return pet ? HamsterShown ? "The litter corner" : DogShown ? "The doggy door" : "The litter box" : "Tidy";
             }
         }
 
@@ -243,7 +245,9 @@ namespace BAIby.Presentation
                     : HamsterShown ? $"Seed dispenser: {stock} of {capacity} portions." : $"Auto-feeder: {stock} of {capacity} portions.";
             else
                 line = !pet ? "The Sitter pops in to play and tidy."
-                    : HamsterShown ? "The spare wheel and litter corner are on." : "The ball launcher and litter box are on.";
+                    : HamsterShown ? "The spare wheel and litter corner are on."
+                    : DogShown ? "The ball launcher and doggy door are on. Walks always need you."
+                    : "The ball launcher and litter box are on.";
             routine.ShowHelpers(HelperCopyFor(name), line, settings.Feeder,
                 pet ? (stock >= capacity ? "Feeder full" : "Fill the feeder") : (stock >= capacity ? "Bottles ready" : "Leave bottles"),
                 stock < capacity);
@@ -389,7 +393,8 @@ namespace BAIby.Presentation
                 Feedback.text = string.Empty;
                 var owned = household.OwnsAnyHelper;
                 var text = copy + " For a baby the Sitter pops in; a cat has an auto-feeder, a ball launcher and a " +
-                    "self-cleaning litter box, and a hamster a seed dispenser, a spare wheel and a self-cleaning litter corner. " +
+                    "self-cleaning litter box, a hamster a seed dispenser, a spare wheel and a self-cleaning litter corner, " +
+                    "and a dog an auto-feeder, a ball launcher and a doggy door (walks always need you). " +
                     "They act only when a need runs low, and never count as care.";
                 if (!owned)
                     text += playtest == null

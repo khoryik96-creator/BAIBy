@@ -19,13 +19,15 @@ namespace BAIby.Simulation
         // Play that answers a timed play window (a cat's wand play), with Together. 128 stays unused: the care checks
         // keep it as an unknown tag.
         Play = 256,
+        // A walk that answers a dog's walk windows (P3), with Together. A walk is never automated: no helper carries it.
+        Walk = 512,
     }
 
     // A species' care data: its stable verb IDs and the tags each one carries.
     public sealed class CareProfile
     {
         private const CareTags AllTags = CareTags.Meal | CareTags.Together | CareTags.Hygiene |
-            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy | CareTags.Comfort | CareTags.Play;
+            CareTags.Bedtime | CareTags.Medicine | CareTags.Tidy | CareTags.Comfort | CareTags.Play | CareTags.Walk;
         private readonly Dictionary<string, CareTags> verbs;
 
         public string Species { get; }

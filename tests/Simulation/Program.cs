@@ -956,6 +956,7 @@ GrowthChecks.Run();
 BondChecks.Run();
 CatCareChecks.Run();
 HamsterCareChecks.Run();
+DogCareChecks.Run();
 HelperChecks.Run();
 TalkChecks.Run();
 CosmeticChecks.Run();
