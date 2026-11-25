@@ -1126,7 +1126,8 @@ namespace BAIby.Tests
         // P4 on a fake clock: a fish adopted through the species row and the breed picker (an earned Guppy, the premium Neon
         // tetra school previewed, the free Goldfish adopted), its tank, its one-visit routine strip, swimming to the glass to
         // say hello the next morning, a morning hello and the day's sprinkle on time, extra flakes ignored, glass time, a
-        // wipe, a water change and lights off, its first dart to the glass in the bubble and the journal, and its Home card.
+        // quick wipe of the glass, a water change and lights off, its first dart to the glass in the bubble and the journal,
+        // and its Home card.
         [UnityTest]
         public IEnumerator FishSwimsToTheGlassAndKeepsItsWaterFresh()
         {
@@ -1189,8 +1190,15 @@ namespace BAIby.Tests
             clock = new DateTimeOffset(2026, 3, 3, 16, 0, 0, TimeSpan.Zero);
             bubbles.Add(Said(view.gameObject, "Pet care FollowFinger"));
             Assert.That(bubbles.Last(), Does.Contain("Glass time!"));
-            bubbles.Add(Said(view.gameObject, "Pet care WipeGlass"));
+            // Wiping the glass is a little wipe gesture with a one-tap Quick wipe, like the diaper cleanup.
+            Tap(view.gameObject, "Pet care WipeGlass");
+            Assert.That(Child<RectTransform>(view.gameObject, "Glass wipe mat").gameObject.activeInHierarchy, Is.True,
+                "the wipe sheet opens");
+            Assert.That(Child<Button>(view.gameObject, "Finish glass").interactable, Is.False, "Done waits for the smudges");
+            bubbles.Add(Said(view.gameObject, "Quick wipe glass"));
             Assert.That(bubbles.Last(), Does.Contain("sparkly clean"));
+            Assert.That(Child<RectTransform>(view.gameObject, "Glass wipe mat").gameObject.activeInHierarchy, Is.False,
+                "and closes once the glass is clean");
             bubbles.Add(Said(view.gameObject, "Pet care WaterChange"));
             Assert.That(bubbles.Last(), Does.Contain("Fresh, clear water"));
             clock = new DateTimeOffset(2026, 3, 3, 20, 0, 0, TimeSpan.Zero);

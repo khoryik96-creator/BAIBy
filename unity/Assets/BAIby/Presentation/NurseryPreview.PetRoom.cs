@@ -59,6 +59,7 @@ namespace BAIby.Presentation
             petNextDay = ActionButton("Pet preview next day", panel, 0, 1, 0, 0, PreviewPetNextDay, Paper, Ink);
             WithIcon(petNextDay, "Next day", "NextDay", Ink);
             BuildPetCareControls(panel);
+            BuildGlassPanel();
 
             petBubbleRect = Box("Pet Speech Bubble", petCare.transform, new Vector2(0.5f, 1), new Vector2(0.5f, 1),
                 Vector2.zero, Vector2.zero);
@@ -372,8 +373,10 @@ namespace BAIby.Presentation
             for (var i = 0; i < verbs.Count && i < 6; i++)
             {
                 var verb = verbs[i].Verb;
+                // A fish's wipe of the glass is a little wipe gesture (with a one-tap Quick wipe); every other verb is a tap.
+                Action act = verb == PetVerb.WipeGlass ? (Action)OpenGlassWipe : () => CarePet(verb);
                 var button = CareTile("Pet care " + verb, petVerbArea, VerbTitle(verb, species), VerbIcon(verb),
-                    TileTints[i % TileTints.Length], () => CarePet(verb));
+                    TileTints[i % TileTints.Length], act);
                 petVerbButtons.Add(button);
             }
 

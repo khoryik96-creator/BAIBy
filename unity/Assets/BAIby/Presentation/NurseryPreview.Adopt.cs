@@ -250,6 +250,7 @@ namespace BAIby.Presentation
             choice.Root.SetActive(view == HouseholdView.Choose);
             petAdoption.Root.SetActive(view == HouseholdView.PetAdoption);
             petCare.SetActive(view == HouseholdView.PetRoom && petPanel == PetPanel.Care);
+            glass?.Root.SetActive(view == HouseholdView.PetRoom && petPanel == PetPanel.Glass);
             ApplyPetPanels();
             foreach (var meter in petMeters)
                 meter.Root.gameObject.SetActive(view == HouseholdView.PetRoom && meter.Shown);

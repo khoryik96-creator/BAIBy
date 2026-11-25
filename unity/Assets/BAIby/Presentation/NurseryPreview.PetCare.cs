@@ -41,7 +41,7 @@ namespace BAIby.Presentation
         // A photo catches the moment of the last care for this long, as for the baby.
         private const float PetMomentSeconds = 120;
 
-        private enum PetPanel { Care, Routine, Growth, Journal, Vet, Decor }
+        private enum PetPanel { Care, Routine, Growth, Journal, Vet, Decor, Glass }
 
         private PetPanel petPanel;
         private Button petRoutineButton;
@@ -165,6 +165,9 @@ namespace BAIby.Presentation
                     break;
                 case PetPanel.Vet:
                     (doctor.Visit.gameObject.activeSelf ? doctor.Visit : doctor.Done).Select();
+                    break;
+                case PetPanel.Glass:
+                    glass.StartControl.Select();
                     break;
                 case PetPanel.Decor:
                     var pet = companion.PetState;
