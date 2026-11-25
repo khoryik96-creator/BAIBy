@@ -16,9 +16,9 @@ namespace BAIby.Presentation
     public sealed partial class NurseryPreview
     {
         // Species in the order they arrive (docs/pet-mode.md decision 5). Only shipped species can be chosen: the cat (P1) and
-        // the hamster (P2), the dog (P3) and the fish (P4).
+        // the hamster (P2), the dog (P3), the fish (P4) and the rabbit (P5): every species is here now.
         private static readonly Species[] SpeciesOrder = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish, Species.Rabbit };
-        private static readonly Species[] ShippedSpecies = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish };
+        private static readonly Species[] ShippedSpecies = { Species.Cat, Species.Hamster, Species.Dog, Species.Fish, Species.Rabbit };
 
         private PetVisuals petStage;
         private ChoicePanel choice;
@@ -340,6 +340,8 @@ namespace BAIby.Presentation
                             ? $"Earn it with a full care day for a {kind}: 2 meals, a walk or fetch, and an evening rest."
                         : breed.Species == Species.Fish
                             ? $"Earn it with a full care day for a {kind}: a sprinkle of food, glass time and lights off."
+                        : breed.Species == Species.Rabbit
+                            ? $"Earn it with a full care day for a {kind}: greens and hay, and floor time or a groom."
                             : $"Earn it with a full care day for a {kind}: 2 meals, petting or play, and a nap.";
                 case EarnedGoal.Bond40:
                     return $"Earn it by reaching Bond {PetUnlocks.BondGoal:0} with any {kind} (best so far {progress.HighestBond:0}).";
@@ -426,7 +428,7 @@ namespace BAIby.Presentation
                 portrait.sprite = Resources.Load<Sprite>("BAIby/Baby/Newborn");
                 portrait.preserveAspect = true;
                 portrait.enabled = portrait.sprite != null;
-                Pet = Card("Adopt a pet", "A pet", "A kitten, a hamster, a puppy or a fish", content, 0.5f, 1, pet, Peach,
+                Pet = Card("Adopt a pet", "A pet", "A kitten, a hamster, a puppy, a fish or a bunny", content, 0.5f, 1, pet, Peach,
                     out petDetail, out var petIcon);
                 var paw = Box("Adopt a pet paw area", petIcon, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                     new Vector2(-30, -30), new Vector2(30, 30));
@@ -445,7 +447,7 @@ namespace BAIby.Presentation
                 Baby.interactable = canAdoptBaby;
                 Pet.interactable = canAdoptPet;
                 babyDetail.text = canAdoptBaby ? "Raise a little one" : "No free nursery";
-                petDetail.text = canAdoptPet ? "A kitten, a hamster, a puppy or a fish" : "No free pet room";
+                petDetail.text = canAdoptPet ? "A kitten, a hamster, a puppy, a fish or a bunny" : "No free pet room";
             }
 
             private static Button Card(string name, string title, string detail, RectTransform content, float left, float right,
@@ -524,7 +526,7 @@ namespace BAIby.Presentation
                 this.back.GetComponentInChildren<Text>().text = "Back";
                 PlaceFromTop((RectTransform)this.back.transform, 0.74f, 1, 0, 62, 3, 3);
 
-                // Rounded species tiles: the cat, the hamster, the dog and the fish are here (peach), the rabbit is dimmed
+                // Rounded species tiles: every species is here (peach). A species listed but not shipped would be dimmed
                 // with "Arriving soon".
                 speciesGroup = Group("Pet species page", content);
                 for (var i = 0; i < SpeciesOrder.Length; i++)
@@ -564,8 +566,8 @@ namespace BAIby.Presentation
                 }
 
                 var speciesNote = Label("Pet species detail", speciesGroup,
-                    "Cats, hamsters, dogs and fish are here now. Hamsters nap all day; dogs love a walk after school; " +
-                    "a fish needs just one visit a day. Rabbits are on their way.", 22,
+                    "Every friend is here now. Hamsters nap all day; dogs love a walk after school; a fish needs one " +
+                    "visit a day; rabbits love floor time at dawn and dusk.", 22,
                     Secondary, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, Vector2.zero);
                 FitText(speciesNote, 15, 22);
                 PlaceFromTop(speciesNote.rectTransform, 0, 1, 262, 304);

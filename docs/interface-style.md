@@ -74,7 +74,10 @@ no hard outlines on interface surfaces. The only dark outline is the quilt's, wh
   over the on-screen keyboard while the field is focused on a phone. A cat's sheet has its five
   verbs, Photo and, when needed, Vet or Medicine; its bottom row is Next day and Growth (and Routine when the strip folds).
   A fish's Wipe glass opens a small sheet like the diaper cleanup: three smudges on a Sky pane with two soft highlights,
-  wiped by tap or swipe (`DiaperWipeInput`), with Cancel, a one-tap Quick wipe and Done. Tall sheets stay at the
+  wiped by tap or swipe (`DiaperWipeInput`), with Cancel, a one-tap Quick wipe and Done. A rabbit's sheet has its five
+  verbs (Hay, Greens, Groom, Floor time, Litter) and Photo in the 3x2 grid; its rings are Hay (the Energy ring colour),
+  Fullness, Litter and Comfort, and its six-slot strip reads Dawn hop, Breakfast, Doze, Floor time, Dinner, Litter.
+  Binkies are a happy lap of the pen and quick jumps with a twist; scattered hay fades in over the pen floor. Tall sheets stay at the
   Report's height (600 units): the journal shows four rows a page (a round picture or icon disc, a title and a quiet
   line) under segmented tabs, with 82-unit arrows to turn the pages.
 - Messages appear in the speech bubble; panels keep their own titles inside their sheets.

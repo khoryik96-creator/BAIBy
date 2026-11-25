@@ -238,21 +238,23 @@ namespace BAIby.Presentation
 
         // A cat's bedtime is its evening nap and its wash is the daily brush; a hamster's play is the wheel, its wash the
         // bedding, and its day nap a slot of its own; a dog has two walks, and its bedtime is the evening rest; a fish says
-        // hello in the morning, has one sprinkle of food, glass time, lights off and a wipe of the glass.
+        // hello in the morning, has one sprinkle of food, glass time, lights off and a wipe of the glass; a rabbit hops about
+        // at dawn, has greens at breakfast and dinner, dozes at midday, has floor time after school and a litter tidy.
         private static string SlotName(RoutineSlotKind kind, RoutinePreset preset, bool pet = false)
         {
             var fish = pet && FishShown;
+            var rabbit = pet && RabbitShown;
             switch (kind)
             {
                 case RoutineSlotKind.MorningMeal: return "Breakfast";
                 case RoutineSlotKind.AfternoonMeal: return preset == RoutinePreset.Home ? "Lunch" : "Snack";
                 case RoutineSlotKind.EveningMeal: return fish ? "Food" : "Dinner";
-                case RoutineSlotKind.Play: return pet && HamsterShown ? "Wheel" : fish ? "Glass time" : "Play";
+                case RoutineSlotKind.Play: return pet && HamsterShown ? "Wheel" : fish ? "Glass time" : rabbit ? "Floor time" : "Play";
                 case RoutineSlotKind.Bedtime: return fish ? "Lights off" : pet && !DogShown ? "Nap" : "Bed";
                 case RoutineSlotKind.Walk: return "Walk";
-                case RoutineSlotKind.Nap: return "Day nap";
-                case RoutineSlotKind.Hello: return "Hello";
-                default: return pet ? HamsterShown ? "Bedding" : fish ? "Wipe" : "Brush" : "Wash";
+                case RoutineSlotKind.Nap: return rabbit ? "Doze" : "Day nap";
+                case RoutineSlotKind.Hello: return rabbit ? "Dawn hop" : "Hello";
+                default: return pet ? HamsterShown ? "Bedding" : fish ? "Wipe" : rabbit ? "Litter" : "Brush" : "Wash";
             }
         }
 

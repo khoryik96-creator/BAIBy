@@ -22,7 +22,10 @@ namespace BAIby.Presentation
     // (P4) has one sprinkle of food, glass time (follow-finger), lights off and a wipe of the glass (the morning hello waits
     // kindly when school gets in the way), a water change about once a week, cloudy water when a wipe is missed or the
     // water is getting old, is skittish or sulky in its moods, and swims to the glass to say hello when the player comes
-    // back.
+    // back. A rabbit (P5) has greens at breakfast and dinner, floor time after school (a dawn floor time waits kindly when
+    // school gets in the way), a hay rack to keep filled, a groom and the litter tidy, dozes through the middle of the day,
+    // leaves scattered hay when the litter is missed, is twitchy or thumping in its moods, and binkies when floor time finds
+    // it happy.
     public sealed partial class NurseryPreview
     {
         private const string VetName = "Dr. Rosa";
@@ -35,9 +38,12 @@ namespace BAIby.Presentation
 
         private static bool FishShown => shownSpecies == Species.Fish;
 
+        private static bool RabbitShown => shownSpecies == Species.Rabbit;
+
         // A comforting touch, in the species' words: petting a cat, a gentle hold for a hamster, a walk for a dog, glass
-        // time for a fish.
-        private static string Comforting => HamsterShown ? "gentle holds" : DogShown ? "walks" : FishShown ? "glass time" : "petting";
+        // time for a fish, floor time for a rabbit.
+        private static string Comforting => HamsterShown ? "gentle holds" : DogShown ? "walks" : FishShown ? "glass time"
+            : RabbitShown ? "floor time" : "petting";
         // A photo catches the moment of the last care for this long, as for the baby.
         private const float PetMomentSeconds = 120;
 
@@ -263,6 +269,8 @@ namespace BAIby.Presentation
                 : state.Species == Species.Fish
                     ? $"{state.Name} is settled. Food once a day, glass time, a wipe and lights off keep the routine; change " +
                       "the water about once a week."
+                : state.Species == Species.Rabbit
+                    ? $"{state.Name} is settled. Greens twice, floor time, hay, a groom and the litter keep the routine."
                     : $"{state.Name} is settled. Two meals, playtime, a brush and the evening nap keep the routine."));
             if (session.HasHelpers)
                 UpdateRoutineHelpers(state.Name, true, session.FeederStock, session.FeederCapacity);
@@ -325,7 +333,8 @@ namespace BAIby.Presentation
             if (state == null)
                 return;
             var text = CareCueText(state, state.Species == Species.Hamster ? PetVerb.Bowl
-                : state.Species == Species.Fish ? PetVerb.SprinkleFood : PetVerb.Feed, outcome.Cue);
+                : state.Species == Species.Fish ? PetVerb.SprinkleFood
+                : state.Species == Species.Rabbit ? PetVerb.Greens : PetVerb.Feed, outcome.Cue);
             var grown = TakePetCelebrations(out _);
             PaintPetRoom(grown != null ? grown + " " + text : text);
         }
@@ -425,18 +434,23 @@ namespace BAIby.Presentation
             {
                 case PetVerb.Feed:
                 case PetVerb.Bowl:
-                case PetVerb.SprinkleFood: petMoment = PhotoMoment.Meal; break;
+                case PetVerb.SprinkleFood:
+                case PetVerb.Greens:
+                case PetVerb.Hay: petMoment = PhotoMoment.Meal; break;
                 case PetVerb.Pet:
-                case PetVerb.GentleHold: petMoment = PhotoMoment.Cuddle; break;
+                case PetVerb.GentleHold:
+                case PetVerb.Groom: petMoment = PhotoMoment.Cuddle; break;
                 case PetVerb.Wand:
                 case PetVerb.Wheel:
                 case PetVerb.Walk:
                 case PetVerb.Fetch:
-                case PetVerb.FollowFinger: petMoment = PhotoMoment.Playing; break;
+                case PetVerb.FollowFinger:
+                case PetVerb.FloorTime: petMoment = PhotoMoment.Playing; break;
                 case PetVerb.Brush:
                 case PetVerb.FluffBedding:
                 case PetVerb.WipeGlass:
-                case PetVerb.WaterChange: petMoment = PhotoMoment.Bath; break;
+                case PetVerb.WaterChange:
+                case PetVerb.Litter: petMoment = PhotoMoment.Bath; break;
                 case PetVerb.Nap:
                 case PetVerb.Rest: petMoment = PhotoMoment.Napping; break;
                 default: petMoment = PhotoMoment.Calm; break;
@@ -500,6 +514,12 @@ namespace BAIby.Presentation
                     return $"{name} followed your finger all the way along the glass, and it's in the journal!";
                 case CompanionMilestone.HoopSwim:
                     return $"{name} swam through the little hoop all by themselves. Hoop swim! It's in the journal.";
+                case CompanionMilestone.FirstBinky:
+                    return $"{name} leapt up and twisted in the air: a first binky! Pure bunny joy, and it's in the journal.";
+                case CompanionMilestone.HopCircuit:
+                    return $"{name} zoomed a happy lap all round the pen. A hop circuit! It's in the journal.";
+                case CompanionMilestone.FlopOfTrust:
+                    return $"{name} flopped over on one side right beside you. That's a flop of trust, and it's in the journal!";
                 case CompanionMilestone.Grown: return $"{name} is all grown up! Look how big they are.";
                 default: return null;
             }
@@ -532,9 +552,12 @@ namespace BAIby.Presentation
             switch (state.Care?.Mood)
             {
                 case CareMood.Fussy:
-                    return state.Species == Species.Hamster ? " · Fidgety" : state.Species == Species.Fish ? " · Skittish" : " · Restless";
-                case CareMood.Content when PetSimulation.IsNapping(state): return " · Napping";
-                case CareMood.Upset: return state.Species == Species.Fish ? " · Sulky" : " · Grumpy";
+                    return state.Species == Species.Hamster ? " · Fidgety" : state.Species == Species.Fish ? " · Skittish"
+                        : state.Species == Species.Rabbit ? " · Twitchy" : " · Restless";
+                case CareMood.Content when PetSimulation.IsNapping(state):
+                    return state.Species == Species.Rabbit ? " · Dozing" : " · Napping";
+                case CareMood.Upset:
+                    return state.Species == Species.Fish ? " · Sulky" : state.Species == Species.Rabbit ? " · Thumping" : " · Grumpy";
                 default: return string.Empty;
             }
         }
@@ -551,6 +574,8 @@ namespace BAIby.Presentation
                 return DescribeDogCondition(state);
             if (state.Species == Species.Fish)
                 return DescribeFishCondition(state);
+            if (state.Species == Species.Rabbit)
+                return DescribeRabbitCondition(state);
 
             var name = state.Name;
             if (care.IsAway)
@@ -687,6 +712,52 @@ namespace BAIby.Presentation
             return care.IsMessy ? $"The water is a little cloudy. A wipe of the glass clears it, and {name} can see you again." : null;
         }
 
+        // The rabbit's version: twitchy rather than restless and thumping rather than grumpy, floor time and a groom rather
+        // than petting, an empty hay rack, scattered hay for a missed litter tidy, a neighbour with greens and hay in Away
+        // mode, and medicine with breakfast or dinner. The midday doze is never a problem.
+        private static string DescribeRabbitCondition(PetState state)
+        {
+            var care = state.Care;
+            var name = state.Name;
+            if (care.IsAway)
+                return $"{name} is fine while you're away. A neighbour pops in with greens and hay, and needs stay steady until you're back.";
+            if (care.Condition == CareCondition.Sick)
+                return $"{name} is poorly and tucked in the hutch. Greens, fresh hay and a clean tray help, and {VetName} the vet " +
+                    "will help most.";
+
+            switch (care.Mood)
+            {
+                case CareMood.Upset:
+                    return state.Meter(PetMeter.Fullness) < 50
+                        ? $"{name} is thumping a back foot and hiding in the hutch. Greens first, then a gentle groom, will help."
+                        : $"{name} is thumping a back foot and hiding in the hutch. A gentle groom will help.";
+                case CareMood.Fussy:
+                    if ((care.Owed & CareTags.Meal) != 0)
+                        return $"{name} is twitchy and nosing the empty bowl after missed greens. Some greens will help.";
+                    if (care.MoodCause == CareMoodCause.MealOverdue)
+                        return $"{name} is twitchy. It's past greens time.";
+                    if (state.Meter(PetMeter.Hay) < 40)
+                        return $"{name} is twitchy. The hay rack is nearly empty: fresh hay will help.";
+                    return $"{name} is twitchy. {DescribePetNeeds(state)}";
+            }
+
+            switch (care.Condition)
+            {
+                case CareCondition.Recovering:
+                    return $"{name} is getting better. Medicine goes with greens: one dose at breakfast and one at dinner.";
+                case CareCondition.UnderTheWeather:
+                    return $"{name} is a bit under the weather: quiet, with droopy whiskers. A visit to {VetName} the vet, " +
+                        "or a good day of care, will help.";
+            }
+
+            if (state.ShySkill != MotorSkill.None)
+                return $"{name} feels a little shy about {SkillGerund(state.ShySkill)} and sits quietly for now. " +
+                    "A good day with greens on time and floor time will help.";
+            if (care.LastReason == CareReason.AbsenceCovered)
+                return $"Welcome back! A neighbour popped in with greens and hay for {name} while you were away.";
+            return care.IsMessy ? $"There's hay scattered all over the pen. A litter tidy sweeps it up and freshens the tray." : null;
+        }
+
         // The hamster's version: fidgety rather than restless, a gentle hold rather than petting, the wheel and the bedding,
         // and medicine with dinner. A day nap is never a problem, so it is only mentioned when nothing else is.
         private static string DescribeHamsterCondition(PetState state)
@@ -738,35 +809,44 @@ namespace BAIby.Presentation
             var hamster = state.Species == Species.Hamster;
             var dog = state.Species == Species.Dog;
             var fish = state.Species == Species.Fish;
+            var rabbit = state.Species == Species.Rabbit;
             switch (cue)
             {
                 case PetCue.TooFull:
                     return hamster
                         ? $"{name} is already full, so the extra goes into the cheek pouches and the bedding. Try again at dinner time."
                         : dog ? $"{name} is too full and flops down for a sleepy belly-up rest. Try again at the next mealtime."
+                        : rabbit ? $"{name} is too full, nibbles one leaf and flops down. Hay is always fine; greens again at the next meal."
                         : $"{name} is too full and leaves most of it. Try again at the next mealtime.";
                 case PetCue.PushesToyAway:
                     return hamster
                         ? $"{name} is too grumpy to run and turns away from the wheel. A gentle hold will help."
                         : dog ? $"{name} is too grumpy for fetch and turns away from the ball. A walk will help."
                         : fish ? $"{name} is sulky and stays behind the plant instead of following your finger. Fresh water will help."
+                        : rabbit ? $"{name} thumps a back foot and stays in the hutch instead of coming out. A gentle groom will help."
                         : $"{name} is too grumpy to play and swats the wand away. Gentle petting will help.";
                 case PetCue.NewTrick:
                     return $"{name} learned a new trick: {DogTricks.Newest(state.Tricks)}! Games of fetch taught it.";
                 case PetCue.Napping:
-                    return $"Shh, {name} is fast asleep in the nest. Hamsters nap through the day; the wheel will be ready this evening.";
+                    return rabbit
+                        ? $"Shh, {name} is dozing in the hutch. Rabbits rest through the middle of the day; floor time is after school."
+                        : $"Shh, {name} is fast asleep in the nest. Hamsters nap through the day; the wheel will be ready this evening.";
                 case PetCue.TooPoorly:
                     return hamster
                         ? $"{name} feels too poorly for that and stays curled up in the nest. Dinner, a gentle hold and {VetName} will help."
                         : dog ? $"{name} feels too poorly for that and stays in the basket. Meals, a slow walk and {VetName} will help."
                         : fish ? $"{name} feels too poorly for that and rests by the plants. Food, fresh water and {VetName} will help."
+                        : rabbit ? $"{name} feels too poorly for that and stays in the hutch. Greens, hay, a clean tray and {VetName} will help."
                         : $"{name} feels too poorly for that and stays curled up. Meals, petting and {VetName} will help.";
                 case PetCue.Bored:
                     return $"{name} looks a little bored of that. Try something different!";
                 case PetCue.SkillBack:
                     return $"{name} is {SkillGerund(state.NewestSkill)} again! A good day of meals and " +
-                        $"{(hamster ? "gentle holds" : dog ? "walks" : fish ? "calm moments" : "petting")} helped.";
+                        $"{(hamster ? "gentle holds" : dog ? "walks" : fish ? "calm moments" : rabbit ? "grooms and floor time" : "petting")} helped.";
                 case PetCue.MedicineTaken:
+                    if (rabbit)
+                        return $"{name} munches the medicine tucked in a leaf. Dose {state.Care?.MedicineDoses ?? 1} of {course}; " +
+                            "the next one goes with the next greens.";
                     if (fish)
                         return $"{name} gobbles a flake with the medicine on it. Dose {state.Care?.MedicineDoses ?? 1} of {course}; " +
                             "the next one goes with tomorrow's food.";
@@ -788,11 +868,15 @@ namespace BAIby.Presentation
                                 : $"{name} already had medicine with this meal. The next dose goes with another meal.";
                         case MedicineState.WaitForMeal:
                             return hamster ? "Medicine goes with dinner, in the evening."
-                                : fish ? "Medicine goes with the day's food." : "Medicine goes with a meal: breakfast or dinner.";
+                                : fish ? "Medicine goes with the day's food."
+                                : rabbit ? "Medicine goes with greens: breakfast or dinner." : "Medicine goes with a meal: breakfast or dinner.";
                         default:
                             return $"{name} is well and doesn't need any medicine.";
                     }
                 case PetCue.VetVisited:
+                    if (rabbit)
+                        return $"{VetName} checks {name}'s teeth and tummy gently and says {name} needs rest and medicine. " +
+                            "One dose with breakfast greens and one with dinner will help.";
                     if (fish)
                         return $"{VetName}, who knows all about fish, peeks into the tank and says {name} needs rest and " +
                             "medicine. One dose with the food on two days will help.";
@@ -802,6 +886,9 @@ namespace BAIby.Presentation
                         : $"{VetName} listens, checks a temperature and says {name} needs rest and medicine. " +
                           "One dose with breakfast and one with dinner will help.";
                 case PetCue.VetAllClear:
+                    if (rabbit)
+                        return $"{VetName} checks {name}'s teeth and tummy gently and says {name} is doing fine. " +
+                            "Plenty of hay and greens on time will keep it that way.";
                     if (fish)
                         return $"{VetName}, who knows all about fish, peeks into the tank and says {name} is doing fine. " +
                             "Food on time and clear water will keep it that way.";
@@ -874,6 +961,28 @@ namespace BAIby.Presentation
                     return $"Fresh, clear water. {name} breathes it in slowly and rests a little easier.";
                 case PetVerb.WaterChange:
                     return $"Fresh, clear water! {name} swims a happy loop through it.";
+                case PetVerb.Greens when state.Care.LastReason == CareReason.MealOnTime:
+                    return $"Fresh greens! {name} munches a leaf, nose wiggling, right on time.";
+                case PetVerb.Greens when state.Care.LastReason == CareReason.MealLate:
+                    return $"{name} munches the greens happily. A little late, but very welcome.";
+                case PetVerb.Hay:
+                    return PetSimulation.IsNapping(state)
+                        ? $"You fill the hay rack quietly. {name} sniffs it in their sleep and dozes on."
+                        : $"A full hay rack! {name} pulls out a long strand and munches away.";
+                case PetVerb.FloorTime when state.ShySkill != MotorSkill.None:
+                    return $"{name} sits beside you on the floor. Still a little shy about {SkillGerund(state.ShySkill)}.";
+                case PetVerb.FloorTime when state.Care.Condition == CareCondition.Sick:
+                    return $"You sit quietly by the hutch, and {name} rests a little easier with you near.";
+                case PetVerb.FloorTime:
+                    return state.TimeCheckpoint.ToOffset(state.Care.Offset).Hour < 12
+                        ? $"Floor time at dawn! {name} hops over and sniffs your hands. Sitting on the floor builds trust fast."
+                        : $"Floor time! {name} hops over and nudges your knee. Sitting on the floor builds trust fast.";
+                case PetVerb.Groom:
+                    return $"A gentle groom. {name} closes their eyes and grinds their teeth softly: a happy bunny purr.";
+                case PetVerb.Litter when state.Care.LastReason == CareReason.WashOnTime || state.Care.LastReason == CareReason.WashLate:
+                    return $"A fresh tray and a tidy pen! The scattered hay is swept up and {name} hops in to inspect.";
+                case PetVerb.Litter:
+                    return $"The tray is fresh again. {name} gives it an approving sniff.";
                 default:
                     return null;
             }
@@ -890,9 +999,11 @@ namespace BAIby.Presentation
             if (care.Condition == CareCondition.Sick)
                 return "Feeling poorly · the vet can help";
             if (care.Mood == CareMood.Upset)
-                return state.Species == Species.Fish ? "A little sulky" : "A little grumpy";
+                return state.Species == Species.Fish ? "A little sulky" : state.Species == Species.Rabbit ? "Thumping a little"
+                    : "A little grumpy";
             if (care.Mood == CareMood.Fussy)
-                return state.Species == Species.Hamster ? "A bit fidgety" : state.Species == Species.Fish ? "A bit skittish" : "A bit restless";
+                return state.Species == Species.Hamster ? "A bit fidgety" : state.Species == Species.Fish ? "A bit skittish"
+                    : state.Species == Species.Rabbit ? "A bit twitchy" : "A bit restless";
             if (care.Condition == CareCondition.UnderTheWeather)
                 return "A bit under the weather";
             if (care.Condition == CareCondition.Recovering)

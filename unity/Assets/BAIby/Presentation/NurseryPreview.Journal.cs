@@ -664,6 +664,9 @@ namespace BAIby.Presentation
                     case MotorSkill.DartsToGlass: return "Darted to the glass";
                     case MotorSkill.FollowsFinger: return "Followed your finger";
                     case MotorSkill.HoopSwim: return "Through the hoop";
+                    case MotorSkill.FirstBinky: return "First binky";
+                    case MotorSkill.HopCircuit: return "Hop circuit";
+                    case MotorSkill.FlopOfTrust: return "Flop of trust";
                     default: return "First steps";
                 }
             }
@@ -686,6 +689,9 @@ namespace BAIby.Presentation
                     case MotorSkill.DartsToGlass: return "zoomed right up to say hello";
                     case MotorSkill.FollowsFinger: return "swam along beside your finger";
                     case MotorSkill.HoopSwim: return "a neat little swim through the hoop";
+                    case MotorSkill.FirstBinky: return "a joyful jump and twist, right there on the floor";
+                    case MotorSkill.HopCircuit: return "zoomed a happy lap all round the pen";
+                    case MotorSkill.FlopOfTrust: return "flopped over on one side beside you, totally relaxed";
                     default: return "toddling towards a toy";
                 }
             }
@@ -701,9 +707,11 @@ namespace BAIby.Presentation
                     if (entry.Feeds > 0)
                         parts.Add(Count(entry.Feeds, "feeder portion"));
                     if (entry.Plays > 0)
-                        parts.Add((HamsterShown ? "spare wheel " : FishShown ? "bubbler " : "ball launcher ") + Times(entry.Plays));
+                        parts.Add((HamsterShown ? "spare wheel " : FishShown ? "bubbler " : RabbitShown ? "willow tunnel "
+                            : "ball launcher ") + Times(entry.Plays));
                     if (entry.Tidies > 0)
-                        parts.Add((HamsterShown ? "litter corner " : DogShown ? "doggy door " : FishShown ? "filter " : "litter box ") +
+                        parts.Add((HamsterShown ? "litter corner " : DogShown ? "doggy door " : FishShown ? "filter "
+                            : RabbitShown ? "tray liner " : "litter box ") +
                             Times(entry.Tidies));
                     return new JournalRow("Gear", Mist, $"{DayWord(entry.Day)} · The helpers kept things steady",
                         $"{Date(entry.At)} · {string.Join(" · ", parts)}");

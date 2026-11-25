@@ -958,6 +958,7 @@ CatCareChecks.Run();
 HamsterCareChecks.Run();
 DogCareChecks.Run();
 FishCareChecks.Run();
+RabbitCareChecks.Run();
 HelperChecks.Run();
 TalkChecks.Run();
 CosmeticChecks.Run();

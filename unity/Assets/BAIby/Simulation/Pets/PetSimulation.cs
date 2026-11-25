@@ -7,10 +7,11 @@ namespace BAIby.Simulation.Pets
     // matches BabySimulation: negative elapsed time is ignored, need decay is capped, age is not,
     // and the Young to Grown unlock fires once. Nothing dies, leaves or is deleted.
     //
-    // A species with a care profile (PetCareProfile: the cat, the hamster, the dog and the fish) runs on the baby's care
-    // systems through PetCare: routine windows, the needs and health axes of the consequence ladder (the vet for the
-    // doctor), Away mode, development with readiness-timed milestones and the setback, Bond, Trust and the care rhythm,
-    // and the journal. The rabbit keeps the simple rules below until its own slice.
+    // A species with a care profile (PetCareProfile: since P5 every species, the cat, the hamster, the dog, the fish and
+    // the rabbit) runs on the baby's care systems through PetCare: routine windows, the needs and health axes of the
+    // consequence ladder (the vet for the doctor), Away mode, development with readiness-timed milestones and the
+    // setback, Bond, Trust and the care rhythm, and the journal. The simple rules below are kept for a species added
+    // later before its own slice, as each species had until its slice.
     public sealed class PetSimulation
     {
         // care-and-growth decision 11: the offline decay cap is 8 hours.

@@ -11,7 +11,9 @@ namespace BAIby.Presentation
     // are objects (an auto-feeder, a ball launcher, a self-cleaning litter box), and for a hamster a seed dispenser, a
     // spare wheel and a self-cleaning litter corner, and for a dog an auto-feeder, a ball launcher and a doggy door with a
     // paw mat. No helper ever walks a dog: the walk windows always ask for a walk. A fish (P4) has an auto feeder, a bubbler
-    // (Calm) and a filter (Water); none of them is glass time, and a water change stays hands-on. What shows:
+    // (Calm) and a filter (Water); none of them is glass time, and a water change stays hands-on. A rabbit (P5) has a
+    // pellet feeder, a willow tunnel (Comfort) and a litter tray liner (Litter); none of them is floor time, and the hay
+    // rack is always filled by hand. What shows:
     // - a small floor marker on each need ring an active helper holds;
     // - the return summary in the speech bubble, helper events first and the attention line last;
     // - muted journal days (NurseryPreview.Journal.cs);
@@ -185,6 +187,17 @@ namespace BAIby.Presentation
                     return "While you were busy, " + Join(parts) + ". Glass time still needs you.";
                 }
 
+                if (RabbitShown)
+                {
+                    if (feeds > 0)
+                        parts.Add(feeds == 1 ? $"the pellet feeder served {name} a meal" : $"the pellet feeder served {name} {feeds} meals");
+                    if (plays > 0)
+                        parts.Add(plays == 1 ? "the willow tunnel kept them busy" : $"the willow tunnel kept them busy {plays} times");
+                    if (tidies > 0)
+                        parts.Add("the tray liner kept the litter fresh");
+                    return "While you were busy, " + Join(parts) + ". Floor time and hay still need you.";
+                }
+
                 if (HamsterShown)
                 {
                     if (feeds > 0)
@@ -221,6 +234,7 @@ namespace BAIby.Presentation
                 : HamsterShown ? $"{name} missed you; a gentle hold or wheel time will help."
                 : DogShown ? $"{name} missed you; a walk or a game of fetch will help."
                 : FishShown ? $"{name} missed you; glass time will help."
+                : RabbitShown ? $"{name} missed you; floor time together will help."
                 : $"{name} missed you; some petting or wand play will help.";
 
         private static string Times(int count) => count == 1 ? "" : count == 2 ? " twice" : $" {count} times";
@@ -237,11 +251,14 @@ namespace BAIby.Presentation
             switch (kind)
             {
                 case HelperKind.Feeder:
-                    return pet ? HamsterShown ? "The seed dispenser" : FishShown ? "The auto feeder" : "The auto-feeder" : "Feeding";
-                case HelperKind.Play: return pet ? HamsterShown ? "The spare wheel" : FishShown ? "The bubbler" : "The ball launcher" : "Play";
+                    return pet ? HamsterShown ? "The seed dispenser" : FishShown ? "The auto feeder" : RabbitShown ? "The pellet feeder"
+                        : "The auto-feeder" : "Feeding";
+                case HelperKind.Play:
+                    return pet ? HamsterShown ? "The spare wheel" : FishShown ? "The bubbler" : RabbitShown ? "The willow tunnel"
+                        : "The ball launcher" : "Play";
                 default:
-                    return pet ? HamsterShown ? "The litter corner" : DogShown ? "The doggy door" : FishShown ? "The filter" : "The litter box"
-                        : "Tidy";
+                    return pet ? HamsterShown ? "The litter corner" : DogShown ? "The doggy door" : FishShown ? "The filter"
+                        : RabbitShown ? "The tray liner" : "The litter box" : "Tidy";
             }
         }
 
@@ -259,12 +276,14 @@ namespace BAIby.Presentation
             if (settings.Feeder)
                 line = !pet ? $"The Sitter's bottles: {stock} of {capacity}."
                     : HamsterShown ? $"Seed dispenser: {stock} of {capacity} portions."
-                    : FishShown ? $"Auto feeder: {stock} of {capacity} sprinkles." : $"Auto-feeder: {stock} of {capacity} portions.";
+                    : FishShown ? $"Auto feeder: {stock} of {capacity} sprinkles."
+                    : RabbitShown ? $"Pellet feeder: {stock} of {capacity} portions." : $"Auto-feeder: {stock} of {capacity} portions.";
             else
                 line = !pet ? "The Sitter pops in to play and tidy."
                     : HamsterShown ? "The spare wheel and litter corner are on."
                     : DogShown ? "The ball launcher and doggy door are on. Walks always need you."
                     : FishShown ? "The bubbler and filter are on. Glass time and water changes need you."
+                    : RabbitShown ? "The willow tunnel and tray liner are on. Floor time and hay need you."
                     : "The ball launcher and litter box are on.";
             routine.ShowHelpers(HelperCopyFor(name), line, settings.Feeder,
                 pet ? (stock >= capacity ? "Feeder full" : "Fill the feeder") : (stock >= capacity ? "Bottles ready" : "Leave bottles"),
@@ -292,6 +311,7 @@ namespace BAIby.Presentation
                 routine.Summary.text = HamsterShown
                     ? "The seed dispenser serves a portion only when the bowl runs low."
                     : FishShown ? "The auto feeder sprinkles a little food only when the fish is peckish."
+                    : RabbitShown ? "The pellet feeder serves a portion only when the greens run low."
                     : "The auto-feeder serves a portion only when the bowl runs low.";
                 return;
             }
@@ -413,8 +433,9 @@ namespace BAIby.Presentation
                 var owned = household.OwnsAnyHelper;
                 var text = copy + " For a baby the Sitter pops in; a cat has an auto-feeder, a ball launcher and a " +
                     "self-cleaning litter box, a hamster a seed dispenser, a spare wheel and a self-cleaning litter corner, " +
-                    "a dog an auto-feeder, a ball launcher and a doggy door (walks always need you), and a fish an auto " +
-                    "feeder, a bubbler and a filter (a water change always needs you). " +
+                    "a dog an auto-feeder, a ball launcher and a doggy door (walks always need you), a fish an auto " +
+                    "feeder, a bubbler and a filter (a water change always needs you), and a rabbit a pellet feeder, a " +
+                    "willow tunnel and a tray liner (floor time and hay always need you). " +
                     "They act only when a need runs low, and never count as care.";
                 if (!owned)
                     text += playtest == null

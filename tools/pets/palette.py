@@ -348,3 +348,81 @@ def fish_entries():
 
 def fish_eye_entries():
     return [{"name": k, "color": list(v)} for k, v in FISH_EYES.items()]
+
+
+# ---------------------------------------------------------------- rabbit (P5)
+# Placeholder rabbit colours per breed coat: ``main`` (region R), ``secondary`` (region G: the light whisker pads, chin,
+# belly, soles and cotton tail, the Dutch's white blaze and front) and ``dark`` (the Harlequin's half face and bands,
+# recoloured on their own: see rabbit.py).  Coats follow the rabbit entries in PetCatalog.CreateDefault; the first coat
+# per breed is its default.
+RABBIT_COATS = {
+    "Dutch": {
+        "Black": ((78, 72, 82), (252, 250, 246)),
+        "Brown": ((156, 110, 78), (252, 250, 246)),
+        "Gray": ((156, 158, 172), (252, 250, 246)),
+        "Chocolate": ((122, 84, 66), (252, 250, 246)),
+    },
+    "NetherlandDwarf": {
+        "White": ((250, 248, 244), (255, 253, 250)),
+        "Black": ((80, 74, 84), (128, 120, 128)),
+        "Fawn": ((236, 196, 140), (250, 234, 206)),
+    },
+    "HollandLop": {
+        "Fawn": ((230, 186, 130), (250, 234, 208)),
+        "Brown": ((166, 118, 84), (238, 216, 192)),
+        "White": ((250, 248, 244), (255, 253, 250)),
+    },
+    "Lionhead": {
+        "Cream": ((246, 228, 198), (253, 246, 234)),
+        "Gray": ((168, 168, 180), (236, 236, 242)),
+        "Brown": ((172, 124, 88), (240, 220, 196)),
+    },
+    "Angora": {
+        "White": ((250, 248, 244), (255, 253, 250)),
+        "Cream": ((248, 232, 206), (254, 248, 238)),
+        "Gray": ((184, 184, 194), (240, 240, 244)),
+    },
+    "Rex": {
+        "Chocolate": ((132, 90, 70), (182, 142, 116)),
+        "Black": ((76, 70, 78), (122, 116, 122)),
+        "Lilac": ((196, 178, 192), (234, 222, 230)),
+    },
+    "FlemishGiant": {
+        "Gray": ((156, 156, 168), (228, 228, 234)),
+        "Fawn": ((222, 180, 124), (248, 230, 200)),
+        "Black": ((76, 72, 80), (124, 118, 124)),
+    },
+    "Harlequin": {
+        "Tricolor": ((236, 164, 92), (252, 238, 214), (74, 68, 78)),
+        "Fawn": ((232, 198, 150), (252, 242, 224), (154, 148, 168)),
+    },
+}
+
+RABBIT_EYES = {
+    "Dark": (90, 64, 62),
+    "Brown": (140, 96, 66),
+    "Blue": (112, 156, 210),
+}
+
+
+def rabbit_allowed_eyes(breed):
+    return ["Dark", "Blue"] if breed in ("Dutch", "Angora", "NetherlandDwarf") else ["Dark", "Brown"]
+
+
+def rabbit_coat_colors(breed, coat):
+    cols = RABBIT_COATS[breed][coat]
+    return cols[0], cols[1], (cols[2] if len(cols) > 2 else cols[1])
+
+
+def rabbit_entries():
+    out = []
+    for breed, coats in RABBIT_COATS.items():
+        for coat in coats:
+            main, sec, dark = rabbit_coat_colors(breed, coat)
+            out.append({"breed": breed, "coat": coat, "main": list(main), "secondary": list(sec), "dark": list(dark),
+                        "eyes": "Dark", "allowedEyes": rabbit_allowed_eyes(breed)})
+    return out
+
+
+def rabbit_eye_entries():
+    return [{"name": k, "color": list(v)} for k, v in RABBIT_EYES.items()]
